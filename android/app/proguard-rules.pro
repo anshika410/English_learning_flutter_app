@@ -1,0 +1,3 @@
+-keep class org.navgurukul.ella.WhisperEngine { *; }
+-keep class org.navgurukul.ella.WhisperRecorderHandler { *; }
+-keep class org.navgurukul.ella.PiperMethodHandler { *; }

@@ -51,7 +51,7 @@ class WhisperRecorderHandler(
     }
 
     private fun handleIsAvailable(result: MethodChannel.Result) {
-        result.success(true)
+        result.success(WhisperEngine.nativeLoaded)
     }
 
     private fun handleInitModel(call: MethodCall, result: MethodChannel.Result) {
