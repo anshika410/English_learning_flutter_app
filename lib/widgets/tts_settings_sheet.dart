@@ -96,7 +96,7 @@ class TtsSettingsSheet extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                'Records audio, sends to OpenAI Whisper API',
+                'On-device Whisper (ggml-tiny.en)',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall

@@ -10,7 +10,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         piperHandler = PiperMethodHandler(this, flutterEngine)
-        whisperRecorder = WhisperRecorderHandler(flutterEngine)
+        whisperRecorder = WhisperRecorderHandler(this, flutterEngine)
     }
 
     override fun onDestroy() {

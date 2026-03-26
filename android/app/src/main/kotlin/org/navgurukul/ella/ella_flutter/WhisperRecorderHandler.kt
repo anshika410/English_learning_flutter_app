@@ -1,20 +1,28 @@
 package org.navgurukul.ella.ella_flutter
 
+import android.content.Context
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.os.Build
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileInputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import kotlin.concurrent.thread
 
 class WhisperRecorderHandler(
+    private val context: Context,
     flutterEngine: FlutterEngine
 ) : MethodChannel.MethodCallHandler {
 
     companion object {
         private const val TAG = "WhisperRecorder"
         private const val CHANNEL_NAME = "whisper_recorder"
+        private const val SAMPLE_RATE = 16000
     }
 
     private val channel = MethodChannel(
@@ -22,8 +30,11 @@ class WhisperRecorderHandler(
         CHANNEL_NAME
     )
 
-    private var recorder: MediaRecorder? = null
-    private var currentPath: String? = null
+    private val whisperEngine = WhisperEngine()
+    private var isModelLoaded = false
+    private var audioRecord: AudioRecord? = null
+    private var isRecording = false
+    private val audioBuffer = mutableListOf<Float>()
 
     init {
         channel.setMethodCallHandler(this)
@@ -31,72 +42,103 @@ class WhisperRecorderHandler(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "isAvailable" -> result.success(true)
-            "startRecording" -> handleStartRecording(call, result)
+            "isAvailable" -> handleIsAvailable(result)
+            "initModel" -> handleInitModel(call, result)
+            "startRecording" -> handleStartRecording(result)
             "stopRecording" -> handleStopRecording(result)
             else -> result.notImplemented()
         }
     }
 
-    private fun handleStartRecording(call: MethodCall, result: MethodChannel.Result) {
-        try {
-            val path = call.argument<String>("path")
-                ?: return result.error("INVALID_ARGS", "path is required", null)
+    private fun handleIsAvailable(result: MethodChannel.Result) {
+        result.success(true)
+    }
 
-            // Stop any existing recording
-            stopRecorder()
+    private fun handleInitModel(call: MethodCall, result: MethodChannel.Result) {
+        val modelPath = call.argument<String>("modelPath")
+            ?: return result.error("INVALID_ARGS", "modelPath required", null)
+        isModelLoaded = whisperEngine.init(modelPath)
+        Log.d(TAG, "Model loaded: $isModelLoaded from $modelPath")
+        result.success(isModelLoaded)
+    }
 
-            currentPath = path
-            recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(android.app.Application())
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setAudioSamplingRate(16000)
-                setAudioChannels(1)
-                setAudioEncodingBitRate(64000)
-                setOutputFile(path)
-                prepare()
-                start()
-            }
-
-            Log.d(TAG, "Recording started: $path")
+    @Suppress("MissingPermission")
+    private fun handleStartRecording(result: MethodChannel.Result) {
+        if (isRecording) {
             result.success(true)
-        } catch (e: Exception) {
-            Log.e(TAG, "Start recording failed: ${e.message}", e)
-            result.error("RECORD_FAILED", "Failed to start recording: ${e.message}", null)
+            return
         }
+
+        val bufferSize = AudioRecord.getMinBufferSize(
+            SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            bufferSize * 2
+        )
+
+        audioBuffer.clear()
+        isRecording = true
+        audioRecord?.startRecording()
+
+        // Read audio in background thread
+        thread {
+            val buffer = ShortArray(bufferSize / 2)
+            while (isRecording) {
+                val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                if (read > 0) {
+                    synchronized(audioBuffer) {
+                        for (i in 0 until read) {
+                            audioBuffer.add(buffer[i].toFloat() / 32768.0f)
+                        }
+                    }
+                }
+            }
+        }
+
+        Log.d(TAG, "Recording started")
+        result.success(true)
     }
 
     private fun handleStopRecording(result: MethodChannel.Result) {
-        try {
-            stopRecorder()
-            val path = currentPath
-            if (path != null && File(path).exists()) {
-                Log.d(TAG, "Recording stopped: $path (${File(path).length()} bytes)")
-                result.success(path)
-            } else {
-                result.success(null)
+        isRecording = false
+        audioRecord?.stop()
+        audioRecord?.release()
+        audioRecord = null
+
+        val samples: FloatArray
+        synchronized(audioBuffer) {
+            samples = audioBuffer.toFloatArray()
+            audioBuffer.clear()
+        }
+
+        Log.d(TAG, "Recording stopped, ${samples.size} samples")
+
+        if (!isModelLoaded || samples.isEmpty()) {
+            result.success("")
+            return
+        }
+
+        // Run transcription in background
+        thread {
+            val transcript = whisperEngine.transcribe(samples)
+            Log.d(TAG, "Transcript: '$transcript'")
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                result.success(transcript.trim())
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Stop recording failed: ${e.message}", e)
-            result.error("STOP_FAILED", "Failed to stop recording: ${e.message}", null)
         }
     }
 
-    private fun stopRecorder() {
-        try {
-            recorder?.stop()
-            recorder?.release()
-        } catch (_: Exception) {}
-        recorder = null
-    }
-
     fun dispose() {
-        stopRecorder()
+        isRecording = false
+        audioRecord?.stop()
+        audioRecord?.release()
+        whisperEngine.release()
     }
 }

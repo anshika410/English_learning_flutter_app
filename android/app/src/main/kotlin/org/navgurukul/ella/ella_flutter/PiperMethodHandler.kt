@@ -146,9 +146,19 @@ class PiperMethodHandler(
             val output = session.run(inputs)
 
             // 5. Extract float audio output
-            // Output shape: [1, 1, sample_count]
-            @Suppress("UNCHECKED_CAST")
-            val audioArray = (output[0].value as Array<Array<FloatArray>>)[0][0]
+            // Output shape may be [1, 1, sample_count] or [1, 1, 1, sample_count]
+            val outputValue = output[0].value
+            val audioArray: FloatArray = when (outputValue) {
+                is Array<*> -> {
+                    // Try to extract the innermost FloatArray
+                    var current: Any? = outputValue
+                    while (current is Array<*> && current.isNotEmpty()) {
+                        current = current[0]
+                    }
+                    current as? FloatArray ?: FloatArray(0)
+                }
+                else -> FloatArray(0)
+            }
             Log.d(TAG, "Audio samples: ${audioArray.size}")
 
             // 6. Write WAV file

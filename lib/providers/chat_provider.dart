@@ -70,6 +70,7 @@ class ChatProvider extends ChangeNotifier {
   Future<void> initialize() async {
     await _stt.initialize();
     _whisperAvailable = await _whisperStt.initialize();
+    debugPrint('Whisper on-device available: $_whisperAvailable (model loaded: ${_whisperStt.isAvailable})');
     await _tts.initialize();
     _messages.add(ChatMessage(
       role: MessageRole.assistant,
@@ -134,13 +135,7 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
 
       if (_sttEngineType == SttEngineType.whisper) {
-        final started = await _whisperStt.startRecording(
-          onResult: (text, isFinal) {
-            _currentTranscript = text;
-            notifyListeners();
-          },
-          onDone: () {},
-        );
+        final started = await _whisperStt.startRecording();
         if (!started) {
           debugPrint('Whisper STT: Could not start recording');
           _isListening = false;
