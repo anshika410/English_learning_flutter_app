@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Ella needs speech recognition to help you practice English speaking.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ella needs microphone access so you can practice speaking English.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
