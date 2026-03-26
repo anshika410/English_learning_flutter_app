@@ -6,7 +6,7 @@
 static struct whisper_context *ctx = NULL;
 
 JNIEXPORT jboolean JNICALL
-Java_org_navgurukul_ella_ella_1flutter_WhisperEngine_nativeInit(
+Java_org_navgurukul_ella_ella_WhisperEngine_nativeInit(
     JNIEnv *env, jobject thiz, jstring model_path) {
     if (ctx != NULL) {
         whisper_free(ctx);
@@ -20,7 +20,7 @@ Java_org_navgurukul_ella_ella_1flutter_WhisperEngine_nativeInit(
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_navgurukul_ella_ella_1flutter_WhisperEngine_nativeTranscribe(
+Java_org_navgurukul_ella_ella_WhisperEngine_nativeTranscribe(
     JNIEnv *env, jobject thiz, jfloatArray audio_data, jint n_samples) {
     if (ctx == NULL) {
         return (*env)->NewStringUTF(env, "");
@@ -64,7 +64,7 @@ Java_org_navgurukul_ella_ella_1flutter_WhisperEngine_nativeTranscribe(
 }
 
 JNIEXPORT void JNICALL
-Java_org_navgurukul_ella_ella_1flutter_WhisperEngine_nativeRelease(
+Java_org_navgurukul_ella_ella_WhisperEngine_nativeRelease(
     JNIEnv *env, jobject thiz) {
     if (ctx != NULL) {
         whisper_free(ctx);

@@ -1,4 +1,4 @@
-package org.navgurukul.ella.ella_flutter
+package org.navgurukul.ella
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject

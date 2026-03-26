@@ -1,4 +1,4 @@
-package org.navgurukul.ella.ella_flutter
+package org.navgurukul.ella
 
 import java.io.File
 import java.io.FileOutputStream

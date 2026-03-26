@@ -1,4 +1,4 @@
-package org.navgurukul.ella.ella_flutter
+package org.navgurukul.ella
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

@@ -1,4 +1,4 @@
-package org.navgurukul.ella.ella_flutter
+package org.navgurukul.ella
 
 import android.util.Log
 

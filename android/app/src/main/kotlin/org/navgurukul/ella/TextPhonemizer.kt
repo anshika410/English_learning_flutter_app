@@ -1,4 +1,4 @@
-package org.navgurukul.ella.ella_flutter
+package org.navgurukul.ella
 
 /**
  * Simple text phonemizer that passes text through as-is (identity function).
