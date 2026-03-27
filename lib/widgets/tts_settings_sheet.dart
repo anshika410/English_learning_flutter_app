@@ -83,6 +83,10 @@ class TtsSettingsSheet extends StatelessWidget {
                 value: SttEngineType.system,
                 label: Text('System'),
               ),
+              const ButtonSegment(
+                value: SttEngineType.continuous,
+                label: Text('Continuous'),
+              ),
               ButtonSegment(
                 value: SttEngineType.whisper,
                 label: const Text('Whisper'),
@@ -92,6 +96,17 @@ class TtsSettingsSheet extends StatelessWidget {
             selected: {chat.sttEngineType},
             onSelectionChanged: (v) => chat.setSttEngine(v.first),
           ),
+          if (chat.sttEngineType == SttEngineType.continuous)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Auto-restarts on silence, accumulates text',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: colorScheme.outline),
+              ),
+            ),
           if (chat.sttEngineType == SttEngineType.whisper)
             Padding(
               padding: const EdgeInsets.only(top: 4),

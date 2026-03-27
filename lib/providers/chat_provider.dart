@@ -4,15 +4,17 @@ import '../models/chat_message.dart';
 import '../models/latency_info.dart';
 import '../services/llm_service.dart';
 import '../services/stt_service.dart';
+import '../services/continuous_stt_service.dart';
 import '../services/whisper_stt_service.dart';
 import '../services/tts_manager.dart';
 import '../services/tts_service.dart';
 
-enum SttEngineType { system, whisper }
+enum SttEngineType { system, continuous, whisper }
 
 class ChatProvider extends ChangeNotifier {
   final LlmService _llm = LlmService();
   final SttService _stt = SttService();
+  final ContinuousSttService _continuousStt = ContinuousSttService();
   final WhisperSttService _whisperStt = WhisperSttService();
   final TtsManager _tts = TtsManager();
 
@@ -123,6 +125,17 @@ class ChatProvider extends ChangeNotifier {
           await sendMessage(transcript, sttDuration: sttDuration);
         }
         _sttStartTime = null;
+      } else if (_sttEngineType == SttEngineType.continuous) {
+        final sttStart = DateTime.now();
+        final transcript = await _continuousStt.stopListening();
+        final sttDuration = DateTime.now().difference(sttStart);
+        _isListening = false;
+        _currentTranscript = '';
+        notifyListeners();
+        if (transcript.isNotEmpty) {
+          await sendMessage(transcript, sttDuration: sttDuration);
+        }
+        _sttStartTime = null;
       } else {
         await _stt.stopListening();
         await _finishListening();
@@ -138,6 +151,19 @@ class ChatProvider extends ChangeNotifier {
         final started = await _whisperStt.startRecording();
         if (!started) {
           debugPrint('Whisper STT: Could not start recording');
+          _isListening = false;
+          notifyListeners();
+        }
+      } else if (_sttEngineType == SttEngineType.continuous) {
+        final started = await _continuousStt.startListening(
+          onResult: (text, isFinal) {
+            _currentTranscript = text;
+            _lastSpeechTime = DateTime.now();
+            notifyListeners();
+          },
+        );
+        if (!started) {
+          debugPrint('ContinuousSTT: Could not start');
           _isListening = false;
           notifyListeners();
         }
@@ -284,6 +310,7 @@ class ChatProvider extends ChangeNotifier {
   @override
   void dispose() {
     _stt.dispose();
+    _continuousStt.dispose();
     _whisperStt.dispose();
     _tts.dispose();
     super.dispose();
