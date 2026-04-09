@@ -31,6 +31,9 @@ class _ConversationScreenState extends State<ConversationScreen>
   bool _isKeyboardMode = false;
   bool _hasUserSpokenThisTurn = false;
 
+  // Track last Ella message so it persists while user is speaking
+  String? _lastEllaText;
+
   final TextEditingController _textCtrl = TextEditingController();
 
   // Pulse animation for Ella's avatar when speaking/loading
@@ -75,8 +78,6 @@ class _ConversationScreenState extends State<ConversationScreen>
     final chat = context.read<ChatProvider>();
     if (!chat.isListening) {
       setState(() => _hasUserSpokenThisTurn = true);
-    } else {
-      // When stopping, next Ella turn will reset this
     }
     chat.toggleListening();
   }
@@ -96,13 +97,17 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardUp = bottomInset > 0;
+
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
             _buildAppBar(),
-            Expanded(child: _buildCenterArea()),
+            Expanded(child: _buildCenterArea(keyboardUp: keyboardUp)),
             if (_showScaffoldPills) _buildScaffoldPills(),
             _buildInputBar(),
           ],
@@ -164,7 +169,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                     style: GoogleFonts.baloo2(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: EllaColors.skyDark,
+                      color: EllaColors.neutralPrimary,
                     ),
                   ),
                 ),
@@ -198,7 +203,7 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   // ── Center area: avatar + captions ──────────────────────────────────────────
 
-  Widget _buildCenterArea() {
+  Widget _buildCenterArea({required bool keyboardUp}) {
     return Consumer<ChatProvider>(
       builder: (ctx, chat, child) {
         final isPulsing = chat.isLoading || chat.isSpeaking || chat.isListening;
@@ -208,68 +213,98 @@ class _ConversationScreenState extends State<ConversationScreen>
           if (!_pulseCtrl.isAnimating) _pulseCtrl.repeat();
         }
 
-        // Determine caption content
-        String? captionText;
-        bool captionIsElla = true;
-        if (chat.isListening && chat.currentTranscript.isNotEmpty) {
-          captionText = chat.currentTranscript;
-          captionIsElla = false;
-        } else if (chat.isListening) {
-          captionText = 'Listening…';
-          captionIsElla = false;
-        } else if (chat.messages.isNotEmpty) {
-          final last = chat.messages.last;
-          captionText = last.content;
-          captionIsElla = last.role != MessageRole.user;
+        // Update _lastEllaText whenever a new Ella message arrives
+        if (chat.messages.isNotEmpty) {
+          final lastMsg = chat.messages.last;
+          if (lastMsg.role != MessageRole.user) {
+            _lastEllaText = lastMsg.content;
+          }
         }
 
-        final avatarSize = _captionsEnabled ? 160.0 : 200.0;
+        // Determine what to show in captions
+        // - Ella bubble: always show _lastEllaText if available
+        // - User bubble: show when isListening (live transcript or "Listening…")
+        String? ellaCaptionText = _lastEllaText;
+        String? userCaptionText;
 
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Ella avatar with optional pulse ring
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (isPulsing)
-                    AnimatedBuilder(
-                      animation: _pulseAnim,
-                      builder: (context2, child2) => Transform.scale(
-                        scale: _pulseAnim.value,
-                        child: Container(
-                          width: avatarSize,
-                          height: avatarSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: EllaColors.skyMain.withValues(alpha: 0.35),
-                              width: 3,
-                            ),
+        if (chat.isListening) {
+          userCaptionText = chat.currentTranscript.isNotEmpty
+              ? chat.currentTranscript
+              : 'Listening…';
+        }
+
+        // Avatar shrinks when keyboard is up
+        final avatarSize = keyboardUp ? 96.0 : (_captionsEnabled ? 160.0 : 200.0);
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Ella avatar with optional pulse ring
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                if (isPulsing)
+                  AnimatedBuilder(
+                    animation: _pulseAnim,
+                    builder: (context2, child2) => Transform.scale(
+                      scale: _pulseAnim.value,
+                      child: Container(
+                        width: avatarSize,
+                        height: avatarSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: EllaColors.skyMain.withValues(alpha: 0.35),
+                            width: 3,
                           ),
                         ),
                       ),
                     ),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: avatarSize,
-                    height: avatarSize,
-                    child: Image.asset(
-                      'images/ella-neutral.png',
-                      fit: BoxFit.contain,
-                    ),
                   ),
-                ],
-              ),
-
-              // Caption bubble
-              if (_captionsEnabled && captionText != null) ...[
-                const SizedBox(height: 20),
-                _CaptionBubble(text: captionText, isElla: captionIsElla),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: avatarSize,
+                  height: avatarSize,
+                  child: Image.asset(
+                    'images/ella-neutral.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ],
+            ),
+
+            // Caption bubbles
+            if (_captionsEnabled && (ellaCaptionText != null || userCaptionText != null)) ...[
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (ellaCaptionText != null)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 220),
+                          child: SingleChildScrollView(
+                            child: _CaptionBubble(
+                              text: ellaCaptionText,
+                              isElla: true,
+                            ),
+                          ),
+                        ),
+                      if (userCaptionText != null) ...[
+                        const SizedBox(height: 10),
+                        _CaptionBubble(
+                          text: userCaptionText,
+                          isElla: false,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ],
-          ),
+          ],
         );
       },
     );
@@ -279,7 +314,7 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   Widget _buildScaffoldPills() {
     return SizedBox(
-      height: 48,
+      height: 52,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -290,8 +325,15 @@ class _ConversationScreenState extends State<ConversationScreen>
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(100),
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: EllaColors.neutralBorder,
+                  offset: Offset(3, 3),
+                  blurRadius: 0,
+                ),
+              ],
             ),
             child: Text(
               _scaffoldPills[i],
@@ -325,7 +367,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'TAP MIC TO SPEAK',
+              isListening ? 'TAP MIC TO STOP' : 'TAP MIC TO SPEAK',
               style: GoogleFonts.inconsolata(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -334,100 +376,111 @@ class _ConversationScreenState extends State<ConversationScreen>
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Keyboard icon
-                GestureDetector(
-                  onTap: () => setState(() => _isKeyboardMode = true),
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: EllaColors.neutralSurface,
-                      border: Border.all(
-                        color: EllaColors.neutralBorder,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.keyboard_alt_outlined,
-                      size: 22,
-                      color: EllaColors.neutralSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                // Mic button
-                GestureDetector(
-                  onTap: _handleMicTap,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (isListening)
-                        _MicPulseRing(color: EllaColors.mangoMain),
-                      Container(
-                        width: 64,
-                        height: 64,
+            SizedBox(
+              height: 64,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Keyboard icon — pinned to far left
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isKeyboardMode = true),
+                      child: Container(
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isListening
-                              ? EllaColors.mangoDark
-                              : EllaColors.mangoMain,
-                          border: Border.all(color: EllaColors.mangoDark, width: 2.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: EllaColors.mangoDark,
-                              offset: isListening
-                                  ? const Offset(1, 1)
-                                  : const Offset(3, 3),
-                              blurRadius: 0,
+                          color: EllaColors.neutralSurface,
+                          border: Border.all(
+                            color: EllaColors.neutralBorder,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.keyboard_alt_outlined,
+                          size: 22,
+                          color: EllaColors.neutralSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Mic button — centered
+                  Center(
+                    child: GestureDetector(
+                      onTap: _handleMicTap,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (isListening)
+                            _MicPulseRing(color: EllaColors.mangoMain),
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isListening
+                                  ? EllaColors.mangoDark
+                                  : EllaColors.mangoMain,
+                              border: Border.all(
+                                  color: EllaColors.mangoDark, width: 2.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: EllaColors.mangoDark,
+                                  offset: isListening
+                                      ? const Offset(1, 1)
+                                      : const Offset(3, 3),
+                                  blurRadius: 0,
+                                ),
+                              ],
                             ),
-                          ],
+                            child: Icon(
+                              isListening
+                                  ? Icons.stop_rounded
+                                  : Icons.mic_rounded,
+                              size: 28,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // CC (captions) toggle — pinned to far right
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () =>
+                          setState(() => _captionsEnabled = !_captionsEnabled),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _captionsEnabled
+                              ? EllaColors.skyLightest
+                              : EllaColors.neutralSurface,
+                          border: Border.all(
+                            color: _captionsEnabled
+                                ? EllaColors.skyLight
+                                : EllaColors.neutralBorder,
+                            width: 1.5,
+                          ),
                         ),
                         child: Icon(
-                          isListening
-                              ? Icons.stop_rounded
-                              : Icons.mic_rounded,
-                          size: 28,
-                          color: Colors.white,
+                          _captionsEnabled
+                              ? Icons.subtitles_rounded
+                              : Icons.subtitles_off_rounded,
+                          size: 22,
+                          color: _captionsEnabled
+                              ? EllaColors.skyDark
+                              : EllaColors.neutralSecondary,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                // CC (captions) toggle
-                GestureDetector(
-                  onTap: () => setState(() => _captionsEnabled = !_captionsEnabled),
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _captionsEnabled
-                          ? EllaColors.skyLightest
-                          : EllaColors.neutralSurface,
-                      border: Border.all(
-                        color: _captionsEnabled
-                            ? EllaColors.skyLight
-                            : EllaColors.neutralBorder,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Icon(
-                      _captionsEnabled
-                          ? Icons.subtitles_rounded
-                          : Icons.subtitles_off_rounded,
-                      size: 22,
-                      color: _captionsEnabled
-                          ? EllaColors.skyDark
-                          : EllaColors.neutralSecondary,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         );
@@ -483,7 +536,24 @@ class _ConversationScreenState extends State<ConversationScreen>
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
-                borderSide: BorderSide.none,
+                borderSide: const BorderSide(
+                  color: EllaColors.neutralBorder,
+                  width: 1.5,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(
+                  color: EllaColors.neutralBorder,
+                  width: 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(
+                  color: EllaColors.skyMain,
+                  width: 1.5,
+                ),
               ),
             ),
           ),
@@ -529,50 +599,59 @@ class _CaptionBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isElla ? EllaColors.skyLightest : EllaColors.mangoLightest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isElla ? EllaColors.skyLight : EllaColors.mangoLight,
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isElla ? 'ELLA SAYS' : 'YOU SAY',
-              style: GoogleFonts.inconsolata(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
-                letterSpacing: 0.8,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isElla ? EllaColors.skyLightest : EllaColors.mangoLightest,
+        borderRadius: isElla
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              )
+            : const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(4),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              text,
-              style: isElla
-                  ? GoogleFonts.kalam(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: EllaColors.skyDark,
-                      height: 1.4,
-                    )
-                  : GoogleFonts.baloo2(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: EllaColors.mangoDark,
-                      height: 1.4,
-                    ),
-            ),
-          ],
+        border: Border.all(
+          color: isElla ? EllaColors.skyLight : EllaColors.mangoLight,
+          width: 1.5,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isElla ? 'ELLA SAYS' : 'YOU SAY',
+            style: GoogleFonts.inconsolata(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            style: isElla
+                ? GoogleFonts.kalam(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: EllaColors.skyDark,
+                    height: 1.4,
+                  )
+                : GoogleFonts.baloo2(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: EllaColors.mangoDark,
+                    height: 1.4,
+                  ),
+          ),
+        ],
       ),
     );
   }

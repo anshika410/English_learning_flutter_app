@@ -92,10 +92,73 @@ class EndScreen extends StatelessWidget {
     );
   }
 
+  void _goToHome(BuildContext context) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: EllaColors.limeLightest,
+      // ── Pinned bottom buttons ────────────────────────────────────────────────
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // "Read Full Transcript" ghost button
+              GestureDetector(
+                onTap: () => _showTranscriptSheet(context),
+                child: Container(
+                  width: double.infinity,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(20),
+                      bottomRight: Radius.circular(4),
+                      bottomLeft: Radius.circular(20),
+                    ),
+                    border: Border.all(
+                      color: EllaColors.mangoMain,
+                      width: 2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: EllaColors.mangoDark,
+                        offset: Offset(3, 3),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Read Full Transcript',
+                      style: GoogleFonts.baloo2(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: EllaColors.mangoMain,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // "Go to Home" primary button
+              EllaPrimaryButton(
+                label: 'Go to home',
+                onTap: () => _goToHome(context),
+              ),
+            ],
+          ),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -104,31 +167,14 @@ class EndScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 16),
 
-              // ── Ella avatar (80×80) ───────────────────────────────────
+              // ── Ella avatar (no circle/background) ────────────────────
               Center(
-                child: Container(
+                child: SizedBox(
                   width: 80,
                   height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: EllaColors.skyLightest,
-                    border: Border.all(color: EllaColors.ink, width: 2),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Image.asset(
-                        'images/ella-neutral.png',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+                  child: Image.asset(
+                    'images/ella-neutral.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -226,37 +272,8 @@ class EndScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 24),
-
-              // ── Transcript link ───────────────────────────────────────
-              Center(
-                child: GestureDetector(
-                  onTap: () => _showTranscriptSheet(context),
-                  child: Text(
-                    'Read full transcript →',
-                    style: GoogleFonts.baloo2(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: EllaColors.skyDark,
-                      decoration: TextDecoration.underline,
-                      decorationColor: EllaColors.skyDark,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // ── Go to home button ─────────────────────────────────────
-              EllaPrimaryButton(
-                label: 'Go to home',
-                onTap: () => Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (_) => false,
-                ),
-              ),
-
-              const SizedBox(height: 8),
+              // Extra bottom padding so content doesn't hide behind bottom bar
+              const SizedBox(height: 140),
             ],
           ),
         ),

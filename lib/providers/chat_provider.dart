@@ -182,9 +182,11 @@ class ChatProvider extends ChangeNotifier {
   }
 
   /// Called when speech recognition stops naturally (timeout/silence).
+  /// We do NOT auto-submit — user must tap mic again to stop.
   void _onListeningDone() {
     if (_isListening) {
-      _finishListening();
+      _isListening = false;
+      notifyListeners();
     }
   }
 

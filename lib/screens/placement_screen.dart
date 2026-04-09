@@ -69,7 +69,7 @@ class _PlacementScreenState extends State<PlacementScreen>
     setState(() {
       _isEllaTyping = true;
       _showUserCaption = false;
-      _currentEllaText = null;
+      _currentUserText = null;
     });
     if (!_pulseCtrl.isAnimating) _pulseCtrl.repeat();
 
@@ -131,7 +131,14 @@ class _PlacementScreenState extends State<PlacementScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardUp = bottomInset > 0;
+
+    // Avatar shrinks when keyboard is visible
+    final avatarSize = keyboardUp ? 96.0 : 160.0;
+
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: EllaColors.neutralBg,
       body: SafeArea(
         child: Column(
@@ -144,14 +151,14 @@ class _PlacementScreenState extends State<PlacementScreen>
                 style: GoogleFonts.baloo2(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: EllaColors.neutralSecondary,
+                  color: EllaColors.neutralPrimary,
                 ),
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // ── Ella avatar (160×160, no circle) ──────────────────────────
+            // ── Ella avatar (shrinks when keyboard up) ─────────────────────
             Center(
               child: Stack(
                 alignment: Alignment.center,
@@ -163,8 +170,8 @@ class _PlacementScreenState extends State<PlacementScreen>
                       builder: (ctx, child) => Transform.scale(
                         scale: _pulseScale.value,
                         child: Container(
-                          width: 160,
-                          height: 160,
+                          width: avatarSize,
+                          height: avatarSize,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: EllaColors.skyMain
@@ -173,9 +180,10 @@ class _PlacementScreenState extends State<PlacementScreen>
                         ),
                       ),
                     ),
-                  SizedBox(
-                    width: 160,
-                    height: 160,
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: avatarSize,
+                    height: avatarSize,
                     child: Image.asset(
                       'images/ella-neutral.png',
                       fit: BoxFit.contain,
@@ -187,13 +195,36 @@ class _PlacementScreenState extends State<PlacementScreen>
 
             const SizedBox(height: 20),
 
-            // ── Caption bubble ────────────────────────────────────────────
+            // ── Caption bubbles (scrollable) ──────────────────────────────
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: _buildCaption(),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Ella's bubble — always shows current Ella text
+                      if (_isEllaTyping)
+                        _PlacementCaption(
+                          text: '...',
+                          isElla: true,
+                          isTyping: true,
+                        )
+                      else if (_currentEllaText != null)
+                        _PlacementCaption(
+                          text: _currentEllaText!,
+                          isElla: true,
+                        ),
+                      // User's bubble — shown below Ella's when user has responded
+                      if (_showUserCaption && _currentUserText != null) ...[
+                        const SizedBox(height: 10),
+                        _PlacementCaption(
+                          text: _currentUserText!,
+                          isElla: false,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -204,23 +235,6 @@ class _PlacementScreenState extends State<PlacementScreen>
         ),
       ),
     );
-  }
-
-  Widget _buildCaption() {
-    if (_isEllaTyping) {
-      return _PlacementCaption(
-        text: '...',
-        isElla: true,
-        isTyping: true,
-      );
-    }
-    if (_showUserCaption && _currentUserText != null) {
-      return _PlacementCaption(text: _currentUserText!, isElla: false);
-    }
-    if (_currentEllaText != null) {
-      return _PlacementCaption(text: _currentEllaText!, isElla: true);
-    }
-    return const SizedBox.shrink();
   }
 
   Widget _buildInputBar() {
@@ -428,7 +442,19 @@ class _PlacementCaption extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isElla ? EllaColors.skyLightest : EllaColors.mangoLightest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: isElla
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              )
+            : const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(4),
+              ),
         border: Border.all(
           color: isElla ? EllaColors.skyLight : EllaColors.mangoLight,
           width: 1.5,

@@ -31,7 +31,7 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: EllaColors.neutralBg,
       body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // ── Top bar ────────────────────────────────────────────────
             Padding(
@@ -67,32 +67,13 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 32),
 
-            // ── Ella avatar ───────────────────────────────────────────
-            Center(
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: EllaColors.skyLightest,
-                  border: Border.all(color: EllaColors.ink, width: 2.5),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x18000000),
-                      blurRadius: 16,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Image.asset(
-                      'images/ella-neutral.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
+            // ── Ella avatar (no circle/background) ────────────────────
+            SizedBox(
+              width: 200,
+              height: 200,
+              child: Image.asset(
+                'images/ella-neutral.png',
+                fit: BoxFit.contain,
               ),
             ),
 
@@ -132,45 +113,48 @@ class HomeScreen extends StatelessWidget {
             const Spacer(),
 
             // ── Bottom bar ────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Want to talk about something?',
-                          style: GoogleFonts.baloo2(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: EllaColors.neutralSecondary,
+            SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Want to talk about something?',
+                            style: GoogleFonts.baloo2(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: EllaColors.neutralSecondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Let Ella decide the topic',
-                          style: GoogleFonts.baloo2(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: EllaColors.neutralPrimary,
+                          const SizedBox(height: 4),
+                          Text(
+                            'Let Ella decide the topic',
+                            style: GoogleFonts.baloo2(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: EllaColors.neutralPrimary,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 140,
-                    child: EllaPrimaryButton(
-                      label: 'Talk to Ella',
-                      onTap: () => _startConversation(context),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 140,
+                      child: EllaPrimaryButton(
+                        label: 'Talk to Ella',
+                        onTap: () => _startConversation(context),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -197,11 +181,11 @@ class _TopicChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: EllaColors.neutralSurface,
           borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
+          border: Border.all(color: EllaColors.neutralBorder, width: 2),
           boxShadow: const [
             BoxShadow(
               color: EllaColors.ink,
-              offset: Offset(2, 2),
+              offset: Offset(3, 3),
               blurRadius: 0,
             ),
           ],

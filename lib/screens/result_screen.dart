@@ -64,7 +64,7 @@ class _ResultScreenState extends State<ResultScreen>
         child: Column(
           children: [
             const SizedBox(height: 56),
-            // Avatar with success pulse burst
+            // Avatar (no circle/background) with success pulse ring burst
             Center(
               child: Stack(
                 alignment: Alignment.center,
@@ -78,8 +78,11 @@ class _ResultScreenState extends State<ResultScreen>
                         height: 120,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: EllaColors.limeMain
-                              .withValues(alpha: _successOpacity.value),
+                          border: Border.all(
+                            color: EllaColors.limeMain
+                                .withValues(alpha: _successOpacity.value),
+                            width: 3,
+                          ),
                         ),
                       ),
                     ),
