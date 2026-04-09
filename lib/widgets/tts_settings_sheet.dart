@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
-import '../services/llm_service.dart';
 import '../services/tts_manager.dart';
 
 class TtsSettingsSheet extends StatelessWidget {
@@ -34,36 +33,38 @@ class TtsSettingsSheet extends StatelessWidget {
             children: [
               Icon(Icons.psychology, color: colorScheme.primary),
               const SizedBox(width: 8),
-              Text('LLM Provider',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'LLM Provider',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          SegmentedButton<LlmProvider>(
-            segments: [
-              ButtonSegment(
-                value: LlmProvider.openai,
-                label: const Text('OpenAI'),
-                enabled:
-                    chat.availableLlmProviders.contains(LlmProvider.openai),
-              ),
-              ButtonSegment(
-                value: LlmProvider.deepseek,
-                label: const Text('DeepSeek'),
-                enabled:
-                    chat.availableLlmProviders.contains(LlmProvider.deepseek),
-              ),
-            ],
-            selected: {chat.llmProvider},
-            onSelectionChanged: (v) => chat.setLlmProvider(v.first),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Gemini (Locked for this phase)',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Model: ${chat.llmModelName}',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: colorScheme.outline),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
           ),
           const Divider(height: 24),
 
@@ -72,8 +73,10 @@ class TtsSettingsSheet extends StatelessWidget {
             children: [
               Icon(Icons.mic, color: colorScheme.primary),
               const SizedBox(width: 8),
-              Text('STT Engine',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'STT Engine',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -101,10 +104,9 @@ class TtsSettingsSheet extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 'Auto-restarts on silence, accumulates text',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colorScheme.outline),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
             ),
           if (chat.sttEngineType == SttEngineType.whisper)
@@ -112,10 +114,9 @@ class TtsSettingsSheet extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 'On-device Whisper (ggml-tiny.en)',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colorScheme.outline),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
               ),
             ),
 
@@ -126,8 +127,10 @@ class TtsSettingsSheet extends StatelessWidget {
             children: [
               Icon(Icons.record_voice_over, color: colorScheme.primary),
               const SizedBox(width: 8),
-              Text('TTS Engine',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'TTS Engine',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -152,10 +155,9 @@ class TtsSettingsSheet extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Piper: loading voice model...',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: colorScheme.outline),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
             ),
           ],
           if (chat.piperAvailable &&
@@ -163,8 +165,10 @@ class TtsSettingsSheet extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                Text('Accent / Voice',
-                    style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  'Accent / Voice',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
@@ -177,8 +181,7 @@ class TtsSettingsSheet extends StatelessWidget {
             ...chat.piperVoices.map(
               (voice) => RadioListTile<String>(
                 title: Text(voice.label),
-                subtitle:
-                    Text(voice.id, style: const TextStyle(fontSize: 12)),
+                subtitle: Text(voice.id, style: const TextStyle(fontSize: 12)),
                 value: voice.id,
                 groupValue: chat.currentPiperVoice?.id,
                 onChanged: (_) => chat.setPiperVoice(voice),

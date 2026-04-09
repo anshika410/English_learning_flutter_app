@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import '../models/chat_message.dart';
+import '../models/placement_result.dart';
+import '../services/llm_service.dart';
+import '../services/stt_service.dart';
+import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import 'result_screen.dart';
 
-// ─── Placement conversation turns ─────────────────────────────────────────────
+class _PlacementBubbleEntry {
+  final String text;
+  final bool isElla;
 
-const List<String> _ellaTurns = [
-  "Hey! Let's check how good your English is. Tell me — what did you do yesterday?",
-  "Great! Do you usually speak English at work or school?",
-  "Nice! Can you describe your favourite place to visit and why you love it?",
-  "Interesting! What would you do if you had a free day with no plans?",
-  "Last one — tell me about someone who inspires you.",
-];
-
-// ─── PlacementScreen ──────────────────────────────────────────────────────────
+  const _PlacementBubbleEntry({required this.text, required this.isElla});
+}
 
 class PlacementScreen extends StatefulWidget {
   const PlacementScreen({super.key});
@@ -24,18 +25,25 @@ class PlacementScreen extends StatefulWidget {
 
 class _PlacementScreenState extends State<PlacementScreen>
     with TickerProviderStateMixin {
-  final TextEditingController _textCtrl = TextEditingController();
+  static const int _minTurns = 5;
+  static const int _maxTurns = 8;
 
-  int _turnCount = 0;
+  final LlmService _llm = LlmService();
+  final SttService _stt = SttService();
+  final TtsManager _tts = TtsManager();
+  final TextEditingController _textCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
+  final FocusNode _textFocusNode = FocusNode();
+
+  int _userResponses = 0;
   bool _isEllaTyping = false;
   bool _isKeyboardMode = false;
   bool _isListening = false;
+  bool _isCompleting = false;
+  String _currentTranscript = '';
 
-  String? _currentEllaText;
-  String? _currentUserText;
-  bool _showUserCaption = false;
+  final List<_PlacementBubbleEntry> _history = [];
 
-  // Pulse animation for Ella's avatar when typing
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseScale;
   late Animation<double> _pulseOpacity;
@@ -47,85 +55,201 @@ class _PlacementScreenState extends State<PlacementScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat();
-    _pulseScale = Tween<double>(begin: 1.0, end: 1.5).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut),
-    );
-    _pulseOpacity = Tween<double>(begin: 0.45, end: 0.0).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut),
-    );
+    _pulseScale = Tween<double>(
+      begin: 1.0,
+      end: 1.5,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut));
+    _pulseOpacity = Tween<double>(
+      begin: 0.45,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut));
 
-    Future.delayed(const Duration(milliseconds: 600), _showNextEllaTurn);
+    _stt.initialize();
+    _tts.initialize();
+    Future.delayed(
+      const Duration(milliseconds: 600),
+      _requestNextPlacementTurn,
+    );
   }
 
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _stt.dispose();
+    _tts.dispose();
     _textCtrl.dispose();
+    _scrollCtrl.dispose();
+    _textFocusNode.dispose();
     super.dispose();
   }
 
-  void _showNextEllaTurn() {
-    if (_turnCount >= _ellaTurns.length) return;
-    setState(() {
-      _isEllaTyping = true;
-      _showUserCaption = false;
-      _currentUserText = null;
+  List<ChatMessage> _chatHistory() {
+    return _history
+        .map(
+          (entry) => ChatMessage(
+            role: entry.isElla ? MessageRole.assistant : MessageRole.user,
+            content: entry.text,
+          ),
+        )
+        .toList();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollCtrl.hasClients) return;
+      _scrollCtrl.animateTo(
+        _scrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
     });
+  }
+
+  Future<void> _requestNextPlacementTurn() async {
+    if (!mounted || _isCompleting) return;
+    if (_userResponses >= _maxTurns) {
+      await _goToResult();
+      return;
+    }
+
+    setState(() => _isEllaTyping = true);
     if (!_pulseCtrl.isAnimating) _pulseCtrl.repeat();
 
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (!mounted) return;
-      setState(() {
-        _isEllaTyping = false;
-        _currentEllaText = _ellaTurns[_turnCount];
-      });
+    PlacementTurnDecision decision;
+    try {
+      decision = await _llm.nextPlacementTurn(
+        history: _chatHistory(),
+        userResponses: _userResponses,
+        minTurns: _minTurns,
+        maxTurns: _maxTurns,
+      );
+    } catch (_) {
+      decision = PlacementTurnDecision(
+        continuePlacement: _userResponses < _minTurns,
+        nextQuestion: _userResponses < _minTurns
+            ? 'Can you tell me about a recent experience in English?'
+            : '',
+        reason: 'fallback',
+      );
+    }
+
+    if (!mounted || _isCompleting) return;
+
+    if (!decision.continuePlacement && _userResponses >= _minTurns) {
+      setState(() => _isEllaTyping = false);
       _pulseCtrl.stop();
+      await _goToResult();
+      return;
+    }
+
+    final question = decision.nextQuestion.trim().isNotEmpty
+        ? decision.nextQuestion.trim()
+        : 'Can you describe your day and what you enjoyed most?';
+
+    setState(() {
+      _isEllaTyping = false;
+      _history.add(_PlacementBubbleEntry(text: question, isElla: true));
     });
+    _pulseCtrl.stop();
+    _scrollToBottom();
+    _tts.speak(question);
   }
 
   void _handleUserResponse(String text) {
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty || _isCompleting) return;
     _textCtrl.clear();
 
     setState(() {
-      _currentUserText = trimmed;
-      _showUserCaption = true;
+      _history.add(_PlacementBubbleEntry(text: trimmed, isElla: false));
       _isListening = false;
+      _currentTranscript = '';
       _isKeyboardMode = false;
-      _turnCount++;
+      _userResponses++;
     });
+    _textFocusNode.unfocus();
+    _scrollToBottom();
 
-    if (_turnCount >= _ellaTurns.length) {
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context2, animation, secondary) => const ResultScreen(
-              level: 'A2',
-              levelName: 'Finding My Voice',
-            ),
-            transitionDuration: const Duration(milliseconds: 400),
-            transitionsBuilder: (context2, animation, secondary, child) {
-              final curved = CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOut,
-              );
-              return FadeTransition(opacity: curved, child: child);
-            },
-          ),
-        );
-      });
-    } else {
-      Future.delayed(const Duration(milliseconds: 600), _showNextEllaTurn);
+    Future.delayed(
+      const Duration(milliseconds: 450),
+      _requestNextPlacementTurn,
+    );
+  }
+
+  Future<void> _goToResult() async {
+    if (!mounted || _isCompleting) return;
+    _isCompleting = true;
+
+    PlacementResult placement = const PlacementResult(
+      cefrLevel: 'A2',
+      levelLabel: 'Finding My Voice',
+      highlight:
+          'You expressed yourself clearly and stayed engaged throughout the check.',
+      confidence: 0.6,
+    );
+
+    try {
+      if (_llm.activeConfig.isConfigured) {
+        placement = await _llm.evaluatePlacement(_chatHistory());
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, animation, __) => ResultScreen(
+          level: placement.cefrLevel,
+          levelName: placement.levelLabel ?? 'Finding My Voice',
+          highlight: placement.highlight,
+        ),
+        transitionDuration: const Duration(milliseconds: 400),
+        transitionsBuilder: (_, animation, __, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          );
+          return FadeTransition(opacity: curved, child: child);
+        },
+      ),
+    );
+  }
+
+  Future<void> _toggleMicListening() async {
+    if (_isCompleting || _isEllaTyping) return;
+
+    if (_isListening) {
+      await _stt.stopListening();
+      final text = _currentTranscript.trim();
+      setState(() => _isListening = false);
+      if (text.isNotEmpty) {
+        _handleUserResponse(text);
+      }
+      return;
+    }
+
+    setState(() {
+      _isListening = true;
+      _currentTranscript = '';
+    });
+    final started = await _stt.startListening(
+      onResult: _onSpeechResult,
+      onDone: _onListeningDone,
+    );
+    if (!started && mounted) {
+      setState(() => _isListening = false);
     }
   }
 
-  void _toggleMicListening() {
-    if (_isListening) {
-      setState(() => _isListening = false);
-    } else {
-      setState(() => _isListening = true);
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    setState(() => _currentTranscript = result.recognizedWords);
+  }
+
+  void _onListeningDone() {
+    if (!mounted || !_isListening) return;
+    final text = _currentTranscript.trim();
+    setState(() => _isListening = false);
+    if (text.isNotEmpty) {
+      _handleUserResponse(text);
     }
   }
 
@@ -133,105 +257,101 @@ class _PlacementScreenState extends State<PlacementScreen>
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final keyboardUp = bottomInset > 0;
-
-    // Avatar shrinks when keyboard is visible
-    final avatarSize = keyboardUp ? 96.0 : 160.0;
+    final avatarSize = keyboardUp && _history.length >= 3 ? 120.0 : 160.0;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: EllaColors.neutralBg,
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top label ─────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.only(top: 24, bottom: 4),
-              child: Text(
-                'Quick placement check',
-                style: GoogleFonts.baloo2(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.neutralPrimary,
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 24, bottom: 4),
+                child: Text(
+                  'Quick placement check',
+                  style: GoogleFonts.baloo2(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: EllaColors.neutralPrimary,
+                  ),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ── Ella avatar (shrinks when keyboard up) ─────────────────────
-            Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Pulse ring when Ella is typing
-                  if (_isEllaTyping)
-                    AnimatedBuilder(
-                      animation: _pulseCtrl,
-                      builder: (ctx, child) => Transform.scale(
-                        scale: _pulseScale.value,
-                        child: Container(
-                          width: avatarSize,
-                          height: avatarSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: EllaColors.skyMain
-                                .withValues(alpha: _pulseOpacity.value),
+              const SizedBox(height: 16),
+              Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (_isEllaTyping)
+                      AnimatedBuilder(
+                        animation: _pulseCtrl,
+                        builder: (context, child) => Transform.scale(
+                          scale: _pulseScale.value,
+                          child: Container(
+                            width: avatarSize,
+                            height: avatarSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: EllaColors.skyMain.withValues(
+                                alpha: _pulseOpacity.value,
+                              ),
+                            ),
                           ),
                         ),
                       ),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      width: avatarSize,
+                      height: avatarSize,
+                      child: Image.asset(
+                        'images/ella-neutral.png',
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: avatarSize,
-                    height: avatarSize,
-                    child: Image.asset(
-                      'images/ella-neutral.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ── Caption bubbles (scrollable) ──────────────────────────────
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Ella's bubble — always shows current Ella text
-                      if (_isEllaTyping)
-                        _PlacementCaption(
+              const SizedBox(height: 16),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: ListView.separated(
+                    controller: _scrollCtrl,
+                    padding: const EdgeInsets.only(bottom: 12),
+                    itemCount: _history.length + (_isEllaTyping ? 1 : 0),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      if (_isEllaTyping && index == _history.length) {
+                        return const _PlacementCaption(
                           text: '...',
                           isElla: true,
                           isTyping: true,
-                        )
-                      else if (_currentEllaText != null)
-                        _PlacementCaption(
-                          text: _currentEllaText!,
-                          isElla: true,
-                        ),
-                      // User's bubble — shown below Ella's when user has responded
-                      if (_showUserCaption && _currentUserText != null) ...[
-                        const SizedBox(height: 10),
-                        _PlacementCaption(
-                          text: _currentUserText!,
-                          isElla: false,
-                        ),
-                      ],
-                    ],
+                        );
+                      }
+                      final entry = _history[index];
+                      return _PlacementCaption(
+                        text: entry.text,
+                        isElla: entry.isElla,
+                      );
+                    },
                   ),
                 ),
               ),
-            ),
-
-            // ── Input bar ─────────────────────────────────────────────────
-            _buildInputBar(),
-          ],
+              if (_isListening && _currentTranscript.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                  child: _PlacementCaption(
+                    text: _currentTranscript,
+                    isElla: false,
+                  ),
+                ),
+              _buildInputBar(),
+            ],
+          ),
         ),
       ),
     );
@@ -240,7 +360,7 @@ class _PlacementScreenState extends State<PlacementScreen>
   Widget _buildInputBar() {
     return Container(
       color: EllaColors.neutralBg,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
       child: _isKeyboardMode ? _buildKeyboardRow() : _buildMicRow(),
     );
   }
@@ -251,19 +371,27 @@ class _PlacementScreenState extends State<PlacementScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Keyboard icon — pinned to far left
           Align(
             alignment: Alignment.centerLeft,
             child: GestureDetector(
-              onTap: () => setState(() => _isKeyboardMode = true),
+              onTap: _isEllaTyping
+                  ? null
+                  : () {
+                      setState(() => _isKeyboardMode = true);
+                      Future.delayed(const Duration(milliseconds: 50), () {
+                        if (mounted) _textFocusNode.requestFocus();
+                      });
+                    },
               child: Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: EllaColors.neutralSurface,
-                  border:
-                      Border.all(color: EllaColors.neutralBorder, width: 1.5),
+                  border: Border.all(
+                    color: EllaColors.neutralBorder,
+                    width: 1.5,
+                  ),
                 ),
                 child: const Icon(
                   Icons.keyboard_alt_outlined,
@@ -273,17 +401,14 @@ class _PlacementScreenState extends State<PlacementScreen>
               ),
             ),
           ),
-          // Mic button — centered
           Center(
             child: GestureDetector(
-              onTap: _turnCount < _ellaTurns.length
-                  ? _toggleMicListening
-                  : null,
+              onTap: _toggleMicListening,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   if (_isListening)
-                    _MicPulseRing(color: EllaColors.mangoMain),
+                    const _MicPulseRing(color: EllaColors.mangoMain),
                   Container(
                     width: 64,
                     height: 64,
@@ -293,21 +418,21 @@ class _PlacementScreenState extends State<PlacementScreen>
                           ? EllaColors.mangoDark
                           : EllaColors.mangoMain,
                       border: Border.all(
-                          color: EllaColors.mangoDark, width: 2.5),
+                        color: EllaColors.mangoDark,
+                        width: 2.5,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: EllaColors.mangoDark,
                           offset: _isListening
-                              ? const Offset(1, 1)
-                              : const Offset(3, 3),
+                              ? const Offset(0, 1)
+                              : const Offset(0, 5),
                           blurRadius: 0,
                         ),
                       ],
                     ),
                     child: Icon(
-                      _isListening
-                          ? Icons.stop_rounded
-                          : Icons.mic_rounded,
+                      _isListening ? Icons.stop_rounded : Icons.mic_rounded,
                       size: 28,
                       color: Colors.white,
                     ),
@@ -324,9 +449,11 @@ class _PlacementScreenState extends State<PlacementScreen>
   Widget _buildKeyboardRow() {
     return Row(
       children: [
-        // Back to mic
         GestureDetector(
-          onTap: () => setState(() => _isKeyboardMode = false),
+          onTap: () {
+            setState(() => _isKeyboardMode = false);
+            _textFocusNode.unfocus();
+          },
           child: Container(
             width: 48,
             height: 48,
@@ -336,17 +463,17 @@ class _PlacementScreenState extends State<PlacementScreen>
               border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
             ),
             child: const Icon(
-              Icons.mic_rounded,
+              Icons.arrow_back_rounded,
               size: 22,
               color: EllaColors.neutralSecondary,
             ),
           ),
         ),
         const SizedBox(width: 8),
-        // Text field
         Expanded(
           child: TextField(
             controller: _textCtrl,
+            focusNode: _textFocusNode,
             textInputAction: TextInputAction.send,
             autofocus: true,
             onSubmitted: _handleUserResponse,
@@ -392,9 +519,10 @@ class _PlacementScreenState extends State<PlacementScreen>
           ),
         ),
         const SizedBox(width: 8),
-        // Send button
         GestureDetector(
-          onTap: () => _handleUserResponse(_textCtrl.text),
+          onTap: _isEllaTyping
+              ? null
+              : () => _handleUserResponse(_textCtrl.text),
           child: Container(
             width: 48,
             height: 48,
@@ -405,7 +533,7 @@ class _PlacementScreenState extends State<PlacementScreen>
               boxShadow: const [
                 BoxShadow(
                   color: EllaColors.mangoDark,
-                  offset: Offset(2, 2),
+                  offset: Offset(0, 5),
                   blurRadius: 0,
                 ),
               ],
@@ -421,8 +549,6 @@ class _PlacementScreenState extends State<PlacementScreen>
     );
   }
 }
-
-// ─── Placement Caption Bubble ─────────────────────────────────────────────────
 
 class _PlacementCaption extends StatelessWidget {
   final String text;
@@ -465,7 +591,7 @@ class _PlacementCaption extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            isElla ? 'ELLA SAYS' : 'YOU SAID',
+            isElla ? 'ZOE SAYS' : 'YOU SAID',
             style: GoogleFonts.inconsolata(
               fontSize: 10,
               fontWeight: FontWeight.w700,
@@ -475,7 +601,7 @@ class _PlacementCaption extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           if (isTyping)
-            _TypingDots()
+            const _TypingDots()
           else
             Text(
               text,
@@ -499,19 +625,19 @@ class _PlacementCaption extends StatelessWidget {
   }
 }
 
-// ─── Typing dots ──────────────────────────────────────────────────────────────
-
 class _TypingDots extends StatelessWidget {
+  const _TypingDots();
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [
+      children: const [
         _BouncingDot(delay: Duration.zero),
-        const SizedBox(width: 4),
-        _BouncingDot(delay: const Duration(milliseconds: 200)),
-        const SizedBox(width: 4),
-        _BouncingDot(delay: const Duration(milliseconds: 400)),
+        SizedBox(width: 4),
+        _BouncingDot(delay: Duration(milliseconds: 200)),
+        SizedBox(width: 4),
+        _BouncingDot(delay: Duration(milliseconds: 400)),
       ],
     );
   }
@@ -527,8 +653,8 @@ class _BouncingDot extends StatefulWidget {
 
 class _BouncingDotState extends State<_BouncingDot>
     with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
 
   @override
   void initState() {
@@ -537,9 +663,10 @@ class _BouncingDotState extends State<_BouncingDot>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _anim = Tween<double>(begin: 0, end: -6).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _anim = Tween<double>(
+      begin: 0,
+      end: -6,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
     Future.delayed(widget.delay, () {
       if (mounted) _ctrl.repeat(reverse: true);
     });
@@ -555,11 +682,11 @@ class _BouncingDotState extends State<_BouncingDot>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (ctx, child) => Transform.translate(
+      builder: (context, child) => Transform.translate(
         offset: Offset(0, _anim.value),
         child: Container(
-          width: 7,
-          height: 7,
+          width: 8,
+          height: 8,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
             color: EllaColors.skyDark,
@@ -569,8 +696,6 @@ class _BouncingDotState extends State<_BouncingDot>
     );
   }
 }
-
-// ─── Mic pulse ring ───────────────────────────────────────────────────────────
 
 class _MicPulseRing extends StatefulWidget {
   final Color color;
@@ -582,9 +707,9 @@ class _MicPulseRing extends StatefulWidget {
 
 class _MicPulseRingState extends State<_MicPulseRing>
     with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _opacity;
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
 
   @override
   void initState() {
@@ -593,12 +718,14 @@ class _MicPulseRingState extends State<_MicPulseRing>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat();
-    _scale = Tween<double>(begin: 1.0, end: 1.6).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
-    _opacity = Tween<double>(begin: 0.5, end: 0.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 1.6,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _opacity = Tween<double>(
+      begin: 0.5,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
@@ -611,7 +738,7 @@ class _MicPulseRingState extends State<_MicPulseRing>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (ctx, child) => Transform.scale(
+      builder: (context, child) => Transform.scale(
         scale: _scale.value,
         child: Container(
           width: 64,

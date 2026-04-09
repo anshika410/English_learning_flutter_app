@@ -8,11 +8,7 @@ class EllaPrimaryButton extends StatefulWidget {
   final String label;
   final VoidCallback? onTap;
 
-  const EllaPrimaryButton({
-    super.key,
-    required this.label,
-    this.onTap,
-  });
+  const EllaPrimaryButton({super.key, required this.label, this.onTap});
 
   @override
   State<EllaPrimaryButton> createState() => _EllaPrimaryButtonState();
@@ -23,10 +19,10 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Stamp shadow offset collapses when pressed
-    final shadowOffset = _pressed ? const Offset(1, 1) : const Offset(3, 3);
+    // Bottom press-depth shadow collapses when pressed.
+    final shadowOffset = _pressed ? const Offset(0, 1) : const Offset(0, 5);
     // Button translates down slightly when pressed
-    final translateY = _pressed ? 2.0 : 0.0;
+    final translateY = _pressed ? 4.0 : 0.0;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -36,7 +32,7 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
       },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
+        duration: const Duration(milliseconds: 70),
         curve: Curves.ease,
         transform: Matrix4.translationValues(0, translateY, 0),
         width: double.infinity,
@@ -63,7 +59,7 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
         ),
         child: Center(
           child: Text(
-            widget.label,
+            widget.label.toUpperCase(),
             style: GoogleFonts.baloo2(
               fontSize: 16,
               fontWeight: FontWeight.w700,

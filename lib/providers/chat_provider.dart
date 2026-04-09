@@ -28,10 +28,12 @@ class ChatProvider extends ChangeNotifier {
   bool _isSpeaking = false;
   bool _autoSpeak = true;
   bool _showLatency = true;
+  bool _initialized = false;
 
   // Latency tracking
   DateTime? _sttStartTime; // when mic was tapped
-  DateTime? _lastSpeechTime; // last time we got partial results (user still speaking)
+  DateTime?
+  _lastSpeechTime; // last time we got partial results (user still speaking)
   Duration? _lastSttProcessingDuration; // silence → final transcript
   Duration? _lastSttSpeakingDuration; // how long user spoke
 
@@ -56,7 +58,7 @@ class ChatProvider extends ChangeNotifier {
   String get llmModelName => _llm.activeConfig.model;
 
   void setLlmProvider(LlmProvider provider) {
-    _llm.setProvider(provider);
+    _llm.setProvider(LlmProvider.gemini);
     notifyListeners();
   }
 
@@ -69,18 +71,45 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> initialize() async {
+  Future<void> _ensureServicesInitialized() async {
+    if (_initialized) return;
+    _initialized = true;
     await _stt.initialize();
     _whisperAvailable = await _whisperStt.initialize();
-    debugPrint('Whisper on-device available: $_whisperAvailable (model loaded: ${_whisperStt.isAvailable})');
+    debugPrint(
+      'Whisper on-device available: $_whisperAvailable (model loaded: ${_whisperStt.isAvailable})',
+    );
     await _tts.initialize();
-    _messages.add(ChatMessage(
-      role: MessageRole.assistant,
-      content:
-          "Hi! I'm Ella, your English tutor. Let's practice together! "
-          "You can type or tap the microphone to speak. "
-          "What would you like to talk about today?",
-    ));
+  }
+
+  Future<void> initialize({String? topic}) async {
+    await _ensureServicesInitialized();
+    if (_messages.isNotEmpty) return;
+    String starter;
+    try {
+      starter = await _llm.generateConversationStarter(topic: topic);
+    } catch (_) {
+      starter = "Hi! I'm Zoe. What would you like to talk about today?";
+    }
+    _messages.add(ChatMessage(role: MessageRole.assistant, content: starter));
+    notifyListeners();
+  }
+
+  Future<void> startConversationSession({String? topic}) async {
+    await _ensureServicesInitialized();
+    _messages.clear();
+    _currentTranscript = '';
+    _isListening = false;
+    _isLoading = false;
+    _isSpeaking = false;
+
+    String starter;
+    try {
+      starter = await _llm.generateConversationStarter(topic: topic);
+    } catch (_) {
+      starter = "Hi! I'm Zoe. What would you like to talk about today?";
+    }
+    _messages.add(ChatMessage(role: MessageRole.assistant, content: starter));
     notifyListeners();
   }
 
@@ -223,11 +252,17 @@ class ChatProvider extends ChangeNotifier {
     if (!result.finalResult) {
       _lastSpeechTime = DateTime.now();
     }
-    debugPrint('STT result: "${result.recognizedWords}" final=${result.finalResult}');
+    debugPrint(
+      'STT result: "${result.recognizedWords}" final=${result.finalResult}',
+    );
     notifyListeners();
   }
 
-  Future<void> sendMessage(String text, {Duration? sttDuration, Duration? sttSpeakingDuration}) async {
+  Future<void> sendMessage(
+    String text, {
+    Duration? sttDuration,
+    Duration? sttSpeakingDuration,
+  }) async {
     if (text.trim().isEmpty) return;
 
     final turnStart = DateTime.now();
@@ -265,12 +300,14 @@ class ChatProvider extends ChangeNotifier {
 
       debugPrint('⏱ ${latency.summary}');
 
-      _messages.add(ChatMessage(
-        role: reply.role,
-        content: reply.content,
-        correction: reply.correction,
-        latency: latency,
-      ));
+      _messages.add(
+        ChatMessage(
+          role: reply.role,
+          content: reply.content,
+          correction: reply.correction,
+          latency: latency,
+        ),
+      );
     } catch (e) {
       final totalDuration = DateTime.now().difference(turnStart);
       final latency = LatencyInfo(
@@ -283,11 +320,13 @@ class ChatProvider extends ChangeNotifier {
       debugPrint('⏱ ERROR turn: ${latency.summary}');
       debugPrint('⏱ Error details: $e');
 
-      _messages.add(ChatMessage(
-        role: MessageRole.assistant,
-        content: 'Sorry, I had trouble responding. Please try again.\n($e)',
-        latency: latency,
-      ));
+      _messages.add(
+        ChatMessage(
+          role: MessageRole.assistant,
+          content: 'Sorry, I had trouble responding. Please try again.\n($e)',
+          latency: latency,
+        ),
+      );
     } finally {
       _isLoading = false;
       _isSpeaking = false;

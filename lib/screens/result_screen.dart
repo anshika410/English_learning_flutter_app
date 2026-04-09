@@ -7,11 +7,14 @@ import 'home_screen.dart';
 class ResultScreen extends StatefulWidget {
   final String level;
   final String levelName;
+  final String highlight;
 
   const ResultScreen({
     super.key,
     required this.level,
     required this.levelName,
+    this.highlight =
+        'You expressed yourself clearly and used good vocabulary when describing your favourite place. Keep it up!',
   });
 
   @override
@@ -31,12 +34,14 @@ class _ResultScreenState extends State<ResultScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _successScale = Tween<double>(begin: 1.0, end: 1.7).animate(
-      CurvedAnimation(parent: _successCtrl, curve: Curves.easeOut),
-    );
-    _successOpacity = Tween<double>(begin: 0.6, end: 0.0).animate(
-      CurvedAnimation(parent: _successCtrl, curve: Curves.easeOut),
-    );
+    _successScale = Tween<double>(
+      begin: 1.0,
+      end: 1.7,
+    ).animate(CurvedAnimation(parent: _successCtrl, curve: Curves.easeOut));
+    _successOpacity = Tween<double>(
+      begin: 0.6,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _successCtrl, curve: Curves.easeOut));
     // Single success burst on mount
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _successCtrl.forward();
@@ -79,8 +84,9 @@ class _ResultScreenState extends State<ResultScreen>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: EllaColors.limeMain
-                                .withValues(alpha: _successOpacity.value),
+                            color: EllaColors.limeMain.withValues(
+                              alpha: _successOpacity.value,
+                            ),
                             width: 3,
                           ),
                         ),
@@ -103,7 +109,8 @@ class _ResultScreenState extends State<ResultScreen>
             Text(
               'Great job! 🎉',
               textAlign: TextAlign.center,
-              style: GoogleFonts.fredoka(
+              style: const TextStyle(
+                fontFamily: 'Chillax',
                 fontSize: 28,
                 fontWeight: FontWeight.w600,
                 color: EllaColors.neutralPrimary,
@@ -136,10 +143,11 @@ class _ResultScreenState extends State<ResultScreen>
               ),
               child: Text(
                 '${widget.level} — ${widget.levelName}',
-                style: GoogleFonts.fredoka(
+                style: const TextStyle(
+                  fontFamily: 'Chillax',
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: EllaColors.ink,
                   letterSpacing: 0.3,
                 ),
               ),
@@ -160,9 +168,9 @@ class _ResultScreenState extends State<ResultScreen>
                   ),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x08000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
+                      color: EllaColors.neutralBorder,
+                      blurRadius: 0,
+                      offset: Offset(0, 4),
                     ),
                   ],
                 ),
@@ -190,7 +198,7 @@ class _ResultScreenState extends State<ResultScreen>
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'You expressed yourself clearly and used good vocabulary when describing your favourite place. Keep it up!',
+                      widget.highlight,
                       style: GoogleFonts.kalam(
                         fontSize: 16,
                         fontWeight: FontWeight.w400,

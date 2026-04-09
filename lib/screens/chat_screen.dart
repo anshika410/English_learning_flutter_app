@@ -54,7 +54,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ella'),
+        title: const Text('Zoe'),
         actions: [
           Consumer<ChatProvider>(
             builder: (_, chat, __) => IconButton(
@@ -191,7 +191,7 @@ class _TypingIndicator extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Ella is thinking...',
+              'Zoe is thinking...',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

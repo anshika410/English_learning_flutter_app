@@ -14,14 +14,30 @@ class _TranscriptEntry {
 }
 
 final List<_TranscriptEntry> _mockTranscript = [
-  _TranscriptEntry(true, "Hey! Let's talk about daily routine. What time do you usually wake up?"),
-  _TranscriptEntry(false, "I usually wake up at 7 in the morning.",
-      correction: 'Great use of "usually"! ✓'),
-  _TranscriptEntry(true, "Nice! And what do you do first thing in the morning?"),
-  _TranscriptEntry(false, "I eated breakfast and then check my phone.",
-      correction: 'Correction: "ate" not "eated" — past tense of eat is irregular.'),
+  _TranscriptEntry(
+    true,
+    "Hey! Let's talk about daily routine. What time do you usually wake up?",
+  ),
+  _TranscriptEntry(
+    false,
+    "I usually wake up at 7 in the morning.",
+    correction: 'Great use of "usually"! ✓',
+  ),
+  _TranscriptEntry(
+    true,
+    "Nice! And what do you do first thing in the morning?",
+  ),
+  _TranscriptEntry(
+    false,
+    "I eated breakfast and then check my phone.",
+    correction:
+        'Correction: "ate" not "eated" — past tense of eat is irregular.',
+  ),
   _TranscriptEntry(true, "I see! What helps you feel energised for the day?"),
-  _TranscriptEntry(false, "Honestly, I also feel better after a short walk outside."),
+  _TranscriptEntry(
+    false,
+    "Honestly, I also feel better after a short walk outside.",
+  ),
 ];
 
 // ─── EndScreen ────────────────────────────────────────────────────────────────
@@ -66,7 +82,8 @@ class EndScreen extends StatelessWidget {
               // Title
               Text(
                 'Full Transcript',
-                style: GoogleFonts.fredoka(
+                style: const TextStyle(
+                  fontFamily: 'Chillax',
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: EllaColors.neutralPrimary,
@@ -117,21 +134,18 @@ class EndScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.transparent,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(4),
                       topRight: Radius.circular(20),
                       bottomRight: Radius.circular(4),
                       bottomLeft: Radius.circular(20),
                     ),
-                    border: Border.all(
-                      color: EllaColors.mangoMain,
-                      width: 2,
-                    ),
+                    border: Border.all(color: EllaColors.mangoMain, width: 2),
                     boxShadow: const [
                       BoxShadow(
                         color: EllaColors.mangoDark,
-                        offset: Offset(3, 3),
+                        offset: Offset(0, 5),
                         blurRadius: 0,
                       ),
                     ],
@@ -185,7 +199,8 @@ class EndScreen extends StatelessWidget {
               Text(
                 'Great conversation! ⭐',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.fredoka(
+                style: const TextStyle(
+                  fontFamily: 'Chillax',
                   fontSize: 26,
                   fontWeight: FontWeight.w600,
                   color: EllaColors.neutralPrimary,
@@ -253,7 +268,8 @@ class EndScreen extends StatelessWidget {
                   children: [
                     Text(
                       'usually',
-                      style: GoogleFonts.fredoka(
+                      style: const TextStyle(
+                        fontFamily: 'Chillax',
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
                         color: EllaColors.neutralPrimary,
@@ -308,6 +324,13 @@ class _EndCard extends StatelessWidget {
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: borderColor,
+            offset: const Offset(0, 4),
+            blurRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,13 +371,11 @@ class _TranscriptRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
-              entry.isElla ? 'ELLA' : 'YOU',
+              entry.isElla ? 'ZOE' : 'YOU',
               style: GoogleFonts.inconsolata(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: entry.isElla
-                    ? EllaColors.skyDark
-                    : EllaColors.mangoDark,
+                color: entry.isElla ? EllaColors.skyDark : EllaColors.mangoDark,
                 letterSpacing: 0.8,
               ),
             ),
@@ -414,10 +435,7 @@ class _TranscriptRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: EllaColors.mangoLightest,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: EllaColors.mangoLight,
-                  width: 1,
-                ),
+                border: Border.all(color: EllaColors.mangoLight, width: 1),
               ),
               child: Text(
                 entry.correction!,

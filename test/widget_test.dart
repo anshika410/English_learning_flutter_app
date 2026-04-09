@@ -4,6 +4,6 @@ import 'package:ella_flutter/main.dart';
 void main() {
   testWidgets('App renders', (WidgetTester tester) async {
     await tester.pumpWidget(const EllaApp());
-    expect(find.text('Ella — English Tutor'), findsOneWidget);
+    expect(find.text("Let's Go"), findsOneWidget);
   });
 }

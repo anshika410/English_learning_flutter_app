@@ -6,15 +6,18 @@ import '../models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import 'end_screen.dart';
 
-// ─── Scaffold pills shown at A1/A2 levels ─────────────────────────────────────
-
 const List<String> _scaffoldPills = [
   'Honestly, I also feel...',
   'What helps me is...',
   'Try not to...',
 ];
 
-// ─── ConversationScreen ───────────────────────────────────────────────────────
+class _CaptionItem {
+  final String text;
+  final bool isElla;
+
+  const _CaptionItem({required this.text, required this.isElla});
+}
 
 class ConversationScreen extends StatefulWidget {
   final String topic;
@@ -31,14 +34,14 @@ class _ConversationScreenState extends State<ConversationScreen>
   bool _isKeyboardMode = false;
   bool _hasUserSpokenThisTurn = false;
 
-  // Track last Ella message so it persists while user is speaking
-  String? _lastEllaText;
-
   final TextEditingController _textCtrl = TextEditingController();
+  final ScrollController _captionScrollCtrl = ScrollController();
+  final FocusNode _textFocusNode = FocusNode();
 
-  // Pulse animation for Ella's avatar when speaking/loading
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
+
+  int _lastCaptionCount = 0;
 
   @override
   void initState() {
@@ -47,12 +50,15 @@ class _ConversationScreenState extends State<ConversationScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     )..repeat();
-    _pulseAnim = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut),
-    );
+    _pulseAnim = Tween<double>(
+      begin: 1.0,
+      end: 1.3,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().initialize();
+      context.read<ChatProvider>().startConversationSession(
+        topic: widget.topic,
+      );
     });
   }
 
@@ -60,6 +66,8 @@ class _ConversationScreenState extends State<ConversationScreen>
   void dispose() {
     _pulseCtrl.dispose();
     _textCtrl.dispose();
+    _captionScrollCtrl.dispose();
+    _textFocusNode.dispose();
     super.dispose();
   }
 
@@ -71,6 +79,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       _hasUserSpokenThisTurn = true;
       _isKeyboardMode = false;
     });
+    _textFocusNode.unfocus();
     context.read<ChatProvider>().sendMessage(text);
   }
 
@@ -85,15 +94,48 @@ class _ConversationScreenState extends State<ConversationScreen>
   void _goToEndScreen() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => EndScreen(
-          topic: widget.topic,
-          durationLabel: '4 min 12 sec',
-        ),
+        builder: (_) =>
+            EndScreen(topic: widget.topic, durationLabel: '4 min 12 sec'),
       ),
     );
   }
 
   bool get _showScaffoldPills => !_hasUserSpokenThisTurn;
+
+  List<_CaptionItem> _buildCaptionItems(ChatProvider chat) {
+    final items = <_CaptionItem>[];
+    for (final msg in chat.messages) {
+      if (msg.role == MessageRole.user) {
+        items.add(_CaptionItem(text: msg.content, isElla: false));
+      } else if (msg.role == MessageRole.assistant) {
+        items.add(_CaptionItem(text: msg.content, isElla: true));
+      }
+    }
+    if (chat.isListening) {
+      items.add(
+        _CaptionItem(
+          text: chat.currentTranscript.isNotEmpty
+              ? chat.currentTranscript
+              : 'Listening…',
+          isElla: false,
+        ),
+      );
+    }
+    return items;
+  }
+
+  void _maybeAutoScroll(int captionCount) {
+    if (captionCount == _lastCaptionCount) return;
+    _lastCaptionCount = captionCount;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_captionScrollCtrl.hasClients) return;
+      _captionScrollCtrl.animateTo(
+        _captionScrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,26 +146,28 @@ class _ConversationScreenState extends State<ConversationScreen>
       backgroundColor: EllaColors.neutralBg,
       resizeToAvoidBottomInset: false,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            Expanded(child: _buildCenterArea(keyboardUp: keyboardUp)),
-            if (_showScaffoldPills) _buildScaffoldPills(),
-            _buildInputBar(),
-          ],
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Column(
+            children: [
+              _buildAppBar(),
+              Expanded(child: _buildCenterArea(keyboardUp: keyboardUp)),
+              if (_showScaffoldPills && !keyboardUp) _buildScaffoldPills(),
+              _buildInputBar(),
+            ],
+          ),
         ),
       ),
     );
   }
-
-  // ── App bar ──────────────────────────────────────────────────────────────────
 
   Widget _buildAppBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
-          // Back button
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
@@ -142,7 +186,6 @@ class _ConversationScreenState extends State<ConversationScreen>
             ),
           ),
           const SizedBox(width: 12),
-          // Topic + level
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,7 +193,8 @@ class _ConversationScreenState extends State<ConversationScreen>
               children: [
                 Text(
                   widget.topic,
-                  style: GoogleFonts.fredoka(
+                  style: const TextStyle(
+                    fontFamily: 'Chillax',
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: EllaColors.neutralPrimary,
@@ -159,7 +203,10 @@ class _ConversationScreenState extends State<ConversationScreen>
                 ),
                 const SizedBox(height: 2),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: EllaColors.skyLightest,
                     borderRadius: BorderRadius.circular(100),
@@ -176,7 +223,6 @@ class _ConversationScreenState extends State<ConversationScreen>
               ],
             ),
           ),
-          // End conversation button
           GestureDetector(
             onTap: _goToEndScreen,
             child: Container(
@@ -201,116 +247,82 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
   }
 
-  // ── Center area: avatar + captions ──────────────────────────────────────────
-
   Widget _buildCenterArea({required bool keyboardUp}) {
     return Consumer<ChatProvider>(
-      builder: (ctx, chat, child) {
+      builder: (_, chat, __) {
         final isPulsing = chat.isLoading || chat.isSpeaking || chat.isListening;
-        if (!chat.isLoading && !chat.isSpeaking && !chat.isListening) {
-          _pulseCtrl.stop();
-        } else {
+        if (isPulsing) {
           if (!_pulseCtrl.isAnimating) _pulseCtrl.repeat();
+        } else {
+          _pulseCtrl.stop();
         }
 
-        // Update _lastEllaText whenever a new Ella message arrives
-        if (chat.messages.isNotEmpty) {
-          final lastMsg = chat.messages.last;
-          if (lastMsg.role != MessageRole.user) {
-            _lastEllaText = lastMsg.content;
-          }
-        }
+        final captions = _buildCaptionItems(chat);
+        _maybeAutoScroll(captions.length);
 
-        // Determine what to show in captions
-        // - Ella bubble: always show _lastEllaText if available
-        // - User bubble: show when isListening (live transcript or "Listening…")
-        String? ellaCaptionText = _lastEllaText;
-        String? userCaptionText;
+        final avatarSize = keyboardUp
+            ? (captions.length >= 3 ? 104.0 : 120.0)
+            : (_captionsEnabled ? 160.0 : 200.0);
 
-        if (chat.isListening) {
-          userCaptionText = chat.currentTranscript.isNotEmpty
-              ? chat.currentTranscript
-              : 'Listening…';
-        }
-
-        // Avatar shrinks when keyboard is up
-        final avatarSize = keyboardUp ? 96.0 : (_captionsEnabled ? 160.0 : 200.0);
-
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Ella avatar with optional pulse ring
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                if (isPulsing)
-                  AnimatedBuilder(
-                    animation: _pulseAnim,
-                    builder: (context2, child2) => Transform.scale(
-                      scale: _pulseAnim.value,
-                      child: Container(
-                        width: avatarSize,
-                        height: avatarSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: EllaColors.skyMain.withValues(alpha: 0.35),
-                            width: 3,
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (isPulsing)
+                    AnimatedBuilder(
+                      animation: _pulseAnim,
+                      builder: (_, __) => Transform.scale(
+                        scale: _pulseAnim.value,
+                        child: Container(
+                          width: avatarSize,
+                          height: avatarSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: EllaColors.skyMain.withValues(alpha: 0.35),
+                              width: 3,
+                            ),
                           ),
                         ),
                       ),
                     ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: avatarSize,
+                    height: avatarSize,
+                    child: Image.asset(
+                      'images/ella-neutral.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  width: avatarSize,
-                  height: avatarSize,
-                  child: Image.asset(
-                    'images/ella-neutral.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ],
-            ),
-
-            // Caption bubbles
-            if (_captionsEnabled && (ellaCaptionText != null || userCaptionText != null)) ...[
-              const SizedBox(height: 16),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (ellaCaptionText != null)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 220),
-                          child: SingleChildScrollView(
-                            child: _CaptionBubble(
-                              text: ellaCaptionText,
-                              isElla: true,
-                            ),
-                          ),
-                        ),
-                      if (userCaptionText != null) ...[
-                        const SizedBox(height: 10),
-                        _CaptionBubble(
-                          text: userCaptionText,
-                          isElla: false,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                ],
               ),
+              if (_captionsEnabled) ...[
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.separated(
+                    controller: _captionScrollCtrl,
+                    padding: const EdgeInsets.only(bottom: 10),
+                    itemCount: captions.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, index) => _CaptionBubble(
+                      text: captions[index].text,
+                      isElla: captions[index].isElla,
+                    ),
+                  ),
+                ),
+              ] else
+                const Spacer(),
             ],
-          ],
+          ),
         );
       },
     );
   }
-
-  // ── Scaffold pills ───────────────────────────────────────────────────────────
 
   Widget _buildScaffoldPills() {
     return SizedBox(
@@ -319,8 +331,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _scaffoldPills.length,
-        separatorBuilder: (ctx, i) => const SizedBox(width: 8),
-        itemBuilder: (ctx, i) => Center(
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
@@ -329,8 +341,8 @@ class _ConversationScreenState extends State<ConversationScreen>
               border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
               boxShadow: const [
                 BoxShadow(
-                  color: EllaColors.neutralBorder,
-                  offset: Offset(3, 3),
+                  color: EllaColors.mangoDark,
+                  offset: Offset(0, 3),
                   blurRadius: 0,
                 ),
               ],
@@ -349,19 +361,17 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
   }
 
-  // ── Input bar ────────────────────────────────────────────────────────────────
-
   Widget _buildInputBar() {
     return Container(
       color: EllaColors.neutralBg,
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
       child: _isKeyboardMode ? _buildKeyboardRow() : _buildMicRow(),
     );
   }
 
   Widget _buildMicRow() {
     return Consumer<ChatProvider>(
-      builder: (ctx, chat, child) {
+      builder: (_, chat, __) {
         final isListening = chat.isListening;
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -381,11 +391,15 @@ class _ConversationScreenState extends State<ConversationScreen>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Keyboard icon — pinned to far left
                   Align(
                     alignment: Alignment.centerLeft,
                     child: GestureDetector(
-                      onTap: () => setState(() => _isKeyboardMode = true),
+                      onTap: () {
+                        setState(() => _isKeyboardMode = true);
+                        Future.delayed(const Duration(milliseconds: 50), () {
+                          if (mounted) _textFocusNode.requestFocus();
+                        });
+                      },
                       child: Container(
                         width: 48,
                         height: 48,
@@ -405,7 +419,6 @@ class _ConversationScreenState extends State<ConversationScreen>
                       ),
                     ),
                   ),
-                  // Mic button — centered
                   Center(
                     child: GestureDetector(
                       onTap: _handleMicTap,
@@ -413,7 +426,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                         alignment: Alignment.center,
                         children: [
                           if (isListening)
-                            _MicPulseRing(color: EllaColors.mangoMain),
+                            const _MicPulseRing(color: EllaColors.mangoMain),
                           Container(
                             width: 64,
                             height: 64,
@@ -423,13 +436,15 @@ class _ConversationScreenState extends State<ConversationScreen>
                                   ? EllaColors.mangoDark
                                   : EllaColors.mangoMain,
                               border: Border.all(
-                                  color: EllaColors.mangoDark, width: 2.5),
+                                color: EllaColors.mangoDark,
+                                width: 2.5,
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: EllaColors.mangoDark,
                                   offset: isListening
-                                      ? const Offset(1, 1)
-                                      : const Offset(3, 3),
+                                      ? const Offset(0, 1)
+                                      : const Offset(0, 5),
                                   blurRadius: 0,
                                 ),
                               ],
@@ -446,7 +461,6 @@ class _ConversationScreenState extends State<ConversationScreen>
                       ),
                     ),
                   ),
-                  // CC (captions) toggle — pinned to far right
                   Align(
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
@@ -491,9 +505,11 @@ class _ConversationScreenState extends State<ConversationScreen>
   Widget _buildKeyboardRow() {
     return Row(
       children: [
-        // Back to mic
         GestureDetector(
-          onTap: () => setState(() => _isKeyboardMode = false),
+          onTap: () {
+            setState(() => _isKeyboardMode = false);
+            _textFocusNode.unfocus();
+          },
           child: Container(
             width: 48,
             height: 48,
@@ -503,17 +519,17 @@ class _ConversationScreenState extends State<ConversationScreen>
               border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
             ),
             child: const Icon(
-              Icons.mic_rounded,
+              Icons.arrow_back_rounded,
               size: 22,
               color: EllaColors.neutralSecondary,
             ),
           ),
         ),
         const SizedBox(width: 8),
-        // Text field
         Expanded(
           child: TextField(
             controller: _textCtrl,
+            focusNode: _textFocusNode,
             textInputAction: TextInputAction.send,
             autofocus: true,
             onSubmitted: (_) => _handleSend(),
@@ -559,7 +575,6 @@ class _ConversationScreenState extends State<ConversationScreen>
           ),
         ),
         const SizedBox(width: 8),
-        // Send button
         GestureDetector(
           onTap: _handleSend,
           child: Container(
@@ -572,7 +587,7 @@ class _ConversationScreenState extends State<ConversationScreen>
               boxShadow: const [
                 BoxShadow(
                   color: EllaColors.mangoDark,
-                  offset: Offset(2, 2),
+                  offset: Offset(0, 5),
                   blurRadius: 0,
                 ),
               ],
@@ -588,8 +603,6 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
   }
 }
-
-// ─── Caption Bubble ───────────────────────────────────────────────────────────
 
 class _CaptionBubble extends StatelessWidget {
   final String text;
@@ -626,7 +639,7 @@ class _CaptionBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isElla ? 'ELLA SAYS' : 'YOU SAY',
+            isElla ? 'ZOE SAYS' : 'YOU SAY',
             style: GoogleFonts.inconsolata(
               fontSize: 10,
               fontWeight: FontWeight.w700,
@@ -657,8 +670,6 @@ class _CaptionBubble extends StatelessWidget {
   }
 }
 
-// ─── Mic pulse ring ───────────────────────────────────────────────────────────
-
 class _MicPulseRing extends StatefulWidget {
   final Color color;
   const _MicPulseRing({required this.color});
@@ -669,9 +680,9 @@ class _MicPulseRing extends StatefulWidget {
 
 class _MicPulseRingState extends State<_MicPulseRing>
     with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _opacity;
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
 
   @override
   void initState() {
@@ -680,12 +691,14 @@ class _MicPulseRingState extends State<_MicPulseRing>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat();
-    _scale = Tween<double>(begin: 1.0, end: 1.6).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
-    _opacity = Tween<double>(begin: 0.5, end: 0.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 1.6,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _opacity = Tween<double>(
+      begin: 0.5,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
@@ -698,7 +711,7 @@ class _MicPulseRingState extends State<_MicPulseRing>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (ctx, child) => Transform.scale(
+      builder: (_, __) => Transform.scale(
         scale: _scale.value,
         child: Container(
           width: 64,

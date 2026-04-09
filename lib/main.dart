@@ -22,7 +22,7 @@ class EllaApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => ChatProvider(),
       child: MaterialApp(
-        title: 'Ella — English Tutor',
+        title: 'Zoe — English Tutor',
         debugShowCheckedModeBanner: false,
         theme: EllaTheme.light(),
         home: const WelcomeScreen(),

@@ -40,8 +40,9 @@ class HomeScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'ella.',
-                    style: GoogleFonts.fredoka(
+                    'zoe.',
+                    style: const TextStyle(
+                      fontFamily: 'Chillax',
                       fontSize: 28,
                       fontWeight: FontWeight.w600,
                       color: EllaColors.mangoMain,
@@ -83,7 +84,8 @@ class HomeScreen extends StatelessWidget {
             Text(
               'Ready to talk today? 👋',
               textAlign: TextAlign.center,
-              style: GoogleFonts.fredoka(
+              style: const TextStyle(
+                fontFamily: 'Chillax',
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
                 color: EllaColors.neutralPrimary,
@@ -135,7 +137,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Let Ella decide the topic',
+                            'Let Zoe decide the topic',
                             style: GoogleFonts.baloo2(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -149,7 +151,7 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(
                       width: 140,
                       child: EllaPrimaryButton(
-                        label: 'Talk to Ella',
+                        label: 'Talk to Zoe',
                         onTap: () => _startConversation(context),
                       ),
                     ),
@@ -184,8 +186,8 @@ class _TopicChip extends StatelessWidget {
           border: Border.all(color: EllaColors.neutralBorder, width: 2),
           boxShadow: const [
             BoxShadow(
-              color: EllaColors.ink,
-              offset: Offset(3, 3),
+              color: EllaColors.mangoDark,
+              offset: Offset(0, 3),
               blurRadius: 0,
             ),
           ],
