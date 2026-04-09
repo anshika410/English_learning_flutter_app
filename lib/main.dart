@@ -4,7 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'providers/chat_provider.dart';
-import 'screens/chat_screen.dart';
+import 'screens/welcome_screen.dart';
+import 'theme/ella_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,21 +24,8 @@ class EllaApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Ella — English Tutor',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-        ),
-        home: const ChatScreen(),
+        theme: EllaTheme.light(),
+        home: const WelcomeScreen(),
       ),
     );
   }
