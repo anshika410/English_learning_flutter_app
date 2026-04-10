@@ -1,17 +1,58 @@
-# ella_flutter
+# Ella
 
-English language learning app
+Voice-first English learning app for Indian students. Students speak to an AI tutor (Zoe) — no typing required.
 
-## Getting Started
+**Platform:** Android-first Flutter · **Org:** NavGurukul
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## For Claude / New Contributors — Read This First
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Before reading any code, start here:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Document | When to read it |
+|---|---|
+| [`docs/project-summary.md`](docs/project-summary.md) | Architecture, screen flow, key files, key patterns — read once to orient yourself |
+| [`docs/ella-design-system-v3.md`](docs/ella-design-system-v3.md) | Colour tokens, typography, shadows, component specs — check when touching UI |
+
+**Rule of thumb:** Only open code files when you actually need to change something. The project summary gives you enough context to navigate without reading every screen upfront.
+
+---
+
+## Running the App
+
+```bash
+flutter pub get
+flutter run
+```
+
+Requires a `.env` file in the project root with LLM API keys (Gemini or OpenAI). Copy `.env.example` if it exists, or ask Narendra for the keys.
+
+---
+
+## Branches
+
+- `main` — stable
+- Feature work lives on topic branches (e.g. `conversation-flow`)
+
+---
+
+## Project Structure
+
+```
+lib/
+  screens/       # One file per screen
+  widgets/       # Shared UI components
+  services/      # TTS, STT, LLM abstractions
+  providers/     # ChatProvider (conversation state)
+  models/        # ChatMessage, PlacementResult, LatencyInfo
+  theme/         # EllaColors + EllaTheme
+docs/
+  project-summary.md
+  ella-design-system-v3.md
+assets/
+  mascot-animations/   # Zoe .webp animations
+  chillax/             # Chillax font files
+  piper_voices/        # Piper TTS models
+  whisper/             # Whisper STT model
+```

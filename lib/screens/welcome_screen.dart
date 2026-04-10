@@ -38,7 +38,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (_didPrecacheMascotImages) return;
 
     precacheImage(
-      const AssetImage('assets/mascot-animations/Speaking.webp'),
+      const AssetImage('assets/mascot-animations/speaking.webp'),
       context,
     );
     precacheImage(
@@ -285,22 +285,19 @@ class _ZoeMascot extends StatelessWidget {
         ],
       ),
       child: ClipOval(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 450),
-            switchInCurve: Curves.easeOut,
-            switchOutCurve: Curves.easeIn,
-            transitionBuilder: (child, animation) =>
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) =>
               FadeTransition(opacity: animation, child: child),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Image.asset(
-              isSpeaking
-                  ? 'assets/mascot-animations/Speaking.webp'
-                  : 'assets/mascot-animations/listening.webp',
-              key: ValueKey<bool>(isSpeaking),
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
-            ),
+          child: Image.asset(
+            isSpeaking
+                ? 'assets/mascot-animations/speaking.webp'
+                : 'assets/mascot-animations/listening.webp',
+            key: ValueKey<bool>(isSpeaking),
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
           ),
         ),
       ),

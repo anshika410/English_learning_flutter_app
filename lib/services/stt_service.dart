@@ -34,7 +34,7 @@ class SttService {
     await _speech.listen(
       onResult: onResult,
       listenFor: const Duration(minutes: 5),
-      pauseFor: const Duration(seconds: 10),
+      pauseFor: const Duration(minutes: 5),
       localeId: 'en',
       onSoundLevelChange: null,
       listenOptions: SpeechListenOptions(

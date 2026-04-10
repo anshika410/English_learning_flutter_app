@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
-import '../models/chat_message.dart';
 import '../models/placement_result.dart';
-import '../services/llm_service.dart';
 import '../services/stt_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import 'result_screen.dart';
+
+// ─── Mascot State ─────────────────────────────────────────────────────────────
+
+enum _MascotState { speaking, listening, thinking }
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
 class _PlacementBubbleEntry {
   final String text;
@@ -16,6 +20,8 @@ class _PlacementBubbleEntry {
   const _PlacementBubbleEntry({required this.text, required this.isElla});
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 class PlacementScreen extends StatefulWidget {
   const PlacementScreen({super.key});
 
@@ -23,12 +29,12 @@ class PlacementScreen extends StatefulWidget {
   State<PlacementScreen> createState() => _PlacementScreenState();
 }
 
-class _PlacementScreenState extends State<PlacementScreen>
-    with TickerProviderStateMixin {
-  static const int _minTurns = 5;
-  static const int _maxTurns = 8;
+class _PlacementScreenState extends State<PlacementScreen> {
+  static const String _openingLine =
+      'Hi. You have taken the step to master English speaking. '
+      'With this conversation, I will be able to help you get to the next '
+      'step of your learning. I am Zoe. What is your name?';
 
-  final LlmService _llm = LlmService();
   final SttService _stt = SttService();
   final TtsManager _tts = TtsManager();
   final TextEditingController _textCtrl = TextEditingController();
@@ -36,34 +42,18 @@ class _PlacementScreenState extends State<PlacementScreen>
   final FocusNode _textFocusNode = FocusNode();
 
   int _userResponses = 0;
-  bool _isEllaTyping = false;
   bool _isKeyboardMode = false;
   bool _isListening = false;
   bool _isCompleting = false;
   String _currentTranscript = '';
+  _MascotState _mascotState = _MascotState.speaking;
+  bool _didPrecacheMascotImages = false;
 
   final List<_PlacementBubbleEntry> _history = [];
-
-  late AnimationController _pulseCtrl;
-  late Animation<double> _pulseScale;
-  late Animation<double> _pulseOpacity;
 
   @override
   void initState() {
     super.initState();
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat();
-    _pulseScale = Tween<double>(
-      begin: 1.0,
-      end: 1.5,
-    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut));
-    _pulseOpacity = Tween<double>(
-      begin: 0.45,
-      end: 0.0,
-    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut));
-
     _stt.initialize();
     _tts.initialize();
     Future.delayed(
@@ -73,25 +63,32 @@ class _PlacementScreenState extends State<PlacementScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecacheMascotImages) return;
+    precacheImage(
+      const AssetImage('assets/mascot-animations/speaking.webp'),
+      context,
+    );
+    precacheImage(
+      const AssetImage('assets/mascot-animations/listening.webp'),
+      context,
+    );
+    precacheImage(
+      const AssetImage('assets/mascot-animations/regular-thinking.webp'),
+      context,
+    );
+    _didPrecacheMascotImages = true;
+  }
+
+  @override
   void dispose() {
-    _pulseCtrl.dispose();
     _stt.dispose();
     _tts.dispose();
     _textCtrl.dispose();
     _scrollCtrl.dispose();
     _textFocusNode.dispose();
     super.dispose();
-  }
-
-  List<ChatMessage> _chatHistory() {
-    return _history
-        .map(
-          (entry) => ChatMessage(
-            role: entry.isElla ? MessageRole.assistant : MessageRole.user,
-            content: entry.text,
-          ),
-        )
-        .toList();
   }
 
   void _scrollToBottom() {
@@ -107,52 +104,25 @@ class _PlacementScreenState extends State<PlacementScreen>
 
   Future<void> _requestNextPlacementTurn() async {
     if (!mounted || _isCompleting) return;
-    if (_userResponses >= _maxTurns) {
-      await _goToResult();
-      return;
-    }
 
-    setState(() => _isEllaTyping = true);
-    if (!_pulseCtrl.isAnimating) _pulseCtrl.repeat();
-
-    PlacementTurnDecision decision;
-    try {
-      decision = await _llm.nextPlacementTurn(
-        history: _chatHistory(),
-        userResponses: _userResponses,
-        minTurns: _minTurns,
-        maxTurns: _maxTurns,
-      );
-    } catch (_) {
-      decision = PlacementTurnDecision(
-        continuePlacement: _userResponses < _minTurns,
-        nextQuestion: _userResponses < _minTurns
-            ? 'Can you tell me about a recent experience in English?'
-            : '',
-        reason: 'fallback',
-      );
-    }
-
+    // Thinking — Zoe is composing her reply
+    setState(() => _mascotState = _MascotState.thinking);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
     if (!mounted || _isCompleting) return;
 
-    if (!decision.continuePlacement && _userResponses >= _minTurns) {
-      setState(() => _isEllaTyping = false);
-      _pulseCtrl.stop();
-      await _goToResult();
-      return;
-    }
-
-    final question = decision.nextQuestion.trim().isNotEmpty
-        ? decision.nextQuestion.trim()
-        : 'Can you describe your day and what you enjoyed most?';
-
+    // Add Zoe's message and start speaking
     setState(() {
-      _isEllaTyping = false;
-      _history.add(_PlacementBubbleEntry(text: question, isElla: true));
+      _history.add(_PlacementBubbleEntry(text: _openingLine, isElla: true));
+      _mascotState = _MascotState.speaking;
     });
-    _pulseCtrl.stop();
     _scrollToBottom();
-    _tts.speak(question);
+
+    // Await TTS — Future resolves when audio finishes
+    await _tts.speak(_openingLine);
+    if (!mounted) return;
+
+    // Audio done — switch to listening
+    setState(() => _mascotState = _MascotState.listening);
   }
 
   void _handleUserResponse(String text) {
@@ -170,6 +140,11 @@ class _PlacementScreenState extends State<PlacementScreen>
     _textFocusNode.unfocus();
     _scrollToBottom();
 
+    if (_userResponses >= 3) {
+      Future.delayed(const Duration(milliseconds: 300), _goToResult);
+      return;
+    }
+
     Future.delayed(
       const Duration(milliseconds: 450),
       _requestNextPlacementTurn,
@@ -180,7 +155,7 @@ class _PlacementScreenState extends State<PlacementScreen>
     if (!mounted || _isCompleting) return;
     _isCompleting = true;
 
-    PlacementResult placement = const PlacementResult(
+    const placement = PlacementResult(
       cefrLevel: 'A2',
       levelLabel: 'Finding My Voice',
       highlight:
@@ -188,22 +163,19 @@ class _PlacementScreenState extends State<PlacementScreen>
       confidence: 0.6,
     );
 
-    try {
-      if (_llm.activeConfig.isConfigured) {
-        placement = await _llm.evaluatePlacement(_chatHistory());
-      }
-    } catch (_) {}
-
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, animation, __) => ResultScreen(
+        pageBuilder: (context, animation, secondaryAnimation) => ResultScreen(
           level: placement.cefrLevel,
           levelName: placement.levelLabel ?? 'Finding My Voice',
           highlight: placement.highlight,
+          name: 'Arjun',
+          city: 'Kanpur',
+          age: '16 years old',
         ),
         transitionDuration: const Duration(milliseconds: 400),
-        transitionsBuilder: (_, animation, __, child) {
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final curved = CurvedAnimation(
             parent: animation,
             curve: Curves.easeInOut,
@@ -215,7 +187,7 @@ class _PlacementScreenState extends State<PlacementScreen>
   }
 
   Future<void> _toggleMicListening() async {
-    if (_isCompleting || _isEllaTyping) return;
+    if (_isCompleting || _mascotState == _MascotState.speaking) return;
 
     if (_isListening) {
       await _stt.stopListening();
@@ -245,113 +217,126 @@ class _PlacementScreenState extends State<PlacementScreen>
   }
 
   void _onListeningDone() {
+    // OS signalled that recognition stopped (e.g. silence timeout).
+    // We do NOT auto-submit — the user must tap stop to send their reply.
     if (!mounted || !_isListening) return;
-    final text = _currentTranscript.trim();
     setState(() => _isListening = false);
-    if (text.isNotEmpty) {
-      _handleUserResponse(text);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final keyboardUp = bottomInset > 0;
-    final avatarSize = keyboardUp && _history.length >= 3 ? 120.0 : 160.0;
-
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: EllaColors.neutralBg,
       body: SafeArea(
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 24, bottom: 4),
-                child: Text(
-                  'Quick placement check',
-                  style: GoogleFonts.baloo2(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: EllaColors.neutralPrimary,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fullHeight = constraints.maxHeight;
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+            final shrinkMascot = bottomInset > 0 && _history.length >= 3;
+
+            final circlesCenter = Offset(
+              constraints.maxWidth / 2,
+              fullHeight / 2,
+            );
+
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: Stack(
+                children: [
+                  // Layer 1: Concentric circles background
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ConcentricCirclesPainter(
+                          center: circlesCenter,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (_isEllaTyping)
-                      AnimatedBuilder(
-                        animation: _pulseCtrl,
-                        builder: (context, child) => Transform.scale(
-                          scale: _pulseScale.value,
-                          child: Container(
-                            width: avatarSize,
-                            height: avatarSize,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: EllaColors.skyMain.withValues(
-                                alpha: _pulseOpacity.value,
+
+                  // Layer 2: Main content
+                  Column(
+                    children: [
+                      // ── Mascot zone: 40% normally, 25% when keyboard open ──
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        height: shrinkMascot
+                            ? fullHeight * 0.25
+                            : fullHeight * 0.40,
+                        child: Center(
+                          child: _PlacementMascot(
+                            mascotState: _mascotState,
+                            shrink: shrinkMascot,
+                          ),
+                        ),
+                      ),
+
+                      // ── Chat list with fade edges ──
+                      Expanded(
+                        child: ShaderMask(
+                          blendMode: BlendMode.dstIn,
+                          shaderCallback: (Rect bounds) {
+                            return const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.white,
+                                Colors.white,
+                                Colors.transparent,
+                              ],
+                              stops: [0.0, 0.06, 0.88, 1.0],
+                            ).createShader(bounds);
+                          },
+                          child: RepaintBoundary(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: ListView.separated(
+                                controller: _scrollCtrl,
+                                padding: const EdgeInsets.only(
+                                  top: 8,
+                                  bottom: 16,
+                                ),
+                                itemCount: _history.length,
+                                separatorBuilder: (_, index) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final entry = _history[index];
+                                  return _PlacementCaption(
+                                    text: entry.text,
+                                    isElla: entry.isElla,
+                                  );
+                                },
                               ),
                             ),
                           ),
                         ),
                       ),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      width: avatarSize,
-                      height: avatarSize,
-                      child: Image.asset(
-                        'images/ella-neutral.png',
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: ListView.separated(
-                    controller: _scrollCtrl,
-                    padding: const EdgeInsets.only(bottom: 12),
-                    itemCount: _history.length + (_isEllaTyping ? 1 : 0),
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      if (_isEllaTyping && index == _history.length) {
-                        return const _PlacementCaption(
-                          text: '...',
-                          isElla: true,
-                          isTyping: true,
-                        );
-                      }
-                      final entry = _history[index];
-                      return _PlacementCaption(
-                        text: entry.text,
-                        isElla: entry.isElla,
-                      );
-                    },
+
+                      // ── Live transcript preview while listening ──
+                      if (_isListening && _currentTranscript.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                          child: _PlacementCaption(
+                            text: _currentTranscript,
+                            isElla: false,
+                          ),
+                        ),
+
+                      // ── Bottom input bar ──
+                      _buildInputBar(),
+                    ],
                   ),
-                ),
+                ],
               ),
-              if (_isListening && _currentTranscript.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                  child: _PlacementCaption(
-                    text: _currentTranscript,
-                    isElla: false,
-                  ),
-                ),
-              _buildInputBar(),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -360,7 +345,7 @@ class _PlacementScreenState extends State<PlacementScreen>
   Widget _buildInputBar() {
     return Container(
       color: EllaColors.neutralBg,
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
       child: _isKeyboardMode ? _buildKeyboardRow() : _buildMicRow(),
     );
   }
@@ -374,7 +359,7 @@ class _PlacementScreenState extends State<PlacementScreen>
           Align(
             alignment: Alignment.centerLeft,
             child: GestureDetector(
-              onTap: _isEllaTyping
+              onTap: _mascotState == _MascotState.speaking
                   ? null
                   : () {
                       setState(() => _isKeyboardMode = true);
@@ -434,7 +419,9 @@ class _PlacementScreenState extends State<PlacementScreen>
                     child: Icon(
                       _isListening ? Icons.stop_rounded : Icons.mic_rounded,
                       size: 28,
-                      color: Colors.white,
+                      color: _isListening
+                          ? Colors.white
+                          : EllaColors.neutralPrimary,
                     ),
                   ),
                 ],
@@ -520,7 +507,7 @@ class _PlacementScreenState extends State<PlacementScreen>
         ),
         const SizedBox(width: 8),
         GestureDetector(
-          onTap: _isEllaTyping
+          onTap: _mascotState == _MascotState.speaking
               ? null
               : () => _handleUserResponse(_textCtrl.text),
           child: Container(
@@ -541,7 +528,7 @@ class _PlacementScreenState extends State<PlacementScreen>
             child: const Icon(
               Icons.send_rounded,
               size: 20,
-              color: Colors.white,
+              color: EllaColors.neutralPrimary,
             ),
           ),
         ),
@@ -549,153 +536,149 @@ class _PlacementScreenState extends State<PlacementScreen>
     );
   }
 }
+
+// ─── Mascot Widget ────────────────────────────────────────────────────────────
+
+class _PlacementMascot extends StatelessWidget {
+  final _MascotState mascotState;
+  final bool shrink;
+
+  const _PlacementMascot({required this.mascotState, required this.shrink});
+
+  String get _assetPath => switch (mascotState) {
+    _MascotState.speaking => 'assets/mascot-animations/speaking.webp',
+    _MascotState.listening => 'assets/mascot-animations/listening.webp',
+    _MascotState.thinking => 'assets/mascot-animations/regular-thinking.webp',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final double size = shrink ? 120.0 : 200.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: EllaColors.zoeMintLight,
+        boxShadow: [
+          BoxShadow(
+            color: EllaColors.neutralMuted.withValues(alpha: 0.40),
+            offset: const Offset(0, 6),
+            blurRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            offset: const Offset(0, 3),
+            blurRadius: 14,
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: Image.asset(
+            _assetPath,
+            key: ValueKey<_MascotState>(mascotState),
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Chat Bubble ──────────────────────────────────────────────────────────────
 
 class _PlacementCaption extends StatelessWidget {
   final String text;
   final bool isElla;
-  final bool isTyping;
 
-  const _PlacementCaption({
-    required this.text,
-    required this.isElla,
-    this.isTyping = false,
-  });
+  const _PlacementCaption({required this.text, required this.isElla});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isElla ? EllaColors.skyLightest : EllaColors.mangoLightest,
-        borderRadius: isElla
-            ? const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              )
-            : const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(4),
-              ),
-        border: Border.all(
-          color: isElla ? EllaColors.skyLight : EllaColors.mangoLight,
-          width: 1.5,
+    return Align(
+      alignment: isElla ? Alignment.centerLeft : Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.80,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            isElla ? 'ZOE SAYS' : 'YOU SAID',
-            style: GoogleFonts.inconsolata(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 6),
-          if (isTyping)
-            const _TypingDots()
-          else
-            Text(
-              text,
-              style: isElla
-                  ? GoogleFonts.kalam(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: EllaColors.skyDark,
-                      height: 1.4,
-                    )
-                  : GoogleFonts.baloo2(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: EllaColors.neutralPrimary,
-                      height: 1.4,
-                    ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypingDots extends StatelessWidget {
-  const _TypingDots();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: const [
-        _BouncingDot(delay: Duration.zero),
-        SizedBox(width: 4),
-        _BouncingDot(delay: Duration(milliseconds: 200)),
-        SizedBox(width: 4),
-        _BouncingDot(delay: Duration(milliseconds: 400)),
-      ],
-    );
-  }
-}
-
-class _BouncingDot extends StatefulWidget {
-  final Duration delay;
-  const _BouncingDot({required this.delay});
-
-  @override
-  State<_BouncingDot> createState() => _BouncingDotState();
-}
-
-class _BouncingDotState extends State<_BouncingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _anim = Tween<double>(
-      begin: 0,
-      end: -6,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-    Future.delayed(widget.delay, () {
-      if (mounted) _ctrl.repeat(reverse: true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) => Transform.translate(
-        offset: Offset(0, _anim.value),
         child: Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: EllaColors.skyDark,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isElla ? EllaColors.skyLightest : EllaColors.mangoLightest,
+            borderRadius: isElla
+                ? const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  )
+                : const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(4),
+                  ),
+            border: Border.all(
+              color: isElla ? EllaColors.skyLight : EllaColors.mangoLight,
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
+                offset: const Offset(0, 4),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isElla ? 'ZOE SAYS' : 'YOU SAID',
+                style: GoogleFonts.inconsolata(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                text,
+                style: isElla
+                    ? GoogleFonts.kalam(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: EllaColors.skyDark,
+                        height: 1.4,
+                      )
+                    : GoogleFonts.baloo2(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: EllaColors.neutralPrimary,
+                        height: 1.4,
+                      ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
+
+// ─── Mic Pulse Ring ───────────────────────────────────────────────────────────
 
 class _MicPulseRing extends StatefulWidget {
   final Color color;
@@ -751,4 +734,28 @@ class _MicPulseRingState extends State<_MicPulseRing>
       ),
     );
   }
+}
+
+// ─── Background Painter ───────────────────────────────────────────────────────
+
+class _ConcentricCirclesPainter extends CustomPainter {
+  final Offset center;
+
+  const _ConcentricCirclesPainter({required this.center});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = EllaColors.neutralBorder.withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    // 6 concentric circles, innermost radius ~80px, spaced 60px apart
+    for (int i = 1; i <= 6; i++) {
+      canvas.drawCircle(center, 80.0 + (i - 1) * 60.0, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConcentricCirclesPainter old) => old.center != center;
 }

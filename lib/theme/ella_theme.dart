@@ -35,6 +35,11 @@ class EllaColors {
   static const roseMain = Color(0xFFFF4878);
   static const roseDark = Color(0xFFC82050);
 
+  // Grape — rare rewards, bonus, premium milestones
+  static const grapeLightest = Color(0xFFF5F0FF);
+  static const grapeMain = Color(0xFF8B5CF6);
+  static const grapeDark = Color(0xFF6030C8);
+
   // Sunny Yellow — welcome screen corner accent
   static const sunnyYellow = Color(0xFFFFD600);
 
