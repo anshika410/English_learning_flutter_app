@@ -19,6 +19,7 @@ class SystemTtsEngine extends TtsEngine {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.45);
     await _tts.setPitch(1.0);
+    await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() => _isSpeaking = true);
     _tts.setCompletionHandler(() => _isSpeaking = false);
     _tts.setCancelHandler(() => _isSpeaking = false);

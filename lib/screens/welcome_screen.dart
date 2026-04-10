@@ -1,14 +1,150 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import '../widgets/ella_primary_button.dart';
 import 'placement_screen.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
-  void _navigateToPlacement(BuildContext context) {
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  final TtsManager _tts = TtsManager();
+  bool _isSpeakingIntro = false;
+  bool _didPrecacheMascotImages = false;
+  bool _showStartButton = false;
+  String _visibleHeading = '';
+  String _visibleSubline = '';
+
+  static const String _introHeading = 'Hi, I am Zoe!';
+  static const String _introSubline =
+      'Your English speaking buddy. Let\'s practice one easy step at a time';
+  String get _introSpeech => '$_introHeading $_introSubline';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _playIntroSpeech());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecacheMascotImages) return;
+
+    precacheImage(
+      const AssetImage('assets/mascot-animations/Speaking.webp'),
+      context,
+    );
+    precacheImage(
+      const AssetImage('assets/mascot-animations/listening.webp'),
+      context,
+    );
+    _didPrecacheMascotImages = true;
+  }
+
+  Future<void> _playIntroSpeech() async {
+    if (!mounted) return;
+    setState(() {
+      _isSpeakingIntro = true;
+      _showStartButton = false;
+      _visibleHeading = '';
+      _visibleSubline = '';
+    });
+
+    try {
+      await Future.wait([
+        _speakIntro(),
+        _typeIntroText(),
+      ]);
+    } catch (_) {
+      // Keep UI resilient even if a TTS engine fails.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSpeakingIntro = false;
+          _showStartButton = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _speakIntro() async {
+    await _tts.initialize();
+    await _tts.speak(_introSpeech);
+  }
+
+  Future<void> _typeIntroText() async {
+    final int baseDelayMs = _baseTypeDelayMs(_introSpeech);
+
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await _typeTextWithSpeechPacing(
+      fullText: _introHeading,
+      update: (value) => _visibleHeading = value,
+      baseDelayMs: baseDelayMs,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    await _typeTextWithSpeechPacing(
+      fullText: _introSubline,
+      update: (value) => _visibleSubline = value,
+      baseDelayMs: baseDelayMs,
+    );
+  }
+
+  Future<void> _typeTextWithSpeechPacing({
+    required String fullText,
+    required void Function(String value) update,
+    required int baseDelayMs,
+  }) async {
+    for (int i = 1; i <= fullText.length; i++) {
+      if (!mounted) return;
+      final String current = fullText.substring(0, i);
+      final String typedChar = fullText.substring(i - 1, i);
+      setState(() => update(current));
+      await Future<void>.delayed(
+        Duration(milliseconds: baseDelayMs + _punctuationPauseMs(typedChar)),
+      );
+    }
+  }
+
+  int _baseTypeDelayMs(String text) {
+    final int wordCount =
+        RegExp(r"[A-Za-z']+").allMatches(text).length.clamp(1, 1000);
+    // Approximate Zoe intro speech pace and distribute across characters.
+    final int targetSpeechMs = wordCount * 570;
+    final int punctuationPauseTotal =
+        text.split('').fold(0, (sum, c) => sum + _punctuationPauseMs(c));
+    final int effectiveChars = text.length.clamp(1, 2000);
+    final int base = ((targetSpeechMs - punctuationPauseTotal) / effectiveChars)
+        .round()
+        .clamp(45, 95);
+    return base;
+  }
+
+  int _punctuationPauseMs(String char) {
+    switch (char) {
+      case ',':
+        return 110;
+      case '.':
+      case '!':
+      case '?':
+        return 190;
+      case '\'':
+        return 20;
+      case ' ':
+        return 12;
+      default:
+        return 0;
+    }
+  }
+
+  void _navigateToPlacement() {
+    _tts.stop();
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context2, animation, secondary) =>
@@ -32,6 +168,12 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   @override
+  void dispose() {
+    _tts.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
@@ -52,13 +194,13 @@ class WelcomeScreen extends StatelessWidget {
                   const Spacer(flex: 2),
 
                   // Zoe mascot — animated webp looping inside circle
-                  const _ZoeMascot(),
+                  _ZoeMascot(isSpeaking: _isSpeakingIntro),
 
                   const SizedBox(height: 20),
 
                   // Heading — extra bold
                   Text(
-                    'Hey, I am Zoe! 🙌',
+                    _visibleHeading,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'Chillax',
@@ -72,7 +214,7 @@ class WelcomeScreen extends StatelessWidget {
 
                   // Warm support line
                   Text(
-                    'Your English speaking buddy, let\'s practice one easy step at a time',
+                    _visibleSubline,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.baloo2(
                       fontSize: 17,
@@ -84,9 +226,23 @@ class WelcomeScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  EllaPrimaryButton(
-                    label: 'Start learning',
-                    onTap: () => _navigateToPlacement(context),
+                  AnimatedSlide(
+                    duration: const Duration(milliseconds: 420),
+                    curve: Curves.easeOutCubic,
+                    offset: _showStartButton
+                        ? Offset.zero
+                        : const Offset(0, 0.18),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 320),
+                      opacity: _showStartButton ? 1 : 0,
+                      child: IgnorePointer(
+                        ignoring: !_showStartButton,
+                        child: EllaPrimaryButton(
+                          label: 'Start learning',
+                          onTap: _navigateToPlacement,
+                        ),
+                      ),
+                    ),
                   ),
 
                   const Spacer(flex: 2),
@@ -103,7 +259,9 @@ class WelcomeScreen extends StatelessWidget {
 // ─── Zoe Mascot ──────────────────────────────────────────────────────────────
 
 class _ZoeMascot extends StatelessWidget {
-  const _ZoeMascot();
+  final bool isSpeaking;
+
+  const _ZoeMascot({required this.isSpeaking});
 
   @override
   Widget build(BuildContext context) {
@@ -127,10 +285,23 @@ class _ZoeMascot extends StatelessWidget {
         ],
       ),
       child: ClipOval(
-        child: Image.asset(
-          'assets/mascot-animations/listening.webp',
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 450),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Image.asset(
+              isSpeaking
+                  ? 'assets/mascot-animations/Speaking.webp'
+                  : 'assets/mascot-animations/listening.webp',
+              key: ValueKey<bool>(isSpeaking),
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+            ),
+          ),
         ),
       ),
     );
