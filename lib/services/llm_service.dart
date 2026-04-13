@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/chat_message.dart';
+import '../models/end_result_analysis.dart';
+import '../models/focus_settings.dart';
 import '../models/placement_result.dart';
 
 enum LlmProvider { gemini }
@@ -34,8 +37,53 @@ class PlacementTurnDecision {
   });
 }
 
+// Represents one turn result from the placement conversation
+class PlacementMessageResult {
+  /// Zoe's reply text (null when isComplete is true)
+  final String? reply;
+  final bool isComplete;
+  // Only populated when isComplete is true
+  final String? name;
+  final String? age;
+  final String? location;
+  final String? assessedLevel;
+  final String? confidence;
+  final String? notes;
+
+  const PlacementMessageResult.reply(String text)
+    : reply = text,
+      isComplete = false,
+      name = null,
+      age = null,
+      location = null,
+      assessedLevel = null,
+      confidence = null,
+      notes = null;
+
+  const PlacementMessageResult.complete({
+    this.name,
+    this.age,
+    this.location,
+    this.assessedLevel,
+    this.confidence,
+    this.notes,
+  }) : reply = null,
+       isComplete = true;
+}
+
+class ConversationTurnResult {
+  final ChatMessage message;
+  final bool conversationComplete;
+  const ConversationTurnResult({
+    required this.message,
+    required this.conversationComplete,
+  });
+}
+
 class LlmService {
   final LlmProviderConfig _geminiConfig;
+  String? _cachedPlacementPrompt;
+  String? _cachedConversationPrompt;
 
   LlmProvider get activeProvider => LlmProvider.gemini;
   LlmProviderConfig get activeConfig => _geminiConfig;
@@ -113,50 +161,190 @@ Rules:
 - Output JSON only, no markdown or extra text.
 ''';
 
-  Future<String> generateConversationStarter({String? topic}) async {
+  /// Returns both the opening starter message and a short header title.
+  Future<({String starter, String headerTitle})> generateConversationStarter({
+    String? topic,
+  }) async {
     final topicLine = topic == null || topic.trim().isEmpty
         ? 'Topic: free conversation.'
         : 'Topic: $topic. Start specifically with this topic.';
+    final prompt = '''
+$_starterPrompt
+
+After the starter, on a new line output:
+TITLE: <3-4 word header for this conversation, no punctuation>
+''';
     try {
       final text = await _sendGeminiRaw(
-        systemPrompt: _starterPrompt,
+        systemPrompt: prompt,
         userPrompt: topicLine,
-        maxOutputTokens: 120,
+        maxOutputTokens: 160,
         temperature: 0.8,
       );
-      return text.trim();
+      final titleMatch = RegExp(
+        r'TITLE:\s*(.+)',
+        caseSensitive: false,
+      ).firstMatch(text);
+      final headerTitle = titleMatch != null
+          ? titleMatch.group(1)!.trim()
+          : (topic ?? 'Free Talk');
+      final starter = text
+          .replaceAll(RegExp(r'TITLE:.*', caseSensitive: false), '')
+          .trim();
+      return (starter: starter.isEmpty ? text.trim() : starter, headerTitle: headerTitle);
     } catch (_) {
-      if (topic == null || topic.trim().isEmpty) {
-        return "Hi! I'm Zoe. What would you like to talk about today?";
-      }
-      return "Hi! I'm Zoe. Let's talk about $topic. What's your first thought on it?";
+      final fallbackStarter = topic == null || topic.trim().isEmpty
+          ? "Hi! I'm Zoe. What would you like to talk about today?"
+          : "Hi! I'm Zoe. Let's talk about $topic. What's your first thought on it?";
+      return (starter: fallbackStarter, headerTitle: topic ?? 'Free Talk');
     }
   }
 
-  Future<ChatMessage> sendMessage(
+  /// Sends the next conversation turn using the filled conversation-prompt.md template.
+  Future<ConversationTurnResult> sendMessage(
     List<ChatMessage> history, {
-    String? topicContext,
+    String? topic,
+    String? level,
+    String? levelLabel,
+    int currentTurn = 1,
+    FocusSettings? focusSettings,
   }) async {
-    final conversation = history
+    final systemPrompt = await _loadConversationPrompt(
+      topic: topic ?? 'Free conversation',
+      level: level ?? 'A2',
+      levelLabel: levelLabel ?? 'Finding My Voice',
+      currentTurn: currentTurn,
+      focusSettings: focusSettings ?? const FocusSettings.defaults(),
+    );
+
+    final contents = history
         .where((m) => m.role != MessageRole.system)
-        .map(
-          (m) =>
-              '${m.role == MessageRole.user ? "USER" : "ELLA"}: ${m.content}',
-        )
-        .join('\n');
-    final userPrompt =
-        '''
-${topicContext == null || topicContext.trim().isEmpty ? '' : 'Topic context: $topicContext'}
-Conversation so far:
-$conversation
-''';
-    final text = await _sendGeminiRaw(
-      systemPrompt: _conversationSystemPrompt,
-      userPrompt: userPrompt,
-      maxOutputTokens: 260,
+        .map((m) => {
+              'role': m.role == MessageRole.user ? 'user' : 'model',
+              'parts': [
+                {'text': m.content},
+              ],
+            })
+        .toList();
+
+    final response = await _sendGeminiMultiTurn(
+      systemPrompt: systemPrompt,
+      contents: contents,
+      maxOutputTokens: 280,
       temperature: 0.75,
     );
-    return _parseTutorResponse(text);
+
+    // Check for conversation_complete JSON signal
+    bool complete = false;
+    String replyText = response;
+    final jsonMatch = RegExp(
+      r'\{[^}]*"conversation_complete"\s*:\s*true[^}]*\}',
+    ).firstMatch(response);
+    if (jsonMatch != null) {
+      complete = true;
+      replyText = response.substring(0, jsonMatch.start).trim();
+    }
+
+    final message = _parseTutorResponse(replyText.isEmpty ? response : replyText);
+    return ConversationTurnResult(message: message, conversationComplete: complete);
+  }
+
+  Future<String> _loadConversationPrompt({
+    required String topic,
+    required String level,
+    required String levelLabel,
+    required int currentTurn,
+    required FocusSettings focusSettings,
+  }) async {
+    _cachedConversationPrompt ??= await rootBundle.loadString(
+      'assets/prompts/conversation-prompt.md',
+    );
+    final levelInstructions = _levelInstructions(level);
+    return _cachedConversationPrompt!
+        .replaceAll('{{TOPIC}}', topic)
+        .replaceAll('{{LEVEL}}', level)
+        .replaceAll('{{LEVEL_LABEL}}', levelLabel)
+        .replaceAll('{{CURRENT_TURN}}', '$currentTurn')
+        .replaceAll('{{LEVEL_INSTRUCTIONS}}', levelInstructions)
+        .replaceAll('{{GRAMMAR_SETTING}}', focusSettings.grammar.label)
+        .replaceAll('{{VOCABULARY_SETTING}}', focusSettings.vocabulary.label)
+        .replaceAll('{{FLUENCY_SETTING}}', focusSettings.fluency.label);
+  }
+
+  String _levelInstructions(String level) {
+    switch (level.toUpperCase()) {
+      case 'A1':
+        return 'Accept any attempt as a valid turn. Never require full sentences. Celebrate every response.\nAsk only personal, familiar questions (family, food, daily routine, things they like).\nSpeak at 40–60 wpm pace equivalent. Use only present simple and common vocabulary.';
+      case 'A2':
+        return 'Use salient recasts — model the correct form naturally in your reply.\nAsk about past events and simple opinions. Introduce "Have you ever…?" questions.\nShow filler words awareness only in post-session (not during conversation).';
+      case 'B1':
+        return 'Use metalinguistic nudges — name the error category and wait before correcting.\nExample: "Almost — which tense would we use for something finished in the past?"\nPush for 60-second responses by asking follow-up "tell me more" questions.\nOffer vocabulary alternatives mid-conversation (maximum 2 per session).';
+      case 'B2':
+        return 'Apply explicit correction when grammar_setting permits. State error, correct form, brief reason.\nPush for 4-part argument: claim → reason → evidence → concession.\nFlag register mismatches. Offer 2–3 precision vocabulary alternatives.';
+      case 'C1':
+        return 'Operate in peer mode. Suggestions, not corrections.\nIntroduce stylistic options: "You could also say \'pivotal\' here — it implies a turning point."\nExpect idiomatic expression and fluent reformulation.';
+      default:
+        return 'Use salient recasts — model the correct form naturally in your reply.';
+    }
+  }
+
+  Future<EndResultAnalysis?> analyzeConversation({
+    required List<ChatMessage> messages,
+    required String topic,
+    required String level,
+    required String levelLabel,
+  }) async {
+    final template = await rootBundle.loadString(
+      'assets/prompts/end-result-prompt.md',
+    );
+    final transcript = messages
+        .where((m) => m.role != MessageRole.system)
+        .map((m) => '${m.role == MessageRole.user ? "STUDENT" : "ZOE"}: ${m.content}')
+        .join('\n');
+
+    final systemPrompt = template
+        .replaceAll('{{LEVEL}}', level)
+        .replaceAll('{{LEVEL_LABEL}}', levelLabel)
+        .replaceAll('{{TOPIC}}', topic)
+        .replaceAll('{{FULL_TRANSCRIPT}}', transcript);
+
+    try {
+      final raw = await _sendGeminiRaw(
+        systemPrompt: systemPrompt,
+        userPrompt: 'Analyze the transcript and return the JSON report.',
+        maxOutputTokens: 1200,
+        temperature: 0.4,
+      );
+      final jsonStr = _extractJsonObject(raw);
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      final bestMoment = data['best_moment'] as Map<String, dynamic>? ?? {};
+      final courage = data['courage_or_motivation'] as Map<String, dynamic>? ?? {};
+      final tryNext = data['try_next_time'] as Map<String, dynamic>? ?? {};
+      final notesRaw = data['transcript_notes'] as List<dynamic>? ?? [];
+
+      final notes = notesRaw.map((n) {
+        final m = n as Map<String, dynamic>;
+        return EndResultTranscriptNote(
+          speaker: m['speaker'] as String? ?? 'zoe',
+          text: m['text'] as String? ?? '',
+          note: m['note'] as String?,
+        );
+      }).toList();
+
+      return EndResultAnalysis(
+        overall: data['overall'] as String? ?? 'okay',
+        bestMomentQuote: bestMoment['quote'] as String? ?? '',
+        bestMomentNote: bestMoment['note'] as String? ?? '',
+        courageOrMotivationType: courage['type'] as String? ?? 'motivation',
+        courageOrMotivationContent: courage['content'] as String? ?? '',
+        tryNextTimeSkill: tryNext['skill'] as String? ?? '',
+        tryNextTimeExample: tryNext['example'] as String? ?? '',
+        transcriptNotes: notes,
+      );
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<PlacementTurnDecision> nextPlacementTurn({
@@ -274,6 +462,149 @@ $transcript
           'You communicated clearly and stayed engaged through the conversation.',
       confidence: confidence,
     );
+  }
+
+  Future<String> _loadPlacementPrompt() async {
+    _cachedPlacementPrompt ??= await rootBundle.loadString(
+      'assets/prompts/placement-check-prompt.md',
+    );
+    return _cachedPlacementPrompt!;
+  }
+
+  /// Sends the placement conversation history to the LLM using the
+  /// placement-check-prompt.md as the system prompt.
+  ///
+  /// [messages] is a list of {role: 'user'|'model', content: '...'} maps
+  /// representing the conversation so far (excluding the system prompt).
+  Future<PlacementMessageResult> sendPlacementMessage(
+    List<Map<String, String>> messages,
+  ) async {
+    final systemPrompt = await _loadPlacementPrompt();
+
+    // Build Gemini multi-turn contents array
+    final contents = messages
+        .map(
+          (m) => {
+            'role': m['role'] == 'user' ? 'user' : 'model',
+            'parts': [
+              {'text': m['content'] ?? ''},
+            ],
+          },
+        )
+        .toList();
+
+    final response = await http.post(
+      Uri.parse(
+        '${_geminiConfig.baseUrl}/models/${_geminiConfig.model}:generateContent',
+      ),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': _geminiConfig.apiKey,
+      },
+      body: jsonEncode({
+        'system_instruction': {
+          'parts': [
+            {'text': systemPrompt},
+          ],
+        },
+        'contents': contents,
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': 200,
+        },
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Gemini placement API error: ${response.statusCode} ${response.body}',
+      );
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final candidates = data['candidates'] as List<dynamic>? ?? const [];
+    if (candidates.isEmpty) throw Exception('Empty placement candidates');
+    final content = candidates.first['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>? ?? const [];
+    if (parts.isEmpty) throw Exception('Empty placement parts');
+    final text = (parts.first['text'] as String? ?? '').trim();
+
+    // Check if it's a REPLY: prefixed conversational turn
+    final replyMatch = RegExp(
+      r'REPLY:\s*(.*)',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(text);
+    if (replyMatch != null) {
+      final reply = (replyMatch.group(1) ?? '').trim();
+      return PlacementMessageResult.reply(reply.isNotEmpty ? reply : text);
+    }
+
+    // Otherwise attempt to parse as final JSON assessment
+    try {
+      final jsonStr = _extractJsonObject(text);
+      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+      if (json.containsKey('assessed_level')) {
+        return PlacementMessageResult.complete(
+          name: json['name'] as String?,
+          age: json['age'] as String?,
+          location: json['location'] as String?,
+          assessedLevel: json['assessed_level'] as String?,
+          confidence: json['confidence'] as String?,
+          notes: json['notes'] as String?,
+        );
+      }
+    } catch (_) {
+      // Not valid JSON — fall through and treat as a plain reply
+    }
+
+    // Fallback: treat entire response as a reply
+    return PlacementMessageResult.reply(text);
+  }
+
+  Future<String> _sendGeminiMultiTurn({
+    required String systemPrompt,
+    required List<Map<String, dynamic>> contents,
+    required int maxOutputTokens,
+    required double temperature,
+  }) async {
+    final response = await http.post(
+      Uri.parse(
+        '${_geminiConfig.baseUrl}/models/${_geminiConfig.model}:generateContent',
+      ),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': _geminiConfig.apiKey,
+      },
+      body: jsonEncode({
+        'system_instruction': {
+          'parts': [
+            {'text': systemPrompt},
+          ],
+        },
+        'contents': contents,
+        'generationConfig': {
+          'temperature': temperature,
+          'maxOutputTokens': maxOutputTokens,
+        },
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Gemini API error: ${response.statusCode} ${response.body}',
+      );
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final candidates = data['candidates'] as List<dynamic>? ?? const [];
+    if (candidates.isEmpty) throw Exception('Gemini API error: empty candidates');
+    final content = candidates.first['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>? ?? const [];
+    if (parts.isEmpty) throw Exception('Gemini API error: empty parts');
+    final text = parts.first['text'] as String?;
+    if (text == null || text.trim().isEmpty) throw Exception('Gemini API error: empty text');
+    return text.trim();
   }
 
   Future<String> _sendGeminiRaw({

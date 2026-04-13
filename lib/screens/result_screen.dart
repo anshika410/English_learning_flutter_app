@@ -10,6 +10,7 @@ class _LevelConfig {
   final Color borderColor;
   final String greeting;
   final String emoji;
+  final String levelLabel;
   final String description;
 
   const _LevelConfig({
@@ -17,6 +18,7 @@ class _LevelConfig {
     required this.borderColor,
     required this.greeting,
     required this.emoji,
+    required this.levelLabel,
     required this.description,
   });
 }
@@ -29,8 +31,9 @@ _LevelConfig _configForLevel(String level, String name) {
         borderColor: EllaColors.skyMain,
         greeting: 'Good start, $name!',
         emoji: '🌱',
+        levelLabel: 'First Words',
         description:
-            'You can understand simple words and short sentences.\nNext: you\'ll start putting those words together to say what you mean.',
+            'You understood the conversation and gave it a real go.\nNext up: putting words together more often.',
       );
     case 'B1':
       return _LevelConfig(
@@ -38,8 +41,9 @@ _LevelConfig _configForLevel(String level, String name) {
         borderColor: EllaColors.limeMain,
         greeting: 'Solid, $name.',
         emoji: '⚡',
+        levelLabel: 'Speaking Freely',
         description:
-            'You can hold a real conversation and express most of what you want to say.\nNext: you\'ll sharpen the edges — grammar, vocabulary range, and fluency under pressure.',
+            'You held the conversation well and expressed most of what you wanted to say.\nNext up: sharper grammar and more range.',
       );
     case 'B2':
       return _LevelConfig(
@@ -47,8 +51,9 @@ _LevelConfig _configForLevel(String level, String name) {
         borderColor: EllaColors.roseMain,
         greeting: 'Impressive, $name.',
         emoji: '🔥',
+        levelLabel: 'Almost Fluent',
         description:
-            'You can speak clearly and in detail on a wide range of topics without much effort.\nNext: you\'ll close the gap between speaking well and speaking like it\'s second nature.',
+            'You spoke clearly and handled the conversation with confidence.\nNext up: making it feel second nature.',
       );
     case 'C1':
       return _LevelConfig(
@@ -56,8 +61,9 @@ _LevelConfig _configForLevel(String level, String name) {
         borderColor: EllaColors.grapeMain,
         greeting: 'Exceptional, $name.',
         emoji: '🏆',
+        levelLabel: 'Fluent',
         description:
-            'You can express yourself fluently and precisely, even in complex or unfamiliar situations.\nNext: you\'ll refine nuance, tone, and the kind of depth that makes people listen.',
+            'You expressed yourself precisely and kept up with every turn.\nNext up: nuance and depth.',
       );
     case 'A2':
     default:
@@ -66,8 +72,9 @@ _LevelConfig _configForLevel(String level, String name) {
         borderColor: EllaColors.mangoMain,
         greeting: 'Great work, $name!',
         emoji: '🎉',
+        levelLabel: 'Finding My Voice',
         description:
-            'You can get your meaning across in everyday situations, even if it\'s not always smooth.\nNext: you\'ll work on saying things more naturally and with more confidence.',
+            'You got your point across when it mattered.\nNext up: sounding more natural as you go.',
       );
   }
 }
@@ -128,7 +135,17 @@ class ResultScreen extends StatelessWidget {
                     const SizedBox(height: 20),
 
                     // ── Context chips ──────────────────────────────────
-                    if (city != null || age != null)
+                    if (city != null || age != null) ...[
+                      Text(
+                        'A MOMENT FROM YOUR CONVERSATION',
+                        style: GoogleFonts.inconsolata(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: EllaColors.neutralMuted,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -137,7 +154,8 @@ class ResultScreen extends StatelessWidget {
                           if (age != null) _InfoChip(icon: '🎂', label: age!),
                         ],
                       ),
-                    if (city != null || age != null) const SizedBox(height: 20),
+                      const SizedBox(height: 20),
+                    ],
 
                     // ── From your conversation ─────────────────────────
                     _ConversationHighlight(highlight: highlight),
@@ -229,15 +247,6 @@ class _LevelCard extends StatelessWidget {
                         height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Here\'s where you stand.',
-                      style: GoogleFonts.baloo2(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: EllaColors.neutralSecondary,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -253,14 +262,40 @@ class _LevelCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.65),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              config.description,
-              style: GoogleFonts.baloo2(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: EllaColors.neutralPrimary,
-                height: 1.5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'WHERE YOU STAND',
+                  style: GoogleFonts.inconsolata(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: EllaColors.neutralMuted,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  config.levelLabel,
+                  style: const TextStyle(
+                    fontFamily: 'Chillax',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: EllaColors.neutralPrimary,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  config.description,
+                  style: GoogleFonts.baloo2(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: EllaColors.neutralPrimary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -302,7 +337,7 @@ class _InfoChip extends StatelessWidget {
             label,
             style: GoogleFonts.baloo2(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: EllaColors.neutralSecondary,
             ),
           ),
@@ -321,44 +356,13 @@ class _ConversationHighlight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: EllaColors.neutralSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: EllaColors.neutralBorder, width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: EllaColors.neutralMuted,
-            offset: Offset(0, 6),
-            blurRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'FROM YOUR CONVERSATION',
-            style: GoogleFonts.inconsolata(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: EllaColors.neutralMuted,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            highlight,
-            style: GoogleFonts.baloo2(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: EllaColors.neutralPrimary,
-              height: 1.5,
-            ),
-          ),
-        ],
+    return Text(
+      highlight,
+      style: GoogleFonts.baloo2(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: EllaColors.neutralSecondary,
+        height: 1.5,
       ),
     );
   }

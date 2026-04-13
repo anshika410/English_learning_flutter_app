@@ -58,10 +58,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     });
 
     try {
-      await Future.wait([
-        _speakIntro(),
-        _typeIntroText(),
-      ]);
+      await _tts.initialize();
+      final Future<void> speechFuture = _tts.speak(_introSpeech);
+      await _typeIntroText();
+      await speechFuture;
     } catch (_) {
       // Keep UI resilient even if a TTS engine fails.
     } finally {
@@ -74,21 +74,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
   }
 
-  Future<void> _speakIntro() async {
-    await _tts.initialize();
-    await _tts.speak(_introSpeech);
-  }
-
   Future<void> _typeIntroText() async {
-    final int baseDelayMs = _baseTypeDelayMs(_introSpeech);
-
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final int baseDelayMs = _baseTypeDelayMs();
     await _typeTextWithSpeechPacing(
       fullText: _introHeading,
       update: (value) => _visibleHeading = value,
       baseDelayMs: baseDelayMs,
     );
-    await Future<void>.delayed(const Duration(milliseconds: 180));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
     await _typeTextWithSpeechPacing(
       fullText: _introSubline,
       update: (value) => _visibleSubline = value,
@@ -112,32 +105,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
   }
 
-  int _baseTypeDelayMs(String text) {
-    final int wordCount =
-        RegExp(r"[A-Za-z']+").allMatches(text).length.clamp(1, 1000);
-    // Approximate Zoe intro speech pace and distribute across characters.
-    final int targetSpeechMs = wordCount * 570;
-    final int punctuationPauseTotal =
-        text.split('').fold(0, (sum, c) => sum + _punctuationPauseMs(c));
-    final int effectiveChars = text.length.clamp(1, 2000);
-    final int base = ((targetSpeechMs - punctuationPauseTotal) / effectiveChars)
-        .round()
-        .clamp(45, 95);
-    return base;
+  int _baseTypeDelayMs() {
+    // Slower pacing so typewriter matches TTS speech speed (~4-5s for full text).
+    return 52;
   }
 
   int _punctuationPauseMs(String char) {
     switch (char) {
       case ',':
-        return 110;
+        return 70;
       case '.':
       case '!':
       case '?':
-        return 190;
+        return 120;
       case '\'':
-        return 20;
+        return 8;
       case ' ':
-        return 12;
+        return 6;
       default:
         return 0;
     }

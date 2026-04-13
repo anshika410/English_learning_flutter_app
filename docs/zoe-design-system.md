@@ -179,11 +179,20 @@ Four typefaces. Each has a fixed role — do not mix.
 | Body Large | 16px | Baloo 2 | 600 | Primary body, button labels |
 | Body | 14px | Baloo 2 | 500 | Secondary body, supporting copy |
 | Caption | 12px | Baloo 2 | 600 | Badge labels, timestamps |
-| Ella voice large | 22px | Kalam | 700 | Speech bubble main text |
-| Ella voice | 17px | Kalam | 400 | Inline hints, Hindi whisper-text |
+| Ella voice large | 22px | Kalam | 700 | First / intro speech bubble only |
+| Ella voice | 17px | Kalam | 400 | Conversation chat bubbles (Zoe's turn), inline hints |
 | Eyebrow / label | 11px | Inconsolata | 700 | Section labels, CEFR spec labels |
 
 Hindi text: same size as English equivalent, Baloo 2 at 600 (headings) or 500 (body). Always with a visual separator (dashed border-top) when following English in the same container.
+
+**Font weight rules (enforced in code):**
+- Zoe's chat bubbles: Kalam w400 ("Ella voice")
+- User's chat bubbles: Baloo 2 w500
+- Body copy, metadata, non-button chip labels: Baloo 2 w500
+- Button labels and primary CTAs: Baloo 2 w700
+- Card/section sub-headings: Baloo 2 w600
+- Display / Title / heading roles: Fredoka w600–w700 (unchanged)
+- Eyebrow/label: Inconsolata w700 (unchanged)
 
 ---
 

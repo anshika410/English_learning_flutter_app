@@ -60,6 +60,8 @@ class EllaColors {
 
   // Semantic
   static const error = Color(0xFFE0103C);
+  static const errorSurface = Color(0xFFFFF0F2); // very light red — End button bg
+  static const errorLight = Color(0xFFFFB8C4);   // light red — End button border
   static const warning = Color(0xFFFFAA00);
   static const success = limeMain;
 }
