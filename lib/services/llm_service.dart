@@ -85,6 +85,18 @@ class LlmService {
   String? _cachedPlacementPrompt;
   String? _cachedConversationPrompt;
 
+  /// Set to true to use mock responses instead of calling the API.
+  static bool useMockData = true;
+
+  static const _mockConversationReplies = [
+    'That\'s really interesting! I love hearing about what people enjoy doing in their free time. Do you do this often?',
+    'Oh nice! That sounds like a lot of fun. How did you first get into it?',
+    'I can see why you enjoy that. It\'s a great way to relax. What else do you like to do on weekends?',
+    'That\'s wonderful! You seem like someone who really values their time. Tell me more about your daily routine.',
+    'You\'re doing great with your English! I noticed you used some really nice expressions there. Keep it up!',
+  ];
+  static int _mockReplyIndex = 0;
+
   LlmProvider get activeProvider => LlmProvider.deepseek;
   LlmProviderConfig get activeConfig => _config;
   List<LlmProvider> get availableProviders =>
@@ -165,6 +177,14 @@ Rules:
   Future<({String starter, String headerTitle})> generateConversationStarter({
     String? topic,
   }) async {
+    if (useMockData) {
+      await Future.delayed(const Duration(milliseconds: 800));
+      final t = topic ?? 'Free Talk';
+      return (
+        starter: "Hi! I'm Zoe. Let's talk about $t. What's your first thought on it?",
+        headerTitle: t,
+      );
+    }
     final topicLine = topic == null || topic.trim().isEmpty
         ? 'Topic: free conversation.'
         : 'Topic: $topic. Start specifically with this topic.';
@@ -211,6 +231,19 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     int currentTurn = 1,
     FocusSettings? focusSettings,
   }) async {
+    if (useMockData) {
+      await Future.delayed(const Duration(milliseconds: 1200));
+      final reply = _mockConversationReplies[_mockReplyIndex % _mockConversationReplies.length];
+      _mockReplyIndex++;
+      final complete = _mockReplyIndex >= 6;
+      return ConversationTurnResult(
+        message: ChatMessage(
+          role: MessageRole.assistant,
+          content: reply,
+        ),
+        conversationComplete: complete,
+      );
+    }
     final systemPrompt = await _loadConversationPrompt(
       topic: topic ?? 'Free conversation',
       level: level ?? 'A2',
@@ -295,6 +328,19 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     required String level,
     required String levelLabel,
   }) async {
+    if (useMockData) {
+      await Future.delayed(const Duration(milliseconds: 800));
+      return EndResultAnalysis(
+        overall: 'great',
+        bestMomentQuote: 'I really enjoy spending time with my friends on weekends.',
+        bestMomentNote: 'Natural expression with good sentence structure!',
+        courageOrMotivationType: 'motivation',
+        courageOrMotivationContent: 'You spoke confidently and kept the conversation going. That takes real courage!',
+        tryNextTimeSkill: 'Past tense usage',
+        tryNextTimeExample: 'Try saying "I went to the park" instead of "I go to the park yesterday".',
+        transcriptNotes: [],
+      );
+    }
     final template = await rootBundle.loadString(
       'assets/prompts/end-result-prompt.md',
     );
@@ -486,6 +532,28 @@ $transcript
   Future<PlacementMessageResult> sendPlacementMessage(
     List<Map<String, String>> messages,
   ) async {
+    if (useMockData) {
+      await Future.delayed(const Duration(milliseconds: 1000));
+      final userCount = messages.where((m) => m['role'] == 'user').length;
+      if (userCount >= 3) {
+        return PlacementMessageResult.complete(
+          name: 'Arjun',
+          age: '16',
+          location: 'Kanpur',
+          assessedLevel: 'A2',
+          confidence: '0.7',
+          notes: 'Good basic communication skills',
+        );
+      }
+      const mockReplies = [
+        'REPLY: Nice to meet you! Where are you from?',
+        'REPLY: That\'s great! How old are you and what do you like to do for fun?',
+        'REPLY: Wonderful! Can you tell me about your typical day?',
+      ];
+      return PlacementMessageResult.reply(
+        mockReplies[userCount].replaceFirst('REPLY: ', ''),
+      );
+    }
     final systemPrompt = await _loadPlacementPrompt();
 
     final apiMessages = [
