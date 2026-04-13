@@ -7,7 +7,7 @@ import '../models/end_result_analysis.dart';
 import '../models/focus_settings.dart';
 import '../models/placement_result.dart';
 
-enum LlmProvider { gemini }
+enum LlmProvider { deepseek }
 
 class LlmProviderConfig {
   final String name;
@@ -81,27 +81,27 @@ class ConversationTurnResult {
 }
 
 class LlmService {
-  final LlmProviderConfig _geminiConfig;
+  final LlmProviderConfig _config;
   String? _cachedPlacementPrompt;
   String? _cachedConversationPrompt;
 
-  LlmProvider get activeProvider => LlmProvider.gemini;
-  LlmProviderConfig get activeConfig => _geminiConfig;
+  LlmProvider get activeProvider => LlmProvider.deepseek;
+  LlmProviderConfig get activeConfig => _config;
   List<LlmProvider> get availableProviders =>
-      _geminiConfig.isConfigured ? [LlmProvider.gemini] : const [];
+      _config.isConfigured ? [LlmProvider.deepseek] : const [];
 
   LlmService()
-    : _geminiConfig = LlmProviderConfig(
-        name: 'Gemini',
-        apiKey: dotenv.env['GEMINI_API_KEY'] ?? '',
+    : _config = LlmProviderConfig(
+        name: 'DeepSeek',
+        apiKey: dotenv.env['DEEPSEEK_API_KEY'] ?? '',
         baseUrl:
-            dotenv.env['GEMINI_BASE_URL'] ??
-            'https://generativelanguage.googleapis.com/v1beta',
-        model: dotenv.env['GEMINI_MODEL'] ?? 'gemini-2.0-flash',
+            dotenv.env['DEEPSEEK_BASE_URL'] ??
+            'https://api.deepseek.com/v1',
+        model: dotenv.env['DEEPSEEK_MODEL'] ?? 'deepseek-chat',
       );
 
   void setProvider(LlmProvider provider) {
-    // Gemini is intentionally locked as the only provider.
+    // DeepSeek is the only provider.
   }
 
   static const _conversationSystemPrompt = '''
@@ -175,10 +175,12 @@ After the starter, on a new line output:
 TITLE: <3-4 word header for this conversation, no punctuation>
 ''';
     try {
-      final text = await _sendGeminiRaw(
-        systemPrompt: prompt,
-        userPrompt: topicLine,
-        maxOutputTokens: 160,
+      final text = await _sendChatCompletion(
+        messages: [
+          {'role': 'system', 'content': prompt},
+          {'role': 'user', 'content': topicLine},
+        ],
+        maxTokens: 160,
         temperature: 0.8,
       );
       final titleMatch = RegExp(
@@ -217,20 +219,19 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       focusSettings: focusSettings ?? const FocusSettings.defaults(),
     );
 
-    final contents = history
-        .where((m) => m.role != MessageRole.system)
-        .map((m) => {
-              'role': m.role == MessageRole.user ? 'user' : 'model',
-              'parts': [
-                {'text': m.content},
-              ],
-            })
-        .toList();
+    final apiMessages = <Map<String, String>>[
+      {'role': 'system', 'content': systemPrompt},
+      ...history
+          .where((m) => m.role != MessageRole.system)
+          .map((m) => {
+                'role': m.role == MessageRole.user ? 'user' : 'assistant',
+                'content': m.content,
+              }),
+    ];
 
-    final response = await _sendGeminiMultiTurn(
-      systemPrompt: systemPrompt,
-      contents: contents,
-      maxOutputTokens: 280,
+    final response = await _sendChatCompletion(
+      messages: apiMessages,
+      maxTokens: 280,
       temperature: 0.75,
     );
 
@@ -309,10 +310,12 @@ TITLE: <3-4 word header for this conversation, no punctuation>
         .replaceAll('{{FULL_TRANSCRIPT}}', transcript);
 
     try {
-      final raw = await _sendGeminiRaw(
-        systemPrompt: systemPrompt,
-        userPrompt: 'Analyze the transcript and return the JSON report.',
-        maxOutputTokens: 1200,
+      final raw = await _sendChatCompletion(
+        messages: [
+          {'role': 'system', 'content': systemPrompt},
+          {'role': 'user', 'content': 'Analyze the transcript and return the JSON report.'},
+        ],
+        maxTokens: 1200,
         temperature: 0.4,
       );
       final jsonStr = _extractJsonObject(raw);
@@ -381,10 +384,12 @@ $transcript
 ''';
 
     try {
-      final raw = await _sendGeminiRaw(
-        systemPrompt: _placementTurnPrompt,
-        userPrompt: userPrompt,
-        maxOutputTokens: 220,
+      final raw = await _sendChatCompletion(
+        messages: [
+          {'role': 'system', 'content': _placementTurnPrompt},
+          {'role': 'user', 'content': userPrompt},
+        ],
+        maxTokens: 220,
         temperature: 0.5,
       );
       final data = jsonDecode(_extractJsonObject(raw)) as Map<String, dynamic>;
@@ -431,10 +436,12 @@ $transcript
         )
         .join('\n');
 
-    final rawText = await _sendGeminiRaw(
-      systemPrompt: _placementScorePrompt,
-      userPrompt: transcript,
-      maxOutputTokens: 240,
+    final rawText = await _sendChatCompletion(
+      messages: [
+        {'role': 'system', 'content': _placementScorePrompt},
+        {'role': 'user', 'content': transcript},
+      ],
+      maxTokens: 240,
       temperature: 0.3,
     );
 
@@ -481,53 +488,19 @@ $transcript
   ) async {
     final systemPrompt = await _loadPlacementPrompt();
 
-    // Build Gemini multi-turn contents array
-    final contents = messages
-        .map(
-          (m) => {
-            'role': m['role'] == 'user' ? 'user' : 'model',
-            'parts': [
-              {'text': m['content'] ?? ''},
-            ],
-          },
-        )
-        .toList();
+    final apiMessages = [
+      {'role': 'system', 'content': systemPrompt},
+      ...messages.map((m) => {
+            'role': m['role'] == 'user' ? 'user' : 'assistant',
+            'content': m['content'] ?? '',
+          }),
+    ];
 
-    final response = await http.post(
-      Uri.parse(
-        '${_geminiConfig.baseUrl}/models/${_geminiConfig.model}:generateContent',
-      ),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': _geminiConfig.apiKey,
-      },
-      body: jsonEncode({
-        'system_instruction': {
-          'parts': [
-            {'text': systemPrompt},
-          ],
-        },
-        'contents': contents,
-        'generationConfig': {
-          'temperature': 0.7,
-          'maxOutputTokens': 200,
-        },
-      }),
+    final text = await _sendChatCompletion(
+      messages: apiMessages,
+      maxTokens: 200,
+      temperature: 0.7,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Gemini placement API error: ${response.statusCode} ${response.body}',
-      );
-    }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final candidates = data['candidates'] as List<dynamic>? ?? const [];
-    if (candidates.isEmpty) throw Exception('Empty placement candidates');
-    final content = candidates.first['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List<dynamic>? ?? const [];
-    if (parts.isEmpty) throw Exception('Empty placement parts');
-    final text = (parts.first['text'] as String? ?? '').trim();
 
     // Check if it's a REPLY: prefixed conversational turn
     final replyMatch = RegExp(
@@ -562,105 +535,39 @@ $transcript
     return PlacementMessageResult.reply(text);
   }
 
-  Future<String> _sendGeminiMultiTurn({
-    required String systemPrompt,
-    required List<Map<String, dynamic>> contents,
-    required int maxOutputTokens,
+  /// Generic OpenAI-compatible chat completion (works with DeepSeek).
+  Future<String> _sendChatCompletion({
+    required List<Map<String, String>> messages,
+    required int maxTokens,
     required double temperature,
   }) async {
     final response = await http.post(
-      Uri.parse(
-        '${_geminiConfig.baseUrl}/models/${_geminiConfig.model}:generateContent',
-      ),
+      Uri.parse('${_config.baseUrl}/chat/completions'),
       headers: {
         'Content-Type': 'application/json',
-        'X-goog-api-key': _geminiConfig.apiKey,
+        'Authorization': 'Bearer ${_config.apiKey}',
       },
       body: jsonEncode({
-        'system_instruction': {
-          'parts': [
-            {'text': systemPrompt},
-          ],
-        },
-        'contents': contents,
-        'generationConfig': {
-          'temperature': temperature,
-          'maxOutputTokens': maxOutputTokens,
-        },
+        'model': _config.model,
+        'messages': messages,
+        'max_tokens': maxTokens,
+        'temperature': temperature,
       }),
     );
 
     if (response.statusCode != 200) {
       throw Exception(
-        'Gemini API error: ${response.statusCode} ${response.body}',
+        'LLM API error: ${response.statusCode} ${response.body}',
       );
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final candidates = data['candidates'] as List<dynamic>? ?? const [];
-    if (candidates.isEmpty) throw Exception('Gemini API error: empty candidates');
-    final content = candidates.first['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List<dynamic>? ?? const [];
-    if (parts.isEmpty) throw Exception('Gemini API error: empty parts');
-    final text = parts.first['text'] as String?;
-    if (text == null || text.trim().isEmpty) throw Exception('Gemini API error: empty text');
-    return text.trim();
-  }
-
-  Future<String> _sendGeminiRaw({
-    required String systemPrompt,
-    required String userPrompt,
-    required int maxOutputTokens,
-    required double temperature,
-  }) async {
-    final response = await http.post(
-      Uri.parse(
-        '${_geminiConfig.baseUrl}/models/${_geminiConfig.model}:generateContent',
-      ),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': _geminiConfig.apiKey,
-      },
-      body: jsonEncode({
-        'system_instruction': {
-          'parts': [
-            {'text': systemPrompt},
-          ],
-        },
-        'contents': [
-          {
-            'role': 'user',
-            'parts': [
-              {'text': userPrompt},
-            ],
-          },
-        ],
-        'generationConfig': {
-          'temperature': temperature,
-          'maxOutputTokens': maxOutputTokens,
-        },
-      }),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Gemini API error: ${response.statusCode} ${response.body}',
-      );
-    }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final candidates = data['candidates'] as List<dynamic>? ?? const [];
-    if (candidates.isEmpty) {
-      throw Exception('Gemini API error: empty candidates');
-    }
-    final content = candidates.first['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List<dynamic>? ?? const [];
-    if (parts.isEmpty) {
-      throw Exception('Gemini API error: empty parts');
-    }
-    final text = parts.first['text'] as String?;
+    final choices = data['choices'] as List<dynamic>? ?? const [];
+    if (choices.isEmpty) throw Exception('LLM API error: empty choices');
+    final message = choices.first['message'] as Map<String, dynamic>?;
+    final text = message?['content'] as String?;
     if (text == null || text.trim().isEmpty) {
-      throw Exception('Gemini API error: empty text');
+      throw Exception('LLM API error: empty content');
     }
     return text.trim();
   }

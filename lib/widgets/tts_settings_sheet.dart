@@ -53,7 +53,7 @@ class TtsSettingsSheet extends StatelessWidget {
                 const Icon(Icons.auto_awesome, size: 18),
                 const SizedBox(width: 8),
                 Text(
-                  'Gemini (Locked for this phase)',
+                  'DeepSeek',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],

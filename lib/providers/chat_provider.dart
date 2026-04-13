@@ -115,7 +115,7 @@ class ChatProvider extends ChangeNotifier {
   String get llmModelName => _llm.activeConfig.model;
 
   void setLlmProvider(LlmProvider provider) {
-    _llm.setProvider(LlmProvider.gemini);
+    _llm.setProvider(LlmProvider.deepseek);
     notifyListeners();
   }
 

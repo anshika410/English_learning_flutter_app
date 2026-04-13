@@ -493,50 +493,57 @@ class _PlacementScreenState extends State<PlacementScreen> {
           Center(
             child: GestureDetector(
               onTap: blocked ? null : _toggleMicListening,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_isListening)
-                    const _MicPulseRing(color: EllaColors.mangoMain),
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: blocked
-                          ? EllaColors.neutralBorder
-                          : (_isListening
-                                ? EllaColors.mangoDark
-                                : EllaColors.mangoMain),
-                      border: Border.all(
-                        color: blocked
-                            ? EllaColors.neutralSecondary
-                            : EllaColors.mangoDark,
-                        width: 2.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
+              child: SizedBox(
+                width: 100,
+                height: 100,
+                child: Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (_isListening)
+                        const _MicPulseRing(color: EllaColors.mangoMain),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
                           color: blocked
-                              ? EllaColors.neutralSecondary
-                              : EllaColors.mangoDark,
-                          offset: _isListening
-                              ? const Offset(0, 1)
-                              : const Offset(0, 5),
-                          blurRadius: 0,
-                        ),
-                      ],
-                    ),
-                    child: _isListening
-                        ? const WaveformIcon()
-                        : Icon(
-                            Icons.mic_rounded,
-                            size: 28,
+                              ? EllaColors.neutralBorder
+                              : (_isListening
+                                    ? EllaColors.mangoDark
+                                    : EllaColors.mangoMain),
+                          border: Border.all(
                             color: blocked
                                 ? EllaColors.neutralSecondary
-                                : EllaColors.neutralPrimary,
+                                : EllaColors.mangoDark,
+                            width: 2.5,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: blocked
+                                  ? EllaColors.neutralSecondary
+                                  : EllaColors.mangoDark,
+                              offset: _isListening
+                                  ? const Offset(0, 1)
+                                  : const Offset(0, 5),
+                              blurRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: _isListening
+                            ? const WaveformIcon()
+                            : Icon(
+                                Icons.mic_rounded,
+                                size: 28,
+                                color: blocked
+                                    ? EllaColors.neutralSecondary
+                                    : EllaColors.neutralPrimary,
+                              ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
