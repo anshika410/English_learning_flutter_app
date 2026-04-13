@@ -28,11 +28,12 @@ class TtsManager {
     _piperAvailable = await _piperEngine.isAvailable;
 
     // Auto-select Piper if available
+    // NOTE: System TTS (Google) generally sounds more natural on Android.
+    // Keep system as default; Piper can be enabled manually if preferred.
+    _activeType = TtsEngineType.system;
     if (_piperAvailable) {
-      _activeType = TtsEngineType.piper;
-      debugPrint('TTS: Using Piper as primary engine');
+      debugPrint('TTS: Piper available but using system TTS as default for better quality');
     } else {
-      _activeType = TtsEngineType.system;
       debugPrint('TTS: Piper not available, using system TTS');
     }
   }

@@ -46,9 +46,13 @@ class PiperTtsEngine extends TtsEngine {
     await _modelManager.copyBundledModels();
     _availableVoices = await _modelManager.scanVoices();
 
-    // Auto-load first voice
+    // Auto-load first voice — prefer en_US for clarity
     if (_availableVoices.isNotEmpty) {
-      await setVoice(_availableVoices.first);
+      final preferred = _availableVoices.cast<PiperVoice?>().firstWhere(
+        (v) => v!.id.startsWith('en_US'),
+        orElse: () => null,
+      );
+      await setVoice(preferred ?? _availableVoices.first);
     }
   }
 

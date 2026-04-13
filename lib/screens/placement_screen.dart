@@ -546,6 +546,8 @@ class _PlacementScreenState extends State<PlacementScreen> {
       ],
     );
   }
+
+  Widget _buildKeyboardRow() {
     return Row(
       children: [
         GestureDetector(
