@@ -20,12 +20,13 @@ Voice-first English learning app for Indian students (ages 10–18), built by Na
 
 ```
 WelcomeScreen
-  → PlacementScreen   (3-turn voice placement test)
-    → ResultScreen    (CEFR level + feedback)
-      → HomeScreen    (topic hub)
-        → ConversationScreen  (main voice conversation)
-          → EndScreen         (session summary)
-            → HomeScreen (loop)
+  → PlacementScreen         (3-turn voice placement test)
+    → ResultScreen          (CEFR level + feedback)
+      → FocusDiscoveryScreen  (interest/focus selection, shown after first conversation)
+        → HomeScreen          (topic hub)
+          → ConversationScreen  (main voice conversation)
+            → EndScreen         (session summary)
+              → HomeScreen (loop)
 ```
 
 `ChatScreen` is a dev/debug screen — simpler Material UI, used for testing services.
@@ -44,8 +45,11 @@ WelcomeScreen
 | `lib/screens/home_screen.dart` | Topic chip hub; navigates to ConversationScreen with topic |
 | `lib/screens/conversation_screen.dart` | Main conversation UI; consumes ChatProvider |
 | `lib/screens/end_screen.dart` | Session summary; draggable transcript sheet |
+| `lib/screens/focus_discovery_screen.dart` | Focus/interest selection after first conversation |
+| `lib/screens/profile_screen.dart` | User profile screen |
 | `lib/widgets/ella_primary_button.dart` | Stamp-shadow CTA button with press-depth animation |
 | `lib/widgets/chat_bubble.dart` | Message bubble (used in ChatScreen) |
+| `lib/widgets/waveform_icon.dart` | Animated waveform icon widget |
 | `lib/providers/chat_provider.dart` | Conversation state — messages, STT/TTS/LLM orchestration |
 | `lib/services/tts_manager.dart` | TTS abstraction — selects System vs Piper engine |
 | `lib/services/stt_service.dart` | System STT wrapper (`speech_to_text`) |
@@ -53,6 +57,9 @@ WelcomeScreen
 | `lib/services/llm_service.dart` | LLM API calls — Gemini/OpenAI, latency tracking |
 | `lib/models/chat_message.dart` | Message model with role, content, correction, latency |
 | `lib/models/placement_result.dart` | CEFR level, label, highlight text |
+| `lib/models/end_result_analysis.dart` | End-of-session analysis data model |
+| `lib/models/focus_settings.dart` | User focus/interest settings model |
+| `assets/prompts/` | LLM prompt files |
 
 ---
 
@@ -70,6 +77,8 @@ WelcomeScreen
 
 **Latency:** Every conversation turn records STT / LLM / TTS durations in `LatencyInfo`, attached to each `ChatMessage`. Visible in ChatScreen debug view.
 
+**Typography:** Bold (w700) reserved for button labels and Fredoka headings only. Zoe's chat bubbles use Kalam w400; user's chat bubbles use Baloo 2 w500. All body/supporting text (metadata, card copy, non-button chips) uses Baloo 2 w500. See `docs/zoe-design-system.md` for the full type scale.
+
 ---
 
 ## Implemented Screens (as of April 2026)
@@ -79,12 +88,13 @@ WelcomeScreen
 - ResultScreen — CEFR level badge, success pulse ring, Kalam feedback card
 - HomeScreen — topic chips, avatar, "Talk to Zoe" CTA
 - ConversationScreen — real-time STT, LLM responses, TTS, scaffold pills, mic pulse animation
-- EndScreen — mock transcript, draggable bottom sheet
+- EndScreen — session summary cards (best moment, courage, habit), draggable transcript sheet
+- FocusDiscoveryScreen — interest/focus selection after first conversation
+- ProfileScreen — user profile screen
 
 ## Not Yet Implemented
 
 - Real conversation history persistence
-- Interests / topic selection path
 - Progress tracking, streaks, level-up screens
 - Grape colour family (no screen uses it yet)
 - Ruled-line conversation background texture

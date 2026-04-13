@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import '../models/placement_result.dart';
-import '../services/stt_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/chat_provider.dart';
+import '../services/continuous_stt_service.dart';
+import '../services/llm_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
+import '../widgets/waveform_icon.dart';
 import 'result_screen.dart';
 
 // ─── Mascot State ─────────────────────────────────────────────────────────────
@@ -31,35 +33,40 @@ class PlacementScreen extends StatefulWidget {
 
 class _PlacementScreenState extends State<PlacementScreen> {
   static const String _openingLine =
-      'Hi. You have taken the step to master English speaking. '
-      'With this conversation, I will be able to help you get to the next '
-      'step of your learning. I am Zoe. What is your name?';
+      'Hey, I am Zoe and I love a good conversation. What name should I call you with?';
 
-  final SttService _stt = SttService();
+  final ContinuousSttService _stt = ContinuousSttService();
   final TtsManager _tts = TtsManager();
+  final LlmService _llm = LlmService();
   final TextEditingController _textCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
   final FocusNode _textFocusNode = FocusNode();
 
-  int _userResponses = 0;
   bool _isKeyboardMode = false;
   bool _isListening = false;
+  bool _isZoeSpeaking = false;
   bool _isCompleting = false;
+  bool _isLlmThinking = false;
   String _currentTranscript = '';
   _MascotState _mascotState = _MascotState.speaking;
   bool _didPrecacheMascotImages = false;
 
   final List<_PlacementBubbleEntry> _history = [];
 
+  // API message history: {role: 'user'|'model', content: '...'}
+  final List<Map<String, String>> _apiMessages = [];
+
+  // Extracted user info from LLM final assessment
+  String? _userName;
+  String? _userAge;
+  String? _userLocation;
+
   @override
   void initState() {
     super.initState();
     _stt.initialize();
     _tts.initialize();
-    Future.delayed(
-      const Duration(milliseconds: 600),
-      _requestNextPlacementTurn,
-    );
+    Future.delayed(const Duration(milliseconds: 600), _playOpeningLine);
   }
 
   @override
@@ -102,32 +109,39 @@ class _PlacementScreenState extends State<PlacementScreen> {
     });
   }
 
-  Future<void> _requestNextPlacementTurn() async {
+  Future<void> _playOpeningLine() async {
     if (!mounted || _isCompleting) return;
-
-    // Thinking — Zoe is composing her reply
-    setState(() => _mascotState = _MascotState.thinking);
+    setState(() {
+      _mascotState = _MascotState.thinking;
+      _isZoeSpeaking = false;
+    });
     await Future<void>.delayed(const Duration(milliseconds: 600));
     if (!mounted || _isCompleting) return;
 
-    // Add Zoe's message and start speaking
     setState(() {
-      _history.add(_PlacementBubbleEntry(text: _openingLine, isElla: true));
+      _history.add(
+        const _PlacementBubbleEntry(text: _openingLine, isElla: true),
+      );
       _mascotState = _MascotState.speaking;
+      _isZoeSpeaking = true;
     });
     _scrollToBottom();
 
-    // Await TTS — Future resolves when audio finishes
+    // Add opening line to API history as a model message
+    _apiMessages.add({'role': 'model', 'content': _openingLine});
+
     await _tts.speak(_openingLine);
     if (!mounted) return;
 
-    // Audio done — switch to listening
-    setState(() => _mascotState = _MascotState.listening);
+    setState(() {
+      _mascotState = _MascotState.listening;
+      _isZoeSpeaking = false;
+    });
   }
 
   void _handleUserResponse(String text) {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _isCompleting) return;
+    if (trimmed.isEmpty || _isCompleting || _isZoeSpeaking) return;
     _textCtrl.clear();
 
     setState(() {
@@ -135,44 +149,111 @@ class _PlacementScreenState extends State<PlacementScreen> {
       _isListening = false;
       _currentTranscript = '';
       _isKeyboardMode = false;
-      _userResponses++;
     });
     _textFocusNode.unfocus();
     _scrollToBottom();
 
-    if (_userResponses >= 3) {
-      Future.delayed(const Duration(milliseconds: 300), _goToResult);
-      return;
-    }
+    // Add user message to API history
+    _apiMessages.add({'role': 'user', 'content': trimmed});
 
-    Future.delayed(
-      const Duration(milliseconds: 450),
-      _requestNextPlacementTurn,
-    );
+    // Call LLM for Zoe's next response
+    _fetchLlmResponse();
   }
 
-  Future<void> _goToResult() async {
+  Future<void> _fetchLlmResponse() async {
+    if (!mounted || _isCompleting) return;
+
+    setState(() {
+      _mascotState = _MascotState.thinking;
+      _isLlmThinking = true;
+    });
+
+    try {
+      final result = await _llm.sendPlacementMessage(_apiMessages);
+
+      if (!mounted) return;
+
+      if (result.isComplete) {
+        // LLM has assessed the student — extract info and navigate
+        _userName = result.name;
+        _userAge = result.age;
+        _userLocation = result.location;
+        await _goToResult(result.assessedLevel ?? 'A2');
+        return;
+      }
+
+      final reply = result.reply ?? '';
+      if (reply.isEmpty) return;
+
+      // Add Zoe's reply to both histories
+      _apiMessages.add({'role': 'model', 'content': reply});
+      setState(() {
+        _history.add(_PlacementBubbleEntry(text: reply, isElla: true));
+        _mascotState = _MascotState.speaking;
+        _isZoeSpeaking = true;
+        _isLlmThinking = false;
+      });
+      _scrollToBottom();
+
+      await _tts.speak(reply);
+      if (!mounted) return;
+
+      setState(() {
+        _mascotState = _MascotState.listening;
+        _isZoeSpeaking = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      // On error, show a fallback and keep listening
+      const fallback = 'Sorry, could you say that again?';
+      _apiMessages.add({'role': 'model', 'content': fallback});
+      setState(() {
+        _history.add(
+          const _PlacementBubbleEntry(text: fallback, isElla: true),
+        );
+        _mascotState = _MascotState.listening;
+        _isZoeSpeaking = false;
+        _isLlmThinking = false;
+      });
+      _scrollToBottom();
+    }
+  }
+
+  Future<void> _goToResult(String assessedLevel) async {
     if (!mounted || _isCompleting) return;
     _isCompleting = true;
 
-    const placement = PlacementResult(
-      cefrLevel: 'A2',
-      levelLabel: 'Finding My Voice',
-      highlight:
-          'You expressed yourself clearly and stayed engaged throughout the check.',
-      confidence: 0.6,
-    );
+    const labels = <String, String>{
+      'A1': 'Starting Out',
+      'A2': 'Finding My Voice',
+      'B1': 'Speaking with Confidence',
+      'B2': 'Expressing with Clarity',
+      'C1': 'Near-Native Flow',
+    };
+    final level = assessedLevel.toUpperCase();
+    final levelLabel = labels[level] ?? 'Finding My Voice';
+    final highlight =
+        'You expressed yourself clearly and stayed engaged throughout the check.';
 
     if (!mounted) return;
+    // Save profile into ChatProvider for use across the app
+    context.read<ChatProvider>().setUserProfile(
+      name: _userName,
+      age: _userAge,
+      location: _userLocation,
+      level: level,
+      levelLabel: levelLabel,
+    );
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => ResultScreen(
-          level: placement.cefrLevel,
-          levelName: placement.levelLabel ?? 'Finding My Voice',
-          highlight: placement.highlight,
-          name: 'Arjun',
-          city: 'Kanpur',
-          age: '16 years old',
+          level: labels.containsKey(level) ? level : 'A2',
+          levelName: levelLabel,
+          highlight: highlight,
+          name: _userName ?? 'there',
+          city: _userLocation,
+          age: _userAge,
         ),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -187,11 +268,10 @@ class _PlacementScreenState extends State<PlacementScreen> {
   }
 
   Future<void> _toggleMicListening() async {
-    if (_isCompleting || _mascotState == _MascotState.speaking) return;
+    if (_isCompleting || _isZoeSpeaking || _isLlmThinking) return;
 
     if (_isListening) {
-      await _stt.stopListening();
-      final text = _currentTranscript.trim();
+      final text = await _stt.stopListening();
       setState(() => _isListening = false);
       if (text.isNotEmpty) {
         _handleUserResponse(text);
@@ -204,23 +284,13 @@ class _PlacementScreenState extends State<PlacementScreen> {
       _currentTranscript = '';
     });
     final started = await _stt.startListening(
-      onResult: _onSpeechResult,
-      onDone: _onListeningDone,
+      onResult: (text, isFinal) {
+        if (mounted) setState(() => _currentTranscript = text);
+      },
     );
     if (!started && mounted) {
       setState(() => _isListening = false);
     }
-  }
-
-  void _onSpeechResult(SpeechRecognitionResult result) {
-    setState(() => _currentTranscript = result.recognizedWords);
-  }
-
-  void _onListeningDone() {
-    // OS signalled that recognition stopped (e.g. silence timeout).
-    // We do NOT auto-submit — the user must tap stop to send their reply.
-    if (!mounted || !_isListening) return;
-    setState(() => _isListening = false);
   }
 
   @override
@@ -232,13 +302,9 @@ class _PlacementScreenState extends State<PlacementScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final fullHeight = constraints.maxHeight;
+            // Shrink mascot whenever keyboard is visible (reactive to MediaQuery)
             final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-            final shrinkMascot = bottomInset > 0 && _history.length >= 3;
-
-            final circlesCenter = Offset(
-              constraints.maxWidth / 2,
-              fullHeight / 2,
-            );
+            final shrinkMascot = bottomInset > 0 || _isKeyboardMode;
 
             return AnimatedPadding(
               duration: const Duration(milliseconds: 180),
@@ -246,20 +312,31 @@ class _PlacementScreenState extends State<PlacementScreen> {
               padding: EdgeInsets.only(bottom: bottomInset),
               child: Stack(
                 children: [
-                  // Layer 1: Concentric circles background
+                  // Layer 1: Dashed grid background
                   Positioned.fill(
                     child: IgnorePointer(
-                      child: CustomPaint(
-                        painter: _ConcentricCirclesPainter(
-                          center: circlesCenter,
-                        ),
-                      ),
+                      child: CustomPaint(painter: _DashedGridPainter()),
                     ),
                   ),
 
                   // Layer 2: Main content
                   Column(
                     children: [
+                      // ── Subtitle header (replaces "Placement Test") ──
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: Text(
+                          "Zoe wants to understand what's your current English level",
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inconsolata(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: EllaColors.neutralSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+
                       // ── Mascot zone: 40% normally, 25% when keyboard open ──
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
@@ -329,6 +406,19 @@ class _PlacementScreenState extends State<PlacementScreen> {
                           ),
                         ),
 
+                      // ── LLM thinking indicator ──
+                      if (_isLlmThinking)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Zoe is thinking…',
+                            style: GoogleFonts.inconsolata(
+                              fontSize: 12,
+                              color: EllaColors.neutralMuted,
+                            ),
+                          ),
+                        ),
+
                       // ── Bottom input bar ──
                       _buildInputBar(),
                     ],
@@ -344,13 +434,13 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
   Widget _buildInputBar() {
     return Container(
-      color: EllaColors.neutralBg,
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
       child: _isKeyboardMode ? _buildKeyboardRow() : _buildMicRow(),
     );
   }
 
   Widget _buildMicRow() {
+    final bool blocked = _isZoeSpeaking || _isLlmThinking;
     return SizedBox(
       height: 64,
       child: Stack(
@@ -359,7 +449,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: GestureDetector(
-              onTap: _mascotState == _MascotState.speaking
+              onTap: blocked
                   ? null
                   : () {
                       setState(() => _isKeyboardMode = true);
@@ -388,7 +478,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
           ),
           Center(
             child: GestureDetector(
-              onTap: _toggleMicListening,
+              onTap: blocked ? null : _toggleMicListening,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -399,16 +489,22 @@ class _PlacementScreenState extends State<PlacementScreen> {
                     height: 64,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _isListening
-                          ? EllaColors.mangoDark
-                          : EllaColors.mangoMain,
+                      color: blocked
+                          ? EllaColors.neutralBorder
+                          : (_isListening
+                                ? EllaColors.mangoDark
+                                : EllaColors.mangoMain),
                       border: Border.all(
-                        color: EllaColors.mangoDark,
+                        color: blocked
+                            ? EllaColors.neutralSecondary
+                            : EllaColors.mangoDark,
                         width: 2.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: EllaColors.mangoDark,
+                          color: blocked
+                              ? EllaColors.neutralSecondary
+                              : EllaColors.mangoDark,
                           offset: _isListening
                               ? const Offset(0, 1)
                               : const Offset(0, 5),
@@ -416,13 +512,15 @@ class _PlacementScreenState extends State<PlacementScreen> {
                         ),
                       ],
                     ),
-                    child: Icon(
-                      _isListening ? Icons.stop_rounded : Icons.mic_rounded,
-                      size: 28,
-                      color: _isListening
-                          ? Colors.white
-                          : EllaColors.neutralPrimary,
-                    ),
+                    child: _isListening
+                        ? const WaveformIcon()
+                        : Icon(
+                            Icons.mic_rounded,
+                            size: 28,
+                            color: blocked
+                                ? EllaColors.neutralSecondary
+                                : EllaColors.neutralPrimary,
+                          ),
                   ),
                 ],
               ),
@@ -507,7 +605,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
         ),
         const SizedBox(width: 8),
         GestureDetector(
-          onTap: _mascotState == _MascotState.speaking
+          onTap: (_isZoeSpeaking || _isLlmThinking)
               ? null
               : () => _handleUserResponse(_textCtrl.text),
           child: Container(
@@ -548,7 +646,8 @@ class _PlacementMascot extends StatelessWidget {
   String get _assetPath => switch (mascotState) {
     _MascotState.speaking => 'assets/mascot-animations/speaking.webp',
     _MascotState.listening => 'assets/mascot-animations/listening.webp',
-    _MascotState.thinking => 'assets/mascot-animations/regular-thinking.webp',
+    _MascotState.thinking =>
+      'assets/mascot-animations/regular-thinking.webp',
   };
 
   @override
@@ -659,13 +758,13 @@ class _PlacementCaption extends StatelessWidget {
                 style: isElla
                     ? GoogleFonts.kalam(
                         fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w400,
                         color: EllaColors.skyDark,
                         height: 1.4,
                       )
                     : GoogleFonts.baloo2(
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: EllaColors.neutralPrimary,
                         height: 1.4,
                       ),
@@ -738,24 +837,66 @@ class _MicPulseRingState extends State<_MicPulseRing>
 
 // ─── Background Painter ───────────────────────────────────────────────────────
 
-class _ConcentricCirclesPainter extends CustomPainter {
-  final Offset center;
-
-  const _ConcentricCirclesPainter({required this.center});
-
+class _DashedGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = EllaColors.neutralBorder.withValues(alpha: 0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
+      ..color = EllaColors.neutralBorder.withValues(alpha: 0.50)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
 
-    // 6 concentric circles, innermost radius ~80px, spaced 60px apart
-    for (int i = 1; i <= 6; i++) {
-      canvas.drawCircle(center, 80.0 + (i - 1) * 60.0, paint);
+    const spacing = 28.0;
+    const dashLen = 3.0;
+    const gapLen = 5.0;
+
+    for (double x = 0; x <= size.width; x += spacing) {
+      _drawDashedLine(
+        canvas,
+        paint,
+        Offset(x, 0),
+        Offset(x, size.height),
+        dashLen,
+        gapLen,
+      );
+    }
+    for (double y = 0; y <= size.height; y += spacing) {
+      _drawDashedLine(
+        canvas,
+        paint,
+        Offset(0, y),
+        Offset(size.width, y),
+        dashLen,
+        gapLen,
+      );
+    }
+  }
+
+  void _drawDashedLine(
+    Canvas canvas,
+    Paint paint,
+    Offset start,
+    Offset end,
+    double dashLen,
+    double gapLen,
+  ) {
+    final dx = end.dx - start.dx;
+    final dy = end.dy - start.dy;
+    final len = Offset(dx, dy).distance;
+    if (len == 0) return;
+    final normX = dx / len;
+    final normY = dy / len;
+    double dist = 0;
+    while (dist < len) {
+      final dashEnd = (dist + dashLen).clamp(0.0, len);
+      canvas.drawLine(
+        Offset(start.dx + normX * dist, start.dy + normY * dist),
+        Offset(start.dx + normX * dashEnd, start.dy + normY * dashEnd),
+        paint,
+      );
+      dist += dashLen + gapLen;
     }
   }
 
   @override
-  bool shouldRepaint(_ConcentricCirclesPainter old) => old.center != center;
+  bool shouldRepaint(_DashedGridPainter old) => false;
 }

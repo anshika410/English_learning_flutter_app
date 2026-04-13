@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/chat_message.dart';
+import '../models/end_result_analysis.dart';
+import '../models/focus_settings.dart';
 import '../models/latency_info.dart';
 import '../services/llm_service.dart';
 import '../services/stt_service.dart';
@@ -30,6 +32,21 @@ class ChatProvider extends ChangeNotifier {
   bool _showLatency = true;
   bool _initialized = false;
 
+  // User profile (set after placement)
+  String? _userName;
+  String? _userAge;
+  String? _userLocation;
+  String? _userLevel; // CEFR: A1, A2, B1, B2, C1
+  String? _userLevelLabel;
+
+  // Conversation session state
+  String? _conversationTopic;
+  bool _conversationComplete = false;
+
+  // Focus settings & first-session tracking
+  bool _hasCompletedFirstSession = false;
+  FocusSettings _focusSettings = const FocusSettings.defaults();
+
   // Latency tracking
   DateTime? _sttStartTime; // when mic was tapped
   DateTime?
@@ -50,6 +67,46 @@ class ChatProvider extends ChangeNotifier {
   bool get piperAvailable => _tts.piperAvailable;
   List<PiperVoice> get piperVoices => _tts.piperEngine.availableVoices;
   PiperVoice? get currentPiperVoice => _tts.piperEngine.currentVoice;
+
+  // User profile getters
+  String? get userName => _userName;
+  String? get userAge => _userAge;
+  String? get userLocation => _userLocation;
+  String? get userLevel => _userLevel;
+  String? get userLevelLabel => _userLevelLabel;
+
+  // Conversation session getters
+  String? get conversationTopic => _conversationTopic;
+  bool get conversationComplete => _conversationComplete;
+
+  void setUserProfile({
+    String? name,
+    String? age,
+    String? location,
+    String? level,
+    String? levelLabel,
+  }) {
+    _userName = name ?? _userName;
+    _userAge = age ?? _userAge;
+    _userLocation = location ?? _userLocation;
+    _userLevel = level ?? _userLevel;
+    _userLevelLabel = levelLabel ?? _userLevelLabel;
+    notifyListeners();
+  }
+
+  // Focus settings & first-session tracking
+  bool get hasCompletedFirstSession => _hasCompletedFirstSession;
+  FocusSettings get focusSettings => _focusSettings;
+
+  void markFirstSessionComplete() {
+    _hasCompletedFirstSession = true;
+    notifyListeners();
+  }
+
+  void updateFocusSettings(FocusSettings settings) {
+    _focusSettings = settings;
+    notifyListeners();
+  }
 
   // LLM provider info
   LlmProvider get llmProvider => _llm.activeProvider;
@@ -87,30 +144,64 @@ class ChatProvider extends ChangeNotifier {
     if (_messages.isNotEmpty) return;
     String starter;
     try {
-      starter = await _llm.generateConversationStarter(topic: topic);
+      final result = await _llm.generateConversationStarter(topic: topic);
+      starter = result.starter;
     } catch (_) {
       starter = "Hi! I'm Zoe. What would you like to talk about today?";
     }
     _messages.add(ChatMessage(role: MessageRole.assistant, content: starter));
     notifyListeners();
+    if (_autoSpeak) {
+      _isSpeaking = true;
+      notifyListeners();
+      await _tts.speak(starter);
+      _isSpeaking = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> startConversationSession({String? topic}) async {
+  /// Starts a new conversation session. Returns the LLM-generated header title
+  /// (3-4 words) for the conversation screen to display.
+  Future<String> startConversationSession({String? topic}) async {
     await _ensureServicesInitialized();
     _messages.clear();
     _currentTranscript = '';
     _isListening = false;
     _isLoading = false;
     _isSpeaking = false;
+    _conversationComplete = false;
+    _conversationTopic = topic?.trim().isEmpty ?? true ? null : topic;
+    notifyListeners();
 
     String starter;
+    String headerTitle;
     try {
-      starter = await _llm.generateConversationStarter(topic: topic);
+      final result = await _llm.generateConversationStarter(topic: topic);
+      starter = result.starter;
+      headerTitle = result.headerTitle;
     } catch (_) {
       starter = "Hi! I'm Zoe. What would you like to talk about today?";
+      headerTitle = topic ?? 'Free Talk';
     }
     _messages.add(ChatMessage(role: MessageRole.assistant, content: starter));
     notifyListeners();
+    if (_autoSpeak) {
+      _isSpeaking = true;
+      notifyListeners();
+      await _tts.speak(starter);
+      _isSpeaking = false;
+      notifyListeners();
+    }
+    return headerTitle;
+  }
+
+  Future<EndResultAnalysis?> analyzeConversationEnd() {
+    return _llm.analyzeConversation(
+      messages: _messages,
+      topic: _conversationTopic ?? 'Free Talk',
+      level: _userLevel ?? 'A2',
+      levelLabel: _userLevelLabel ?? 'Finding My Voice',
+    );
   }
 
   void toggleAutoSpeak() {
@@ -276,8 +367,18 @@ class ChatProvider extends ChangeNotifier {
     try {
       // --- LLM ---
       final llmStart = DateTime.now();
-      final reply = await _llm.sendMessage(_messages);
+      final turnNumber =
+          _messages.where((m) => m.role == MessageRole.user).length;
+      final result = await _llm.sendMessage(
+        _messages,
+        topic: _conversationTopic,
+        level: _userLevel,
+        levelLabel: _userLevelLabel,
+        currentTurn: turnNumber,
+        focusSettings: _focusSettings,
+      );
       llmDuration = DateTime.now().difference(llmStart);
+      final reply = result.message;
 
       // --- TTS ---
       if (_autoSpeak) {
@@ -287,6 +388,11 @@ class ChatProvider extends ChangeNotifier {
         await _tts.speak(reply.content);
         ttsDuration = DateTime.now().difference(ttsStart);
         _isSpeaking = false;
+      }
+
+      // Signal conversation completion AFTER TTS finishes
+      if (result.conversationComplete) {
+        _conversationComplete = true;
       }
 
       final totalDuration = DateTime.now().difference(turnStart);
