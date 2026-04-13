@@ -351,85 +351,102 @@ class _PlacementScreenState extends State<PlacementScreen> {
   }
 
   Widget _buildMicRow() {
-    return SizedBox(
-      height: 64,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: GestureDetector(
-              onTap: _mascotState == _MascotState.speaking
-                  ? null
-                  : () {
-                      setState(() => _isKeyboardMode = true);
-                      Future.delayed(const Duration(milliseconds: 50), () {
-                        if (mounted) _textFocusNode.requestFocus();
-                      });
-                    },
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: EllaColors.neutralSurface,
-                  border: Border.all(
-                    color: EllaColors.neutralBorder,
-                    width: 1.5,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.keyboard_alt_outlined,
-                  size: 22,
-                  color: EllaColors.neutralSecondary,
-                ),
-              ),
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Hint label
+        Text(
+          _isListening ? 'Listening… tap to send' : 'Tap to speak',
+          style: GoogleFonts.baloo2(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: _isListening
+                ? EllaColors.mangoDark
+                : EllaColors.neutralMuted,
           ),
-          Center(
-            child: GestureDetector(
-              onTap: _toggleMicListening,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_isListening)
-                    const _MicPulseRing(color: EllaColors.mangoMain),
-                  Container(
-                    width: 64,
-                    height: 64,
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: _mascotState == _MascotState.speaking
+                      ? null
+                      : () {
+                          setState(() => _isKeyboardMode = true);
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            if (mounted) _textFocusNode.requestFocus();
+                          });
+                        },
+                  child: Container(
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _isListening
-                          ? EllaColors.mangoDark
-                          : EllaColors.mangoMain,
+                      color: EllaColors.neutralSurface,
                       border: Border.all(
-                        color: EllaColors.mangoDark,
-                        width: 2.5,
+                        color: EllaColors.neutralBorder,
+                        width: 1.5,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: EllaColors.mangoDark,
-                          offset: _isListening
-                              ? const Offset(0, 1)
-                              : const Offset(0, 5),
-                          blurRadius: 0,
-                        ),
-                      ],
                     ),
-                    child: Icon(
-                      _isListening ? Icons.stop_rounded : Icons.mic_rounded,
-                      size: 28,
-                      color: _isListening
-                          ? Colors.white
-                          : EllaColors.neutralPrimary,
+                    child: const Icon(
+                      Icons.keyboard_alt_outlined,
+                      size: 22,
+                      color: EllaColors.neutralSecondary,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+              Center(
+                child: GestureDetector(
+                  onTap: _toggleMicListening,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (_isListening)
+                        const _MicPulseRing(color: EllaColors.mangoMain),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _isListening
+                              ? EllaColors.mangoDark
+                              : EllaColors.mangoMain,
+                          border: Border.all(
+                            color: EllaColors.mangoDark,
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: EllaColors.mangoDark,
+                              offset: _isListening
+                                  ? const Offset(0, 1)
+                                  : const Offset(0, 5),
+                              blurRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _isListening ? Icons.stop_rounded : Icons.mic_rounded,
+                          size: 28,
+                          color: _isListening
+                              ? Colors.white
+                              : EllaColors.neutralPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

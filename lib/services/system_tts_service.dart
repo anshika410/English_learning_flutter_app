@@ -17,7 +17,7 @@ class SystemTtsEngine extends TtsEngine {
   @override
   Future<void> initialize() async {
     await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(0.45);
+    await _tts.setSpeechRate(0.5);
     await _tts.setPitch(1.0);
     await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() => _isSpeaking = true);
