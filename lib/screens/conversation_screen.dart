@@ -162,7 +162,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         onEnd: () {
           Navigator.of(ctx).pop();
           final analysisFuture = chat.analyzeConversationEnd();
-          Navigator.of(context).push(
+          Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (_) => EndScreen(
                 topic: _headerTitle,

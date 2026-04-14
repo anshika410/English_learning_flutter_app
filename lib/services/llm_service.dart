@@ -86,7 +86,7 @@ class LlmService {
   String? _cachedConversationPrompt;
 
   /// Set to true to use mock responses instead of calling the API.
-  static bool useMockData = true;
+  static bool useMockData = false;
 
   static const _mockConversationReplies = [
     'That\'s really interesting! I love hearing about what people enjoy doing in their free time. Do you do this often?',
@@ -161,7 +161,7 @@ Rules:
 You are evaluating spoken-English proficiency for CEFR placement.
 Given the transcript, output ONLY valid JSON with this schema:
 {
-  "cefr_level": "A1|A2|B1|B2|C2",
+  "cefr_level": "A1|A2|B1|B2|C1",
   "level_label": "short learner-facing label",
   "highlight": "one concise positive highlight sentence",
   "confidence": 0.0
@@ -500,7 +500,7 @@ $transcript
       'A2': 'Finding My Voice',
       'B1': 'Speaking with Confidence',
       'B2': 'Expressing with Clarity',
-      'C2': 'Near-Native Flow',
+      'C1': 'Near-Native Flow',
     };
 
     final parsedConfidence = data['confidence'];

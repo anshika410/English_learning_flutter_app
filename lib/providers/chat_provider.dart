@@ -10,6 +10,7 @@ import '../services/continuous_stt_service.dart';
 import '../services/whisper_stt_service.dart';
 import '../services/tts_manager.dart';
 import '../services/tts_service.dart';
+import '../services/user_prefs_service.dart';
 
 enum SttEngineType { system, continuous, whisper }
 
@@ -19,6 +20,7 @@ class ChatProvider extends ChangeNotifier {
   final ContinuousSttService _continuousStt = ContinuousSttService();
   final WhisperSttService _whisperStt = WhisperSttService();
   final TtsManager _tts = TtsManager();
+  final UserPrefsService _prefs = UserPrefsService();
 
   SttEngineType _sttEngineType = SttEngineType.system;
   bool _whisperAvailable = false;
@@ -79,6 +81,9 @@ class ChatProvider extends ChangeNotifier {
   String? get conversationTopic => _conversationTopic;
   bool get conversationComplete => _conversationComplete;
 
+  /// Whether the user has already completed placement (persisted).
+  bool get hasCompletedPlacement => _userLevel != null;
+
   void setUserProfile({
     String? name,
     String? age,
@@ -91,6 +96,13 @@ class ChatProvider extends ChangeNotifier {
     _userLocation = location ?? _userLocation;
     _userLevel = level ?? _userLevel;
     _userLevelLabel = levelLabel ?? _userLevelLabel;
+    _prefs.saveProfile(
+      name: name,
+      age: age,
+      location: location,
+      level: level,
+      levelLabel: levelLabel,
+    );
     notifyListeners();
   }
 
@@ -100,11 +112,13 @@ class ChatProvider extends ChangeNotifier {
 
   void markFirstSessionComplete() {
     _hasCompletedFirstSession = true;
+    _prefs.setFirstSessionComplete();
     notifyListeners();
   }
 
   void updateFocusSettings(FocusSettings settings) {
     _focusSettings = settings;
+    _prefs.saveFocusSettings(settings);
     notifyListeners();
   }
 
@@ -115,7 +129,7 @@ class ChatProvider extends ChangeNotifier {
   String get llmModelName => _llm.activeConfig.model;
 
   void setLlmProvider(LlmProvider provider) {
-    _llm.setProvider(LlmProvider.deepseek);
+    _llm.setProvider(provider);
     notifyListeners();
   }
 
@@ -131,6 +145,17 @@ class ChatProvider extends ChangeNotifier {
   Future<void> _ensureServicesInitialized() async {
     if (_initialized) return;
     _initialized = true;
+
+    // Load persisted user data
+    await _prefs.init();
+    _userName = _prefs.userName;
+    _userAge = _prefs.userAge;
+    _userLocation = _prefs.userLocation;
+    _userLevel = _prefs.userLevel;
+    _userLevelLabel = _prefs.userLevelLabel;
+    _hasCompletedFirstSession = _prefs.hasCompletedFirstSession;
+    _focusSettings = _prefs.focusSettings;
+
     await _stt.initialize();
     _whisperAvailable = await _whisperStt.initialize();
     debugPrint(
@@ -138,6 +163,10 @@ class ChatProvider extends ChangeNotifier {
     );
     await _tts.initialize();
   }
+
+  /// Ensures services and persisted user data are loaded.
+  /// Safe to call multiple times — only runs once.
+  Future<void> ensureInitialized() => _ensureServicesInitialized();
 
   Future<void> initialize({String? topic}) async {
     await _ensureServicesInitialized();

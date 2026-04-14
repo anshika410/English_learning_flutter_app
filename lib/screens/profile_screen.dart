@@ -152,15 +152,46 @@ class _ProfileHeader extends StatelessWidget {
 
 // ─── Your Info Section ────────────────────────────────────────────────────────
 
-class _YourInfoSection extends StatelessWidget {
+class _YourInfoSection extends StatefulWidget {
   final ChatProvider provider;
-  _YourInfoSection({required this.provider});
+  const _YourInfoSection({required this.provider});
 
-  // Mutable state managed inline via ValueNotifier for name/age/location/email
-  late final _nameNotifier = ValueNotifier(provider.userName ?? 'You');
-  late final _ageNotifier = ValueNotifier(provider.userAge ?? '—');
-  late final _locationNotifier = ValueNotifier(provider.userLocation ?? '—');
-  final _emailNotifier = ValueNotifier(_mockEmail);
+  @override
+  State<_YourInfoSection> createState() => _YourInfoSectionState();
+}
+
+class _YourInfoSectionState extends State<_YourInfoSection> {
+  late final ValueNotifier<String> _nameNotifier;
+  late final ValueNotifier<String> _ageNotifier;
+  late final ValueNotifier<String> _locationNotifier;
+  late final ValueNotifier<String> _emailNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameNotifier = ValueNotifier(widget.provider.userName ?? 'You');
+    _ageNotifier = ValueNotifier(widget.provider.userAge ?? '—');
+    _locationNotifier = ValueNotifier(widget.provider.userLocation ?? '—');
+    _emailNotifier = ValueNotifier(_mockEmail);
+  }
+
+  @override
+  void didUpdateWidget(_YourInfoSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync notifiers if provider data changed externally
+    _nameNotifier.value = widget.provider.userName ?? 'You';
+    _ageNotifier.value = widget.provider.userAge ?? '—';
+    _locationNotifier.value = widget.provider.userLocation ?? '—';
+  }
+
+  @override
+  void dispose() {
+    _nameNotifier.dispose();
+    _ageNotifier.dispose();
+    _locationNotifier.dispose();
+    _emailNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -330,6 +361,12 @@ class _YourInfoSection extends StatelessWidget {
                     _ageNotifier.value = ageCtrl.text;
                     _locationNotifier.value = locationCtrl.text;
                     _emailNotifier.value = emailCtrl.text;
+                    // Persist to SharedPreferences via provider
+                    widget.provider.setUserProfile(
+                      name: nameCtrl.text,
+                      age: ageCtrl.text,
+                      location: locationCtrl.text,
+                    );
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

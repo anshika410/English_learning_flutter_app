@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/chat_provider.dart';
 import '../theme/ella_theme.dart';
 import '../widgets/ella_primary_button.dart';
 import 'conversation_screen.dart';
@@ -78,6 +80,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _scheduleNextMascotStep();
+    // Ensure ChatProvider services are initialized (loads persisted user data)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ChatProvider>().ensureInitialized();
+    });
   }
 
   @override

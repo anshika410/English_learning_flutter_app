@@ -129,7 +129,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   void _navigateToPlacement() {
     _tts.stop();
-    Navigator.of(context).push(
+    Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context2, animation, secondary) =>
             const PlacementScreen(),
