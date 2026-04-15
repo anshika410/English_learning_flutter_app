@@ -57,7 +57,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text('Zoe'),
         actions: [
           Consumer<ChatProvider>(
-            builder: (_, chat, __) => IconButton(
+            builder: (_, chat, child) => IconButton(
               icon: Icon(
                 chat.autoSpeak ? Icons.volume_up : Icons.volume_off,
               ),
@@ -71,7 +71,7 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: () => TtsSettingsSheet.show(context),
           ),
           Consumer<ChatProvider>(
-            builder: (_, chat, __) => IconButton(
+            builder: (_, chat, child) => IconButton(
               icon: Icon(
                 chat.showLatency ? Icons.timer : Icons.timer_off_outlined,
               ),
@@ -86,7 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
           // Chat messages
           Expanded(
             child: Consumer<ChatProvider>(
-              builder: (_, chat, __) {
+              builder: (_, chat, child) {
                 _scrollToBottom();
                 return ListView.builder(
                   controller: _scrollController,
@@ -112,7 +112,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           // Live transcript
           Consumer<ChatProvider>(
-            builder: (_, chat, __) {
+            builder: (_, chat, child) {
               if (!chat.isListening) {
                 return const SizedBox.shrink();
               }

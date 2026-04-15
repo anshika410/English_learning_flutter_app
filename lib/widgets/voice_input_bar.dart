@@ -33,7 +33,7 @@ class VoiceInputBar extends StatelessWidget {
           children: [
             // Mic button
             Consumer<ChatProvider>(
-              builder: (_, chat, __) => GestureDetector(
+              builder: (_, chat, child) => GestureDetector(
                 onTap: chat.isLoading ? null : chat.toggleListening,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
@@ -81,7 +81,7 @@ class VoiceInputBar extends StatelessWidget {
             const SizedBox(width: 8),
             // Send button
             Consumer<ChatProvider>(
-              builder: (_, chat, __) => IconButton(
+              builder: (_, chat, child) => IconButton(
                 onPressed: chat.isLoading ? null : onSend,
                 icon: Icon(
                   Icons.send_rounded,

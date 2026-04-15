@@ -5,17 +5,27 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'providers/chat_provider.dart';
 import 'screens/welcome_screen.dart';
+import 'screens/home_screen.dart';
+import 'services/user_prefs_service.dart';
 import 'theme/ella_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const EllaApp());
+
+  // Check if user has already completed onboarding/placement
+  final prefs = UserPrefsService();
+  await prefs.init();
+  final bool hasCompletedPlacement = prefs.hasCompletedPlacement;
+
+  runApp(EllaApp(skipOnboarding: hasCompletedPlacement));
 }
 
 class EllaApp extends StatelessWidget {
-  const EllaApp({super.key});
+  final bool skipOnboarding;
+
+  const EllaApp({super.key, this.skipOnboarding = false});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +35,7 @@ class EllaApp extends StatelessWidget {
         title: 'Zoe — English Tutor',
         debugShowCheckedModeBanner: false,
         theme: EllaTheme.light(),
-        home: const WelcomeScreen(),
+        home: skipOnboarding ? const HomeScreen() : const WelcomeScreen(),
       ),
     );
   }
