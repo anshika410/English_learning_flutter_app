@@ -12,6 +12,7 @@ import '../theme/ella_theme.dart';
 import '../widgets/ella_primary_button.dart';
 import 'focus_discovery_screen.dart';
 import 'home_screen.dart';
+import 'conversation_screen.dart';
 
 // ─── Session Type ──────────────────────────────────────────────────────────────
 
@@ -342,7 +343,11 @@ class EndScreen extends StatelessWidget {
                         flex: 6,
                         child: EllaPrimaryButton(
                           label: 'TRY AGAIN',
-                          onTap: onTalkToZoe,
+                          onTap: onTalkToZoe ?? () => Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => ConversationScreen(topic: topic),
+                            ),
+                          ),
                         ),
                       ),
                     ],
