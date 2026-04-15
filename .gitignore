@@ -49,3 +49,18 @@ app.*.map.json
 
 # Large model files (tracked via Git LFS or downloaded separately)
 assets/piper_voices/*.onnx
+
+# Frontend build artifacts and generated files
+frontend/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/ios/Flutter/ephemeral/
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+frontend/macos/Flutter/ephemeral/
+frontend/macos/Pods/
+frontend/linux/flutter/ephemeral/
+frontend/windows/flutter/ephemeral/
+
+# SQLite dev database
+backend/zoe.db
