@@ -11,7 +11,13 @@ import 'theme/ella_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+  // Load .env gracefully — may not exist in web deployments
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // .env not found (e.g. web deployment) — LlmService will use empty keys
+    // and fall back gracefully
+  }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Check if user has already completed onboarding/placement
