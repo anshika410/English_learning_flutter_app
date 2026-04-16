@@ -7,6 +7,7 @@ import '../theme/ella_theme.dart';
 import '../models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/waveform_icon.dart';
+import '../widgets/offline_banner.dart';
 import 'end_screen.dart';
 
 // ─── Mascot State ─────────────────────────────────────────────────────────────
@@ -240,7 +241,12 @@ class _ConversationScreenState extends State<ConversationScreen>
       child: Scaffold(
         backgroundColor: EllaColors.neutralBg,
         resizeToAvoidBottomInset: false,
-        body: SafeArea(
+        body: Column(
+          children: [
+            const SafeArea(bottom: false, child: OfflineBanner()),
+            Expanded(
+              child: SafeArea(
+                top: false,
           child: Consumer<ChatProvider>(
             builder: (_, chat, child) {
               // Auto-end: fire once after Zoe finishes speaking the closing line
@@ -356,12 +362,15 @@ class _ConversationScreenState extends State<ConversationScreen>
                 ],
               );
             },
-          ),
-        ), // Consumer
-      ),        // SafeArea
-    ),          // body: of Scaffold
-  ),            // Scaffold child of PopScope
-  );            // PopScope / return
+          ),        // LayoutBuilder
+        ),          // AnimatedPadding
+      ),            // Consumer
+        ),          // SafeArea
+      ),            // Expanded
+    ],
+  ),               // Column body
+),                 // Scaffold
+);                 // PopScope / return
   }
 
   Widget _buildLoadingMascot(bool shrinkMascot) {

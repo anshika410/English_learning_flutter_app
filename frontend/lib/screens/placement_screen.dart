@@ -7,6 +7,7 @@ import '../services/llm_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import '../widgets/waveform_icon.dart';
+import '../widgets/offline_banner.dart';
 import 'result_screen.dart';
 
 // ─── Mascot State ─────────────────────────────────────────────────────────────
@@ -304,7 +305,12 @@ class _PlacementScreenState extends State<PlacementScreen> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: EllaColors.neutralBg,
-      body: SafeArea(
+      body: Column(
+        children: [
+          const SafeArea(bottom: false, child: OfflineBanner()),
+          Expanded(
+            child: SafeArea(
+              top: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final fullHeight = constraints.maxHeight;
@@ -434,7 +440,10 @@ class _PlacementScreenState extends State<PlacementScreen> {
             );
           },
         ),
-      ),
+      ),    // SafeArea
+          ), // Expanded
+        ],
+      ),    // Column
     );
   }
 

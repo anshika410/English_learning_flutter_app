@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
 /// Continuous STT — auto-restarts the system speech recognizer when it stops,
 /// accumulating text across multiple listening sessions.
 class ContinuousSttService {
+  static const _audioControl = MethodChannel('audio_control');
+
   final SpeechToText _speech = SpeechToText();
   bool _isInitialized = false;
   bool _isListening = false;
@@ -53,6 +56,7 @@ class ContinuousSttService {
     _isListening = true;
     _onResult = onResult;
 
+    await _muteBeep();
     _startSession();
     return true;
   }
@@ -63,8 +67,8 @@ class ContinuousSttService {
 
     _speech.listen(
       onResult: _handleResult,
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 4),
+      listenFor: const Duration(seconds: 60),
+      pauseFor: const Duration(seconds: 6),
       localeId: 'en',
       listenOptions: SpeechListenOptions(
         cancelOnError: false,
@@ -93,19 +97,35 @@ class ContinuousSttService {
   void _scheduleRestart() {
     _restartTimer?.cancel();
     if (!_isListening) return;
-    _restartTimer = Timer(const Duration(milliseconds: 500), () {
+    // 1.5s delay — gives time for audio to settle before restart beep
+    _restartTimer = Timer(const Duration(milliseconds: 1500), () async {
       if (_isListening && _isInitialized) {
         debugPrint('ContinuousSTT: auto-restarting...');
+        await _muteBeep();
         _startSession();
       }
     });
+  }
+
+  Future<void> _muteBeep() async {
+    if (!kIsWeb) {
+      try {
+        await _audioControl.invokeMethod('muteBeepStream');
+        // Unmute after 800ms — enough to suppress the beep
+        Future.delayed(const Duration(milliseconds: 800), () {
+          _audioControl.invokeMethod('unmuteBeepStream').catchError((_) {});
+        });
+      } catch (_) {}
+    }
   }
 
   Future<String> stopListening() async {
     _isListening = false;
     _restartTimer?.cancel();
     await _speech.stop();
-    // Include any partial text
+    try {
+      await _audioControl.invokeMethod('unmuteBeepStream');
+    } catch (_) {}
     final result = displayText.trim();
     debugPrint('ContinuousSTT: stopped, result: "$result"');
     _accumulatedText = '';
@@ -118,5 +138,6 @@ class ContinuousSttService {
     _isListening = false;
     _restartTimer?.cancel();
     _speech.cancel();
+    _audioControl.invokeMethod('unmuteBeepStream').catchError((_) {});
   }
 }
