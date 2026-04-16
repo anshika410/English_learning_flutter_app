@@ -48,12 +48,19 @@ class TtsManager {
 
   Future<void> speak(String text) async {
     try {
-      await activeEngine.speak(text);
+      // Cap TTS at 15s — web TTS can hang indefinitely on some browsers
+      await activeEngine.speak(text).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {},
+      );
     } catch (e) {
       // Fallback to system TTS if Piper fails
       if (_activeType == TtsEngineType.piper) {
         debugPrint('TTS: Piper failed, falling back to system: $e');
-        await _systemEngine.speak(text);
+        await _systemEngine.speak(text).timeout(
+          const Duration(seconds: 15),
+          onTimeout: () {},
+        );
       }
     }
   }

@@ -130,7 +130,10 @@ class _PlacementScreenState extends State<PlacementScreen> {
     // Add opening line to API history as a model message
     _apiMessages.add({'role': 'model', 'content': _openingLine});
 
-    await _tts.speak(_openingLine);
+    await _tts.speak(_openingLine).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {},
+    );
     if (!mounted) return;
 
     setState(() {
@@ -195,7 +198,10 @@ class _PlacementScreenState extends State<PlacementScreen> {
       });
       _scrollToBottom();
 
-      await _tts.speak(reply);
+      await _tts.speak(reply).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {},
+      );
       if (!mounted) return;
 
       setState(() {

@@ -61,7 +61,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       await _tts.initialize();
       final Future<void> speechFuture = _tts.speak(_introSpeech);
       await _typeIntroText();
-      await speechFuture;
+      // Wait for TTS but cap at 8s — web TTS can hang indefinitely
+      await speechFuture.timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {},
+      );
     } catch (_) {
       // Keep UI resilient even if a TTS engine fails.
     } finally {

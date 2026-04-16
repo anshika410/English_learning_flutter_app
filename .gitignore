@@ -47,6 +47,13 @@ app.*.map.json
 # Secrets
 .env
 
+# Flutter build metadata
+.last_build_id
+
+# Backend virtual environment
+backend/.venv/
+backend/zoe.db
+
 # Large model files (tracked via Git LFS or downloaded separately)
 assets/piper_voices/*.onnx
 
