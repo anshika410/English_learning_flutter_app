@@ -286,6 +286,7 @@ class _ZoeMascot extends StatelessWidget {
             key: ValueKey<bool>(isSpeaking),
             fit: BoxFit.cover,
             alignment: Alignment.center,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
           ),
         ),
       ),

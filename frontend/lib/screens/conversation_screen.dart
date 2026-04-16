@@ -387,6 +387,7 @@ class _ConversationScreenState extends State<ConversationScreen>
             child: Image.asset(
               'assets/mascot-animations/juggling.webp',
               fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
             ),
           ),
         ),
@@ -843,6 +844,7 @@ class _ConversationMascotState extends State<_ConversationMascot> {
             _assetPath,
             key: ValueKey<String>(_assetPath),
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
             alignment: Alignment.center,
           ),
         ),

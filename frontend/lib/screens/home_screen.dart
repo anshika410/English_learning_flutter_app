@@ -218,6 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _currentMascotStep.assetPath,
                     key: ValueKey<int>(_sequenceIndex),
                     fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                     alignment: Alignment.center,
                   ),
                 ),

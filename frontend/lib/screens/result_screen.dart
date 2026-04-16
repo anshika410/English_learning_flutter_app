@@ -396,6 +396,7 @@ class _ResultZoeMascot extends StatelessWidget {
         child: Image.asset(
           'assets/mascot-animations/listening.webp',
           fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
           alignment: Alignment.center,
         ),
       ),

@@ -715,6 +715,7 @@ class _PlacementMascot extends StatelessWidget {
             _assetPath,
             key: ValueKey<_MascotState>(mascotState),
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
             alignment: Alignment.center,
           ),
         ),
