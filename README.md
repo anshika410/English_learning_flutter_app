@@ -28,7 +28,7 @@ Indian school students (primarily Hindi-speaking) at A1–B1 English level who n
 
 Interactive HTML design prototype (v6.2) — shows the full app flow including welcome, placement, topic picker, chat, and session summary:
 
-👉 **[ella-v6.2.html](https://navgurukul.github.io/ella_flutter/ella-v6.2.html)**
+👉 **[ella-v6.2.html](https://turbo-potato-r3e4wrj.pages.github.io/ella-v6.2.html)**
 
 ---
 
