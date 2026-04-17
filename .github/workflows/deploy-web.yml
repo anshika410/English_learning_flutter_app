@@ -51,7 +51,7 @@ jobs:
       - name: Copy design assets
         run: |
           cp ella-v0.html frontend/build/web/ella-v0.html
-          cp zoe-user-flow.html frontend/build/web/zoe-user-flow.html
+          cp ella-design-v1.html frontend/build/web/ella-design-v1.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
