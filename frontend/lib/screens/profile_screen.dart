@@ -309,11 +309,12 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
+      builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
         ),
-        child: Container(
+        child: SingleChildScrollView(
+          child: Container(
           decoration: const BoxDecoration(
             color: EllaColors.neutralBg,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -416,6 +417,7 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
             ],
           ),
         ),
+        ), // SingleChildScrollView
       ),
     );
   }
@@ -681,6 +683,8 @@ class _FocusBlock<T extends Enum> extends StatelessWidget {
         const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
+          padding: const EdgeInsets.only(left: 2, right: 8),
           child: Row(
             children: values.map((v) {
               final isSelected = v == selected;

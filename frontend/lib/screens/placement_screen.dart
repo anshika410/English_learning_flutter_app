@@ -301,6 +301,15 @@ class _PlacementScreenState extends State<PlacementScreen> {
     final started = await _stt.startListening(
       onResult: (text, isFinal) {
         if (mounted) setState(() => _currentTranscript = text);
+        if (isFinal && text.isNotEmpty) {
+          // Auto-submit when recognizer finishes naturally
+          setState(() {
+            _isListening = false;
+            _isRecognizing = false;
+            _currentTranscript = '';
+          });
+          _handleUserResponse(text);
+        }
       },
       silenceMs: 8000,
       possibleSilenceMs: 5000,

@@ -6,17 +6,17 @@ import 'package:speech_to_text/speech_to_text.dart';
 /// Native Android STT service using direct SpeechRecognizer API.
 /// Uses speech_to_text only for permission request, then uses
 /// native channel with silence tuning extras.
+///
+/// Singleton pattern — one channel handler, but callbacks are
+/// set per-session so multiple screens can use it sequentially.
 class NativeSttService {
   static const _channel = MethodChannel('speech_handler');
   final SpeechToText _permissionHelper = SpeechToText();
   bool _permissionGranted = false;
 
-  // Singleton — only one instance should exist to avoid handler conflicts
-  static NativeSttService? _instance;
-  factory NativeSttService() {
-    _instance ??= NativeSttService._internal();
-    return _instance!;
-  }
+  // Singleton
+  static final NativeSttService _instance = NativeSttService._internal();
+  factory NativeSttService() => _instance;
   NativeSttService._internal() {
     _channel.setMethodCallHandler(_handleNativeCall);
   }
@@ -54,6 +54,7 @@ class NativeSttService {
         final args = call.arguments as Map;
         final text = args['text'] as String? ?? '';
         final isFinal = args['isFinal'] as bool? ?? false;
+        debugPrint('NativeSTT onResult: isFinal=$isFinal text="$text" hasCallback=${_onResult != null}');
         if (isFinal) {
           if (text.isNotEmpty) {
             _accumulatedText += (_accumulatedText.isEmpty ? '' : ' ') + text;
@@ -64,8 +65,9 @@ class NativeSttService {
           final result = _accumulatedText.trim();
           _accumulatedText = '';
           _currentPartial = '';
-          _onResult?.call(result, true);
+          final cb = _onResult;
           _onResult = null;
+          cb?.call(result, true);
         } else {
           _currentPartial = text;
           _onResult?.call(displayText, false);
@@ -98,6 +100,11 @@ class NativeSttService {
       }
     }
 
+    // Cancel any in-progress session first
+    if (_isListening) {
+      await stopListening();
+    }
+
     _accumulatedText = '';
     _currentPartial = '';
     _isListening = true;
@@ -114,6 +121,7 @@ class NativeSttService {
     } catch (e) {
       debugPrint('NativeSTT: startListening failed: $e');
       _isListening = false;
+      _onResult = null;
       return false;
     }
   }
@@ -121,6 +129,8 @@ class NativeSttService {
   Future<String> stopListening() async {
     _isListening = false;
     _setRecognizing(false);
+    final cb = _onResult;
+    _onResult = null;
     try {
       await _channel.invokeMethod('stopListening');
     } catch (_) {}
@@ -128,7 +138,6 @@ class NativeSttService {
     debugPrint('NativeSTT: stopped, result: "$result"');
     _accumulatedText = '';
     _currentPartial = '';
-    _onResult = null;
     return result;
   }
 
@@ -139,8 +148,8 @@ class NativeSttService {
   }
 
   void dispose() {
-    _isListening = false;
-    _channel.invokeMethod('cancel').catchError((_) {});
-    _channel.setMethodCallHandler(null);
+    // Don't actually dispose the singleton — just clear callbacks
+    _onResult = null;
+    onRecognizingChanged = null;
   }
 }
