@@ -16,8 +16,6 @@ async def lifespan(app: FastAPI):
     # Create tables on startup (use Alembic in production)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    # Load accent classifier
-    load_accent_model()
     yield
 
 
@@ -48,7 +46,6 @@ app.include_router(llm.router)
 app.include_router(conversations.router)
 app.include_router(placements.router)
 app.include_router(progress.router)
-app.include_router(accent_router)
 
 
 @app.get("/", include_in_schema=False)
