@@ -1,0 +1,11 @@
+services:
+  accent-api:
+    build: .
+    ports:
+      - "8001:8001"
+    volumes:
+      - accent_model_cache:/tmp/accent_model
+    restart: unless-stopped
+
+volumes:
+  accent_model_cache:
