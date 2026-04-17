@@ -122,6 +122,10 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   void _handleMicTap() {
     final chat = context.read<ChatProvider>();
+    // If Zoe is speaking, stop her first then start listening
+    if (chat.isSpeaking) {
+      chat.stopSpeaking();
+    }
     if (!chat.isListening) {
       setState(() => _hasUserSpokenThisTurn = true);
     }

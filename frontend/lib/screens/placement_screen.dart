@@ -277,7 +277,16 @@ class _PlacementScreenState extends State<PlacementScreen> {
   }
 
   Future<void> _toggleMicListening() async {
-    if (_isCompleting || _isZoeSpeaking || _isLlmThinking) return;
+    if (_isCompleting || _isLlmThinking) return;
+
+    // If Zoe is speaking, stop her and start listening (interruption)
+    if (_isZoeSpeaking) {
+      await _tts.stop();
+      setState(() {
+        _isZoeSpeaking = false;
+        _mascotState = _MascotState.listening;
+      });
+    }
 
     if (_isListening) {
       final text = await _stt.stopListening();
@@ -477,7 +486,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
   }
 
   Widget _buildMicRow() {
-    final bool blocked = _isZoeSpeaking || _isLlmThinking;
+    final bool blocked = _isLlmThinking;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
