@@ -7,6 +7,7 @@ import '../models/latency_info.dart';
 import '../services/llm_service.dart';
 import '../services/stt_service.dart';
 import '../services/continuous_stt_service.dart';
+import '../services/native_stt_service.dart';
 import '../services/whisper_stt_service.dart';
 import '../services/tts_manager.dart';
 import '../services/tts_service.dart';
@@ -18,6 +19,7 @@ class ChatProvider extends ChangeNotifier {
   final LlmService _llm = LlmService();
   final SttService _stt = SttService();
   final ContinuousSttService _continuousStt = ContinuousSttService();
+  final NativeSttService _nativeStt = NativeSttService();
   final WhisperSttService _whisperStt = WhisperSttService();
   final TtsManager _tts = TtsManager();
   final UserPrefsService _prefs = UserPrefsService();
@@ -28,6 +30,7 @@ class ChatProvider extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
   String _currentTranscript = '';
   bool _isListening = false;
+  bool _isMicRecognizing = false; // true only when recognizer is actively running
   bool _isLoading = false;
   bool _isSpeaking = false;
   bool _autoSpeak = true;
@@ -59,6 +62,7 @@ class ChatProvider extends ChangeNotifier {
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   String get currentTranscript => _currentTranscript;
   bool get isListening => _isListening;
+  bool get isMicRecognizing => _isMicRecognizing;
   bool get isLoading => _isLoading;
   bool get isSpeaking => _isSpeaking;
   bool get autoSpeak => _autoSpeak;
@@ -196,6 +200,7 @@ class ChatProvider extends ChangeNotifier {
     _messages.clear();
     _currentTranscript = '';
     _isListening = false;
+    _isMicRecognizing = false;
     _isLoading = false;
     _isSpeaking = false;
     _conversationComplete = false;
@@ -276,10 +281,16 @@ class ChatProvider extends ChangeNotifier {
         _sttStartTime = null;
       } else if (_sttEngineType == SttEngineType.continuous) {
         final sttStart = DateTime.now();
-        final transcript = await _continuousStt.stopListening();
+        final transcript = await _nativeStt.stopListening();
         final sttDuration = DateTime.now().difference(sttStart);
         _isListening = false;
+        _isMicRecognizing = false;
         _currentTranscript = '';
+        notifyListeners();
+        if (transcript.isNotEmpty) {
+          await sendMessage(transcript, sttDuration: sttDuration);
+        }
+        _sttStartTime = null;
         notifyListeners();
         if (transcript.isNotEmpty) {
           await sendMessage(transcript, sttDuration: sttDuration);
@@ -304,15 +315,32 @@ class ChatProvider extends ChangeNotifier {
           notifyListeners();
         }
       } else if (_sttEngineType == SttEngineType.continuous) {
-        final started = await _continuousStt.startListening(
+        _nativeStt.onRecognizingChanged = (isRecognizing) {
+          _isMicRecognizing = isRecognizing;
+          notifyListeners();
+        };
+        final started = await _nativeStt.startListening(
           onResult: (text, isFinal) {
-            _currentTranscript = text;
-            _lastSpeechTime = DateTime.now();
-            notifyListeners();
+            if (isFinal) {
+              // Final result — auto-send
+              _isListening = false;
+              _isMicRecognizing = false;
+              _currentTranscript = '';
+              notifyListeners();
+              if (text.isNotEmpty) {
+                sendMessage(text);
+              }
+            } else {
+              _currentTranscript = text;
+              _lastSpeechTime = DateTime.now();
+              notifyListeners();
+            }
           },
+          silenceMs: 8000,
+          possibleSilenceMs: 5000,
         );
         if (!started) {
-          debugPrint('ContinuousSTT: Could not start');
+          debugPrint('NativeSTT: Could not start');
           _isListening = false;
           notifyListeners();
         }
@@ -487,6 +515,7 @@ class ChatProvider extends ChangeNotifier {
   void dispose() {
     _stt.dispose();
     _continuousStt.dispose();
+    _nativeStt.dispose();
     _whisperStt.dispose();
     _tts.dispose();
     super.dispose();

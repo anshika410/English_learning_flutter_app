@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.18)
 project(whisper_jni)
 
+# 16KB page size alignment for Android 15+ compatibility
+add_link_options("-Wl,-z,max-page-size=16384")
+
 add_library(whisper_jni SHARED whisper_jni.c)
 
 # Link against the prebuilt whisper .so

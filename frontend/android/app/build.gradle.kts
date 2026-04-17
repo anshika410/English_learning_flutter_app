@@ -50,6 +50,13 @@ android {
         }
     }
 
+    // 16KB page size alignment — required for Android 15+ compatibility
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")

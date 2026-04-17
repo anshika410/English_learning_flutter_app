@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import '../services/continuous_stt_service.dart';
+import '../services/native_stt_service.dart';
 import '../services/llm_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
@@ -36,7 +37,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
   static const String _openingLine =
       'Hey, I am Zoe and I love a good conversation. What name should I call you with?';
 
-  final ContinuousSttService _stt = ContinuousSttService();
+  final NativeSttService _stt = NativeSttService();
   final TtsManager _tts = TtsManager();
   final LlmService _llm = LlmService();
   final TextEditingController _textCtrl = TextEditingController();
@@ -45,6 +46,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
   bool _isKeyboardMode = false;
   bool _isListening = false;
+  bool _isRecognizing = false;
   bool _isZoeSpeaking = false;
   bool _isCompleting = false;
   bool _isLlmThinking = false;
@@ -65,7 +67,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
   @override
   void initState() {
     super.initState();
-    _stt.initialize();
+    // NativeSttService doesn't need explicit initialization
     _tts.initialize();
     Future.delayed(const Duration(milliseconds: 600), _playOpeningLine);
   }
@@ -279,7 +281,10 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
     if (_isListening) {
       final text = await _stt.stopListening();
-      setState(() => _isListening = false);
+      setState(() {
+        _isListening = false;
+        _isRecognizing = false;
+      });
       if (text.isNotEmpty) {
         _handleUserResponse(text);
       }
@@ -290,13 +295,21 @@ class _PlacementScreenState extends State<PlacementScreen> {
       _isListening = true;
       _currentTranscript = '';
     });
+    _stt.onRecognizingChanged = (isRecognizing) {
+      if (mounted) setState(() => _isRecognizing = isRecognizing);
+    };
     final started = await _stt.startListening(
       onResult: (text, isFinal) {
         if (mounted) setState(() => _currentTranscript = text);
       },
+      silenceMs: 8000,
+      possibleSilenceMs: 5000,
     );
     if (!started && mounted) {
-      setState(() => _isListening = false);
+      setState(() {
+        _isListening = false;
+        _isRecognizing = false;
+      });
     }
   }
 
@@ -460,7 +473,9 @@ class _PlacementScreenState extends State<PlacementScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          _isListening ? 'Listening… tap to send' : 'Tap to speak',
+          _isListening
+              ? (_isRecognizing ? 'Listening...' : 'Tap to speak')
+              : 'Tap to speak',
           style: GoogleFonts.baloo2(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -516,7 +531,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
                     alignment: Alignment.center,
                     clipBehavior: Clip.none,
                     children: [
-                      if (_isListening)
+                      if (_isListening && _isRecognizing)
                         const _MicPulseRing(color: EllaColors.mangoMain),
                       Container(
                         width: 64,
@@ -525,7 +540,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
                           shape: BoxShape.circle,
                           color: blocked
                               ? EllaColors.neutralBorder
-                              : (_isListening
+                              : (_isListening && _isRecognizing
                                     ? EllaColors.mangoDark
                                     : EllaColors.mangoMain),
                           border: Border.all(
@@ -539,14 +554,14 @@ class _PlacementScreenState extends State<PlacementScreen> {
                               color: blocked
                                   ? EllaColors.neutralSecondary
                                   : EllaColors.mangoDark,
-                              offset: _isListening
+                              offset: _isListening && _isRecognizing
                                   ? const Offset(0, 1)
                                   : const Offset(0, 5),
                               blurRadius: 0,
                             ),
                           ],
                         ),
-                        child: _isListening
+                        child: _isListening && _isRecognizing
                             ? const WaveformIcon()
                             : Icon(
                                 Icons.mic_rounded,

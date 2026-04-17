@@ -37,25 +37,27 @@ class _WaveformIconState extends State<WaveformIcon>
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, child) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: List.generate(5, (i) {
-            final t = (_ctrl.value + phases[i]) % 1.0;
-            final height = minBarHeight +
-                (maxBarHeight - minBarHeight) * (0.5 + 0.5 * _triangle(t));
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 1.5),
-              child: Container(
-                width: 3,
-                height: height,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(2),
+        return Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: List.generate(5, (i) {
+              final t = (_ctrl.value + phases[i]) % 1.0;
+              final height = minBarHeight +
+                  (maxBarHeight - minBarHeight) * (0.5 + 0.5 * _triangle(t));
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                child: Container(
+                  width: 3,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         );
       },
     );

@@ -513,11 +513,14 @@ class _ConversationScreenState extends State<ConversationScreen>
     return Consumer<ChatProvider>(
       builder: (_, chat, _) {
         final isListening = chat.isListening;
+        final isRecognizing = chat.isMicRecognizing;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isListening ? 'TAP MIC TO STOP' : 'TAP MIC TO SPEAK',
+              isListening
+                  ? (isRecognizing ? 'Listening...' : 'Tap to speak')
+                  : 'Tap to speak',
               style: GoogleFonts.inconsolata(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -565,14 +568,14 @@ class _ConversationScreenState extends State<ConversationScreen>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          if (isListening)
+                          if (isListening && isRecognizing)
                             const _MicPulseRing(color: EllaColors.mangoMain),
                           Container(
                             width: 64,
                             height: 64,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isListening
+                              color: isListening && isRecognizing
                                   ? EllaColors.mangoDark
                                   : EllaColors.mangoMain,
                               border: Border.all(
@@ -582,14 +585,14 @@ class _ConversationScreenState extends State<ConversationScreen>
                               boxShadow: [
                                 BoxShadow(
                                   color: EllaColors.mangoDark,
-                                  offset: isListening
+                                  offset: isListening && isRecognizing
                                       ? const Offset(0, 1)
                                       : const Offset(0, 5),
                                   blurRadius: 0,
                                 ),
                               ],
                             ),
-                            child: isListening
+                            child: isListening && isRecognizing
                                 ? const WaveformIcon()
                                 : const Icon(
                                     Icons.mic_rounded,

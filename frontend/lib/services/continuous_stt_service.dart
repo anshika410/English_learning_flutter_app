@@ -12,12 +12,15 @@ class ContinuousSttService {
   final SpeechToText _speech = SpeechToText();
   bool _isInitialized = false;
   bool _isListening = false;
+  bool _isRecognizing = false; // true only when recognizer is actively running
   String _accumulatedText = '';
   String _currentPartial = '';
   Timer? _restartTimer;
   void Function(String text, bool isFinal)? _onResult;
+  void Function(bool isRecognizing)? onRecognizingChanged;
 
   bool get isListening => _isListening;
+  bool get isRecognizing => _isRecognizing;
 
   String get displayText {
     if (_accumulatedText.isEmpty) return _currentPartial;
@@ -30,12 +33,18 @@ class ContinuousSttService {
     _isInitialized = await _speech.initialize(
       onError: (error) {
         debugPrint('ContinuousSTT error: ${error.errorMsg}');
-        _scheduleRestart();
+        _setRecognizing(false);
+        // Auto-restart disabled — user taps mic to speak again
+        // _scheduleRestart();
       },
       onStatus: (status) {
         debugPrint('ContinuousSTT status: $status');
-        if (status == 'done' && _isListening) {
-          _scheduleRestart();
+        if (status == 'listening') {
+          _setRecognizing(true);
+        } else if (status == 'done' || status == 'notListening') {
+          _setRecognizing(false);
+          // Auto-restart disabled — user taps mic to speak again
+          // if (_isListening) _scheduleRestart();
         }
       },
     );
@@ -64,11 +73,11 @@ class ContinuousSttService {
   void _startSession() {
     if (!_isListening || !_isInitialized) return;
     debugPrint('ContinuousSTT: starting session...');
-
+    _setRecognizing(true);
     _speech.listen(
       onResult: _handleResult,
       listenFor: const Duration(seconds: 60),
-      pauseFor: const Duration(seconds: 6),
+      pauseFor: const Duration(seconds: 10),
       localeId: 'en',
       listenOptions: SpeechListenOptions(
         cancelOnError: false,
@@ -108,24 +117,31 @@ class ContinuousSttService {
   }
 
   Future<void> _muteBeep() async {
-    if (!kIsWeb) {
-      try {
-        await _audioControl.invokeMethod('muteBeepStream');
-        // Unmute after 800ms — enough to suppress the beep
-        Future.delayed(const Duration(milliseconds: 800), () {
-          _audioControl.invokeMethod('unmuteBeepStream').catchError((_) {});
-        });
-      } catch (_) {}
-    }
+    // Muting disabled — no auto-restart loop so no beep to suppress
+    // if (!kIsWeb) {
+    //   try {
+    //     await _audioControl.invokeMethod('muteBeepStream');
+    //     Future.delayed(const Duration(milliseconds: 800), () {
+    //       _audioControl.invokeMethod('unmuteBeepStream').catchError((_) {});
+    //     });
+    //   } catch (_) {}
+    // }
+  }
+
+  void _setRecognizing(bool value) {
+    if (_isRecognizing == value) return;
+    _isRecognizing = value;
+    onRecognizingChanged?.call(value);
   }
 
   Future<String> stopListening() async {
     _isListening = false;
+    _setRecognizing(false);
     _restartTimer?.cancel();
     await _speech.stop();
-    try {
-      await _audioControl.invokeMethod('unmuteBeepStream');
-    } catch (_) {}
+    // try {
+    //   await _audioControl.invokeMethod('unmuteBeepStream');
+    // } catch (_) {}
     final result = displayText.trim();
     debugPrint('ContinuousSTT: stopped, result: "$result"');
     _accumulatedText = '';
@@ -138,6 +154,6 @@ class ContinuousSttService {
     _isListening = false;
     _restartTimer?.cancel();
     _speech.cancel();
-    _audioControl.invokeMethod('unmuteBeepStream').catchError((_) {});
+    // _audioControl.invokeMethod('unmuteBeepStream').catchError((_) {});
   }
 }
