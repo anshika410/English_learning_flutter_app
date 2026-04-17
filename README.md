@@ -24,6 +24,12 @@ Indian school students (primarily Hindi-speaking) at A1–B1 English level who n
 **Frontend:** Flutter (Android-first) · On-device Whisper STT · Piper TTS · DeepSeek LLM  
 **Backend:** FastAPI · PostgreSQL · Docker · AWS EC2
 
+## Design Prototype
+
+Interactive HTML design prototype (v6.2) — shows the full app flow including welcome, placement, topic picker, chat, and session summary:
+
+👉 **[ella-v6.2.html](https://navgurukul.github.io/ella_flutter/ella-v6.2.html)**
+
 ---
 
 ## For Claude / New Contributors — Read This First
