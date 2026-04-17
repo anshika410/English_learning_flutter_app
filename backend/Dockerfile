@@ -2,14 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend source
-COPY . .
+COPY backend/ .
 
-# Copy prompt assets from repo root
-COPY ../frontend/assets/prompts /app/assets/prompts
+# Copy prompt assets
+COPY frontend/assets/prompts /app/assets/prompts
 
 EXPOSE 8000
 

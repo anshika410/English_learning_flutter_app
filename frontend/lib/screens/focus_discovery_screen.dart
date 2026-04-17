@@ -122,6 +122,7 @@ class _FocusDiscoveryScreenState extends State<FocusDiscoveryScreen> {
                             _mascotSequence[_mascotIndex].asset,
                             key: ValueKey<int>(_mascotIndex),
                             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                           ),
                         ),
                       ),

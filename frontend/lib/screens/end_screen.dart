@@ -453,6 +453,7 @@ class EndScreen extends StatelessWidget {
                       child: Image.asset(
                         'assets/mascot-animations/juggling.webp',
                         fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -770,6 +771,7 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
                       child: Image.asset(
                         'assets/mascot-animations/speaking.webp',
                         fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -947,6 +949,7 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
                 width: s,
                 height: s,
                 fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
               ),
             ),
             AnimatedOpacity(
@@ -957,6 +960,7 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
                 width: s,
                 height: s,
                 fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
               ),
             ),
           ],

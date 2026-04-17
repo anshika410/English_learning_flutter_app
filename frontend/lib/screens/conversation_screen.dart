@@ -7,6 +7,7 @@ import '../theme/ella_theme.dart';
 import '../models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/waveform_icon.dart';
+import '../widgets/offline_banner.dart';
 import 'end_screen.dart';
 
 // ─── Mascot State ─────────────────────────────────────────────────────────────
@@ -121,6 +122,10 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   void _handleMicTap() {
     final chat = context.read<ChatProvider>();
+    // If Zoe is speaking, stop her first then start listening
+    if (chat.isSpeaking) {
+      chat.stopSpeaking();
+    }
     if (!chat.isListening) {
       setState(() => _hasUserSpokenThisTurn = true);
     }
@@ -240,7 +245,12 @@ class _ConversationScreenState extends State<ConversationScreen>
       child: Scaffold(
         backgroundColor: EllaColors.neutralBg,
         resizeToAvoidBottomInset: false,
-        body: SafeArea(
+        body: Column(
+          children: [
+            const SafeArea(bottom: false, child: OfflineBanner()),
+            Expanded(
+              child: SafeArea(
+                top: false,
           child: Consumer<ChatProvider>(
             builder: (_, chat, child) {
               // Auto-end: fire once after Zoe finishes speaking the closing line
@@ -356,12 +366,15 @@ class _ConversationScreenState extends State<ConversationScreen>
                 ],
               );
             },
-          ),
-        ), // Consumer
-      ),        // SafeArea
-    ),          // body: of Scaffold
-  ),            // Scaffold child of PopScope
-  );            // PopScope / return
+          ),        // LayoutBuilder
+        ),          // AnimatedPadding
+      ),            // Consumer
+        ),          // SafeArea
+      ),            // Expanded
+    ],
+  ),               // Column body
+),                 // Scaffold
+);                 // PopScope / return
   }
 
   Widget _buildLoadingMascot(bool shrinkMascot) {
@@ -387,6 +400,7 @@ class _ConversationScreenState extends State<ConversationScreen>
             child: Image.asset(
               'assets/mascot-animations/juggling.webp',
               fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
             ),
           ),
         ),
@@ -503,11 +517,14 @@ class _ConversationScreenState extends State<ConversationScreen>
     return Consumer<ChatProvider>(
       builder: (_, chat, _) {
         final isListening = chat.isListening;
+        final isRecognizing = chat.isMicRecognizing;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isListening ? 'TAP MIC TO STOP' : 'TAP MIC TO SPEAK',
+              isListening
+                  ? (isRecognizing ? 'Listening...' : 'Tap to speak')
+                  : 'Tap to speak',
               style: GoogleFonts.inconsolata(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -555,14 +572,14 @@ class _ConversationScreenState extends State<ConversationScreen>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          if (isListening)
+                          if (isListening && isRecognizing)
                             const _MicPulseRing(color: EllaColors.mangoMain),
                           Container(
                             width: 64,
                             height: 64,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isListening
+                              color: isListening && isRecognizing
                                   ? EllaColors.mangoDark
                                   : EllaColors.mangoMain,
                               border: Border.all(
@@ -572,14 +589,14 @@ class _ConversationScreenState extends State<ConversationScreen>
                               boxShadow: [
                                 BoxShadow(
                                   color: EllaColors.mangoDark,
-                                  offset: isListening
+                                  offset: isListening && isRecognizing
                                       ? const Offset(0, 1)
                                       : const Offset(0, 5),
                                   blurRadius: 0,
                                 ),
                               ],
                             ),
-                            child: isListening
+                            child: isListening && isRecognizing
                                 ? const WaveformIcon()
                                 : const Icon(
                                     Icons.mic_rounded,
@@ -843,6 +860,7 @@ class _ConversationMascotState extends State<_ConversationMascot> {
             _assetPath,
             key: ValueKey<String>(_assetPath),
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
             alignment: Alignment.center,
           ),
         ),
