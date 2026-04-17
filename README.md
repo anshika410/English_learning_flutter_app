@@ -1,8 +1,28 @@
 # Ella — Voice-First English Learning App
 
-Voice-first English learning app for Indian students. Students speak to an AI tutor (Zoe) — no typing required.
+Ella is a voice-first English learning app for Indian students built by NavGurukul. Students speak to an AI tutor named **Zoe** — no typing required. The app uses on-device speech recognition, AI-powered conversation, and text-to-speech to create a natural, low-pressure speaking practice experience.
 
 **Platform:** Android-first Flutter · **Org:** NavGurukul
+
+---
+
+## What Ella Does
+
+- **Placement test** — Zoe has a short conversation to assess the student's English level (A1–C1)
+- **Topic-based conversations** — Students pick a topic (Cricket, Bollywood, School Life, Food, Gaming, Dreams) and have a real conversation with Zoe
+- **Free chat** — Open-ended conversation on anything
+- **Real-time feedback** — Grammar corrections and vocabulary suggestions woven naturally into the conversation
+- **Session summary** — After each session, students see what they did well, new words used, and what to practice next
+- **Progress tracking** — Streak, level, and session history
+
+## Who It's For
+
+Indian school students (primarily Hindi-speaking) at A1–B1 English level who need speaking practice but don't have access to English-speaking environments. The app is designed to feel like chatting with a friendly buddy, not a formal test.
+
+## Tech Stack
+
+**Frontend:** Flutter (Android-first) · On-device Whisper STT · Piper TTS · DeepSeek LLM  
+**Backend:** FastAPI · PostgreSQL · Docker · AWS EC2
 
 ---
 
