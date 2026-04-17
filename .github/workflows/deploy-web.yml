@@ -48,8 +48,10 @@ jobs:
         working-directory: frontend
         run: flutter build web --base-href /
 
-      - name: Copy design prototype
-        run: cp ella-v6.2.html frontend/build/web/ella-v6.2.html
+      - name: Copy design assets
+        run: |
+          cp ella-v0.html frontend/build/web/ella-v0.html
+          cp zoe-user-flow.html frontend/build/web/zoe-user-flow.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

@@ -26,9 +26,13 @@ Indian school students (primarily Hindi-speaking) at A1–B1 English level who n
 
 ## Design Prototype
 
-Interactive HTML design prototype (v6.2) — shows the full app flow including welcome, placement, topic picker, chat, and session summary:
+Three things live at the same GitHub Pages URL — versioned and growing:
 
-👉 **[ella-v6.2.html](https://turbo-potato-r3e4wrj.pages.github.io/ella-v6.2.html)**
+| What | URL | Description |
+|------|-----|-------------|
+| 📱 **Product v0** | [ella-v0.html](https://turbo-potato-r3e4wrj.pages.github.io/ella-v0.html) | Interactive HTML prototype of the full app flow |
+| 🎨 **Design v1** | [zoe-user-flow.html](https://turbo-potato-r3e4wrj.pages.github.io/zoe-user-flow.html) | Figma-style user flow and design system |
+| 🌐 **Live Web App** | [turbo-potato-r3e4wrj.pages.github.io](https://turbo-potato-r3e4wrj.pages.github.io) | Flutter web build (latest `feature/integration`) |
 
 ---
 
