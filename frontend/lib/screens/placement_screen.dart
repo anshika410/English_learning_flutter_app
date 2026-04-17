@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
+import '../services/api_service.dart';
 import '../services/continuous_stt_service.dart';
 import '../services/native_stt_service.dart';
 import '../services/llm_service.dart';
@@ -253,6 +254,22 @@ class _PlacementScreenState extends State<PlacementScreen> {
       level: level,
       levelLabel: levelLabel,
     );
+
+    // Persist to backend (fire-and-forget — don't block navigation on failure)
+    final api = ApiService.instance;
+    api.ensureAuthenticated().then((_) {
+      api.updateProfile(
+        name: _userName,
+        age: _userAge,
+        location: _userLocation,
+      );
+      api.savePlacement(
+        level: level,
+        levelLabel: levelLabel,
+        highlight: highlight,
+        transcript: _apiMessages,
+      );
+    }).ignore();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(

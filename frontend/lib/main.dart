@@ -7,6 +7,7 @@ import 'providers/chat_provider.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/user_prefs_service.dart';
+import 'services/api_service.dart';
 import 'theme/ella_theme.dart';
 
 Future<void> main() async {
@@ -19,6 +20,9 @@ Future<void> main() async {
     // and fall back gracefully
   }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Authenticate with backend (silent, non-blocking on failure)
+  ApiService.instance.ensureAuthenticated().ignore();
 
   // Check if user has already completed onboarding/placement
   final prefs = UserPrefsService();
