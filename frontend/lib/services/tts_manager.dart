@@ -2,19 +2,26 @@ import 'package:flutter/foundation.dart';
 import 'tts_service.dart';
 import 'system_tts_service.dart';
 import 'piper_tts_service.dart';
+import 'web_tts_service.dart';
 
-enum TtsEngineType { system, piper }
+enum TtsEngineType { system, piper, web }
 
-/// Manages dual TTS engines — Piper (primary) with system TTS fallback.
+/// Manages TTS engines:
+///   - Web:     WebTtsEngine (browser SpeechSynthesis API)
+///   - Android: SystemTtsEngine (default) with optional Piper fallback
 class TtsManager {
   final SystemTtsEngine _systemEngine = SystemTtsEngine();
   final PiperTtsEngine _piperEngine = PiperTtsEngine();
+  final WebTtsEngine _webEngine = WebTtsEngine();
 
   TtsEngineType _activeType = TtsEngineType.system;
   bool _piperAvailable = false;
 
-  TtsEngine get activeEngine =>
-      _activeType == TtsEngineType.piper ? _piperEngine : _systemEngine;
+  TtsEngine get activeEngine => switch (_activeType) {
+        TtsEngineType.web => _webEngine,
+        TtsEngineType.piper => _piperEngine,
+        TtsEngineType.system => _systemEngine,
+      };
 
   TtsEngineType get activeType => _activeType;
   bool get piperAvailable => _piperAvailable;
@@ -23,22 +30,33 @@ class TtsManager {
   PiperTtsEngine get piperEngine => _piperEngine;
 
   Future<void> initialize() async {
+    if (kIsWeb) {
+      // Web: use browser SpeechSynthesis directly — skip native engines
+      await _webEngine.initialize();
+      _activeType = TtsEngineType.web;
+      debugPrint('TTS: Web platform — using Web Speech API');
+      return;
+    }
+
+    // Android/native: system TTS + optional Piper
     await _systemEngine.initialize();
     await _piperEngine.initialize();
     _piperAvailable = await _piperEngine.isAvailable;
 
-    // Auto-select Piper if available
-    // NOTE: System TTS (Google) generally sounds more natural on Android.
-    // Keep system as default; Piper can be enabled manually if preferred.
     _activeType = TtsEngineType.system;
     if (_piperAvailable) {
-      debugPrint('TTS: Piper available but using system TTS as default for better quality');
+      debugPrint('TTS: Piper available (using system TTS as default)');
     } else {
       debugPrint('TTS: Piper not available, using system TTS');
     }
   }
 
   void setEngine(TtsEngineType type) {
+    if (kIsWeb) {
+      // On web only the web engine is valid
+      _activeType = TtsEngineType.web;
+      return;
+    }
     if (type == TtsEngineType.piper && !_piperAvailable) {
       debugPrint('TTS: Piper not available, staying on system');
       return;
@@ -48,13 +66,12 @@ class TtsManager {
 
   Future<void> speak(String text) async {
     try {
-      // Cap TTS at 15s — web TTS can hang indefinitely on some browsers
       await activeEngine.speak(text).timeout(
         const Duration(seconds: 15),
         onTimeout: () {},
       );
     } catch (e) {
-      // Fallback to system TTS if Piper fails
+      // Fallback to system TTS if Piper fails (Android only)
       if (_activeType == TtsEngineType.piper) {
         debugPrint('TTS: Piper failed, falling back to system: $e');
         await _systemEngine.speak(text).timeout(
@@ -71,6 +88,7 @@ class TtsManager {
 
   /// Refresh Piper voice models (call after adding new .onnx files).
   Future<void> refreshPiperVoices() async {
+    if (kIsWeb) return;
     await _piperEngine.refreshVoices();
     _piperAvailable = await _piperEngine.isAvailable;
   }
@@ -78,5 +96,6 @@ class TtsManager {
   void dispose() {
     _systemEngine.dispose();
     _piperEngine.dispose();
+    _webEngine.dispose();
   }
 }
