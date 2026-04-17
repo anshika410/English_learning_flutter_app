@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from .core.database import engine, Base
+from .core.config import get_settings
 from .routers import auth, users, llm, conversations, placements, progress
 
 # Import all models so SQLAlchemy registers them before create_all
@@ -17,11 +18,17 @@ async def lifespan(app: FastAPI):
     yield
 
 
+settings = get_settings()
+
 app = FastAPI(
     title="Zoe API",
     description="Backend for the Zoe English learning app",
     version="1.0.0",
     lifespan=lifespan,
+    # Hide docs unless explicitly enabled via DOCS_ENABLED=true in .env
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
 
 app.add_middleware(
@@ -42,7 +49,9 @@ app.include_router(progress.router)
 
 @app.get("/", include_in_schema=False)
 async def root():
-    return RedirectResponse(url="/docs")
+    if settings.docs_enabled:
+        return RedirectResponse(url="/docs")
+    return {"status": "ok", "message": "Zoe API"}
 
 
 @app.get("/health")

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     deepseek_model: str = "deepseek-chat"
     llm_rate_limit_per_minute: int = 30
+    # Set to false in production to hide /docs and /redoc
+    docs_enabled: bool = False
 
     model_config = {"env_file": "backend/.env", "extra": "ignore"}
 
