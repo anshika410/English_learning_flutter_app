@@ -128,22 +128,17 @@ uvicorn app.main:app --reload --port 8000
 
 ## Production Backend
 
-The backend is hosted on AWS EC2:
+The backend is hosted on AWS EC2 (ap-south-1, t3.micro, Ubuntu 24.04), running via Docker Compose with PostgreSQL.
 
-- **URL:** `http://13.233.132.240:8000`
-- **Health check:** `http://13.233.132.240:8000/health`
-- **API docs:** `http://13.233.132.240:8000/docs`
-- **Instance:** `ella-zoe-backend` (t3.micro, Ubuntu 24.04, ap-south-1)
-- **Runs via:** Docker Compose with PostgreSQL
+> Connection details and SSH access are kept private. Ask a team member for access.
 
 > HTTPS via Cloudflare Tunnel or a subdomain of `navgurukul.org` is planned before production release.
 
 ### Deploying updates to EC2
 
-```bash
-# SSH into the server
-ssh -i ~/Downloads/ella-zoe-key.pem -o ServerAliveInterval=60 ubuntu@13.233.132.240
+SSH into the server using the team's shared key (ask a team member), then:
 
+```bash
 # Pull latest code and restart
 cd ~/ella_flutter && git pull
 cd backend && docker compose down && docker compose up -d
