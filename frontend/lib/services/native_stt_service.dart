@@ -11,6 +11,16 @@ class NativeSttService {
   final SpeechToText _permissionHelper = SpeechToText();
   bool _permissionGranted = false;
 
+  // Singleton — only one instance should exist to avoid handler conflicts
+  static NativeSttService? _instance;
+  factory NativeSttService() {
+    _instance ??= NativeSttService._internal();
+    return _instance!;
+  }
+  NativeSttService._internal() {
+    _channel.setMethodCallHandler(_handleNativeCall);
+  }
+
   bool _isListening = false;
   bool _isRecognizing = false;
   String _accumulatedText = '';
@@ -26,10 +36,6 @@ class NativeSttService {
     if (_accumulatedText.isEmpty) return _currentPartial;
     if (_currentPartial.isEmpty) return _accumulatedText;
     return '$_accumulatedText $_currentPartial';
-  }
-
-  NativeSttService() {
-    _channel.setMethodCallHandler(_handleNativeCall);
   }
 
   Future<dynamic> _handleNativeCall(MethodCall call) async {
