@@ -2,23 +2,26 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'web_stt_service.dart';
 
 /// Native Android STT service using direct SpeechRecognizer API.
-/// Uses speech_to_text only for permission request, then uses
-/// native channel with silence tuning extras.
+/// On web, falls back to WebSttService (browser Web Speech API).
 ///
 /// Singleton pattern — one channel handler, but callbacks are
 /// set per-session so multiple screens can use it sequentially.
 class NativeSttService {
   static const _channel = MethodChannel('speech_handler');
   final SpeechToText _permissionHelper = SpeechToText();
+  final WebSttService _webStt = WebSttService();
   bool _permissionGranted = false;
 
   // Singleton
   static final NativeSttService _instance = NativeSttService._internal();
   factory NativeSttService() => _instance;
   NativeSttService._internal() {
-    _channel.setMethodCallHandler(_handleNativeCall);
+    if (!kIsWeb) {
+      _channel.setMethodCallHandler(_handleNativeCall);
+    }
   }
 
   bool _isListening = false;
@@ -89,9 +92,19 @@ class NativeSttService {
     int minSpeechMs = 1500,
     String locale = 'en-US',
   }) async {
-    if (kIsWeb) return false;
+    // ── Web: use browser Web Speech API ──────────────────────────────────
+    if (kIsWeb) {
+      _webStt.onRecognizingChanged = onRecognizingChanged;
+      return _webStt.startListening(
+        onResult: onResult,
+        silenceMs: silenceMs,
+        possibleSilenceMs: possibleSilenceMs,
+        minSpeechMs: minSpeechMs,
+        locale: locale,
+      );
+    }
 
-    // Ensure mic permission is granted via speech_to_text
+    // ── Android: use native SpeechRecognizer ──────────────────────────────
     if (!_permissionGranted) {
       _permissionGranted = await _permissionHelper.initialize();
       if (!_permissionGranted) {
@@ -127,6 +140,8 @@ class NativeSttService {
   }
 
   Future<String> stopListening() async {
+    if (kIsWeb) return _webStt.stopListening();
+
     _isListening = false;
     _setRecognizing(false);
     final cb = _onResult;
@@ -151,5 +166,6 @@ class NativeSttService {
     // Don't actually dispose the singleton — just clear callbacks
     _onResult = null;
     onRecognizingChanged = null;
+    if (kIsWeb) _webStt.dispose();
   }
 }
