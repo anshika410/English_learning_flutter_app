@@ -76,10 +76,9 @@ uvicorn app.main:app --reload --port 8000
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/auth/signup` | — | Register new user |
-| POST | `/auth/login` | — | Login, get JWT |
+| POST | `/auth/anonymous` | — | Silent device-based login (creates account on first launch) |
 | GET | `/users/me` | ✓ | Get profile |
-| PUT | `/users/me` | ✓ | Update profile |
+| PUT | `/users/me` | ✓ | Update name/age/location |
 | PUT | `/users/me/settings` | ✓ | Update focus settings |
 | POST | `/llm/conversation-starter` | ✓ | Generate opener |
 | POST | `/llm/conversation-turn` | ✓ | Send message, get reply |
