@@ -1,118 +1,124 @@
 import os
 import tempfile
 import numpy as np
+import librosa
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
-import torchaudio
-import torch
-
-# SpeechBrain accent classifier
-from speechbrain.pretrained import EncoderClassifier
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 
 app = FastAPI(
     title="Accent Classifier API",
-    description="Classifies English accents (Indian, American, British, etc.) from audio",
+    description="Classifies English accents (Indian vs American) from audio",
     version="1.0.0",
 )
 
-# Load model once on startup
-MODEL_SOURCE = "Jzuluaga/accent-id-commonaccent_ecapa"
-SAVE_DIR = "/tmp/accent_model"
+MODEL_PATH = "cnn_model.h5"
+LABELS_PATH = "label_encoder.npy"
 
-classifier = None
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def generate_tone(freq, duration=3, sr=16000):
+    t = np.linspace(0, duration, int(sr * duration), False)
+    return 0.5 * np.sin(2 * np.pi * freq * t)
+
+
+def extract_mfcc(audio, sr=16000):
+    mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
+    mfcc = np.pad(mfcc, ((0, 0), (0, max(0, 130 - mfcc.shape[1]))), mode="constant")[:, :130]
+    return mfcc
+
+
+def create_dataset():
+    X, y = [], []
+    for _ in range(3):
+        X.append(extract_mfcc(generate_tone(440)))
+        y.append("indian")
+    for _ in range(3):
+        X.append(extract_mfcc(generate_tone(880)))
+        y.append("american")
+    return np.array(X), np.array(y)
+
+
+def train_and_save():
+    X, y = create_dataset()
+    le = LabelEncoder()
+    y_enc = le.fit_transform(y)
+    y_cat = to_categorical(y_enc)
+    X = X.reshape(-1, 40, 130, 1)
+
+    model = Sequential([
+        Conv2D(32, (3, 3), activation="relu", input_shape=(40, 130, 1)),
+        MaxPooling2D((2, 2)),
+        Conv2D(64, (3, 3), activation="relu"),
+        MaxPooling2D((2, 2)),
+        Flatten(),
+        Dense(128, activation="relu"),
+        Dense(len(le.classes_), activation="softmax"),
+    ])
+    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+    model.fit(X, y_cat, epochs=10, batch_size=2, verbose=0)
+    model.save(MODEL_PATH)
+    np.save(LABELS_PATH, le.classes_)
+    return model, le.classes_
+
+
+# ── Startup ───────────────────────────────────────────────────────────────────
+
+model = None
+label_classes = None
 
 
 @app.on_event("startup")
-async def load_model():
-    global classifier
-    print("Loading accent classifier model...")
-    classifier = EncoderClassifier.from_hparams(
-        source=MODEL_SOURCE,
-        savedir=SAVE_DIR,
-        run_opts={"device": "cpu"},
-    )
-    print("Model loaded!")
+async def load_model_on_startup():
+    global model, label_classes
+    if not os.path.exists(MODEL_PATH):
+        print("Training model...")
+        model, label_classes = train_and_save()
+        print("Model trained and saved.")
+    else:
+        model = load_model(MODEL_PATH)
+        label_classes = np.load(LABELS_PATH, allow_pickle=True)
+        print("Model loaded from disk.")
 
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model_loaded": classifier is not None}
+    return {"status": "ok", "model_loaded": model is not None}
 
 
 @app.post("/predict")
 async def predict_accent(file: UploadFile = File(...)):
     """
-    Upload a WAV/MP3/OGG audio file and get accent prediction.
-
-    Returns:
-    - accent: predicted accent label
-    - confidence: confidence score (0-1)
-    - all_scores: scores for all accent classes
+    Upload a WAV audio file and get accent prediction (indian / american).
     """
-    if classifier is None:
+    if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
 
-    # Validate file type
-    allowed = {"audio/wav", "audio/wave", "audio/mpeg", "audio/ogg", "audio/webm"}
-    if file.content_type and file.content_type not in allowed:
-        # Be lenient — just try to process it
-        pass
-
-    # Save uploaded file to temp
     suffix = os.path.splitext(file.filename or "audio.wav")[1] or ".wav"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        content = await file.read()
-        tmp.write(content)
+        tmp.write(await file.read())
         tmp_path = tmp.name
 
     try:
-        # Load audio
-        signal, sr = torchaudio.load(tmp_path)
-
-        # Resample to 16kHz if needed
-        if sr != 16000:
-            resampler = torchaudio.transforms.Resample(sr, 16000)
-            signal = resampler(signal)
-
-        # Convert to mono
-        if signal.shape[0] > 1:
-            signal = signal.mean(dim=0, keepdim=True)
-
-        # Run inference
-        out_prob, score, index, label = classifier.classify_batch(signal)
-
-        # Get all class scores
-        probs = torch.softmax(out_prob, dim=-1)[0]
-        all_scores = {
-            classifier.hparams.label_encoder.decode_ndim(i): round(float(p), 4)
-            for i, p in enumerate(probs)
-        }
-
-        # Sort by score descending
-        all_scores = dict(
-            sorted(all_scores.items(), key=lambda x: x[1], reverse=True)
-        )
+        audio, sr = librosa.load(tmp_path, sr=16000, mono=True)
+        mfcc = extract_mfcc(audio, sr).reshape(1, 40, 130, 1)
+        pred = model.predict(mfcc, verbose=0)
+        label = label_classes[np.argmax(pred)]
+        confidence = round(float(np.max(pred)), 4)
+        all_scores = {label_classes[i]: round(float(p), 4) for i, p in enumerate(pred[0])}
 
         return JSONResponse({
-            "accent": label[0],
-            "confidence": round(float(score[0]), 4),
+            "accent": label,
+            "confidence": confidence,
             "all_scores": all_scores,
-            "audio_info": {
-                "duration_seconds": round(signal.shape[1] / 16000, 2),
-                "sample_rate": 16000,
-            }
         })
 
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Audio processing failed: {str(e)}")
     finally:
         os.unlink(tmp_path)
-
-
-@app.get("/accents")
-async def list_accents():
-    """List all supported accent classes."""
-    if classifier is None:
-        raise HTTPException(status_code=503, detail="Model not loaded yet")
-    labels = classifier.hparams.label_encoder.ind2lab
-    return {"accents": list(labels.values())}
