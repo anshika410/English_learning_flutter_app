@@ -39,6 +39,7 @@ jobs:
           OPENAI_BASE_URL=https://api.openai.com/v1
           OPENAI_MODEL=gpt-4o-mini
           DEFAULT_LLM=deepseek
+          BACKEND_URL=${{ secrets.BACKEND_URL }}
           EOF
 
       - name: Flutter pub get

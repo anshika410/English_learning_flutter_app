@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -10,7 +11,8 @@ import 'package:uuid/uuid.dart';
 ///   2. Store the returned JWT token in SharedPreferences
 ///   3. Attach the token as Bearer on every subsequent request
 class ApiService {
-  static const String _baseUrl = 'http://13.233.132.240:8000';
+  static String get _baseUrl =>
+      dotenv.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
   static const String _keyToken = 'api_token';
   static const String _keyDeviceId = 'device_id';
