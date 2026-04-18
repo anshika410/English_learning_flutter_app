@@ -12,7 +12,7 @@ import 'package:uuid/uuid.dart';
 ///   3. Attach the token as Bearer on every subsequent request
 class ApiService {
   static String get _baseUrl =>
-      dotenv.env['BACKEND_URL'] ?? 'http://localhost:8000';
+      dotenv.env['BACKEND_URL'] ?? 'https://ella-api.navgurukul.org';
 
   static const String _keyToken = 'api_token';
   static const String _keyDeviceId = 'device_id';
