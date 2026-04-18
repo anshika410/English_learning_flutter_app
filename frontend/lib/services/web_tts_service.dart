@@ -65,8 +65,8 @@ class WebTtsEngine extends TtsEngine {
     final allVoices = synth.getVoices();
     web.SpeechSynthesisVoice? preferred;
     for (var i = 0; i < allVoices.length; i++) {
-      final v = allVoices.item(i);
-      if (v != null && v.lang.startsWith('en')) {
+      final v = allVoices[i];
+      if (v.lang.startsWith('en')) {
         preferred = v;
         // Prefer en-US
         if (v.lang == 'en-US') break;
