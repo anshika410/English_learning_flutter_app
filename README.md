@@ -30,7 +30,7 @@ All pages live at [navgurukul.github.io/ella_flutter](https://navgurukul.github.
 
 | What | URL | Description |
 |------|-----|-------------|
-| 🌐 **Live Web App** | [navgurukul.github.io/ella_flutter](https://navgurukul.github.io/ella_flutter/) | Flutter web build (latest `feature/integration`) |
+| 🌐 **Live Web App** | [ella-v1](https://navgurukul.github.io/ella_flutter/ella-v1/) | Flutter web build (latest `feature/integration`) |
 | 📱 **Product v0** | [ella-v0.html](https://navgurukul.github.io/ella_flutter/ella-v0.html) | Interactive HTML prototype of the full app flow |
 | 🎨 **Design v1** | [ella-design-v1.html](https://navgurukul.github.io/ella_flutter/ella-design-v1.html) | Figma-style user flow and design system |
 | 📄 **Project Summary** | [docs/project-summary.html](https://navgurukul.github.io/ella_flutter/docs/project-summary.html) | Project overview and goals |

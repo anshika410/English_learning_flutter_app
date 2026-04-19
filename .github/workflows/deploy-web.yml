@@ -50,17 +50,19 @@ jobs:
 
       - name: Build web
         working-directory: frontend
-        run: flutter build web --base-href /
+        run: flutter build web --base-href /ella_flutter/ella-v1/
 
-      - name: Copy design assets
+      - name: Prepare deploy folder
         run: |
-          cp ella-v0.html frontend/build/web/ella-v0.html
-          cp ella-design-v1.html frontend/build/web/ella-design-v1.html
+          mkdir -p deploy/ella-v1
+          cp -r frontend/build/web/. deploy/ella-v1/
+          cp ella-v0.html deploy/ella-v0.html
+          cp ella-design-v1.html deploy/ella-design-v1.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: frontend/build/web
+          publish_dir: deploy
           publish_branch: gh-pages
-          force_orphan: true
+          keep_files: true
