@@ -3,24 +3,21 @@ import 'tts_service.dart';
 import 'system_tts_service.dart';
 import 'piper_tts_service.dart';
 import 'web_tts_service.dart';
-import 'openai_tts_service.dart';
 
-enum TtsEngineType { system, piper, web, openai }
+enum TtsEngineType { system, piper, web }
 
 /// Manages TTS engines:
-///   - Web:     WebTtsEngine (browser SpeechSynthesis API)
+///   - Web:     WebTtsEngine (browser SpeechSynthesis API) — free, no API key
 ///   - Android: SystemTtsEngine (default) with optional Piper fallback
 class TtsManager {
   final SystemTtsEngine _systemEngine = SystemTtsEngine();
   final PiperTtsEngine _piperEngine = PiperTtsEngine();
   final WebTtsEngine _webEngine = WebTtsEngine();
-  final OpenAiTtsEngine _openAiEngine = OpenAiTtsEngine();
 
   TtsEngineType _activeType = TtsEngineType.system;
   bool _piperAvailable = false;
 
   TtsEngine get activeEngine => switch (_activeType) {
-        TtsEngineType.openai => _openAiEngine,
         TtsEngineType.web => _webEngine,
         TtsEngineType.piper => _piperEngine,
         TtsEngineType.system => _systemEngine,
@@ -34,7 +31,7 @@ class TtsManager {
 
   Future<void> initialize() async {
     if (kIsWeb) {
-      // Web: use browser SpeechSynthesis directly — free, no API key needed
+      // Web: use browser SpeechSynthesis — free, no API key needed
       await _webEngine.initialize();
       _activeType = TtsEngineType.web;
       debugPrint('TTS: Web platform — using Web Speech API');
@@ -99,6 +96,5 @@ class TtsManager {
     _systemEngine.dispose();
     _piperEngine.dispose();
     _webEngine.dispose();
-    _openAiEngine.dispose();
   }
 }
