@@ -11,8 +11,14 @@ import 'package:uuid/uuid.dart';
 ///   2. Store the returned JWT token in SharedPreferences
 ///   3. Attach the token as Bearer on every subsequent request
 class ApiService {
-  static String get _baseUrl =>
-      dotenv.env['BACKEND_URL'] ?? 'https://ella-api.navgurukul.org';
+  static String get _baseUrl {
+    // Try .env first, fall back to production URL
+    final envUrl = dotenv.maybeGet('BACKEND_URL');
+    if (envUrl != null && envUrl.isNotEmpty && !envUrl.startsWith('http://localhost')) {
+      return envUrl;
+    }
+    return 'https://ella-api.navgurukul.org';
+  }
 
   static const String _keyToken = 'api_token';
   static const String _keyDeviceId = 'device_id';
