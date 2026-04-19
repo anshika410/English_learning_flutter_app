@@ -50,19 +50,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   Future<void> _playIntroSpeech() async {
     if (!mounted) return;
-
-    // On web, browser blocks TTS without a user gesture — skip auto-speak
-    // and show the UI immediately instead.
-    if (kIsWeb) {
-      setState(() {
-        _visibleHeading = _introHeading;
-        _visibleSubline = _introSubline;
-        _isSpeakingIntro = false;
-        _showStartButton = true;
-      });
-      return;
-    }
-
     setState(() {
       _isSpeakingIntro = true;
       _showStartButton = false;

@@ -7,7 +7,7 @@ import 'web_tts_service.dart';
 enum TtsEngineType { system, piper, web }
 
 /// Manages TTS engines:
-///   - Web:     WebTtsEngine (browser SpeechSynthesis API) — free, no API key
+///   - Web:     WebTtsEngine (browser SpeechSynthesis API)
 ///   - Android: SystemTtsEngine (default) with optional Piper fallback
 class TtsManager {
   final SystemTtsEngine _systemEngine = SystemTtsEngine();
@@ -31,7 +31,7 @@ class TtsManager {
 
   Future<void> initialize() async {
     if (kIsWeb) {
-      // Web: use browser SpeechSynthesis — free, no API key needed
+      // Web: use browser SpeechSynthesis directly — skip native engines
       await _webEngine.initialize();
       _activeType = TtsEngineType.web;
       debugPrint('TTS: Web platform — using Web Speech API');
@@ -53,6 +53,7 @@ class TtsManager {
 
   void setEngine(TtsEngineType type) {
     if (kIsWeb) {
+      // On web only the web engine is valid
       _activeType = TtsEngineType.web;
       return;
     }
