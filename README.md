@@ -26,13 +26,15 @@ Indian school students (primarily Hindi-speaking) at A1–B1 English level who n
 
 ## Design Prototype
 
-Three things live at the same GitHub Pages URL — versioned and growing:
+All pages live at [navgurukul.github.io/ella_flutter](https://navgurukul.github.io/ella_flutter/):
 
 | What | URL | Description |
 |------|-----|-------------|
+| 🌐 **Live Web App** | [navgurukul.github.io/ella_flutter](https://navgurukul.github.io/ella_flutter/) | Flutter web build (latest `feature/integration`) |
 | 📱 **Product v0** | [ella-v0.html](https://navgurukul.github.io/ella_flutter/ella-v0.html) | Interactive HTML prototype of the full app flow |
 | 🎨 **Design v1** | [ella-design-v1.html](https://navgurukul.github.io/ella_flutter/ella-design-v1.html) | Figma-style user flow and design system |
-| 🌐 **Live Web App** | [navgurukul.github.io/ella_flutter](https://navgurukul.github.io/ella_flutter/) | Flutter web build (latest `feature/integration`) |
+| 📄 **Project Summary** | [docs/project-summary.html](https://navgurukul.github.io/ella_flutter/docs/project-summary.html) | Project overview and goals |
+| 🎨 **Design System** | [docs/zoe-design-system.html](https://navgurukul.github.io/ella_flutter/docs/zoe-design-system.html) | Zoe design system reference |
 
 ---
 
