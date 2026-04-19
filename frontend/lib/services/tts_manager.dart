@@ -34,16 +34,10 @@ class TtsManager {
 
   Future<void> initialize() async {
     if (kIsWeb) {
-      // Web: prefer OpenAI TTS (natural voice), fall back to browser SpeechSynthesis
-      await _openAiEngine.initialize();
-      if (await _openAiEngine.isAvailable) {
-        _activeType = TtsEngineType.openai;
-        debugPrint('TTS: Web platform — using OpenAI TTS');
-      } else {
-        await _webEngine.initialize();
-        _activeType = TtsEngineType.web;
-        debugPrint('TTS: Web platform — using Web Speech API (no OpenAI key)');
-      }
+      // Web: use browser SpeechSynthesis directly — free, no API key needed
+      await _webEngine.initialize();
+      _activeType = TtsEngineType.web;
+      debugPrint('TTS: Web platform — using Web Speech API');
       return;
     }
 
@@ -62,8 +56,7 @@ class TtsManager {
 
   void setEngine(TtsEngineType type) {
     if (kIsWeb) {
-      // On web only openai and web engines are valid
-      _activeType = (type == TtsEngineType.openai) ? TtsEngineType.openai : TtsEngineType.web;
+      _activeType = TtsEngineType.web;
       return;
     }
     if (type == TtsEngineType.piper && !_piperAvailable) {
