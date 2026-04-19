@@ -1,5 +1,7 @@
 name: Deploy Web to GitHub Pages
 
+# Triggered on any branch push touching frontend or HTML files
+
 on:
   push:
     branches:
