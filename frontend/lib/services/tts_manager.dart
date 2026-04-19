@@ -3,8 +3,9 @@ import 'tts_service.dart';
 import 'system_tts_service.dart';
 import 'piper_tts_service.dart';
 import 'web_tts_service.dart';
+import 'openai_tts_service.dart';
 
-enum TtsEngineType { system, piper, web }
+enum TtsEngineType { system, piper, web, openai }
 
 /// Manages TTS engines:
 ///   - Web:     WebTtsEngine (browser SpeechSynthesis API)
@@ -13,11 +14,13 @@ class TtsManager {
   final SystemTtsEngine _systemEngine = SystemTtsEngine();
   final PiperTtsEngine _piperEngine = PiperTtsEngine();
   final WebTtsEngine _webEngine = WebTtsEngine();
+  final OpenAiTtsEngine _openAiEngine = OpenAiTtsEngine();
 
   TtsEngineType _activeType = TtsEngineType.system;
   bool _piperAvailable = false;
 
   TtsEngine get activeEngine => switch (_activeType) {
+        TtsEngineType.openai => _openAiEngine,
         TtsEngineType.web => _webEngine,
         TtsEngineType.piper => _piperEngine,
         TtsEngineType.system => _systemEngine,
@@ -31,10 +34,16 @@ class TtsManager {
 
   Future<void> initialize() async {
     if (kIsWeb) {
-      // Web: use browser SpeechSynthesis directly — skip native engines
-      await _webEngine.initialize();
-      _activeType = TtsEngineType.web;
-      debugPrint('TTS: Web platform — using Web Speech API');
+      // Web: prefer OpenAI TTS (natural voice), fall back to browser SpeechSynthesis
+      await _openAiEngine.initialize();
+      if (await _openAiEngine.isAvailable) {
+        _activeType = TtsEngineType.openai;
+        debugPrint('TTS: Web platform — using OpenAI TTS');
+      } else {
+        await _webEngine.initialize();
+        _activeType = TtsEngineType.web;
+        debugPrint('TTS: Web platform — using Web Speech API (no OpenAI key)');
+      }
       return;
     }
 
@@ -53,8 +62,8 @@ class TtsManager {
 
   void setEngine(TtsEngineType type) {
     if (kIsWeb) {
-      // On web only the web engine is valid
-      _activeType = TtsEngineType.web;
+      // On web only openai and web engines are valid
+      _activeType = (type == TtsEngineType.openai) ? TtsEngineType.openai : TtsEngineType.web;
       return;
     }
     if (type == TtsEngineType.piper && !_piperAvailable) {
@@ -97,5 +106,6 @@ class TtsManager {
     _systemEngine.dispose();
     _piperEngine.dispose();
     _webEngine.dispose();
+    _openAiEngine.dispose();
   }
 }
