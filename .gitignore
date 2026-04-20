@@ -62,7 +62,7 @@ backend/zoe.db
 assets/piper_voices/*.onnx
 
 # Frontend build artifacts and generated files
-frontend/build/
+**/build/
 frontend/android/.gradle/
 frontend/android/local.properties
 frontend/ios/Flutter/ephemeral/
