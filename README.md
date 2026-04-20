@@ -31,8 +31,8 @@ All pages live at [navgurukul.github.io/ella_flutter](https://navgurukul.github.
 | What | URL | Description |
 |------|-----|-------------|
 | 📚 **Pedagogy** | [Google Doc](https://docs.google.com/document/d/1Bd4OvFehxRBKiNbFrNwiAeGNUk5Ps7xiysQelWWey58/edit?tab=t.1lsxmeb5c035) | Teaching approach and learning design |
-| 📄 **Project Summary** | [docs/project-summary.html](https://navgurukul.github.io/ella_flutter/docs/project-summary.html) | Project overview and goals |
-| 🎨 **Design System** | [docs/zoe-design-system.html](https://navgurukul.github.io/ella_flutter/docs/zoe-design-system.html) | Zoe design system reference |
+| 📄 **Project Summary** | [docs/project-summary.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/project-summary.md) | Project overview and goals |
+| 🎨 **Design System** | [docs/zoe-design-system.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/zoe-design-system.md) | Zoe design system reference |
 | 🎨 **Design v0 (Stitch)** | [stitch.withgoogle.com](https://stitch.withgoogle.com/projects/15401642752604590464) | UI design reference for ella-v0 |
 | 📱 **Product v0** | [ella-v0.html](https://navgurukul.github.io/ella_flutter/ella-v0.html) | Interactive HTML prototype of the full app flow |
 | 🎨 **Design v1** | [ella-design-v1.html](https://navgurukul.github.io/ella_flutter/ella-design-v1.html) | Figma-style user flow and design system |
