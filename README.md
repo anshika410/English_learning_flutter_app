@@ -38,6 +38,14 @@ All pages live at [navgurukul.github.io/ella_flutter](https://navgurukul.github.
 | 🎨 **Design v1** | [ella-design-v1.html](https://navgurukul.github.io/ella_flutter/ella-design-v1.html) | Figma-style user flow and design system |
 | 🌐 **Product v1 (Live App)** | [ella-v1](https://navgurukul.github.io/ella_flutter/ella-v1/) | Flutter web build (latest `feature/integration`) |
 
+## Notion Docs
+
+| What | URL |
+|------|-----|
+| 💬 **ELLA Conversation Design** | [Notion](https://www.notion.so/navgurukul/ELLA-Conversation-Design-32fa93c7c39180f1ab0ada1129386c35) |
+| 🔧 **Build Log & Technical Deep Dive** (Mar 24) | [Notion](https://www.notion.so/navgurukul/Ella-Build-Log-Technical-Deep-Dive-March-24-2026-32da93c7c3918078b465d6ff39ad379d) |
+| 📝 **What We Built Today — Session 2** (Mar 26) | [Notion](https://www.notion.so/navgurukul/Ella-What-We-Built-Today-Session-2-Flutter-Rewrite-March-26-2026-32fa93c7c391800b8050e69c0cc548fc) |
+
 ---
 
 ## For Claude / New Contributors — Read This First
