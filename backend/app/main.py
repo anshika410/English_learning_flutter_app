@@ -5,8 +5,8 @@ from fastapi.responses import RedirectResponse
 from .core.database import engine, Base
 from .core.config import get_settings
 from .routers import auth, users, llm, conversations, placements, progress
-from .routers.accent import router as accent_router, load_accent_model
 from .routers.admin import router as admin_router
+# from .routers.accent import router as accent_router, load_accent_model  # disabled — requires numpy/tensorflow
 
 # Import all models so SQLAlchemy registers them before create_all
 from .models import user, placement, conversation, message, session_analysis  # noqa: F401
