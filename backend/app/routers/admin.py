@@ -1,7 +1,7 @@
 """Read-only admin stats endpoint — protected by a secret key in the query string."""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, Integer
 from ..core.database import get_db
 from ..core.config import get_settings
 from ..models.user import User
@@ -75,7 +75,7 @@ async def admin_stats(
         select(
             Conversation.user_id,
             func.count().label("total"),
-            func.sum(func.cast(Conversation.completed, int)).label("completed"),
+            func.sum(func.cast(Conversation.completed, Integer)).label("completed"),
             func.coalesce(func.sum(Conversation.duration_seconds), 0).label("speaking_secs"),
         ).group_by(Conversation.user_id)
     )
