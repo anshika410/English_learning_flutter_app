@@ -5,7 +5,7 @@ import '../providers/chat_provider.dart';
 import '../services/api_service.dart';
 import '../services/continuous_stt_service.dart';
 import '../services/native_stt_service.dart';
-import '../services/llm_service.dart';
+import '../services/backend_llm_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import '../widgets/waveform_icon.dart';
@@ -40,7 +40,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
   final NativeSttService _stt = NativeSttService();
   final TtsManager _tts = TtsManager();
-  final LlmService _llm = LlmService();
+  final BackendLlmService _llm = BackendLlmService();
   final TextEditingController _textCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
   final FocusNode _textFocusNode = FocusNode();
@@ -176,7 +176,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
     });
 
     try {
-      final result = await _llm.sendPlacementMessage(_apiMessages);
+      final result = await _llm.sendPlacementTurn(messages: _apiMessages);
 
       if (!mounted) return;
 
