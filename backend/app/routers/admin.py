@@ -1,7 +1,7 @@
 """Read-only admin stats endpoint — protected by a secret key in the query string."""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, Integer
+from sqlalchemy import select, func, desc
 from ..core.database import get_db
 from ..core.config import get_settings
 from ..models.user import User
@@ -75,18 +75,25 @@ async def admin_stats(
         select(
             Conversation.user_id,
             func.count().label("total"),
-            func.sum(func.cast(Conversation.completed, Integer)).label("completed"),
             func.coalesce(func.sum(Conversation.duration_seconds), 0).label("speaking_secs"),
         ).group_by(Conversation.user_id)
     )
     session_map = {
         row.user_id: {
             "total": row.total,
-            "completed": row.completed or 0,
             "speaking_secs": row.speaking_secs or 0,
         }
         for row in session_counts
     }
+
+    # Completed counts per user
+    completed_counts = await db.execute(
+        select(
+            Conversation.user_id,
+            func.count().label("cnt"),
+        ).where(Conversation.completed == True).group_by(Conversation.user_id)
+    )
+    completed_map = {row.user_id: row.cnt for row in completed_counts}
 
     # Build user list
     user_list = []
@@ -96,9 +103,10 @@ async def admin_stats(
     total_speaking_secs = 0
 
     for u in users:
-        stats = session_map.get(u.id, {"total": 0, "completed": 0, "speaking_secs": 0})
+        stats = session_map.get(u.id, {"total": 0, "speaking_secs": 0})
+        completed = completed_map.get(u.id, 0)
         total_sessions += stats["total"]
-        total_completed += stats["completed"]
+        total_completed += completed
         total_speaking_secs += stats["speaking_secs"]
         if u.level:
             level_dist[u.level] = level_dist.get(u.level, 0) + 1
@@ -110,7 +118,7 @@ async def admin_stats(
             level=u.level,
             level_label=u.level_label,
             total_sessions=stats["total"],
-            completed_sessions=stats["completed"],
+            completed_sessions=completed,
             total_speaking_seconds=stats["speaking_secs"],
             created_at=u.created_at,
         ))
