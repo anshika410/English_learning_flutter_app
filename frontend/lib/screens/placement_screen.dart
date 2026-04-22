@@ -179,6 +179,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
       final result = await _llm.sendPlacementTurn(messages: _apiMessages);
 
       if (!mounted) return;
+      if (result == null) return;
 
       if (result.isComplete) {
         // LLM has assessed the student — extract info and navigate
