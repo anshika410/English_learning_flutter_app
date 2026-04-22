@@ -216,7 +216,11 @@ class ChatProvider extends ChangeNotifier {
     // Create conversation on backend before starting
     await _api.ensureAuthenticated();
     _conversationId = await _api.createConversation(topic: topic);
-    debugPrint('Backend conversation created: $_conversationId');
+    if (_conversationId != null) {
+      debugPrint('✅ Backend conversation created: $_conversationId');
+    } else {
+      debugPrint('⚠️ Backend conversation creation failed — using direct LLM');
+    }
 
     String starter;
     String headerTitle;

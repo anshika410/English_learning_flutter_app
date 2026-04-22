@@ -67,6 +67,7 @@ class ApiService {
   Future<bool> _anonymousAuth() async {
     try {
       final deviceId = await _getOrCreateDeviceId();
+      debugPrint('🔐 Auth: calling /auth/anonymous with device_id: $deviceId');
       final response = await http
           .post(
             Uri.parse('$_baseUrl/auth/anonymous'),
@@ -75,15 +76,19 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
 
+      debugPrint('🔐 Auth response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         await _saveToken(data['access_token'] as String);
         final prefs = await _sharedPrefs;
         await prefs.setString(_keyUserId, data['user_id'] as String);
+        debugPrint('✅ Auth successful');
         return true;
       }
+      debugPrint('❌ Auth failed: ${response.body}');
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('❌ Auth error: $e');
       return false;
     }
   }
@@ -192,15 +197,19 @@ class ApiService {
   /// Create a new conversation session. Returns conversation id or null.
   Future<String?> createConversation({String? topic}) async {
     try {
+      debugPrint('📡 Creating conversation on backend...');
       final response = await _post('/conversations', {
         if (topic != null) 'topic': topic,
       });
+      debugPrint('📡 Create conversation response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return data['id'] as String?;
       }
+      debugPrint('❌ Create conversation failed: ${response.body}');
       return null;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('❌ Create conversation error: $e');
       return null;
     }
   }
