@@ -5,7 +5,13 @@ from pathlib import Path
 import httpx
 from ..core.config import get_settings
 
-PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+import os
+
+# In Docker: prompts are at /app/assets/prompts (copied by Dockerfile)
+# Locally: fall back to frontend/assets/prompts relative to repo root
+_DOCKER_PROMPTS = Path("/app/assets/prompts")
+_LOCAL_PROMPTS = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "assets" / "prompts"
+PROMPTS_DIR = _DOCKER_PROMPTS if _DOCKER_PROMPTS.exists() else _LOCAL_PROMPTS
 
 # ── Level instructions (mirrors Flutter client) ──────────────────────────────
 
