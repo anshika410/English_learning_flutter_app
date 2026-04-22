@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 from ..core.config import get_settings
 
-PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "assets" / "prompts"
+PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 # ── Level instructions (mirrors Flutter client) ──────────────────────────────
 

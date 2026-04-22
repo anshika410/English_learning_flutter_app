@@ -361,11 +361,16 @@ class ApiService {
         body,
         timeout: const Duration(seconds: 30),
       );
+      debugPrint('📡 placement-turn status: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        debugPrint('📡 placement-turn error body: ${response.body}');
+      }
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
       return null;
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('📡 placement-turn exception: $e\n$st');
       return null;
     }
   }
