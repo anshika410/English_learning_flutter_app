@@ -348,11 +348,16 @@ class ApiService {
   /// Send a placement turn through the backend LLM proxy.
   Future<Map<String, dynamic>?> sendPlacementTurn({
     required List<Map<String, String>> messages,
+    String? name,
+    int? age,
   }) async {
     try {
+      final body = <String, dynamic>{'messages': messages};
+      if (name != null) body['name'] = name;
+      if (age != null) body['age'] = age;
       final response = await _post(
         '/llm/placement-turn',
-        {'messages': messages},
+        body,
         timeout: const Duration(seconds: 30),
       );
       if (response.statusCode == 200) {

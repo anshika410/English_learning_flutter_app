@@ -35,16 +35,27 @@ class ConversationTurnResponse(BaseModel):
 
 class PlacementTurnRequest(BaseModel):
     messages: list[MessageIn]
+    name: str | None = None
+    age: int | None = None
 
 
 class PlacementTurnResponse(BaseModel):
     reply: str | None = None
     is_complete: bool = False
+    # New richer fields from the adaptive prompt
     name: str | None = None
-    age: str | None = None
-    location: str | None = None
-    assessed_level: str | None = None
+    age: int | None = None
+    age_group: str | None = None
+    level_code: str | None = None
+    level_name: str | None = None
+    level_description: str | None = None
     confidence: str | None = None
+    possible_higher: bool | None = None
+    evidence_summary: str | None = None
+    probe_targets_covered: list[str] | None = None
+    turns_taken: int | None = None
+    code_switch_observed: bool | None = None
+    notes_for_first_session: str | None = None
 
 
 class SessionAnalysisRequest(BaseModel):

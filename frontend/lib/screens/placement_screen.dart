@@ -182,10 +182,12 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
       if (result.isComplete) {
         // LLM has assessed the student — extract info and navigate
-        _userName = result.name;
-        _userAge = result.age;
-        _userLocation = result.location;
-        await _goToResult(result.assessedLevel ?? 'A2');
+        await _goToResult(
+          levelCode: result.levelCode ?? 'A2',
+          levelName: result.levelName,
+          levelDescription: result.levelDescription,
+          confidence: result.confidence,
+        );
         return;
       }
 
@@ -229,20 +231,25 @@ class _PlacementScreenState extends State<PlacementScreen> {
     }
   }
 
-  Future<void> _goToResult(String assessedLevel) async {
+  Future<void> _goToResult({
+    required String levelCode,
+    String? levelName,
+    String? levelDescription,
+    String? confidence,
+  }) async {
     if (!mounted || _isCompleting) return;
     _isCompleting = true;
 
-    const labels = <String, String>{
-      'A1': 'Starting Out',
+    const fallbackLabels = <String, String>{
+      'A1': 'First Words',
       'A2': 'Finding My Voice',
-      'B1': 'Speaking with Confidence',
-      'B2': 'Expressing with Clarity',
-      'C1': 'Near-Native Flow',
+      'B1': 'Speaking Freely',
+      'B2': 'Almost Fluent',
+      'C1': 'Fluent',
     };
-    final level = assessedLevel.toUpperCase();
-    final levelLabel = labels[level] ?? 'Finding My Voice';
-    final highlight =
+    final level = levelCode.toUpperCase();
+    final resolvedLevelLabel = levelName ?? fallbackLabels[level] ?? 'Finding My Voice';
+    final highlight = levelDescription ??
         'You expressed yourself clearly and stayed engaged throughout the check.';
 
     if (!mounted) return;
@@ -252,7 +259,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
       age: _userAge,
       location: _userLocation,
       level: level,
-      levelLabel: levelLabel,
+      levelLabel: resolvedLevelLabel,
     );
 
     // Persist to backend (fire-and-forget — don't block navigation on failure)
@@ -265,7 +272,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
       );
       api.savePlacement(
         level: level,
-        levelLabel: levelLabel,
+        levelLabel: resolvedLevelLabel,
         highlight: highlight,
         transcript: _apiMessages,
       );
@@ -274,8 +281,8 @@ class _PlacementScreenState extends State<PlacementScreen> {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => ResultScreen(
-          level: labels.containsKey(level) ? level : 'A2',
-          levelName: levelLabel,
+          level: fallbackLabels.containsKey(level) ? level : 'A2',
+          levelName: resolvedLevelLabel,
           highlight: highlight,
           name: _userName ?? 'there',
           city: _userLocation,

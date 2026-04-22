@@ -66,18 +66,27 @@ class BackendLlmService {
 
   Future<PlacementMessageResult?> sendPlacementTurn({
     required List<Map<String, String>> messages,
+    String? name,
+    int? age,
   }) async {
-    final data = await _api.sendPlacementTurn(messages: messages);
+    final data = await _api.sendPlacementTurn(
+      messages: messages,
+      name: name,
+      age: age,
+    );
     if (data == null) return null;
 
     final isComplete = data['is_complete'] as bool? ?? false;
     if (isComplete) {
       return PlacementMessageResult.complete(
-        name: data['name'] as String?,
-        age: data['age'] as String?,
-        location: data['location'] as String?,
-        assessedLevel: data['assessed_level'] as String?,
+        levelCode: data['level_code'] as String?,
+        levelName: data['level_name'] as String?,
+        levelDescription: data['level_description'] as String?,
         confidence: data['confidence'] as String?,
+        possibleHigher: data['possible_higher'] as bool?,
+        evidenceSummary: data['evidence_summary'] as String?,
+        turnsTaken: data['turns_taken'] as int?,
+        notesForFirstSession: data['notes_for_first_session'] as String?,
       );
     }
     final reply = data['reply'] as String? ?? '';
@@ -146,30 +155,37 @@ class BackendLlmService {
 class PlacementMessageResult {
   final String? reply;
   final bool isComplete;
-  final String? name;
-  final String? age;
-  final String? location;
-  final String? assessedLevel;
+  // New adaptive prompt fields
+  final String? levelCode;
+  final String? levelName;
+  final String? levelDescription;
   final String? confidence;
-  final String? notes;
+  final bool? possibleHigher;
+  final String? evidenceSummary;
+  final int? turnsTaken;
+  final String? notesForFirstSession;
 
   const PlacementMessageResult.reply(String text)
       : reply = text,
         isComplete = false,
-        name = null,
-        age = null,
-        location = null,
-        assessedLevel = null,
+        levelCode = null,
+        levelName = null,
+        levelDescription = null,
         confidence = null,
-        notes = null;
+        possibleHigher = null,
+        evidenceSummary = null,
+        turnsTaken = null,
+        notesForFirstSession = null;
 
   const PlacementMessageResult.complete({
-    this.name,
-    this.age,
-    this.location,
-    this.assessedLevel,
+    this.levelCode,
+    this.levelName,
+    this.levelDescription,
     this.confidence,
-    this.notes,
+    this.possibleHigher,
+    this.evidenceSummary,
+    this.turnsTaken,
+    this.notesForFirstSession,
   })  : reply = null,
         isComplete = true;
 }
