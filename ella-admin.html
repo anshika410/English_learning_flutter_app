@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ella — Pilot Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+    header { background: #1a1a2e; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 22px; font-weight: 700; }
+    header span { font-size: 13px; opacity: 0.6; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    .login-box { background: white; border-radius: 12px; padding: 40px; max-width: 400px; margin: 80px auto; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }
+    .login-box h2 { margin-bottom: 20px; font-size: 20px; }
+    .login-box input { width: 100%; padding: 12px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; }
+    .login-box button { width: 100%; padding: 12px; background: #1a1a2e; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: 600; }
+    .login-box button:hover { background: #2d2d4e; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: white; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .stat-card .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .stat-card .value { font-size: 32px; font-weight: 700; color: #1a1a2e; }
+    .stat-card .sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .section { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 24px; }
+    .section h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #333; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; padding: 8px 12px; color: #888; font-weight: 500; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #f0f0f0; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f8f8f8; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-a1 { background: #fef3c7; color: #92400e; }
+    .badge-a2 { background: #dbeafe; color: #1e40af; }
+    .badge-b1 { background: #d1fae5; color: #065f46; }
+    .badge-b2 { background: #ede9fe; color: #5b21b6; }
+    .badge-c1 { background: #fce7f3; color: #9d174d; }
+    .badge-done { background: #d1fae5; color: #065f46; }
+    .badge-pending { background: #f3f4f6; color: #6b7280; }
+    .level-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .level-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+    .level-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .transcript-btn { background: none; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #555; }
+    .transcript-btn:hover { background: #f5f5f5; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+    .modal.open { display: flex; }
+    .modal-box { background: white; border-radius: 12px; padding: 28px; max-width: 640px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal-box h3 { margin-bottom: 16px; font-size: 16px; }
+    .modal-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: #888; }
+    .turn { margin-bottom: 12px; }
+    .turn .role { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #888; margin-bottom: 2px; }
+    .turn.user .role { color: #1e40af; }
+    .turn.assistant .role { color: #065f46; }
+    .turn .content { font-size: 14px; line-height: 1.5; }
+    .turn .correction { font-size: 12px; color: #d97706; margin-top: 4px; font-style: italic; }
+    .error { color: #dc2626; font-size: 14px; padding: 12px; background: #fef2f2; border-radius: 8px; }
+    .loading { text-align: center; padding: 40px; color: #888; }
+    .refresh-btn { background: none; border: 1px solid #ddd; border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; color: #555; float: right; }
+    .refresh-btn:hover { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h2>🎓 Ella Pilot Dashboard</h2>
+    <p style="color:#888;font-size:13px;margin-bottom:20px;">Enter your admin key to view pilot data</p>
+    <input type="text" id="api-url" placeholder="Backend URL (e.g. https://ella-api.navgurukul.org)" value="https://ella-api.navgurukul.org">
+    <input type="password" id="admin-key" placeholder="Admin secret key">
+    <button onclick="login()">View Dashboard</button>
+    <p id="login-error" style="color:#dc2626;font-size:13px;margin-top:10px;display:none;"></p>
+  </div>
+</div>
+
+<div id="dashboard" style="display:none;">
+  <header>
+    <div>
+      <h1>🎓 Ella Pilot Dashboard</h1>
+      <span id="header-url"></span>
+    </div>
+    <button class="refresh-btn" onclick="loadData()" style="margin-left:auto;color:white;border-color:rgba(255,255,255,0.3);">↻ Refresh</button>
+  </header>
+
+  <div class="container">
+    <div id="loading" class="loading">Loading pilot data...</div>
+    <div id="error" class="error" style="display:none;"></div>
+
+    <div id="content" style="display:none;">
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <!-- Level distribution -->
+      <div class="section">
+        <h2>Level Distribution</h2>
+        <div class="level-bar" id="level-bar"></div>
+      </div>
+
+      <!-- Users table -->
+      <div class="section">
+        <h2>Students</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Age</th>
+              <th>Location</th>
+              <th>Level</th>
+              <th>Sessions</th>
+              <th>Speaking Time</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody id="users-table"></tbody>
+        </table>
+      </div>
+
+      <!-- Recent conversations -->
+      <div class="section">
+        <h2>Recent Conversations</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Topic</th>
+              <th>Level</th>
+              <th>Messages</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Transcript</th>
+            </tr>
+          </thead>
+          <tbody id="convs-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Transcript modal -->
+<div class="modal" id="transcript-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <h3 id="modal-title">Transcript</h3>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+  let BASE_URL = '';
+  let ADMIN_KEY = '';
+
+  const LEVEL_COLORS = { A1: '#f59e0b', A2: '#3b82f6', B1: '#10b981', B2: '#8b5cf6', C1: '#ec4899' };
+
+  function login() {
+    BASE_URL = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+    ADMIN_KEY = document.getElementById('admin-key').value.trim();
+    if (!ADMIN_KEY) {
+      document.getElementById('login-error').textContent = 'Please enter the admin key';
+      document.getElementById('login-error').style.display = 'block';
+      return;
+    }
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('header-url').textContent = BASE_URL;
+    loadData();
+  }
+
+  async function loadData() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+
+    try {
+      const res = await fetch(`${BASE_URL}/admin/stats?key=${encodeURIComponent(ADMIN_KEY)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      renderDashboard(data);
+    } catch (e) {
+      document.getElementById('error').textContent = `Error: ${e.message}`;
+      document.getElementById('error').style.display = 'block';
+    } finally {
+      document.getElementById('loading').style.display = 'none';
+    }
+  }
+
+  function renderDashboard(data) {
+    // Stats
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="label">Students</div><div class="value">${data.total_users}</div></div>
+      <div class="stat-card"><div class="label">Total Sessions</div><div class="value">${data.total_sessions}</div></div>
+      <div class="stat-card"><div class="label">Completed</div><div class="value">${data.completed_sessions}</div><div class="sub">of ${data.total_sessions} sessions</div></div>
+      <div class="stat-card"><div class="label">Speaking Time</div><div class="value">${data.total_speaking_minutes}</div><div class="sub">minutes total</div></div>
+    `;
+
+    // Level distribution
+    const levelBar = Object.entries(data.level_distribution)
+      .sort((a, b) => ['A1','A2','B1','B2','C1'].indexOf(a[0]) - ['A1','A2','B1','B2','C1'].indexOf(b[0]))
+      .map(([level, count]) => `
+        <div class="level-item">
+          <div class="level-dot" style="background:${LEVEL_COLORS[level] || '#ccc'}"></div>
+          <span><strong>${level}</strong> — ${count} student${count !== 1 ? 's' : ''}</span>
+        </div>
+      `).join('');
+    document.getElementById('level-bar').innerHTML = levelBar || '<span style="color:#888;font-size:13px">No placement data yet</span>';
+
+    // Users table
+    document.getElementById('users-table').innerHTML = data.users.map(u => `
+      <tr>
+        <td>${u.name || '<span style="color:#aaa">—</span>'}</td>
+        <td>${u.age || '—'}</td>
+        <td>${u.location || '—'}</td>
+        <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '—'}</td>
+        <td>${u.completed_sessions} / ${u.total_sessions}</td>
+        <td>${Math.round(u.total_speaking_seconds / 60)} min</td>
+        <td>${new Date(u.created_at).toLocaleDateString()}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="7" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
+
+    // Conversations table
+    document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
+      <tr>
+        <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
+        <td>${c.header_title || c.topic || '—'}</td>
+        <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
+        <td>${c.message_count}</td>
+        <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
+        <td><span class="badge ${c.completed ? 'badge-done' : 'badge-pending'}">${c.completed ? 'Done' : 'In progress'}</span></td>
+        <td>${new Date(c.created_at).toLocaleDateString()}</td>
+        <td><button class="transcript-btn" onclick="viewTranscript('${c.id}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
+
+    document.getElementById('content').style.display = 'block';
+  }
+
+  async function viewTranscript(convId, title) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-content').innerHTML = '<div style="color:#888;text-align:center;padding:20px">Loading...</div>';
+    document.getElementById('transcript-modal').classList.add('open');
+
+    try {
+      const res = await fetch(`${BASE_URL}/admin/conversations/${convId}/transcript?key=${encodeURIComponent(ADMIN_KEY)}`);
+      const msgs = await res.json();
+      if (!msgs.length) {
+        document.getElementById('modal-content').innerHTML = '<p style="color:#aaa">No messages yet</p>';
+        return;
+      }
+      document.getElementById('modal-content').innerHTML = msgs.map(m => `
+        <div class="turn ${m.role}">
+          <div class="role">${m.role === 'user' ? '🎤 Student' : '🤖 Zoe'}</div>
+          <div class="content">${m.content}</div>
+          ${m.correction ? `<div class="correction">✏️ ${m.correction}</div>` : ''}
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('modal-content').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('transcript-modal').classList.remove('open');
+  }
+
+  document.getElementById('admin-key').addEventListener('keydown', e => {
+    if (e.key === 'Enter') login();
+  });
+</script>
+</body>
+</html>

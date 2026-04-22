@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     llm_rate_limit_per_minute: int = 30
     # Set to false in production to hide /docs and /redoc
     docs_enabled: bool = False
+    # Admin dashboard secret key — set in .env
+    admin_secret_key: str = "change-me-admin-key"
 
     model_config = {"env_file": "backend/.env", "extra": "ignore"}
 
