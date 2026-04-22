@@ -213,11 +213,10 @@ class ChatProvider extends ChangeNotifier {
     _conversationId = null;
     notifyListeners();
 
-    // Create conversation on backend (fire and forget — don't block UI)
-    _api.ensureAuthenticated().then((_) async {
-      _conversationId = await _api.createConversation(topic: topic);
-      debugPrint('Backend conversation created: $_conversationId');
-    });
+    // Create conversation on backend before starting
+    await _api.ensureAuthenticated();
+    _conversationId = await _api.createConversation(topic: topic);
+    debugPrint('Backend conversation created: $_conversationId');
 
     String starter;
     String headerTitle;
