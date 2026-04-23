@@ -108,9 +108,9 @@
         <div class="level-bar" id="level-bar"></div>
       </div>
 
-      <!-- Users table -->
+      <!-- Screening results table -->
       <div class="section">
-        <h2>Students</h2>
+        <h2>Screening Results</h2>
         <table>
           <thead>
             <tr>
@@ -118,8 +118,7 @@
               <th>Age</th>
               <th>Location</th>
               <th>Level</th>
-              <th>Sessions</th>
-              <th>Speaking Time</th>
+              <th>Label</th>
               <th>Joined</th>
             </tr>
           </thead>
@@ -127,25 +126,7 @@
         </table>
       </div>
 
-      <!-- Recent conversations -->
-      <div class="section">
-        <h2>Recent Conversations</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Topic</th>
-              <th>Level</th>
-              <th>Messages</th>
-              <th>Duration</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Transcript</th>
-            </tr>
-          </thead>
-          <tbody id="convs-table"></tbody>
-        </table>
-      </div>
+      <!-- Recent conversations (hidden for pilot — free talk not ready) -->
     </div>
   </div>
 </div>
@@ -201,11 +182,13 @@
   }
 
   function renderDashboard(data) {
-    // Stats
+    // Stats — pilot focused
+    const screened = data.users.filter(u => u.level).length;
+    const levelCounts = data.level_distribution;
     document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-card"><div class="label">Students</div><div class="value">${data.total_users}</div></div>
-      <div class="stat-card"><div class="label">Total Sessions</div><div class="value">${data.total_sessions}</div></div>
-      <div class="stat-card"><div class="label">Completed</div><div class="value">${data.completed_sessions}</div><div class="sub">of ${data.total_sessions} sessions</div></div>
+      <div class="stat-card"><div class="label">Total Students</div><div class="value">${data.total_users}</div></div>
+      <div class="stat-card"><div class="label">Screened</div><div class="value">${screened}</div><div class="sub">completed placement</div></div>
+      <div class="stat-card"><div class="label">Pending</div><div class="value">${data.total_users - screened}</div><div class="sub">not yet screened</div></div>
       <div class="stat-card"><div class="label">Speaking Time</div><div class="value">${data.total_speaking_minutes}</div><div class="sub">minutes total</div></div>
     `;
 
@@ -220,32 +203,24 @@
       `).join('');
     document.getElementById('level-bar').innerHTML = levelBar || '<span style="color:#888;font-size:13px">No placement data yet</span>';
 
-    // Users table
-    document.getElementById('users-table').innerHTML = data.users.map(u => `
+    // Screening results table — sorted: screened first, then by level
+    const sorted = [...data.users].sort((a, b) => {
+      if (a.level && !b.level) return -1;
+      if (!a.level && b.level) return 1;
+      const order = ['A1','A2','B1','B2','C1'];
+      return order.indexOf(a.level) - order.indexOf(b.level);
+    });
+
+    document.getElementById('users-table').innerHTML = sorted.map(u => `
       <tr>
-        <td>${u.name || '<span style="color:#aaa">—</span>'}</td>
+        <td><strong>${u.name || '<span style="color:#aaa">—</span>'}</strong></td>
         <td>${u.age || '—'}</td>
         <td>${u.location || '—'}</td>
-        <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '—'}</td>
-        <td>${u.completed_sessions} / ${u.total_sessions}</td>
-        <td>${Math.round(u.total_speaking_seconds / 60)} min</td>
+        <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
+        <td>${u.level_label || '—'}</td>
         <td>${new Date(u.created_at).toLocaleDateString()}</td>
       </tr>
-    `).join('') || '<tr><td colspan="7" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
-
-    // Conversations table
-    document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
-      <tr>
-        <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
-        <td>${c.header_title || c.topic || '—'}</td>
-        <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
-        <td>${c.message_count}</td>
-        <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
-        <td><span class="badge ${c.completed ? 'badge-done' : 'badge-pending'}">${c.completed ? 'Done' : 'In progress'}</span></td>
-        <td>${new Date(c.created_at).toLocaleDateString()}</td>
-        <td><button class="transcript-btn" onclick="viewTranscript('${c.id}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
-      </tr>
-    `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
+    `).join('') || '<tr><td colspan="6" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
 
     document.getElementById('content').style.display = 'block';
   }
