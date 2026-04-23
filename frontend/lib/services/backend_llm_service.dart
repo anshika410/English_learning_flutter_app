@@ -87,6 +87,8 @@ class BackendLlmService {
         evidenceSummary: data['evidence_summary'] as String?,
         turnsTaken: data['turns_taken'] as int?,
         notesForFirstSession: data['notes_for_first_session'] as String?,
+        extractedName: data['name'] as String?,
+        extractedAge: data['age']?.toString(),
       );
     }
     final reply = data['reply'] as String? ?? '';
@@ -164,6 +166,9 @@ class PlacementMessageResult {
   final String? evidenceSummary;
   final int? turnsTaken;
   final String? notesForFirstSession;
+  // Student info extracted by LLM
+  final String? extractedName;
+  final String? extractedAge;
 
   const PlacementMessageResult.reply(String text)
       : reply = text,
@@ -175,7 +180,9 @@ class PlacementMessageResult {
         possibleHigher = null,
         evidenceSummary = null,
         turnsTaken = null,
-        notesForFirstSession = null;
+        notesForFirstSession = null,
+        extractedName = null,
+        extractedAge = null;
 
   const PlacementMessageResult.complete({
     this.levelCode,
@@ -186,6 +193,8 @@ class PlacementMessageResult {
     this.evidenceSummary,
     this.turnsTaken,
     this.notesForFirstSession,
+    this.extractedName,
+    this.extractedAge,
   })  : reply = null,
         isComplete = true;
 }

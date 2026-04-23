@@ -182,7 +182,10 @@ class _PlacementScreenState extends State<PlacementScreen> {
       if (result == null) return;
 
       if (result.isComplete) {
-        // LLM has assessed the student — extract info and navigate
+        // Extract student info from LLM final assessment before navigating
+        if (result.extractedName != null) _userName = result.extractedName;
+        if (result.extractedAge != null) _userAge = result.extractedAge;
+        // LLM has assessed the student — navigate to result
         await _goToResult(
           levelCode: result.levelCode ?? 'A2',
           levelName: result.levelName,
