@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/ella_theme.dart';
+import '../theme/ella_responsive.dart';
 import '../widgets/ella_primary_button.dart';
 import 'home_screen.dart';
 
@@ -29,41 +32,41 @@ _LevelConfig _configForLevel(String level, String name) {
       return _LevelConfig(
         cardBg: EllaColors.skyLightest,
         borderColor: EllaColors.skyMain,
-        greeting: 'Good start, $name!',
+        greeting: 'Great going, $name!',
         emoji: '🌱',
         levelLabel: 'First Words',
         description:
-            'You understood the conversation and gave it a real go.\nNext up: putting words together more often.',
+            'You understood the conversation and gave it a real go. Next Up: putting words together more often.',
       );
     case 'B1':
       return _LevelConfig(
         cardBg: EllaColors.limeLightest,
         borderColor: EllaColors.limeMain,
-        greeting: 'Solid, $name.',
+        greeting: 'Solid there, $name!',
         emoji: '⚡',
         levelLabel: 'Speaking Freely',
         description:
-            'You held the conversation well and expressed most of what you wanted to say.\nNext up: sharper grammar and more range.',
+            'You held the conversation well and expressed most of what you wanted to say. Next Up: sharper grammar and more range.',
       );
     case 'B2':
       return _LevelConfig(
         cardBg: EllaColors.roseLightest,
         borderColor: EllaColors.roseMain,
-        greeting: 'Impressive, $name.',
+        greeting: 'Impressive, $name!',
         emoji: '🔥',
         levelLabel: 'Almost Fluent',
         description:
-            'You spoke clearly and handled the conversation with confidence.\nNext up: making it feel second nature.',
+            'You spoke clearly and handled the conversation with confidence. Next Up: making it feel second nature.',
       );
     case 'C1':
       return _LevelConfig(
         cardBg: EllaColors.grapeLightest,
         borderColor: EllaColors.grapeMain,
-        greeting: 'Exceptional, $name.',
+        greeting: 'Exceptional, $name!',
         emoji: '🏆',
         levelLabel: 'Fluent',
         description:
-            'You expressed yourself precisely and kept up with every turn.\nNext up: nuance and depth.',
+            'You expressed yourself precisely and kept up with every turn. Next Up: nuance and depth.',
       );
     case 'A2':
     default:
@@ -74,7 +77,7 @@ _LevelConfig _configForLevel(String level, String name) {
         emoji: '🎉',
         levelLabel: 'Finding My Voice',
         description:
-            'You got your point across when it mattered.\nNext up: sounding more natural as you go.',
+            'You got your point across when it mattered. Next Up: sounding more natural as you go.',
       );
   }
 }
@@ -82,25 +85,26 @@ _LevelConfig _configForLevel(String level, String name) {
 class ResultScreen extends StatelessWidget {
   final String level;
   final String levelName;
-  final String highlight;
   final String name;
   final String? city;
-  final String? age;
 
   const ResultScreen({
     super.key,
     required this.level,
     required this.levelName,
-    this.highlight =
-        'You expressed yourself clearly and stayed engaged throughout the check.',
     this.name = 'there',
     this.city,
-    this.age,
   });
 
   void _goToMainApp(BuildContext context) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      PageRouteBuilder(
+        pageBuilder: (_, _, _) => const HomeScreen(),
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
+        transitionsBuilder: (_, anim, _, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
       (_) => false,
     );
   }
@@ -108,72 +112,92 @@ class ResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = _configForLevel(level, name);
+    final isWide = EllaResponsive.isWide(context);
+
+    // Shared scrollable content children
+    final scrollChildren = <Widget>[
+      Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: const _ResultZoeMascot(),
+        ),
+      ),
+
+      // ── Level card ─────────────────────────────────────────────────
+      _LevelCard(config: config, level: level, levelName: levelName),
+      const SizedBox(height: 20),
+
+      // ── Context chips ───────────────────────────────────────────────
+      if (city != null) ...[
+        Text(
+          'A MOMENT FROM YOUR CONVERSATION',
+          style: GoogleFonts.inconsolata(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: EllaColors.neutralMuted,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [_InfoChip(icon: '📍', label: city!)],
+        ),
+        const SizedBox(height: 20),
+      ],
+
+      // ── On wide: button lives inside scroll, 48px below card ────────
+      if (isWide) ...[
+        const SizedBox(height: 28), // 20 already added above → total ~48px
+        Center(
+          child: EllaPrimaryButton(
+            label: "Let's Start Learning",
+            onTap: () => _goToMainApp(context),
+          ),
+        ),
+        const SizedBox(height: 32),
+      ],
+    ];
+
+    final scrollView = SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, isWide ? 0 : 40, 24, 24),
+      child: isWide
+          ? Center(
+              child: SizedBox(
+                width: 540,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: scrollChildren,
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: scrollChildren,
+            ),
+    );
 
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Center(
-                      child: _ResultZoeMascot(),
+        child: isWide
+            ? Center(child: scrollView)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: scrollView),
+
+                  // ── On mobile: button pinned at bottom ──────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: EllaPrimaryButton(
+                      label: "Let's Start Learning",
+                      onTap: () => _goToMainApp(context),
                     ),
-                    const SizedBox(height: 20),
-
-                    // ── Level card ─────────────────────────────────────
-                    _LevelCard(
-                      config: config,
-                      level: level,
-                      levelName: levelName,
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── Context chips ──────────────────────────────────
-                    if (city != null || age != null) ...[
-                      Text(
-                        'A MOMENT FROM YOUR CONVERSATION',
-                        style: GoogleFonts.inconsolata(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: EllaColors.neutralMuted,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (city != null) _InfoChip(icon: '📍', label: city!),
-                          if (age != null) _InfoChip(icon: '🎂', label: age!),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // ── From your conversation ─────────────────────────
-                    _ConversationHighlight(highlight: highlight),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-
-            // ── CTA button pinned at bottom ────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: EllaPrimaryButton(
-                label: "Let's Start Learning",
-                onTap: () => _goToMainApp(context),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -266,7 +290,7 @@ class _LevelCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'WHERE YOU STAND',
+                  'Here is where you stand',
                   style: GoogleFonts.inconsolata(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -347,29 +371,44 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-// ─── Conversation Highlight ───────────────────────────────────────────────────
-
-class _ConversationHighlight extends StatelessWidget {
-  final String highlight;
-
-  const _ConversationHighlight({required this.highlight});
+class _ResultZoeMascot extends StatefulWidget {
+  const _ResultZoeMascot();
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      highlight,
-      style: GoogleFonts.baloo2(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: EllaColors.neutralSecondary,
-        height: 1.5,
-      ),
-    );
-  }
+  State<_ResultZoeMascot> createState() => _ResultZoeMascotState();
 }
 
-class _ResultZoeMascot extends StatelessWidget {
-  const _ResultZoeMascot();
+class _ResultZoeMascotState extends State<_ResultZoeMascot> {
+  static const _sequence = [
+    'assets/mascot-animations/listening.webp',
+    'assets/mascot-animations/juggling.webp',
+    'assets/mascot-animations/listening.webp',
+    'assets/mascot-animations/bubblepop.webp',
+    'assets/mascot-animations/listening.webp',
+  ];
+
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleNext();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleNext() {
+    _timer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      setState(() => _index = (_index + 1) % _sequence.length);
+      _scheduleNext();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -393,11 +432,18 @@ class _ResultZoeMascot extends StatelessWidget {
         ],
       ),
       child: ClipOval(
-        child: Image.asset(
-          'assets/mascot-animations/listening.webp',
-          fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-          alignment: Alignment.center,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, anim) =>
+              FadeTransition(opacity: anim, child: child),
+          child: Image.asset(
+            _sequence[_index],
+            key: ValueKey<int>(_index),
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+          ),
         ),
       ),
     );

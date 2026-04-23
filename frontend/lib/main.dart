@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
+import 'mock/mock_config.dart';
 import 'providers/chat_provider.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/home_screen.dart';
@@ -40,7 +41,7 @@ class EllaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ChatProvider(),
+      create: (_) => ChatProvider(llm: createLlmService()),
       child: MaterialApp(
         title: 'Zoe — English Tutor',
         debugShowCheckedModeBanner: false,

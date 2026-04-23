@@ -17,6 +17,8 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
 {
 "overall": "good" | "okay" | "struggling",
 
+"headline": "<A short, warm, specific headline (5–10 words) summarising how this conversation went. Tied to what the student actually did — not generic. Reflect the overall sentiment but be specific to the topic and what they said. Examples: 'You held your own on cricket today!', 'You kept going — that matters a lot', 'A quiet session, but you showed up'>",
+
 "best_moment": {
 "quote": "<exact words the student said>",
 "note": "<1 sentence: why this was strong — specific, not generic>"
@@ -33,6 +35,11 @@ If struggling: a warm, specific encouragement based on what they did attempt.
 "skill": "<one specific, actionable thing: e.g. 'connecting two ideas with because',
 'using past tense when telling a story', 'asking a follow-up question'>",
 "example": "<a concrete example sentence they could try, at their level>"
+},
+
+"word_of_day": {
+"word": "<one word or short phrase the student used or should focus on — pick something that actually appeared in the conversation or is directly relevant to what they practised>",
+"label": "<very short descriptor, e.g. 'adverb · used ×2 today', 'verb · great attempt!', or 'try using this next time'>"
 },
 
 "transcript_notes": [

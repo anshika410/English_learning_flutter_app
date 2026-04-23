@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/focus_settings.dart';
 import '../providers/chat_provider.dart';
 import '../theme/ella_theme.dart';
+import '../widgets/focus_block.dart';
 import 'home_screen.dart';
 
 // ─── Focus Discovery Screen ───────────────────────────────────────────────────
@@ -158,31 +159,18 @@ class _FocusDiscoveryScreenState extends State<FocusDiscoveryScreen> {
 
                     // ── Profile hint ────────────────────────────────────────
                     Text(
-                      '(You can change these anytime in the profile later)',
+                      'You can change these anytime in the profile later',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.baloo2(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                         color: EllaColors.neutralSecondary,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Subtext ─────────────────────────────────────────────
-                    Text(
-                      "These are Zoe's default settings for your level.\nChange anything, or just tap Let's go to keep them.",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.baloo2(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: EllaColors.neutralMuted,
                       ),
                     ),
                     const SizedBox(height: 28),
 
                     // ── Grammar ─────────────────────────────────────────────
-                    _FocusBlock<GrammarFocus>(
+                    FocusBlock<GrammarFocus>(
                       icon: Icons.spellcheck_rounded,
                       iconColor: EllaColors.skyMain,
                       title: 'Grammar',
@@ -194,7 +182,7 @@ class _FocusDiscoveryScreenState extends State<FocusDiscoveryScreen> {
                     const SizedBox(height: 24),
 
                     // ── Vocabulary ──────────────────────────────────────────
-                    _FocusBlock<VocabFocus>(
+                    FocusBlock<VocabFocus>(
                       icon: Icons.auto_stories_rounded,
                       iconColor: EllaColors.limeMain,
                       title: 'Vocabulary',
@@ -206,7 +194,7 @@ class _FocusDiscoveryScreenState extends State<FocusDiscoveryScreen> {
                     const SizedBox(height: 24),
 
                     // ── Fluency ─────────────────────────────────────────────
-                    _FocusBlock<FluencyFocus>(
+                    FocusBlock<FluencyFocus>(
                       icon: Icons.speed_rounded,
                       iconColor: EllaColors.mangoMain,
                       title: 'Fluency',
@@ -229,144 +217,6 @@ class _FocusDiscoveryScreenState extends State<FocusDiscoveryScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ─── Generic Focus Block ──────────────────────────────────────────────────────
-
-class _FocusBlock<T extends Enum> extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final List<T> values;
-  final T selected;
-  final ValueChanged<T> onChanged;
-
-  const _FocusBlock({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.values,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  String _labelFor(T v) {
-    if (v is GrammarFocus) return v.label;
-    if (v is VocabFocus) return v.label;
-    if (v is FluencyFocus) return v.label;
-    return v.name;
-  }
-
-  String _descriptionFor(T v) {
-    if (v is GrammarFocus) return v.description;
-    if (v is VocabFocus) return v.description;
-    if (v is FluencyFocus) return v.description;
-    return '';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Title row
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 18, color: iconColor),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.baloo2(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: EllaColors.neutralPrimary,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.baloo2(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: EllaColors.neutralMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        // Chip row
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: values.map((v) {
-              final isSelected = v == selected;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => onChanged(v),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? EllaColors.mangoLightest : Colors.white,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(
-                        color: isSelected ? EllaColors.mangoDark : EllaColors.neutralBorder,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isSelected ? EllaColors.mangoDark : EllaColors.neutralBorder,
-                          offset: const Offset(0, 3),
-                          blurRadius: 0,
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      _labelFor(v),
-                      style: GoogleFonts.baloo2(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected
-                            ? EllaColors.mangoDeepest
-                            : EllaColors.neutralSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Selected description
-        Text(
-          _descriptionFor(selected),
-          style: GoogleFonts.baloo2(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: EllaColors.neutralSecondary,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -416,7 +266,7 @@ class _LetsGoButtonState extends State<_LetsGoButton> {
         ),
         child: Center(
           child: Text(
-            "Let's go →",
+            'PICK NEW TOPIC',
             style: GoogleFonts.baloo2(
               fontSize: 16,
               fontWeight: FontWeight.w700,

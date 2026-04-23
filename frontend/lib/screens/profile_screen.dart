@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/focus_settings.dart';
 import '../providers/chat_provider.dart';
+import '../theme/ella_responsive.dart';
 import '../theme/ella_theme.dart';
 
 // ─── Mock / fallback profile data ────────────────────────────────────────────
@@ -37,24 +38,364 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<ChatProvider>();
     final level = provider.userLevel ?? 'A2';
+    final showFocusSettings = !_isBelowB1(level);
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
-      body: Column(
+      body: SingleChildScrollView(
+        child: _ProfileHeader(
+          provider: provider,
+          showFocusSettings: showFocusSettings,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+
+class _ProfileHeader extends StatefulWidget {
+  final ChatProvider provider;
+  final bool showFocusSettings;
+  const _ProfileHeader({required this.provider, required this.showFocusSettings});
+
+  @override
+  State<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends State<_ProfileHeader> {
+  late final ValueNotifier<String> _nameNotifier;
+  late final ValueNotifier<String> _ageNotifier;
+  late final ValueNotifier<String> _locationNotifier;
+  late final ValueNotifier<String> _emailNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameNotifier = ValueNotifier(widget.provider.userName ?? 'You');
+    _ageNotifier = ValueNotifier(widget.provider.userAge ?? '—');
+    _locationNotifier = ValueNotifier(widget.provider.userLocation ?? '—');
+    _emailNotifier = ValueNotifier(_mockEmail);
+  }
+
+  @override
+  void didUpdateWidget(_ProfileHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _nameNotifier.value = widget.provider.userName ?? 'You';
+    _ageNotifier.value = widget.provider.userAge ?? '—';
+    _locationNotifier.value = widget.provider.userLocation ?? '—';
+  }
+
+  @override
+  void dispose() {
+    _nameNotifier.dispose();
+    _ageNotifier.dispose();
+    _locationNotifier.dispose();
+    _emailNotifier.dispose();
+    super.dispose();
+  }
+
+  void _showEditSheet(BuildContext context) {
+    final nameCtrl = TextEditingController(text: _nameNotifier.value);
+    final ageCtrl = TextEditingController(text: _ageNotifier.value);
+    final locationCtrl = TextEditingController(text: _locationNotifier.value);
+    final emailCtrl = TextEditingController(text: _emailNotifier.value);
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (dialogContext) => Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Material(
+            color: Colors.transparent,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(dialogContext).viewInsets.bottom,
+                left: 16,
+                right: 16,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: EllaColors.neutralBg,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.all(24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Edit your info',
+                        style: TextStyle(
+                          fontFamily: 'Chillax',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: EllaColors.neutralPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _EditField(label: 'Name', controller: nameCtrl),
+                      const SizedBox(height: 12),
+                      _EditField(label: 'Age', controller: ageCtrl),
+                      const SizedBox(height: 12),
+                      _EditField(label: 'Location', controller: locationCtrl),
+                      const SizedBox(height: 12),
+                      _EditField(label: 'Email', controller: emailCtrl),
+                      const SizedBox(height: 24),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: GestureDetector(
+                          onTap: () {
+                            _nameNotifier.value = nameCtrl.text;
+                            _ageNotifier.value = ageCtrl.text;
+                            _locationNotifier.value = locationCtrl.text;
+                            _emailNotifier.value = emailCtrl.text;
+                            widget.provider.setUserProfile(
+                              name: nameCtrl.text,
+                              age: ageCtrl.text,
+                              location: locationCtrl.text,
+                            );
+                            Navigator.of(context).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Profile updated',
+                                  style: GoogleFonts.baloo2(fontWeight: FontWeight.w600),
+                                ),
+                                backgroundColor: EllaColors.neutralPrimary,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: EllaColors.mangoMain,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                topRight: Radius.circular(20),
+                                bottomLeft: Radius.circular(20),
+                                bottomRight: Radius.circular(4),
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: EllaColors.mangoDark,
+                                  offset: Offset(0, 4),
+                                  blurRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              'Save profile info',
+                              style: GoogleFonts.baloo2(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: EllaColors.neutralPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileInfo(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Avatar circle
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: EllaColors.mangoLightest,
+            border: Border.all(color: EllaColors.mangoDark, width: 2),
+          ),
+          child: const Icon(
+            Icons.person_rounded,
+            size: 32,
+            color: EllaColors.mangoMain,
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Name
+        ValueListenableBuilder<String>(
+          valueListenable: _nameNotifier,
+          builder: (_, name, _) => Text(
+            name,
+            style: const TextStyle(
+              fontFamily: 'Chillax',
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: EllaColors.neutralPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        // "You speak · level"
+        Text(
+          'You speak · ${_friendlyLevelLabel(widget.provider.userLevel)}',
+          style: GoogleFonts.baloo2(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: EllaColors.neutralSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Location
+        ValueListenableBuilder<String>(
+          valueListenable: _locationNotifier,
+          builder: (_, loc, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.location_on_outlined, size: 14, color: EllaColors.neutralMuted),
+              const SizedBox(width: 4),
+              Text(
+                loc,
+                style: GoogleFonts.baloo2(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: EllaColors.neutralSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Email
+        ValueListenableBuilder<String>(
+          valueListenable: _emailNotifier,
+          builder: (_, email, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.mail_outline_rounded, size: 14, color: EllaColors.neutralMuted),
+              const SizedBox(width: 4),
+              Text(
+                email,
+                style: GoogleFonts.baloo2(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: EllaColors.neutralSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Edit Profile button
+        GestureDetector(
+          onTap: () => _showEditSheet(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: EllaColors.mangoLightest,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(color: EllaColors.mangoDark, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: EllaColors.mangoDark,
+                  offset: Offset(0, 2),
+                  blurRadius: 0,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.edit_rounded, size: 13, color: EllaColors.mangoDark),
+                const SizedBox(width: 4),
+                Text(
+                  'Edit Profile',
+                  style: GoogleFonts.baloo2(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: EllaColors.mangoDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isWide = EllaResponsive.isWide(context);
+
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ProfileHeader(provider: provider),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // Back button — 24px from top
+          Padding(
+            padding: const EdgeInsets.only(left: 24, top: 24),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: 24),
-                  _YourInfoSection(provider: provider),
-                  if (!_isBelowB1(level)) ...[
-                    const SizedBox(height: 28),
-                    const _CoachingStyleSection(),
-                  ],
+                  const Icon(
+                    Icons.arrow_back_rounded,
+                    size: 20,
+                    color: EllaColors.neutralSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Back to home screen',
+                    style: GoogleFonts.baloo2(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: EllaColors.neutralSecondary,
+                    ),
+                  ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 48),
+          // Content: two-column on wide, stacked on narrow
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 768),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                child: isWide && widget.showFocusSettings
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildProfileInfo(context),
+                          const SizedBox(width: 48),
+                          const Expanded(
+                            child: _CoachingStyleSection(horizontalPadding: 0),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildProfileInfo(context),
+                          if (widget.showFocusSettings) ...[
+                            const SizedBox(height: 32),
+                            const _CoachingStyleSection(horizontalPadding: 0),
+                          ],
+                        ],
+                      ),
               ),
             ),
           ),
@@ -64,97 +405,12 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-// ─── Header with sky gradient ─────────────────────────────────────────────────
-
-class _ProfileHeader extends StatelessWidget {
-  final ChatProvider provider;
-  const _ProfileHeader({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [EllaColors.skyLight, EllaColors.skyMain],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, topPadding + 12, 20, 24),
-        child: Column(
-          children: [
-            // Back button row
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.25),
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Person icon circle
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.25),
-              ),
-              child: const Icon(
-                Icons.person_rounded,
-                size: 32,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Name
-            Text(
-              provider.userName ?? 'You',
-              style: const TextStyle(
-                fontFamily: 'Chillax',
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            // Level label
-            Text(
-              'Your level · ${_friendlyLevelLabel(provider.userLevel)}',
-              style: GoogleFonts.baloo2(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withValues(alpha: 0.85),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ─── Your Info Section ────────────────────────────────────────────────────────
 
 class _YourInfoSection extends StatefulWidget {
   final ChatProvider provider;
-  const _YourInfoSection({required this.provider});
+  final double horizontalPadding;
+  const _YourInfoSection({required this.provider, this.horizontalPadding = 20});
 
   @override
   State<_YourInfoSection> createState() => _YourInfoSectionState();
@@ -196,7 +452,7 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -207,7 +463,10 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
               GestureDetector(
                 onTap: () => _showEditSheet(context),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: EllaColors.mangoLightest,
                     borderRadius: BorderRadius.circular(100),
@@ -223,7 +482,11 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.edit_rounded, size: 13, color: EllaColors.mangoDark),
+                      const Icon(
+                        Icons.edit_rounded,
+                        size: 13,
+                        color: EllaColors.mangoDark,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Edit',
@@ -309,115 +572,109 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(maxWidth: 480),
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
         ),
         child: SingleChildScrollView(
           child: Container(
-          decoration: const BoxDecoration(
-            color: EllaColors.neutralBg,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: EllaColors.neutralBorder,
-                    borderRadius: BorderRadius.circular(2),
+            decoration: BoxDecoration(
+              color: EllaColors.neutralBg,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Edit your info',
+                  style: TextStyle(
+                    fontFamily: 'Chillax',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: EllaColors.neutralPrimary,
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Edit your info',
-                style: const TextStyle(
-                  fontFamily: 'Chillax',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: EllaColors.neutralPrimary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _EditField(label: 'Name', controller: nameCtrl),
-              const SizedBox(height: 12),
-              _EditField(label: 'Age', controller: ageCtrl),
-              const SizedBox(height: 12),
-              _EditField(label: 'Location', controller: locationCtrl),
-              const SizedBox(height: 12),
-              _EditField(label: 'Email', controller: emailCtrl),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: GestureDetector(
-                  onTap: () {
-                    _nameNotifier.value = nameCtrl.text;
-                    _ageNotifier.value = ageCtrl.text;
-                    _locationNotifier.value = locationCtrl.text;
-                    _emailNotifier.value = emailCtrl.text;
-                    // Persist to SharedPreferences via provider
-                    widget.provider.setUserProfile(
-                      name: nameCtrl.text,
-                      age: ageCtrl.text,
-                      location: locationCtrl.text,
-                    );
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Profile updated',
-                          style: GoogleFonts.baloo2(fontWeight: FontWeight.w600),
+                const SizedBox(height: 20),
+                _EditField(label: 'Name', controller: nameCtrl),
+                const SizedBox(height: 12),
+                _EditField(label: 'Age', controller: ageCtrl),
+                const SizedBox(height: 12),
+                _EditField(label: 'Location', controller: locationCtrl),
+                const SizedBox(height: 12),
+                _EditField(label: 'Email', controller: emailCtrl),
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () {
+                      _nameNotifier.value = nameCtrl.text;
+                      _ageNotifier.value = ageCtrl.text;
+                      _locationNotifier.value = locationCtrl.text;
+                      _emailNotifier.value = emailCtrl.text;
+                      widget.provider.setUserProfile(
+                        name: nameCtrl.text,
+                        age: ageCtrl.text,
+                        location: locationCtrl.text,
+                      );
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Profile updated',
+                            style: GoogleFonts.baloo2(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          backgroundColor: EllaColors.neutralPrimary,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        backgroundColor: EllaColors.neutralPrimary,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
                       ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: EllaColors.mangoMain,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(20),
-                        bottomLeft: Radius.circular(20),
-                        bottomRight: Radius.circular(4),
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: EllaColors.mangoDark,
-                          offset: Offset(0, 4),
-                          blurRadius: 0,
+                      decoration: BoxDecoration(
+                        color: EllaColors.mangoMain,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          topRight: Radius.circular(20),
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(4),
                         ),
-                      ],
-                    ),
-                    child: Center(
+                        boxShadow: const [
+                          BoxShadow(
+                            color: EllaColors.mangoDark,
+                            offset: Offset(0, 4),
+                            blurRadius: 0,
+                          ),
+                        ],
+                      ),
                       child: Text(
-                        'Save',
+                        'Save profile info',
                         style: GoogleFonts.baloo2(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: EllaColors.neutralPrimary,
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        ), // SingleChildScrollView
       ),
     );
   }
@@ -476,7 +733,11 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
         if (!isLast)
-          const Divider(height: 1, thickness: 1, color: EllaColors.neutralBorder),
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: EllaColors.neutralBorder,
+          ),
       ],
     );
   }
@@ -512,16 +773,25 @@ class _EditField extends StatelessWidget {
             color: EllaColors.neutralPrimary,
           ),
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: EllaColors.neutralBorder, width: 1.5),
+              borderSide: const BorderSide(
+                color: EllaColors.neutralBorder,
+                width: 1.5,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: EllaColors.neutralBorder, width: 1.5),
+              borderSide: const BorderSide(
+                color: EllaColors.neutralBorder,
+                width: 1.5,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -537,7 +807,8 @@ class _EditField extends StatelessWidget {
 // ─── Zoe's Coaching Style Section ────────────────────────────────────────────
 
 class _CoachingStyleSection extends StatelessWidget {
-  const _CoachingStyleSection();
+  final double horizontalPadding;
+  const _CoachingStyleSection({this.horizontalPadding = 20});
 
   @override
   Widget build(BuildContext context) {
@@ -545,7 +816,7 @@ class _CoachingStyleSection extends StatelessWidget {
       builder: (context, provider, _) {
         final settings = provider.focusSettings;
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -567,9 +838,8 @@ class _CoachingStyleSection extends StatelessWidget {
                 subtitle: 'How Zoe handles your grammar errors',
                 values: GrammarFocus.values,
                 selected: settings.grammar,
-                onChanged: (v) => provider.updateFocusSettings(
-                  settings.copyWith(grammar: v),
-                ),
+                onChanged: (v) =>
+                    provider.updateFocusSettings(settings.copyWith(grammar: v)),
               ),
               const SizedBox(height: 20),
               _FocusBlock<VocabFocus>(
@@ -591,9 +861,8 @@ class _CoachingStyleSection extends StatelessWidget {
                 subtitle: 'How Zoe tracks your pace and fillers',
                 values: FluencyFocus.values,
                 selected: settings.fluency,
-                onChanged: (v) => provider.updateFocusSettings(
-                  settings.copyWith(fluency: v),
-                ),
+                onChanged: (v) =>
+                    provider.updateFocusSettings(settings.copyWith(fluency: v)),
               ),
             ],
           ),
@@ -694,17 +963,26 @@ class _FocusBlock<T extends Enum> extends StatelessWidget {
                   onTap: () => onChanged(v),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? EllaColors.mangoLightest : Colors.white,
+                      color: isSelected
+                          ? EllaColors.mangoLightest
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(100),
                       border: Border.all(
-                        color: isSelected ? EllaColors.mangoDark : EllaColors.neutralBorder,
+                        color: isSelected
+                            ? EllaColors.mangoDark
+                            : EllaColors.neutralBorder,
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: isSelected ? EllaColors.mangoDark : EllaColors.neutralBorder,
+                          color: isSelected
+                              ? EllaColors.mangoDark
+                              : EllaColors.neutralBorder,
                           offset: const Offset(0, 3),
                           blurRadius: 0,
                         ),
@@ -743,12 +1021,12 @@ class _FocusBlock<T extends Enum> extends StatelessWidget {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 Widget _eyebrow(String text) => Text(
-      text,
-      style: const TextStyle(
-        fontFamily: 'Inconsolata',
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: EllaColors.neutralMuted,
-        letterSpacing: 0.8,
-      ),
-    );
+  text,
+  style: const TextStyle(
+    fontFamily: 'Inconsolata',
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
+    color: EllaColors.neutralMuted,
+    letterSpacing: 0.8,
+  ),
+);

@@ -46,6 +46,16 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Root-level platform dirs — real app is in frontend/
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
+/lib/
+/assets/
+/images/
+
 # Secrets
 .env
 

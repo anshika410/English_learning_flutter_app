@@ -6,6 +6,7 @@ import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
 import '../models/focus_settings.dart';
 import '../models/placement_result.dart';
+import 'llm_service_base.dart';
 
 enum LlmProvider { deepseek }
 
@@ -80,9 +81,9 @@ class ConversationTurnResult {
   });
 }
 
-class LlmService {
+class LlmService implements LlmServiceBase {
   final LlmProviderConfig _config;
-  String? _cachedPlacementPrompt;
+  String? _cachedPlacementPromptTemplate;
   String? _cachedConversationPrompt;
 
   /// Set to true to use mock responses instead of calling the API.
@@ -249,7 +250,7 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       level: level ?? 'A2',
       levelLabel: levelLabel ?? 'Finding My Voice',
       currentTurn: currentTurn,
-      focusSettings: focusSettings ?? const FocusSettings.defaults(),
+      focusSettings: focusSettings,
     );
 
     final apiMessages = <Map<String, String>>[
@@ -288,21 +289,32 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     required String level,
     required String levelLabel,
     required int currentTurn,
-    required FocusSettings focusSettings,
+    FocusSettings? focusSettings,
   }) async {
     _cachedConversationPrompt ??= await rootBundle.loadString(
       'assets/prompts/conversation-prompt.md',
     );
     final levelInstructions = _levelInstructions(level);
-    return _cachedConversationPrompt!
+    var prompt = _cachedConversationPrompt!
         .replaceAll('{{TOPIC}}', topic)
         .replaceAll('{{LEVEL}}', level)
         .replaceAll('{{LEVEL_LABEL}}', levelLabel)
         .replaceAll('{{CURRENT_TURN}}', '$currentTurn')
-        .replaceAll('{{LEVEL_INSTRUCTIONS}}', levelInstructions)
-        .replaceAll('{{GRAMMAR_SETTING}}', focusSettings.grammar.label)
-        .replaceAll('{{VOCABULARY_SETTING}}', focusSettings.vocabulary.label)
-        .replaceAll('{{FLUENCY_SETTING}}', focusSettings.fluency.label);
+        .replaceAll('{{LEVEL_INSTRUCTIONS}}', levelInstructions);
+
+    if (focusSettings != null) {
+      prompt = prompt
+          .replaceAll('{{GRAMMAR_SETTING}}', focusSettings.grammar.label)
+          .replaceAll('{{VOCABULARY_SETTING}}', focusSettings.vocabulary.label)
+          .replaceAll('{{FLUENCY_SETTING}}', focusSettings.fluency.label);
+    } else {
+      // Focus settings unchanged — omit focus lines from this turn's prompt.
+      prompt = prompt
+          .replaceAll('{{GRAMMAR_SETTING}}', '')
+          .replaceAll('{{VOCABULARY_SETTING}}', '')
+          .replaceAll('{{FLUENCY_SETTING}}', '');
+    }
+    return prompt;
   }
 
   String _levelInstructions(String level) {
@@ -332,12 +344,15 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       await Future.delayed(const Duration(milliseconds: 800));
       return EndResultAnalysis(
         overall: 'great',
+        headline: 'You really held your own today!',
         bestMomentQuote: 'I really enjoy spending time with my friends on weekends.',
         bestMomentNote: 'Natural expression with good sentence structure!',
         courageOrMotivationType: 'motivation',
         courageOrMotivationContent: 'You spoke confidently and kept the conversation going. That takes real courage!',
         tryNextTimeSkill: 'Past tense usage',
         tryNextTimeExample: 'Try saying "I went to the park" instead of "I go to the park yesterday".',
+        wordOfDay: 'usually',
+        wordOfDayLabel: 'adverb · used ×3 today',
         transcriptNotes: [],
       );
     }
@@ -370,6 +385,7 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       final bestMoment = data['best_moment'] as Map<String, dynamic>? ?? {};
       final courage = data['courage_or_motivation'] as Map<String, dynamic>? ?? {};
       final tryNext = data['try_next_time'] as Map<String, dynamic>? ?? {};
+      final wordOfDayRaw = data['word_of_day'] as Map<String, dynamic>?;
       final notesRaw = data['transcript_notes'] as List<dynamic>? ?? [];
 
       final notes = notesRaw.map((n) {
@@ -383,12 +399,15 @@ TITLE: <3-4 word header for this conversation, no punctuation>
 
       return EndResultAnalysis(
         overall: data['overall'] as String? ?? 'okay',
+        headline: data['headline'] as String?,
         bestMomentQuote: bestMoment['quote'] as String? ?? '',
         bestMomentNote: bestMoment['note'] as String? ?? '',
         courageOrMotivationType: courage['type'] as String? ?? 'motivation',
         courageOrMotivationContent: courage['content'] as String? ?? '',
         tryNextTimeSkill: tryNext['skill'] as String? ?? '',
         tryNextTimeExample: tryNext['example'] as String? ?? '',
+        wordOfDay: wordOfDayRaw?['word'] as String?,
+        wordOfDayLabel: wordOfDayRaw?['label'] as String?,
         transcriptNotes: notes,
       );
     } catch (e) {
@@ -517,21 +536,29 @@ $transcript
     );
   }
 
-  Future<String> _loadPlacementPrompt() async {
-    _cachedPlacementPrompt ??= await rootBundle.loadString(
-      'assets/prompts/placement-check-prompt.md',
-    );
-    return _cachedPlacementPrompt!;
+  Future<String> _loadPlacementPrompt({
+    String promptPath =
+        'assets/prompts/placement-check-adaptive-friendly.md',
+    String userName = 'there',
+    String userAge = '15',
+  }) async {
+    _cachedPlacementPromptTemplate ??= await rootBundle.loadString(promptPath);
+    return _cachedPlacementPromptTemplate!
+        .replaceAll('{{NAME}}', userName)
+        .replaceAll('{{AGE}}', userAge);
   }
 
   /// Sends the placement conversation history to the LLM using the
-  /// placement-check-prompt.md as the system prompt.
-  ///
-  /// [messages] is a list of {role: 'user'|'model', content: '...'} maps
-  /// representing the conversation so far (excluding the system prompt).
+  /// placement prompt as the system prompt. Tokens {{NAME}} and {{AGE}}
+  /// are substituted before sending.
+  @override
   Future<PlacementMessageResult> sendPlacementMessage(
-    List<Map<String, String>> messages,
-  ) async {
+    List<Map<String, String>> messages, {
+    String promptPath =
+        'assets/prompts/placement-check-adaptive-friendly.md',
+    String userName = 'there',
+    String userAge = '15',
+  }) async {
     if (useMockData) {
       await Future.delayed(const Duration(milliseconds: 1000));
       final userCount = messages.where((m) => m['role'] == 'user').length;
@@ -554,7 +581,11 @@ $transcript
         mockReplies[userCount].replaceFirst('REPLY: ', ''),
       );
     }
-    final systemPrompt = await _loadPlacementPrompt();
+    final systemPrompt = await _loadPlacementPrompt(
+      promptPath: promptPath,
+      userName: userName,
+      userAge: userAge,
+    );
 
     final apiMessages = [
       {'role': 'system', 'content': systemPrompt},

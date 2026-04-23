@@ -9,8 +9,8 @@ import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
 import '../providers/chat_provider.dart';
 import '../theme/ella_theme.dart';
+import '../theme/ella_responsive.dart';
 import '../widgets/ella_primary_button.dart';
-import 'focus_discovery_screen.dart';
 import 'home_screen.dart';
 import 'conversation_screen.dart';
 
@@ -28,7 +28,6 @@ enum SessionType {
 }
 
 // ─── Conversation Quality ─────────────────────────────────────────────────────
-// Determined by LLM analysis. Pass from conversation_screen when wired up.
 
 enum ConversationQuality {
   great,
@@ -37,18 +36,17 @@ enum ConversationQuality {
 }
 
 // ─── Session Summary ──────────────────────────────────────────────────────────
-// All LLM-derived content lives here. Ship with mock defaults.
-// To wire real LLM: construct a SessionSummary from LLM result and pass to EndScreen.
 
 class SessionSummary {
   final String bestMoment;
-  final String? wordOfSession; // null = hide word section
-  final String? wordType; // e.g. "adverb · used ×3 today"
-  final bool wordIsTryMode; // true for struggling state — "word to try"
-  final String? courageText; // shown for great only
-  final String? habitText; // shown for struggling only
+  final String? wordOfSession;
+  final String? wordType;
+  final bool wordIsTryMode;
+  final String? courageText;
+  final String? habitText;
   final String stickyLabel;
   final String stickyText;
+  final String? llmHeadline;
 
   const SessionSummary({
     required this.bestMoment,
@@ -59,9 +57,9 @@ class SessionSummary {
     this.habitText,
     required this.stickyLabel,
     required this.stickyText,
+    this.llmHeadline,
   });
 
-  /// Mock defaults per quality state — replace these with real LLM data.
   factory SessionSummary.mockForQuality(ConversationQuality quality) {
     switch (quality) {
       case ConversationQuality.great:
@@ -84,7 +82,8 @@ class SessionSummary {
           wordOfSession: 'nervous',
           wordType: 'adjective · used once',
           wordIsTryMode: false,
-          courageText: null,
+          courageText:
+              'You stayed in English even when it got hard — that\'s exactly the habit to build.',
           habitText: null,
           stickyLabel: 'Something to focus on',
           stickyText: 'Try asking Zoe a question next time — any question',
@@ -153,7 +152,6 @@ class EndScreen extends StatelessWidget {
   final SessionSummary? summary;
   final Future<EndResultAnalysis?>? analysisFuture;
 
-  /// Called when the user taps "Try Again" on the empty screen.
   final VoidCallback? onTalkToZoe;
 
   const EndScreen({
@@ -173,7 +171,6 @@ class EndScreen extends StatelessWidget {
   ) {
     final messages = context.read<ChatProvider>().messages;
 
-    // Build real transcript entries from live messages, matching notes by text
     final entries = messages
         .where((m) =>
             m.role == MessageRole.user || m.role == MessageRole.assistant)
@@ -181,7 +178,6 @@ class EndScreen extends StatelessWidget {
       final isElla = m.role == MessageRole.assistant;
       String? note;
       if (!isElla) {
-        // Find a matching note from LLM analysis by approximate text match
         final match = transcriptNotes.where((n) =>
             n.speaker == 'student' &&
             n.note != null &&
@@ -251,19 +247,8 @@ class EndScreen extends StatelessWidget {
     );
   }
 
-  // Called by the summary-screen CTA only (not empty state).
-  // First time a real session ends → show focus discovery screen instead.
   void _pickNewTopic(BuildContext context) {
-    final provider = context.read<ChatProvider>();
-    if (!provider.hasCompletedFirstSession) {
-      provider.markFirstSessionComplete();
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const FocusDiscoveryScreen()),
-        (_) => false,
-      );
-    } else {
-      _goToHome(context);
-    }
+    _goToHome(context);
   }
 
   @override
@@ -279,85 +264,88 @@ class EndScreen extends StatelessWidget {
 
   Widget _buildEmptyScreen(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Gradient + dashed grid background
-          const Positioned.fill(child: _GradientGridBackground()),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: EllaColors.neutralBg,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: EllaColors.zoeMintLight,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: EllaColors.neutralMuted.withValues(alpha: 0.40),
+                      offset: const Offset(0, 6),
+                      blurRadius: 0,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      offset: const Offset(0, 3),
+                      blurRadius: 14,
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: const _ZoeMascotAnimator(size: 200),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Looks like we lost you there.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Chillax',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: EllaColors.neutralPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  'No chat happened — that\'s okay. Want to try a fresh start?',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.baloo2(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: EllaColors.neutralSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 48),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Spacer(),
-                  // Zoe mascot — 200×200
-                  Center(
-                    child: Container(
-                      width: 200,
-                      height: 200,
-                      decoration: const BoxDecoration(
-                        color: EllaColors.zoeMintLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipOval(
-                        child: const _ZoeMascotAnimator(size: 200),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: _GhostButton(
+                      label: 'PICK NEW TOPIC',
+                      onTap: () => _goToHome(context),
                     ),
                   ),
-                  const SizedBox(height: 28),
-                  const Text(
-                    'Looks like we lost you there.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Chillax',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                      color: EllaColors.neutralPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'No chat happened — that\'s okay. Want to try a fresh start?',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.baloo2(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: EllaColors.neutralSecondary,
-                      height: 1.4,
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      // Left: border ghost button
-                      Expanded(
-                        flex: 4,
-                        child: _GhostButton(
-                          label: 'PICK NEW TOPIC',
-                          onTap: () => _goToHome(context),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: EllaPrimaryButton(
+                      label: 'TRY AGAIN',
+                      onTap: onTalkToZoe ?? () => Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) => ConversationScreen(topic: topic),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      // Right: mango primary button
-                      Expanded(
-                        flex: 6,
-                        child: EllaPrimaryButton(
-                          label: 'TRY AGAIN',
-                          onTap: onTalkToZoe ?? () => Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => ConversationScreen(topic: topic),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
                 ],
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -418,17 +406,17 @@ class EndScreen extends StatelessWidget {
     ConversationQuality q,
   ) {
     final isStruggling = q == ConversationQuality.struggling;
-    final isGreat = q == ConversationQuality.great;
     return SessionSummary(
       bestMoment: '"${analysis.bestMomentQuote}"',
-      wordOfSession: null,
-      wordType: null,
-      wordIsTryMode: false,
-      courageText: isGreat ? analysis.courageOrMotivationContent : null,
+      wordOfSession: analysis.wordOfDay,
+      wordType: analysis.wordOfDayLabel,
+      wordIsTryMode: isStruggling,
+      courageText: analysis.courageOrMotivationContent,
       habitText: isStruggling ? analysis.courageOrMotivationContent : null,
       stickyLabel: 'One thing to try next time',
       stickyText:
           '${analysis.tryNextTimeSkill}\n\n"${analysis.tryNextTimeExample}"',
+      llmHeadline: analysis.headline,
     );
   }
 
@@ -453,7 +441,7 @@ class EndScreen extends StatelessWidget {
                       child: Image.asset(
                         'assets/mascot-animations/juggling.webp',
                         fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -483,96 +471,170 @@ class EndScreen extends StatelessWidget {
     ConversationQuality effectiveQuality,
     List<EndResultTranscriptNote> transcriptNotes,
   ) {
-    final (headline, emoji) = switch (effectiveQuality) {
+    final (fallbackHeadline, emoji) = switch (effectiveQuality) {
       ConversationQuality.great => ('Great Conversation!', '🌟'),
       ConversationQuality.okayish => ('Good Effort Today', '✨'),
       ConversationQuality.struggling => ('Every Session Counts', '🌱'),
     };
 
+    final displayHeadline = effectiveSummary.llmHeadline ?? fallbackHeadline;
+
+    final isWide = EllaResponsive.isWide(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final sidePad = isWide
+        ? ((screenWidth - 768) / 2).clamp(24.0, double.infinity)
+        : 24.0;
+
+    // Courage text: always show for all quality states
+    final courageText = effectiveSummary.courageText ??
+        effectiveSummary.habitText ??
+        '';
+
     return Scaffold(
       body: Stack(
         children: [
           const Positioned.fill(child: _GradientGridBackground()),
-          Column(
-            children: [
-              Expanded(
-                child: CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _SummaryHeaderCard(
-                        headline: headline,
-                        emoji: emoji,
-                        durationLabel: durationLabel,
-                        topic: topic,
-                      ),
+          CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _SummaryHeaderCard(
+                  headline: displayHeadline,
+                  emoji: emoji,
+                  durationLabel: durationLabel,
+                  topic: topic,
+                  isWide: isWide,
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(sidePad, 48, sidePad, 16),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // Best Moment + Courage side by side
+                    _buildMomentCards(
+                      isWide: isWide,
+                      bestMoment: effectiveSummary.bestMoment,
+                      courageText: courageText,
+                      quality: effectiveQuality,
                     ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: 0.82,
-                              child: _QuoteBalloon(
-                                text: effectiveSummary.bestMoment,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          if (effectiveQuality == ConversationQuality.great &&
-                              effectiveSummary.courageText != null) ...[
-                            _CourageMoment(
-                                text: effectiveSummary.courageText!),
-                            const SizedBox(height: 24),
-                          ],
-                          if (effectiveQuality ==
-                                  ConversationQuality.struggling &&
-                              effectiveSummary.habitText != null) ...[
-                            _HabitNudge(text: effectiveSummary.habitText!),
-                            const SizedBox(height: 24),
-                          ],
-                          _StickyNote(
+                    const SizedBox(height: 32),
+
+                    // Sticky note — centered, max 480px
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _StickyNote(
                             label: effectiveSummary.stickyLabel,
                             text: effectiveSummary.stickyText,
                           ),
-                          const SizedBox(height: 28),
-                          if (effectiveSummary.wordOfSession != null)
-                            _WordTranscriptRow(
-                              word: effectiveSummary.wordOfSession!,
-                              subText: effectiveSummary.wordType ?? '',
-                              isTryMode: effectiveSummary.wordIsTryMode,
-                              onTranscriptTap: () => _showTranscriptSheet(
-                                  context, transcriptNotes),
-                            )
-                          else
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: _TranscriptLink(
-                                onTap: () => _showTranscriptSheet(
-                                    context, transcriptNotes),
-                              ),
-                            ),
-                          const SizedBox(height: 24),
-                        ]),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                  child: EllaPrimaryButton(
-                    label: 'PICK NEW TOPIC',
-                    onTap: () => _pickNewTopic(context),
-                  ),
+                    const SizedBox(height: 32),
+
+                    // Bottom row: word of day + transcript — centered as a group
+                    _buildBottomRow(
+                      context: context,
+                      word: effectiveSummary.wordOfSession,
+                      wordLabel: effectiveSummary.wordType,
+                      isTryMode: effectiveSummary.wordIsTryMode,
+                      transcriptNotes: transcriptNotes,
+                    ),
+                    const SizedBox(height: 48),
+
+                    // Pick New Topic button — inline, centered
+                    SafeArea(
+                      top: false,
+                      child: Center(
+                        child: isWide
+                            ? IntrinsicWidth(
+                                child: EllaPrimaryButton(
+                                  label: 'PICK NEW TOPIC',
+                                  onTap: () => _pickNewTopic(context),
+                                ),
+                              )
+                            : EllaPrimaryButton(
+                                label: 'PICK NEW TOPIC',
+                                onTap: () => _pickNewTopic(context),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ]),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMomentCards({
+    required bool isWide,
+    required String bestMoment,
+    required String courageText,
+    required ConversationQuality quality,
+  }) {
+    final bestCard = _QuoteBalloon(text: bestMoment);
+    final courageCard = _CourageCard(
+      text: courageText,
+      quality: quality,
+    );
+
+    if (isWide) {
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: bestCard),
+            const SizedBox(width: 16),
+            Expanded(child: courageCard),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        bestCard,
+        const SizedBox(height: 16),
+        courageCard,
+      ],
+    );
+  }
+
+  Widget _buildBottomRow({
+    required BuildContext context,
+    required String? word,
+    required String? wordLabel,
+    required bool isTryMode,
+    required List<EndResultTranscriptNote> transcriptNotes,
+  }) {
+    final transcriptLink = _TranscriptLink(
+      onTap: () => _showTranscriptSheet(context, transcriptNotes),
+    );
+
+    if (word == null) {
+      return Center(child: transcriptLink);
+    }
+
+    return Center(
+      child: IntrinsicWidth(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _WordOfDaySection(
+              word: word,
+              subText: wordLabel ?? '',
+              isTryMode: isTryMode,
+            ),
+            const SizedBox(width: 48),
+            transcriptLink,
+          ],
+        ),
       ),
     );
   }
@@ -660,12 +722,14 @@ class _SummaryHeaderCard extends StatefulWidget {
   final String emoji;
   final String durationLabel;
   final String topic;
+  final bool isWide;
 
   const _SummaryHeaderCard({
     required this.headline,
     required this.emoji,
     required this.durationLabel,
     required this.topic,
+    required this.isWide,
   });
 
   @override
@@ -692,31 +756,17 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
 
   @override
   Widget build(BuildContext context) {
+    const mascotSize = 200.0;
+
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFD8E2), // very light rose
-            EllaColors.roseLight, // #FFB8C8
-          ],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
+      decoration: const BoxDecoration(
+        color: EllaColors.mangoLightest,
         boxShadow: [
           BoxShadow(
-            color: EllaColors.roseDark,
-            offset: const Offset(0, 6),
+            color: EllaColors.mangoDark,
+            offset: Offset(0, 4),
             blurRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            offset: const Offset(0, 3),
-            blurRadius: 14,
           ),
         ],
       ),
@@ -738,123 +788,109 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
               colors: const [
                 Colors.white,
                 Color(0xFFFFF3E0),
-                Color(0xFFFFB8C8),
-                Color(0xFFFFF0F3),
+                EllaColors.mangoLight,
+                Color(0xFFFFE0A0),
               ],
             ),
           ),
 
-          // Header content
+          // Header content: Zoe left, text right — centered as a group
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+              child: Center(
+                child: IntrinsicWidth(
+                  child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Zoe mascot circle
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: mascotSize,
+                    height: mascotSize,
                     decoration: BoxDecoration(
                       color: EllaColors.zoeMintLight,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
+                          color: Colors.black.withValues(alpha: 0.10),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: ClipOval(
-                      child: Image.asset(
-                        'assets/mascot-animations/speaking.webp',
-                        fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                      ),
+                      child: _ZoeMascotAnimator(size: mascotSize),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(width: 20),
 
-                  // SESSION COMPLETE
-                  Text(
-                    'SESSION COMPLETE',
-                    style: GoogleFonts.inconsolata(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
-                      color: EllaColors.roseDark.withValues(alpha: 0.80),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Emoji first, then headline
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        widget.emoji,
-                        style: const TextStyle(fontSize: 28),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          widget.headline,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'Chillax',
-                            fontSize: 28,
+                  // Text column
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // SESSION COMPLETE eyebrow
+                        Text(
+                          'SESSION COMPLETE',
+                          style: GoogleFonts.inconsolata(
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: EllaColors.neutralPrimary,
-                            height: 1.1,
+                            letterSpacing: 2,
+                            color: EllaColors.mangoDark.withValues(alpha: 0.70),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
+                        const SizedBox(height: 8),
 
-                  // Duration + topic metadata
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.schedule_rounded,
-                        size: 15,
-                        color: EllaColors.roseDark.withValues(alpha: 0.60),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        widget.durationLabel,
-                        style: GoogleFonts.baloo2(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: EllaColors.roseDark.withValues(alpha: 0.80),
+                        // Emoji + headline
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.emoji,
+                              style: TextStyle(
+                                fontSize: widget.isWide ? 28 : 22,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                widget.headline,
+                                style: TextStyle(
+                                  fontFamily: 'Chillax',
+                                  fontSize: widget.isWide ? 28 : 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: EllaColors.neutralPrimary,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        size: 15,
-                        color: EllaColors.roseDark.withValues(alpha: 0.60),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          widget.topic,
-                          style: GoogleFonts.baloo2(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: EllaColors.roseDark.withValues(alpha: 0.80),
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 12),
+
+                        // Duration + topic chips
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _MetaChip(
+                              icon: Icons.schedule_rounded,
+                              label: 'Duration · ${widget.durationLabel}',
+                            ),
+                            _MetaChip(
+                              icon: Icons.chat_bubble_outline_rounded,
+                              label: 'Topic · ${widget.topic}',
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
+              ),
+                ),
               ),
             ),
           ),
@@ -864,8 +900,46 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
   }
 }
 
+// ─── Meta Chip ────────────────────────────────────────────────────────────────
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: EllaColors.neutralBorder.withValues(alpha: 0.60),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: EllaColors.mangoDark.withValues(alpha: 0.70),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.baloo2(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: EllaColors.neutralSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Zoe Mascot Animator ──────────────────────────────────────────────────────
-// Loops: listening (4s) → cross-fade → bubblepop → cross-fade → listening
 
 class _ZoeMascotAnimator extends StatefulWidget {
   final double size;
@@ -876,7 +950,6 @@ class _ZoeMascotAnimator extends StatefulWidget {
 }
 
 class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
-  // Cycle: listening(4s) → juggling(4s) → listening(4s) → bubblepop(3s) → repeat
   static const _assets = [
     'assets/mascot-animations/listening.webp',
     'assets/mascot-animations/juggling.webp',
@@ -892,7 +965,6 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
   static const _crossfadeDuration = Duration(milliseconds: 500);
 
   int _step = 0;
-  // Two opacity layers for crossfade: current vs next
   double _opacityCurrent = 1.0;
   double _opacityNext = 0.0;
   int _nextStep = 1;
@@ -949,7 +1021,7 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
                 width: s,
                 height: s,
                 fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
               ),
             ),
             AnimatedOpacity(
@@ -960,7 +1032,7 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
                 width: s,
                 height: s,
                 fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
               ),
             ),
           ],
@@ -970,7 +1042,7 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
   }
 }
 
-// ─── Quote Balloon ────────────────────────────────────────────────────────────
+// ─── Quote Balloon (Best Moment card) ─────────────────────────────────────────
 
 class _QuoteBalloon extends StatelessWidget {
   final String text;
@@ -979,7 +1051,7 @@ class _QuoteBalloon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(
@@ -1038,19 +1110,141 @@ class _QuoteBalloon extends StatelessWidget {
   }
 }
 
-// ─── Word + Transcript Row ────────────────────────────────────────────────────
+// ─── Courage Card (always shown, all quality states) ─────────────────────────
 
-class _WordTranscriptRow extends StatelessWidget {
+class _CourageCard extends StatefulWidget {
+  final String text;
+  final ConversationQuality quality;
+  const _CourageCard({required this.text, required this.quality});
+
+  @override
+  State<_CourageCard> createState() => _CourageCardState();
+}
+
+class _CourageCardState extends State<_CourageCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<double> _rotate;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+    _scale = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 85),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 1.25)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 7,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.25, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 8,
+      ),
+    ]).animate(_ctrl);
+    _rotate = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: -0.087, end: -0.087), weight: 85),
+      TweenSequenceItem(tween: Tween(begin: -0.087, end: 0.087), weight: 7),
+      TweenSequenceItem(tween: Tween(begin: 0.087, end: -0.087), weight: 8),
+    ]).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isStruggling = widget.quality == ConversationQuality.struggling;
+    final emoji = isStruggling ? '🔥' : '⚡';
+    final label = isStruggling ? 'KEEP THE HABIT' : 'MOMENT OF COURAGE';
+    final labelColor = isStruggling ? EllaColors.limeDark : EllaColors.grapeDark;
+    final textColor = isStruggling ? EllaColors.limeDark : EllaColors.grapeDark;
+    final borderColor = isStruggling ? EllaColors.limeLight : EllaColors.grapeLightest;
+    final shadowColor = isStruggling
+        ? EllaColors.limeLight.withValues(alpha: 0.8)
+        : EllaColors.grapeLightest.withValues(alpha: 0.8);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(4),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        border: Border.all(color: borderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor,
+            offset: const Offset(3, 3),
+            blurRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AnimatedBuilder(
+                animation: _ctrl,
+                builder: (_, _) => Transform.rotate(
+                  angle: _rotate.value,
+                  child: Transform.scale(
+                    scale: _scale.value,
+                    child: Text(emoji, style: const TextStyle(fontSize: 18)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.inconsolata(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: labelColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            widget.text,
+            style: GoogleFonts.baloo2(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: textColor,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Word of Day Section ──────────────────────────────────────────────────────
+
+class _WordOfDaySection extends StatelessWidget {
   final String word;
   final String subText;
   final bool isTryMode;
-  final VoidCallback onTranscriptTap;
 
-  const _WordTranscriptRow({
+  const _WordOfDaySection({
     required this.word,
     required this.subText,
     required this.isTryMode,
-    required this.onTranscriptTap,
   });
 
   @override
@@ -1060,93 +1254,31 @@ class _WordTranscriptRow extends StatelessWidget {
         isTryMode ? EllaColors.mangoLight : EllaColors.skyLight;
     final icon = isTryMode ? '🎯' : '📖';
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Left: Word of the session — no card
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(icon, style: const TextStyle(fontSize: 22)),
-              const SizedBox(height: 6),
-              Text(
-                word,
-                style: TextStyle(
-                  fontFamily: 'Chillax',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: wordColor,
-                  decoration: TextDecoration.underline,
-                  decorationStyle: TextDecorationStyle.wavy,
-                  decorationColor: underlineColor,
-                  decorationThickness: 2,
-                ),
-              ),
-              // Extra margin so the wave underline doesn't clip descenders
-              const SizedBox(height: 14),
-              Text(
-                subText,
-                style: GoogleFonts.baloo2(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.neutralMuted,
-                ),
-              ),
-            ],
+        Text(icon, style: const TextStyle(fontSize: 22)),
+        const SizedBox(height: 6),
+        Text(
+          word,
+          style: TextStyle(
+            fontFamily: 'Chillax',
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: wordColor,
+            decoration: TextDecoration.underline,
+            decorationStyle: TextDecorationStyle.wavy,
+            decorationColor: underlineColor,
+            decorationThickness: 2,
           ),
         ),
-        const SizedBox(width: 12),
-        // Right: Transcript link — no card, right-aligned
-        GestureDetector(
-          onTap: onTranscriptTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text('📄', style: TextStyle(fontSize: 22)),
-              const SizedBox(height: 6),
-              Text(
-                'FULL CONVERSATION',
-                style: GoogleFonts.inconsolata(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                  color: EllaColors.neutralMuted,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Read transcript',
-                    style: GoogleFonts.baloo2(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: EllaColors.neutralSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      color: EllaColors.neutralBorder,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '→',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: EllaColors.neutralSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        const SizedBox(height: 14),
+        Text(
+          subText,
+          style: GoogleFonts.baloo2(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: EllaColors.neutralMuted,
           ),
         ),
       ],
@@ -1154,7 +1286,7 @@ class _WordTranscriptRow extends StatelessWidget {
   }
 }
 
-// ─── Transcript Link (standalone, used when no word) ──────────────────────────
+// ─── Transcript Link ──────────────────────────────────────────────────────────
 
 class _TranscriptLink extends StatelessWidget {
   final VoidCallback onTap;
@@ -1165,7 +1297,7 @@ class _TranscriptLink extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('📄', style: TextStyle(fontSize: 22)),
           const SizedBox(height: 2),
@@ -1216,190 +1348,6 @@ class _TranscriptLink extends StatelessWidget {
   }
 }
 
-// ─── Courage Moment ───────────────────────────────────────────────────────────
-
-class _CourageMoment extends StatefulWidget {
-  final String text;
-  const _CourageMoment({required this.text});
-
-  @override
-  State<_CourageMoment> createState() => _CourageMomentState();
-}
-
-class _CourageMomentState extends State<_CourageMoment>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _rotate;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
-    _scale = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 85),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.25)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 7,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.25, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
-        weight: 8,
-      ),
-    ]).animate(_ctrl);
-    _rotate = TweenSequence([
-      TweenSequenceItem(
-        tween: Tween(begin: -0.087, end: -0.087),
-        weight: 85,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: -0.087, end: 0.087),
-        weight: 7,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 0.087, end: -0.087),
-        weight: 8,
-      ),
-    ]).animate(_ctrl);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, _) => Transform.rotate(
-            angle: _rotate.value,
-            child: Transform.scale(
-              scale: _scale.value,
-              child: const Text('⚡', style: TextStyle(fontSize: 26)),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 2),
-              Text(
-                'MOMENT OF COURAGE',
-                style: GoogleFonts.inconsolata(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: EllaColors.grapeDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.text,
-                style: GoogleFonts.baloo2(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.grapeDark,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Habit Nudge ─────────────────────────────────────────────────────────────
-
-class _HabitNudge extends StatefulWidget {
-  final String text;
-  const _HabitNudge({required this.text});
-
-  @override
-  State<_HabitNudge> createState() => _HabitNudgeState();
-}
-
-class _HabitNudgeState extends State<_HabitNudge>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat(reverse: true);
-    _scale = Tween(begin: 1.0, end: 1.1)
-        .chain(CurveTween(curve: Curves.easeInOut))
-        .animate(_ctrl);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, _) => Transform.scale(
-            scale: _scale.value,
-            child: const Text('🔥', style: TextStyle(fontSize: 24)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 2),
-              Text(
-                'KEEP THE HABIT',
-                style: GoogleFonts.inconsolata(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: EllaColors.limeDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.text,
-                style: GoogleFonts.baloo2(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.limeDark,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ─── Sticky Note ──────────────────────────────────────────────────────────────
 
 class _StickyNote extends StatelessWidget {
@@ -1410,94 +1358,88 @@ class _StickyNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.center,
-      child: FractionallySizedBox(
-        widthFactor: 0.88,
-        child: Transform.rotate(
-          angle: -0.026, // ≈ -1.5 degrees
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFDE7),
-                  border: Border.all(
-                    color: const Color(0xFFFFE082),
-                    width: 1.5,
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(3),
-                    topRight: Radius.circular(14),
-                    bottomLeft: Radius.circular(14),
-                    bottomRight: Radius.circular(3),
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x40C8AA00),
-                      offset: Offset(2, 3),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      label.toUpperCase(),
-                      textAlign: TextAlign.right,
-                      style: GoogleFonts.inconsolata(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                        color: const Color(0xFFA08000),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      text,
-                      textAlign: TextAlign.right,
-                      style: GoogleFonts.baloo2(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: EllaColors.neutralPrimary,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
+    return Transform.rotate(
+      angle: -0.026,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFDE7),
+              border: Border.all(
+                color: const Color(0xFFFFE082),
+                width: 1.5,
               ),
-              // Pin dot at top center
-              Positioned(
-                top: -6,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: EllaColors.mangoMain,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: EllaColors.mangoDark,
-                        width: 1.5,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x33000000),
-                          offset: Offset(0, 1),
-                          blurRadius: 3,
-                        ),
-                      ],
-                    ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(3),
+                topRight: Radius.circular(14),
+                bottomLeft: Radius.circular(14),
+                bottomRight: Radius.circular(3),
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40C8AA00),
+                  offset: Offset(2, 3),
+                  blurRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inconsolata(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    color: const Color(0xFFA08000),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 5),
+                Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.baloo2(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: EllaColors.neutralPrimary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          // Pin dot at top center
+          Positioned(
+            top: -6,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: EllaColors.mangoMain,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: EllaColors.mangoDark,
+                  width: 1.5,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x33000000),
+                    offset: Offset(0, 1),
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          ),
+        ],
       ),
     );
   }
@@ -1517,15 +1459,22 @@ class _GhostButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.transparent,
+          color: Colors.white,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(4),
             topRight: Radius.circular(20),
             bottomRight: Radius.circular(4),
             bottomLeft: Radius.circular(20),
           ),
-          border: Border.all(color: EllaColors.neutralBorder, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xFFE0D0B8),
+              offset: Offset(0, 4),
+              blurRadius: 0,
+            ),
+          ],
         ),
         child: Center(
           child: Text(

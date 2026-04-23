@@ -3,32 +3,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../models/focus_settings.dart';
 import '../theme/ella_theme.dart';
+import '../theme/ella_responsive.dart';
 import '../models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/waveform_icon.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/focus_block.dart';
+import '../widgets/ella_primary_button.dart';
 import 'end_screen.dart';
 
 // ─── Mascot State ─────────────────────────────────────────────────────────────
 
 enum _MascotState { speaking, listening, thinking }
 
-// ─── Scaffold pills ───────────────────────────────────────────────────────────
-
-const List<String> _scaffoldPills = [
-  'Honestly, I also feel...',
-  'What helps me is...',
-  'Try not to...',
-];
-
 // ─── Caption item ─────────────────────────────────────────────────────────────
 
 class _CaptionItem {
   final String text;
   final bool isElla;
+  final bool isLive;
 
-  const _CaptionItem({required this.text, required this.isElla});
+  const _CaptionItem({required this.text, required this.isElla, this.isLive = false});
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -46,10 +43,10 @@ class _ConversationScreenState extends State<ConversationScreen>
     with SingleTickerProviderStateMixin {
   bool _captionsEnabled = true;
   bool _isKeyboardMode = false;
-  bool _hasUserSpokenThisTurn = false;
-  bool _didPrecacheMascotImages = false;
+bool _didPrecacheMascotImages = false;
   bool _isLoadingSession = true;
   bool _didAutoEnd = false;
+  bool _wasKeyboardVisible = false;
   String _headerTitle = '';
   final Stopwatch _sessionStopwatch = Stopwatch();
 
@@ -113,7 +110,6 @@ class _ConversationScreenState extends State<ConversationScreen>
     if (text.isEmpty) return;
     _textCtrl.clear();
     setState(() {
-      _hasUserSpokenThisTurn = true;
       _isKeyboardMode = false;
     });
     _textFocusNode.unfocus();
@@ -125,9 +121,6 @@ class _ConversationScreenState extends State<ConversationScreen>
     // If Zoe is speaking, stop her first then start listening
     if (chat.isSpeaking) {
       chat.stopSpeaking();
-    }
-    if (!chat.isListening) {
-      setState(() => _hasUserSpokenThisTurn = true);
     }
     chat.toggleListening();
   }
@@ -151,44 +144,111 @@ class _ConversationScreenState extends State<ConversationScreen>
     return '${min}m ${sec}s';
   }
 
-  void _showEndSheet(BuildContext context) {
+  void _navigateToEndScreen(BuildContext context) {
     final chat = context.read<ChatProvider>();
     final exchanges = _sessionExchanges(chat);
     final sessionType = _sessionTypeFromExchanges(exchanges);
     final duration = _durationLabel;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _EndSheet(
-        sessionType: sessionType,
-        onKeepTalking: () => Navigator.of(ctx).pop(),
-        onEnd: () {
-          Navigator.of(ctx).pop();
-          final analysisFuture = chat.analyzeConversationEnd();
-          Navigator.of(context).pushReplacement(
+    final analysisFuture = chat.analyzeConversationEnd();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => EndScreen(
+          topic: _headerTitle,
+          durationLabel: duration,
+          sessionType: sessionType,
+          quality: ConversationQuality.great,
+          analysisFuture: analysisFuture,
+          onTalkToZoe: () => Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (_) => EndScreen(
-                topic: _headerTitle,
-                durationLabel: duration,
-                sessionType: sessionType,
-                quality: ConversationQuality.great,
-                analysisFuture: analysisFuture,
-                onTalkToZoe: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => ConversationScreen(topic: widget.topic),
-                  ),
-                ),
-              ),
+              builder: (_) => ConversationScreen(topic: widget.topic),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
-  bool get _showScaffoldPills => !_hasUserSpokenThisTurn;
+  void _showEndSheet(BuildContext context) {
+    final chat = context.read<ChatProvider>();
+    final exchanges = _sessionExchanges(chat);
+    final sessionType = _sessionTypeFromExchanges(exchanges);
+
+    void onEnd(BuildContext ctx) {
+      Navigator.of(ctx).pop();
+      _navigateToEndScreen(context);
+    }
+
+    if (EllaResponsive.isWide(context)) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              child: _EndSheetContent(
+                sessionType: sessionType,
+                onKeepTalking: () => Navigator.of(ctx).pop(),
+                onEnd: () => onEnd(ctx),
+                showDragHandle: false,
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => _EndSheet(
+          sessionType: sessionType,
+          onKeepTalking: () => Navigator.of(ctx).pop(),
+          onEnd: () => onEnd(ctx),
+        ),
+      );
+    }
+  }
+
+  void _showFocusPanel(BuildContext context) {
+    if (EllaResponsive.isWide(context)) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: SizedBox(
+            width: 540,
+            child: _FocusPanel(
+              onDone: () => Navigator.of(ctx).pop(),
+              showDragHandle: false,
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          maxChildSize: 0.95,
+          minChildSize: 0.5,
+          builder: (sheetCtx, scrollCtrl) => _FocusPanel(
+            onDone: () => Navigator.of(ctx).pop(),
+            showDragHandle: true,
+            scrollController: scrollCtrl,
+          ),
+        ),
+      );
+    }
+  }
 
   List<_CaptionItem> _buildCaptionItems(ChatProvider chat) {
     final items = <_CaptionItem>[];
@@ -206,22 +266,29 @@ class _ConversationScreenState extends State<ConversationScreen>
               ? chat.currentTranscript
               : 'Listening…',
           isElla: false,
+          isLive: true,
         ),
       );
     }
     return items;
   }
 
-  void _maybeAutoScroll(int captionCount) {
+  void _maybeAutoScroll(int captionCount, {bool animated = true}) {
     if (captionCount == _lastCaptionCount) return;
     _lastCaptionCount = captionCount;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_captionScrollCtrl.hasClients) return;
-      _captionScrollCtrl.animateTo(
-        _captionScrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOut,
-      );
+      if (animated) {
+        _captionScrollCtrl.animateTo(
+          _captionScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _captionScrollCtrl.jumpTo(
+          _captionScrollCtrl.position.maxScrollExtent,
+        );
+      }
     });
   }
 
@@ -234,8 +301,20 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isWide = EllaResponsive.isWide(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final keyboardUp = bottomInset > 0;
+
+    // When keyboard appears, snap captions to bottom instantly
+    if (keyboardUp && !_wasKeyboardVisible) {
+      _wasKeyboardVisible = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_captionScrollCtrl.hasClients) return;
+        _captionScrollCtrl.jumpTo(_captionScrollCtrl.position.maxScrollExtent);
+      });
+    } else if (!keyboardUp && _wasKeyboardVisible) {
+      _wasKeyboardVisible = false;
+    }
 
     return PopScope(
       canPop: false,
@@ -253,11 +332,11 @@ class _ConversationScreenState extends State<ConversationScreen>
                 top: false,
           child: Consumer<ChatProvider>(
             builder: (_, chat, child) {
-              // Auto-end: fire once after Zoe finishes speaking the closing line
-              if (chat.conversationComplete && !chat.isSpeaking && !_didAutoEnd) {
+              // Auto-end: navigate directly to EndScreen (no confirmation sheet)
+              if (chat.conversationComplete && !chat.isSpeaking && !_didAutoEnd && !_isLoadingSession) {
                 _didAutoEnd = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _showEndSheet(context);
+                  if (mounted) _navigateToEndScreen(context);
                 });
               }
               return child!;
@@ -269,100 +348,116 @@ class _ConversationScreenState extends State<ConversationScreen>
           child: LayoutBuilder(
             builder: (context, constraints) {
               final fullHeight = constraints.maxHeight;
-              final shrinkMascot = keyboardUp;
+              // On wide screens there's no OS keyboard, so never shrink mascot
+              final shrinkMascot = isWide ? false : keyboardUp;
+
+              final contentColumn = Column(
+                children: [
+                  _buildAppBar(isWide),
+
+                  // Mascot zone: expands to 70% when captions off (centred),
+                  // 40% normal or 25% with keyboard when captions on
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeInOut,
+                    height: !_captionsEnabled
+                        ? fullHeight * 0.70
+                        : (shrinkMascot
+                            ? fullHeight * 0.25
+                            : fullHeight * 0.40),
+                    child: Center(
+                      child: _isLoadingSession
+                          ? _buildLoadingMascot(shrinkMascot)
+                          : Consumer<ChatProvider>(
+                              builder: (_, chat, _) => _ConversationMascot(
+                                mascotState: _mascotStateFrom(chat),
+                                size: !_captionsEnabled
+                                    ? 240.0
+                                    : (shrinkMascot ? 120.0 : 200.0),
+                              ),
+                            ),
+                    ),
+                  ),
+
+                  // Chat bubble list with top+bottom fade
+                  Expanded(
+                    child: Consumer<ChatProvider>(
+                      builder: (_, chat, _) {
+                        final captions = _buildCaptionItems(chat);
+                        _maybeAutoScroll(captions.length);
+                        if (!_captionsEnabled) return const SizedBox();
+                        return ShaderMask(
+                          blendMode: BlendMode.dstIn,
+                          shaderCallback: (Rect bounds) {
+                            return const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.white,
+                                Colors.white,
+                                Colors.transparent,
+                              ],
+                              stops: [0.0, 0.06, 0.88, 1.0],
+                            ).createShader(bounds);
+                          },
+                          child: RepaintBoundary(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: ScrollConfiguration(
+                                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                                child: ListView.separated(
+                                  controller: _captionScrollCtrl,
+                                  padding: const EdgeInsets.only(
+                                    top: 8,
+                                    bottom: 16,
+                                  ),
+                                  itemCount: captions.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 10),
+                                  itemBuilder: (_, index) {
+                                    final item = captions[index];
+                                    final hasUserReply = captions.any((c) => !c.isElla);
+                                    return _ConversationCaption(
+                                      key: ValueKey('${item.isElla}-${item.text.hashCode}-$index'),
+                                      text: item.text,
+                                      isElla: item.isElla,
+                                      isCentered: item.isElla && index == 0 && !hasUserReply,
+                                      animateIn: !item.isLive,
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  _buildInputBar(isWide),
+                ],
+              );
 
               return Stack(
                 children: [
-                  // Layer 1: Dashed grid background
+                  // Layer 1: Dashed grid background (full viewport)
                   Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(painter: _DashedGridPainter()),
                     ),
                   ),
-
-                  // Layer 2: Main content
-                  Column(
-                    children: [
-                      _buildAppBar(),
-
-                      // Mascot zone: expands to 70% when captions off (centred),
-                      // 40% normal or 25% with keyboard when captions on
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 350),
-                        curve: Curves.easeInOut,
-                        height: !_captionsEnabled
-                            ? fullHeight * 0.70
-                            : (shrinkMascot
-                                ? fullHeight * 0.25
-                                : fullHeight * 0.40),
-                        child: Center(
-                          child: _isLoadingSession
-                              ? _buildLoadingMascot(shrinkMascot)
-                              : Consumer<ChatProvider>(
-                                  builder: (_, chat, _) => _ConversationMascot(
-                                    mascotState: _mascotStateFrom(chat),
-                                    size: !_captionsEnabled
-                                        ? 240.0
-                                        : (shrinkMascot ? 120.0 : 200.0),
-                                  ),
-                                ),
-                        ),
-                      ),
-
-                      // Chat bubble list with top+bottom fade
-                      Expanded(
-                        child: Consumer<ChatProvider>(
-                          builder: (_, chat, _) {
-                            final captions = _buildCaptionItems(chat);
-                            _maybeAutoScroll(captions.length);
-                            if (!_captionsEnabled) return const SizedBox();
-                            return ShaderMask(
-                              blendMode: BlendMode.dstIn,
-                              shaderCallback: (Rect bounds) {
-                                return const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.white,
-                                    Colors.white,
-                                    Colors.transparent,
-                                  ],
-                                  stops: [0.0, 0.06, 0.88, 1.0],
-                                ).createShader(bounds);
-                              },
-                              child: RepaintBoundary(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                  ),
-                                  child: ListView.separated(
-                                    controller: _captionScrollCtrl,
-                                    padding: const EdgeInsets.only(
-                                      top: 8,
-                                      bottom: 16,
-                                    ),
-                                    itemCount: captions.length,
-                                    separatorBuilder: (_, _) =>
-                                        const SizedBox(height: 10),
-                                    itemBuilder: (_, index) =>
-                                        _ConversationCaption(
-                                          text: captions[index].text,
-                                          isElla: captions[index].isElla,
-                                        ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      if (_showScaffoldPills && !keyboardUp)
-                        _buildScaffoldPills(),
-                      _buildInputBar(),
-                    ],
-                  ),
+                  // Layer 2: Main content, constrained to 768px on wide
+                  isWide
+                      ? Center(
+                          child: SizedBox(
+                            width: 768,
+                            child: contentColumn,
+                          ),
+                        )
+                      : contentColumn,
                 ],
               );
             },
@@ -419,227 +514,260 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(bool isWide) {
     final topicLabel = _headerTitle.isEmpty ? 'Talk to Zoe' : _headerTitle;
+
+    final endButton = GestureDetector(
+      onTap: () => _showEndSheet(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: EllaColors.errorSurface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(20),
+            bottomRight: Radius.circular(4),
+            bottomLeft: Radius.circular(20),
+          ),
+          border: Border.all(
+            color: EllaColors.errorLight,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          'END',
+          style: GoogleFonts.baloo2(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: EllaColors.error,
+          ),
+        ),
+      ),
+    );
+
+    final focusButton = GestureDetector(
+      onTap: () => _showFocusPanel(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(100),
+          color: EllaColors.neutralBg,
+          border: Border.all(color: EllaColors.neutralBorder, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: EllaColors.neutralBorder,
+              offset: Offset(0, 3),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.tune_rounded,
+              size: 16,
+              color: EllaColors.neutralSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Focus Areas',
+              style: GoogleFonts.baloo2(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: EllaColors.neutralSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         children: [
+          endButton,
+          SizedBox(width: isWide ? 24 : 16),
           Expanded(
             child: Text(
               topicLabel,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Chillax',
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
                 color: EllaColors.neutralPrimary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          GestureDetector(
-            onTap: () => _showEndSheet(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: EllaColors.errorSurface,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  topRight: Radius.circular(20),
-                  bottomRight: Radius.circular(4),
-                  bottomLeft: Radius.circular(20),
-                ),
-                border: Border.all(
-                  color: EllaColors.errorLight,
-                  width: 1.5,
-                ),
-              ),
-              child: Text(
-                'END',
-                style: GoogleFonts.baloo2(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: EllaColors.error,
-                ),
-              ),
-            ),
-          ),
+          SizedBox(width: isWide ? 24 : 16),
+          focusButton,
         ],
       ),
     );
   }
 
-  Widget _buildScaffoldPills() {
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _scaffoldPills.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (_, i) => Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
-              boxShadow: const [
-                BoxShadow(
-                  color: EllaColors.mangoDark,
-                  offset: Offset(0, 3),
-                  blurRadius: 0,
-                ),
-              ],
-            ),
-            child: Text(
-              _scaffoldPills[i],
-              style: GoogleFonts.baloo2(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: EllaColors.neutralSecondary,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputBar() {
+  Widget _buildInputBar(bool isWide) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-      child: _isKeyboardMode ? _buildKeyboardRow() : _buildMicRow(),
+      child: _isKeyboardMode ? _buildKeyboardRow(isWide) : _buildMicRow(isWide),
     );
   }
 
-  Widget _buildMicRow() {
+  Widget _buildMicRow(bool isWide) {
     return Consumer<ChatProvider>(
       builder: (_, chat, _) {
         final isListening = chat.isListening;
         final isRecognizing = chat.isMicRecognizing;
+
+        final keyboardIcon = GestureDetector(
+          onTap: () {
+            setState(() => _isKeyboardMode = true);
+            Future.delayed(const Duration(milliseconds: 50), () {
+              if (mounted) _textFocusNode.requestFocus();
+            });
+          },
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: EllaColors.neutralSurface,
+              border: Border.all(
+                color: EllaColors.neutralBorder,
+                width: 1.5,
+              ),
+            ),
+            child: const Icon(
+              Icons.keyboard_alt_outlined,
+              size: 22,
+              color: EllaColors.neutralSecondary,
+            ),
+          ),
+        );
+
+        final micButton = GestureDetector(
+          onTap: _handleMicTap,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (isListening && isRecognizing)
+                const _MicPulseRing(color: EllaColors.mangoMain),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isListening && isRecognizing
+                      ? EllaColors.mangoDark
+                      : EllaColors.mangoMain,
+                  border: Border.all(
+                    color: EllaColors.mangoDark,
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: EllaColors.mangoDark,
+                      offset: isListening && isRecognizing
+                          ? const Offset(0, 1)
+                          : const Offset(0, 5),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: isListening && isRecognizing
+                    ? const WaveformIcon()
+                    : const Icon(
+                        Icons.mic_rounded,
+                        size: 28,
+                        color: Colors.white,
+                      ),
+              ),
+            ],
+          ),
+        );
+
+        final captionsIcon = GestureDetector(
+          onTap: () => setState(() => _captionsEnabled = !_captionsEnabled),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _captionsEnabled
+                  ? EllaColors.skyLightest
+                  : EllaColors.neutralSurface,
+              border: Border.all(
+                color: _captionsEnabled
+                    ? EllaColors.skyLight
+                    : EllaColors.neutralBorder,
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              _captionsEnabled
+                  ? Icons.subtitles_rounded
+                  : Icons.subtitles_off_rounded,
+              size: 22,
+              color: _captionsEnabled
+                  ? EllaColors.skyDark
+                  : EllaColors.neutralSecondary,
+            ),
+          ),
+        );
+
+        final label = Text(
+          isListening
+              ? (isRecognizing ? 'Listening...' : 'Tap to speak')
+              : 'Tap to speak',
+          style: GoogleFonts.inconsolata(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: EllaColors.neutralMuted,
+            letterSpacing: 0.8,
+          ),
+        );
+
+        if (isWide) {
+          // keyboard icon 48px left of mic, captions icon 48px right, all centred
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              label,
+              const SizedBox(height: 10),
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    keyboardIcon,
+                    const SizedBox(width: 48),
+                    micButton,
+                    const SizedBox(width: 48),
+                    captionsIcon,
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        // Mobile: Stack layout
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              isListening
-                  ? (isRecognizing ? 'Listening...' : 'Tap to speak')
-                  : 'Tap to speak',
-              style: GoogleFonts.inconsolata(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: EllaColors.neutralMuted,
-                letterSpacing: 0.8,
-              ),
-            ),
+            label,
             const SizedBox(height: 10),
             SizedBox(
               height: 64,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _isKeyboardMode = true);
-                        Future.delayed(const Duration(milliseconds: 50), () {
-                          if (mounted) _textFocusNode.requestFocus();
-                        });
-                      },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: EllaColors.neutralSurface,
-                          border: Border.all(
-                            color: EllaColors.neutralBorder,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.keyboard_alt_outlined,
-                          size: 22,
-                          color: EllaColors.neutralSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: GestureDetector(
-                      onTap: _handleMicTap,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          if (isListening && isRecognizing)
-                            const _MicPulseRing(color: EllaColors.mangoMain),
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isListening && isRecognizing
-                                  ? EllaColors.mangoDark
-                                  : EllaColors.mangoMain,
-                              border: Border.all(
-                                color: EllaColors.mangoDark,
-                                width: 2.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: EllaColors.mangoDark,
-                                  offset: isListening && isRecognizing
-                                      ? const Offset(0, 1)
-                                      : const Offset(0, 5),
-                                  blurRadius: 0,
-                                ),
-                              ],
-                            ),
-                            child: isListening && isRecognizing
-                                ? const WaveformIcon()
-                                : const Icon(
-                                    Icons.mic_rounded,
-                                    size: 28,
-                                    color: Colors.white,
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: () =>
-                          setState(() => _captionsEnabled = !_captionsEnabled),
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _captionsEnabled
-                              ? EllaColors.skyLightest
-                              : EllaColors.neutralSurface,
-                          border: Border.all(
-                            color: _captionsEnabled
-                                ? EllaColors.skyLight
-                                : EllaColors.neutralBorder,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Icon(
-                          _captionsEnabled
-                              ? Icons.subtitles_rounded
-                              : Icons.subtitles_off_rounded,
-                          size: 22,
-                          color: _captionsEnabled
-                              ? EllaColors.skyDark
-                              : EllaColors.neutralSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: keyboardIcon),
+                  Center(child: micButton),
+                  Align(alignment: Alignment.centerRight, child: captionsIcon),
                 ],
               ),
             ),
@@ -649,105 +777,114 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
   }
 
-  Widget _buildKeyboardRow() {
-    return Row(
+  Widget _buildKeyboardRow(bool isWide) {
+    final backButton = GestureDetector(
+      onTap: () {
+        setState(() => _isKeyboardMode = false);
+        _textFocusNode.unfocus();
+      },
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: EllaColors.neutralSurface,
+          border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
+        ),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          size: 22,
+          color: EllaColors.neutralSecondary,
+        ),
+      ),
+    );
+
+    final sendButton = GestureDetector(
+      onTap: _handleSend,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: EllaColors.mangoMain,
+          border: Border.all(color: EllaColors.mangoDark, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: EllaColors.mangoDark,
+              offset: Offset(0, 5),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.send_rounded,
+          size: 20,
+          color: Colors.white,
+        ),
+      ),
+    );
+
+    final textField = TextField(
+      controller: _textCtrl,
+      focusNode: _textFocusNode,
+      textInputAction: TextInputAction.send,
+      autofocus: true,
+      onSubmitted: (_) => _handleSend(),
+      style: GoogleFonts.baloo2(
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        color: EllaColors.neutralPrimary,
+      ),
+      decoration: InputDecoration(
+        hintText: 'Type your reply…',
+        hintStyle: GoogleFonts.baloo2(
+          fontSize: 15,
+          color: EllaColors.neutralMuted,
+        ),
+        filled: true,
+        fillColor: EllaColors.neutralSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(
+            color: EllaColors.neutralBorder,
+            width: 1.5,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(
+            color: EllaColors.neutralBorder,
+            width: 1.5,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(
+            color: EllaColors.skyMain,
+            width: 1.5,
+          ),
+        ),
+      ),
+    );
+
+    final row = Row(
       children: [
-        GestureDetector(
-          onTap: () {
-            setState(() => _isKeyboardMode = false);
-            _textFocusNode.unfocus();
-          },
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: EllaColors.neutralSurface,
-              border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
-            ),
-            child: const Icon(
-              Icons.arrow_back_rounded,
-              size: 22,
-              color: EllaColors.neutralSecondary,
-            ),
-          ),
-        ),
+        backButton,
         const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: _textCtrl,
-            focusNode: _textFocusNode,
-            textInputAction: TextInputAction.send,
-            autofocus: true,
-            onSubmitted: (_) => _handleSend(),
-            style: GoogleFonts.baloo2(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: EllaColors.neutralPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Type your reply…',
-              hintStyle: GoogleFonts.baloo2(
-                fontSize: 15,
-                color: EllaColors.neutralMuted,
-              ),
-              filled: true,
-              fillColor: EllaColors.neutralSurface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
-                borderSide: const BorderSide(
-                  color: EllaColors.neutralBorder,
-                  width: 1.5,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
-                borderSide: const BorderSide(
-                  color: EllaColors.neutralBorder,
-                  width: 1.5,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
-                borderSide: const BorderSide(
-                  color: EllaColors.skyMain,
-                  width: 1.5,
-                ),
-              ),
-            ),
-          ),
-        ),
+        Expanded(child: textField),
         const SizedBox(width: 8),
-        GestureDetector(
-          onTap: _handleSend,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: EllaColors.mangoMain,
-              border: Border.all(color: EllaColors.mangoDark, width: 2),
-              boxShadow: const [
-                BoxShadow(
-                  color: EllaColors.mangoDark,
-                  offset: Offset(0, 5),
-                  blurRadius: 0,
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.send_rounded,
-              size: 20,
-              color: Colors.white,
-            ),
-          ),
-        ),
+        sendButton,
       ],
     );
+
+    if (isWide) {
+      return Center(child: SizedBox(width: 760, child: row));
+    }
+    return row;
   }
 }
 
@@ -874,80 +1011,121 @@ class _ConversationMascotState extends State<_ConversationMascot> {
 class _ConversationCaption extends StatelessWidget {
   final String text;
   final bool isElla;
+  final bool isCentered;
+  final bool animateIn;
 
-  const _ConversationCaption({required this.text, required this.isElla});
+  const _ConversationCaption({
+    super.key,
+    required this.text,
+    required this.isElla,
+    this.isCentered = false,
+    this.animateIn = true,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: isElla ? Alignment.centerLeft : Alignment.centerRight,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.80,
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isElla ? EllaColors.skyLightest : EllaColors.mangoLightest,
-            borderRadius: isElla
-                ? const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  )
-                : const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(4),
-                  ),
-            border: Border.all(
-              color: isElla ? EllaColors.skyLight : EllaColors.mangoLight,
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
-                offset: const Offset(0, 4),
-                blurRadius: 0,
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isElla ? 'ZOE SAYS' : 'YOU SAY',
-                style: GoogleFonts.inconsolata(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
-                  letterSpacing: 0.8,
+    final bubble = ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: (EllaResponsive.isWide(context) ? 768.0 : MediaQuery.of(context).size.width) * 0.80,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isElla ? EllaColors.skyLightest : EllaColors.mangoLightest,
+          borderRadius: isElla
+              ? const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                )
+              : const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(4),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                text,
-                style: isElla
-                    ? GoogleFonts.kalam(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w400,
-                        color: EllaColors.skyDark,
-                        height: 1.4,
-                      )
-                    : GoogleFonts.baloo2(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: EllaColors.mangoDark,
-                        height: 1.4,
-                      ),
-              ),
-            ],
+          border: Border.all(
+            color: isElla ? EllaColors.skyLight : EllaColors.mangoLight,
+            width: 1.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
+              offset: const Offset(0, 4),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isElla ? 'ZOE SAYS' : 'YOU SAY',
+              style: GoogleFonts.inconsolata(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: isElla ? EllaColors.skyDark : EllaColors.mangoDark,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              text,
+              style: isElla
+                  ? GoogleFonts.kalam(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w400,
+                      color: EllaColors.skyDark,
+                      height: 1.4,
+                    )
+                  : GoogleFonts.baloo2(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: EllaColors.mangoDark,
+                      height: 1.4,
+                    ),
+            ),
+          ],
         ),
       ),
+    );
+
+    final alignment = isCentered
+        ? Alignment.center
+        : (isElla ? Alignment.centerLeft : Alignment.centerRight);
+
+    if (!animateIn) {
+      return AnimatedAlign(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOutCubic,
+        alignment: alignment,
+        child: bubble,
+      );
+    }
+
+    return TweenAnimationBuilder<double>(
+      key: key,
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        final slideX = isCentered ? 0.0 : (isElla ? -1 : 1) * (1 - value) * 40;
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(slideX, 10 * (1 - value)),
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeInOutCubic,
+              alignment: alignment,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: bubble,
     );
   }
 }
@@ -1012,6 +1190,111 @@ class _MicPulseRingState extends State<_MicPulseRing>
 
 // ─── End Sheet ───────────────────────────────────────────────────────────────
 
+// ─── End Sheet Content (shared between mobile bottom sheet and wide dialog) ────
+
+class _EndSheetContent extends StatelessWidget {
+  final SessionType sessionType;
+  final VoidCallback onKeepTalking;
+  final VoidCallback onEnd;
+  final bool showDragHandle;
+
+  const _EndSheetContent({
+    required this.sessionType,
+    required this.onKeepTalking,
+    required this.onEnd,
+    required this.showDragHandle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showDragHandle) ...[
+          const SizedBox(height: 12),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: EllaColors.neutralBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ] else
+          const SizedBox(height: 4),
+
+        // Header
+        const Text(
+          'Leaving the Conversation?',
+          style: TextStyle(
+            fontFamily: 'Chillax',
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: EllaColors.neutralPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          "I'm available to talk whenever you feel like it again",
+          style: GoogleFonts.baloo2(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: EllaColors.neutralSecondary,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // CTAs: END on left, KEEP TALKING on right
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            GestureDetector(
+              onTap: onEnd,
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  color: EllaColors.error,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(20),
+                    bottomRight: Radius.circular(4),
+                    bottomLeft: Radius.circular(20),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: EllaColors.roseDark,
+                      offset: Offset(0, 4),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    'END',
+                    style: GoogleFonts.baloo2(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _KeepTalkingButton(onTap: onKeepTalking),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _EndSheet extends StatelessWidget {
   final SessionType sessionType;
   final VoidCallback onKeepTalking;
@@ -1033,90 +1316,11 @@ class _EndSheet extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag handle
-            const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: EllaColors.neutralBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Header
-            const Text(
-              'Leaving the Conversation?',
-              style: TextStyle(
-                fontFamily: 'Chillax',
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: EllaColors.neutralPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "I'm available to talk whenever you feel like it again",
-              style: GoogleFonts.baloo2(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: EllaColors.neutralSecondary,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // CTAs: END on left, KEEP TALKING on right
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // End button — solid red
-                GestureDetector(
-                  onTap: onEnd,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 13,
-                    ),
-                    decoration: BoxDecoration(
-                      color: EllaColors.error,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(20),
-                        bottomRight: Radius.circular(4),
-                        bottomLeft: Radius.circular(20),
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: EllaColors.roseDark,
-                          offset: Offset(0, 4),
-                          blurRadius: 0,
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      'END',
-                      style: GoogleFonts.baloo2(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Keep talking — mango primary
-                _KeepTalkingButton(onTap: onKeepTalking),
-              ],
-            ),
-          ],
+        child: _EndSheetContent(
+          sessionType: sessionType,
+          onKeepTalking: onKeepTalking,
+          onEnd: onEnd,
+          showDragHandle: true,
         ),
       ),
     );
@@ -1150,7 +1354,8 @@ class _KeepTalkingButtonState extends State<_KeepTalkingButton> {
         duration: const Duration(milliseconds: 70),
         curve: Curves.ease,
         transform: Matrix4.translationValues(0, translateY, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topCenter,
@@ -1171,12 +1376,159 @@ class _KeepTalkingButtonState extends State<_KeepTalkingButton> {
             ),
           ],
         ),
-        child: Text(
-          'KEEP TALKING',
-          style: GoogleFonts.baloo2(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
+        child: Center(
+          child: Text(
+            'KEEP TALKING',
+            style: GoogleFonts.baloo2(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Focus Panel ──────────────────────────────────────────────────────────────
+
+class _FocusPanel extends StatefulWidget {
+  final VoidCallback onDone;
+  final bool showDragHandle;
+  final ScrollController? scrollController;
+
+  const _FocusPanel({
+    required this.onDone,
+    required this.showDragHandle,
+    this.scrollController,
+  });
+
+  @override
+  State<_FocusPanel> createState() => _FocusPanelState();
+}
+
+class _FocusPanelState extends State<_FocusPanel> {
+  late GrammarFocus _grammar;
+  late VocabFocus _vocab;
+  late FluencyFocus _fluency;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = context.read<ChatProvider>().focusSettings;
+    _grammar = settings.grammar;
+    _vocab = settings.vocabulary;
+    _fluency = settings.fluency;
+  }
+
+  void _save() {
+    context.read<ChatProvider>().updateFocusSettings(
+          FocusSettings(
+            grammar: _grammar,
+            vocabulary: _vocab,
+            fluency: _fluency,
+          ),
+        );
+    widget.onDone();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: EllaColors.neutralBg,
+        borderRadius: widget.showDragHandle
+            ? const BorderRadius.vertical(top: Radius.circular(24))
+            : BorderRadius.circular(24),
+      ),
+      child: SingleChildScrollView(
+        controller: widget.scrollController,
+        padding: const EdgeInsets.all(24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.showDragHandle) ...[
+                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: EllaColors.neutralBorder,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ] else
+                const SizedBox.shrink(),
+
+              const Text(
+                'Focus Areas',
+                style: TextStyle(
+                  fontFamily: 'Chillax',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: EllaColors.neutralPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Zoe will apply these from your next reply',
+                style: GoogleFonts.baloo2(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: EllaColors.neutralSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              FocusBlock<GrammarFocus>(
+                icon: Icons.spellcheck_rounded,
+                iconColor: EllaColors.skyMain,
+                title: 'Grammar',
+                subtitle: 'How Zoe handles your grammar errors',
+                values: GrammarFocus.values,
+                selected: _grammar,
+                onChanged: (v) => setState(() => _grammar = v),
+              ),
+              const SizedBox(height: 20),
+
+              FocusBlock<VocabFocus>(
+                icon: Icons.auto_stories_rounded,
+                iconColor: EllaColors.limeMain,
+                title: 'Vocabulary',
+                subtitle: 'How actively Zoe suggests new words',
+                values: VocabFocus.values,
+                selected: _vocab,
+                onChanged: (v) => setState(() => _vocab = v),
+              ),
+              const SizedBox(height: 20),
+
+              FocusBlock<FluencyFocus>(
+                icon: Icons.speed_rounded,
+                iconColor: EllaColors.mangoMain,
+                title: 'Fluency',
+                subtitle: 'How Zoe tracks your pace and fillers',
+                values: FluencyFocus.values,
+                selected: _fluency,
+                onChanged: (v) => setState(() => _fluency = v),
+              ),
+              const SizedBox(height: 48),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: EllaPrimaryButton(
+                  label: 'Update Settings',
+                  onTap: _save,
+                  height: 48,
+                ),
+              ),
+            ],
           ),
         ),
       ),

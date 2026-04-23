@@ -5,6 +5,8 @@ import '../models/end_result_analysis.dart';
 import '../models/focus_settings.dart';
 import '../models/latency_info.dart';
 import '../services/llm_service.dart';
+import '../services/llm_service_base.dart';
+import '../mock/mock_config.dart';
 import '../services/stt_service.dart';
 import '../services/continuous_stt_service.dart';
 import '../services/native_stt_service.dart';
@@ -12,11 +14,17 @@ import '../services/whisper_stt_service.dart';
 import '../services/tts_manager.dart';
 import '../services/tts_service.dart';
 import '../services/user_prefs_service.dart';
+import '../utils/name_formatting.dart';
 
 enum SttEngineType { system, continuous, whisper }
 
 class ChatProvider extends ChangeNotifier {
-  final LlmService _llm = LlmService();
+  final LlmServiceBase _llm;
+
+  ChatProvider({LlmServiceBase? llm}) : _llm = llm ?? createLlmService();
+
+  /// Exposes the LLM service so PlacementScreen can share the same instance.
+  LlmServiceBase get llmService => _llm;
   final SttService _stt = SttService();
   final ContinuousSttService _continuousStt = ContinuousSttService();
   final NativeSttService _nativeStt = NativeSttService();
@@ -51,6 +59,9 @@ class ChatProvider extends ChangeNotifier {
   // Focus settings & first-session tracking
   bool _hasCompletedFirstSession = false;
   FocusSettings _focusSettings = const FocusSettings.defaults();
+  // True when focus settings should be injected into the next LLM turn.
+  // Starts true so settings are always injected at session start.
+  bool _focusSettingsDirty = true;
 
   // Latency tracking
   DateTime? _sttStartTime; // when mic was tapped
@@ -95,13 +106,14 @@ class ChatProvider extends ChangeNotifier {
     String? level,
     String? levelLabel,
   }) {
-    _userName = name ?? _userName;
+    final normalizedName = name == null ? null : normalizeDisplayName(name);
+    _userName = normalizedName ?? _userName;
     _userAge = age ?? _userAge;
     _userLocation = location ?? _userLocation;
     _userLevel = level ?? _userLevel;
     _userLevelLabel = levelLabel ?? _userLevelLabel;
     _prefs.saveProfile(
-      name: name,
+      name: normalizedName,
       age: age,
       location: location,
       level: level,
@@ -122,18 +134,35 @@ class ChatProvider extends ChangeNotifier {
 
   void updateFocusSettings(FocusSettings settings) {
     _focusSettings = settings;
+    _focusSettingsDirty = true;
     _prefs.saveFocusSettings(settings);
     notifyListeners();
   }
 
-  // LLM provider info
-  LlmProvider get llmProvider => _llm.activeProvider;
-  List<LlmProvider> get availableLlmProviders => _llm.availableProviders;
-  String get llmProviderName => _llm.activeConfig.name;
-  String get llmModelName => _llm.activeConfig.model;
+  // LLM provider info (only meaningful when using the real LlmService)
+  LlmProvider get llmProvider {
+    final llm = _llm;
+    return llm is LlmService ? llm.activeProvider : LlmProvider.deepseek;
+  }
+
+  List<LlmProvider> get availableLlmProviders {
+    final llm = _llm;
+    return llm is LlmService ? llm.availableProviders : const [];
+  }
+
+  String get llmProviderName {
+    final llm = _llm;
+    return llm is LlmService ? llm.activeConfig.name : 'Mock';
+  }
+
+  String get llmModelName {
+    final llm = _llm;
+    return llm is LlmService ? llm.activeConfig.model : 'mock';
+  }
 
   void setLlmProvider(LlmProvider provider) {
-    _llm.setProvider(provider);
+    final llm = _llm;
+    if (llm is LlmService) llm.setProvider(provider);
     notifyListeners();
   }
 
@@ -205,6 +234,8 @@ class ChatProvider extends ChangeNotifier {
     _isSpeaking = false;
     _conversationComplete = false;
     _conversationTopic = topic?.trim().isEmpty ?? true ? null : topic;
+    // Reset dirty flag: focus settings will be injected into the starter prompt.
+    _focusSettingsDirty = false;
     notifyListeners();
 
     String starter;
@@ -426,16 +457,29 @@ class ChatProvider extends ChangeNotifier {
       final llmStart = DateTime.now();
       final turnNumber =
           _messages.where((m) => m.role == MessageRole.user).length;
+      // Inject focus settings only when dirty (changed since last send).
+      final focusToInject = _focusSettingsDirty ? _focusSettings : null;
+      _focusSettingsDirty = false;
       final result = await _llm.sendMessage(
         _messages,
         topic: _conversationTopic,
         level: _userLevel,
         levelLabel: _userLevelLabel,
         currentTurn: turnNumber,
-        focusSettings: _focusSettings,
+        focusSettings: focusToInject,
       );
       llmDuration = DateTime.now().difference(llmStart);
       final reply = result.message;
+
+      // Add bubble immediately so it appears before TTS starts
+      _messages.add(
+        ChatMessage(
+          role: reply.role,
+          content: reply.content,
+          correction: reply.correction,
+        ),
+      );
+      notifyListeners();
 
       // --- TTS ---
       if (_autoSpeak) {
@@ -462,15 +506,6 @@ class ChatProvider extends ChangeNotifier {
       );
 
       debugPrint('⏱ ${latency.summary}');
-
-      _messages.add(
-        ChatMessage(
-          role: reply.role,
-          content: reply.content,
-          correction: reply.correction,
-          latency: latency,
-        ),
-      );
     } catch (e) {
       final totalDuration = DateTime.now().difference(turnStart);
       final latency = LatencyInfo(
