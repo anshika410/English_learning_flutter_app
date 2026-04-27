@@ -122,6 +122,17 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> logout() async {
+    await _prefs.clearAll();
+    _userName = null;
+    _userAge = null;
+    _userLocation = null;
+    _userLevel = null;
+    _userLevelLabel = null;
+    _hasCompletedFirstSession = false;
+    notifyListeners();
+  }
+
   // Focus settings & first-session tracking
   bool get hasCompletedFirstSession => _hasCompletedFirstSession;
   FocusSettings get focusSettings => _focusSettings;

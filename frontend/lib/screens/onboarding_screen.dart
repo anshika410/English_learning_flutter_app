@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
+import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import '../theme/ella_responsive.dart';
 import '../utils/name_formatting.dart';
@@ -38,6 +40,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final TextEditingController _ageCtrl = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _ageFocus = FocusNode();
+  final TtsManager _tts = TtsManager();
 
   bool _nameValid = false;
   bool _ageValid = false;
@@ -66,11 +69,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       });
     });
     // Start idle mascot loop after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startIdleLoop());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startIdleLoop();
+      _speakQuestion();
+    });
     // Auto-focus name field after brief delay
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) _nameFocus.requestFocus();
     });
+  }
+
+  Future<void> _speakQuestion() async {
+    if (kIsWeb) return;
+    try {
+      await _tts.initialize();
+      final text = _step == _OnboardingStep.name
+          ? 'What should I call you?'
+          : 'Welcome ${normalizeDisplayName(_nameCtrl.text)}. How old are you?';
+      await _tts.speak(text);
+    } catch (_) {}
   }
 
   @override
@@ -102,6 +119,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _idleTimer?.cancel();
+    _tts.dispose();
     _nameCtrl.dispose();
     _ageCtrl.dispose();
     _nameFocus.dispose();
@@ -123,6 +141,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
     _nameFocus.unfocus();
     setState(() => _step = _OnboardingStep.age);
+    _speakQuestion();
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) _ageFocus.requestFocus();
     });

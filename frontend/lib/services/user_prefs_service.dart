@@ -76,4 +76,14 @@ class UserPrefsService {
   }
 
   bool get hasCompletedPlacement => _prefs.getString(_keyLevel) != null;
+
+  Future<void> clearAll() async {
+    await init();
+    await _prefs.remove(_keyName);
+    await _prefs.remove(_keyAge);
+    await _prefs.remove(_keyLocation);
+    await _prefs.remove(_keyLevel);
+    await _prefs.remove(_keyLevelLabel);
+    await _prefs.remove(_keyFirstSessionDone);
+  }
 }

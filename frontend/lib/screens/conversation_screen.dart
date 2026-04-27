@@ -25,7 +25,11 @@ class _CaptionItem {
   final bool isElla;
   final bool isLive;
 
-  const _CaptionItem({required this.text, required this.isElla, this.isLive = false});
+  const _CaptionItem({
+    required this.text,
+    required this.isElla,
+    this.isLive = false,
+  });
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -43,7 +47,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     with SingleTickerProviderStateMixin {
   bool _captionsEnabled = true;
   bool _isKeyboardMode = false;
-bool _didPrecacheMascotImages = false;
+  bool _didPrecacheMascotImages = false;
   bool _isLoadingSession = true;
   bool _didAutoEnd = false;
   bool _wasKeyboardVisible = false;
@@ -154,15 +158,11 @@ bool _didPrecacheMascotImages = false;
       MaterialPageRoute(
         builder: (_) => EndScreen(
           topic: _headerTitle,
+          retryTopic: widget.topic,
           durationLabel: duration,
           sessionType: sessionType,
           quality: ConversationQuality.great,
           analysisFuture: analysisFuture,
-          onTalkToZoe: () => Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => ConversationScreen(topic: widget.topic),
-            ),
-          ),
         ),
       ),
     );
@@ -236,14 +236,13 @@ bool _didPrecacheMascotImages = false;
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (ctx) => DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          maxChildSize: 0.95,
-          minChildSize: 0.5,
-          builder: (sheetCtx, scrollCtrl) => _FocusPanel(
+        builder: (ctx) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: _FocusPanel(
             onDone: () => Navigator.of(ctx).pop(),
             showDragHandle: true,
-            scrollController: scrollCtrl,
           ),
         ),
       );
@@ -285,9 +284,7 @@ bool _didPrecacheMascotImages = false;
           curve: Curves.easeOut,
         );
       } else {
-        _captionScrollCtrl.jumpTo(
-          _captionScrollCtrl.position.maxScrollExtent,
-        );
+        _captionScrollCtrl.jumpTo(_captionScrollCtrl.position.maxScrollExtent);
       }
     });
   }
@@ -330,146 +327,168 @@ bool _didPrecacheMascotImages = false;
             Expanded(
               child: SafeArea(
                 top: false,
-          child: Consumer<ChatProvider>(
-            builder: (_, chat, child) {
-              // Auto-end: navigate directly to EndScreen (no confirmation sheet)
-              if (chat.conversationComplete && !chat.isSpeaking && !_didAutoEnd && !_isLoadingSession) {
-                _didAutoEnd = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _navigateToEndScreen(context);
-                });
-              }
-              return child!;
-            },
-            child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final fullHeight = constraints.maxHeight;
-              // On wide screens there's no OS keyboard, so never shrink mascot
-              final shrinkMascot = isWide ? false : keyboardUp;
+                child: Consumer<ChatProvider>(
+                  builder: (_, chat, child) {
+                    // Auto-end: navigate directly to EndScreen (no confirmation sheet)
+                    if (chat.conversationComplete &&
+                        !chat.isSpeaking &&
+                        !_didAutoEnd &&
+                        !_isLoadingSession) {
+                      _didAutoEnd = true;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _navigateToEndScreen(context);
+                      });
+                    }
+                    return child!;
+                  },
+                  child: AnimatedPadding(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.only(bottom: bottomInset),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final fullHeight = constraints.maxHeight;
+                        // On wide screens there's no OS keyboard, so never shrink mascot
+                        final shrinkMascot = isWide ? false : keyboardUp;
 
-              final contentColumn = Column(
-                children: [
-                  _buildAppBar(isWide),
+                        final contentColumn = Column(
+                          children: [
+                            _buildAppBar(isWide),
 
-                  // Mascot zone: expands to 70% when captions off (centred),
-                  // 40% normal or 25% with keyboard when captions on
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeInOut,
-                    height: !_captionsEnabled
-                        ? fullHeight * 0.70
-                        : (shrinkMascot
-                            ? fullHeight * 0.25
-                            : fullHeight * 0.40),
-                    child: Center(
-                      child: _isLoadingSession
-                          ? _buildLoadingMascot(shrinkMascot)
-                          : Consumer<ChatProvider>(
-                              builder: (_, chat, _) => _ConversationMascot(
-                                mascotState: _mascotStateFrom(chat),
-                                size: !_captionsEnabled
-                                    ? 240.0
-                                    : (shrinkMascot ? 120.0 : 200.0),
+                            // Mascot zone: expands to 70% when captions off (centred),
+                            // 40% normal or 25% with keyboard when captions on
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 350),
+                              curve: Curves.easeInOut,
+                              height: !_captionsEnabled
+                                  ? fullHeight * 0.70
+                                  : (shrinkMascot
+                                        ? fullHeight * 0.25
+                                        : fullHeight * 0.40),
+                              child: Center(
+                                child: _isLoadingSession
+                                    ? _buildLoadingMascot(shrinkMascot)
+                                    : Consumer<ChatProvider>(
+                                        builder: (_, chat, _) =>
+                                            _ConversationMascot(
+                                              mascotState: _mascotStateFrom(
+                                                chat,
+                                              ),
+                                              size: !_captionsEnabled
+                                                  ? 240.0
+                                                  : (shrinkMascot
+                                                        ? 120.0
+                                                        : 200.0),
+                                            ),
+                                      ),
                               ),
                             ),
-                    ),
-                  ),
 
-                  // Chat bubble list with top+bottom fade
-                  Expanded(
-                    child: Consumer<ChatProvider>(
-                      builder: (_, chat, _) {
-                        final captions = _buildCaptionItems(chat);
-                        _maybeAutoScroll(captions.length);
-                        if (!_captionsEnabled) return const SizedBox();
-                        return ShaderMask(
-                          blendMode: BlendMode.dstIn,
-                          shaderCallback: (Rect bounds) {
-                            return const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.white,
-                                Colors.white,
-                                Colors.transparent,
-                              ],
-                              stops: [0.0, 0.06, 0.88, 1.0],
-                            ).createShader(bounds);
-                          },
-                          child: RepaintBoundary(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
+                            // Chat bubble list with top+bottom fade
+                            Expanded(
+                              child: Consumer<ChatProvider>(
+                                builder: (_, chat, _) {
+                                  final captions = _buildCaptionItems(chat);
+                                  _maybeAutoScroll(captions.length);
+                                  if (!_captionsEnabled) {
+                                    return const SizedBox();
+                                  }
+                                  return ShaderMask(
+                                    blendMode: BlendMode.dstIn,
+                                    shaderCallback: (Rect bounds) {
+                                      return const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.white,
+                                          Colors.white,
+                                          Colors.transparent,
+                                        ],
+                                        stops: [0.0, 0.06, 0.88, 1.0],
+                                      ).createShader(bounds);
+                                    },
+                                    child: RepaintBoundary(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                        ),
+                                        child: ScrollConfiguration(
+                                          behavior: ScrollConfiguration.of(
+                                            context,
+                                          ).copyWith(scrollbars: false),
+                                          child: ListView.separated(
+                                            controller: _captionScrollCtrl,
+                                            padding: const EdgeInsets.only(
+                                              top: 8,
+                                              bottom: 16,
+                                            ),
+                                            itemCount: captions.length,
+                                            separatorBuilder: (_, _) =>
+                                                const SizedBox(height: 10),
+                                            itemBuilder: (_, index) {
+                                              final item = captions[index];
+                                              final hasUserReply = captions.any(
+                                                (c) => !c.isElla,
+                                              );
+                                              return _ConversationCaption(
+                                                key: ValueKey(
+                                                  '${item.isElla}-${item.text.hashCode}-$index',
+                                                ),
+                                                text: item.text,
+                                                isElla: item.isElla,
+                                                isCentered:
+                                                    isWide &&
+                                                    item.isElla &&
+                                                    index == 0 &&
+                                                    !hasUserReply,
+                                                animateIn: !item.isLive,
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                              child: ScrollConfiguration(
-                                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                                child: ListView.separated(
-                                  controller: _captionScrollCtrl,
-                                  padding: const EdgeInsets.only(
-                                    top: 8,
-                                    bottom: 16,
-                                  ),
-                                  itemCount: captions.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 10),
-                                  itemBuilder: (_, index) {
-                                    final item = captions[index];
-                                    final hasUserReply = captions.any((c) => !c.isElla);
-                                    return _ConversationCaption(
-                                      key: ValueKey('${item.isElla}-${item.text.hashCode}-$index'),
-                                      text: item.text,
-                                      isElla: item.isElla,
-                                      isCentered: item.isElla && index == 0 && !hasUserReply,
-                                      animateIn: !item.isLive,
-                                    );
-                                  },
+                            ),
+
+                            _buildInputBar(isWide),
+                          ],
+                        );
+
+                        return Stack(
+                          children: [
+                            // Layer 1: Dashed grid background (full viewport)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: CustomPaint(
+                                  painter: _DashedGridPainter(),
                                 ),
                               ),
                             ),
-                          ),
+                            // Layer 2: Main content, constrained to 768px on wide
+                            isWide
+                                ? Center(
+                                    child: SizedBox(
+                                      width: 768,
+                                      child: contentColumn,
+                                    ),
+                                  )
+                                : contentColumn,
+                          ],
                         );
                       },
-                    ),
-                  ),
-
-                  _buildInputBar(isWide),
-                ],
-              );
-
-              return Stack(
-                children: [
-                  // Layer 1: Dashed grid background (full viewport)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: CustomPaint(painter: _DashedGridPainter()),
-                    ),
-                  ),
-                  // Layer 2: Main content, constrained to 768px on wide
-                  isWide
-                      ? Center(
-                          child: SizedBox(
-                            width: 768,
-                            child: contentColumn,
-                          ),
-                        )
-                      : contentColumn,
-                ],
-              );
-            },
-          ),        // LayoutBuilder
-        ),          // AnimatedPadding
-      ),            // Consumer
-        ),          // SafeArea
-      ),            // Expanded
-    ],
-  ),               // Column body
-),                 // Scaffold
-);                 // PopScope / return
+                    ), // LayoutBuilder
+                  ), // AnimatedPadding
+                ), // Consumer
+              ), // SafeArea
+            ), // Expanded
+          ],
+        ), // Column body
+      ), // Scaffold
+    ); // PopScope / return
   }
 
   Widget _buildLoadingMascot(bool shrinkMascot) {
@@ -495,7 +514,8 @@ bool _didPrecacheMascotImages = false;
             child: Image.asset(
               'assets/mascot-animations/juggling.webp',
               fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+              errorBuilder: (context, error, stackTrace) =>
+                  const SizedBox.shrink(),
             ),
           ),
         ),
@@ -529,10 +549,7 @@ bool _didPrecacheMascotImages = false;
             bottomRight: Radius.circular(4),
             bottomLeft: Radius.circular(20),
           ),
-          border: Border.all(
-            color: EllaColors.errorLight,
-            width: 1.5,
-          ),
+          border: Border.all(color: EllaColors.errorLight, width: 1.5),
         ),
         child: Text(
           'END',
@@ -585,25 +602,22 @@ bool _didPrecacheMascotImages = false;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          endButton,
-          SizedBox(width: isWide ? 24 : 16),
-          Expanded(
-            child: Text(
-              topicLabel,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Chillax',
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: EllaColors.neutralPrimary,
-              ),
-              overflow: TextOverflow.ellipsis,
+          Row(children: [endButton, const Spacer(), focusButton]),
+          const SizedBox(height: 10),
+          Text(
+            topicLabel,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Chillax',
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: EllaColors.neutralPrimary,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          SizedBox(width: isWide ? 24 : 16),
-          focusButton,
         ],
       ),
     );
@@ -635,10 +649,7 @@ bool _didPrecacheMascotImages = false;
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: EllaColors.neutralSurface,
-              border: Border.all(
-                color: EllaColors.neutralBorder,
-                width: 1.5,
-              ),
+              border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
             ),
             child: const Icon(
               Icons.keyboard_alt_outlined,
@@ -663,10 +674,7 @@ bool _didPrecacheMascotImages = false;
                   color: isListening && isRecognizing
                       ? EllaColors.mangoDark
                       : EllaColors.mangoMain,
-                  border: Border.all(
-                    color: EllaColors.mangoDark,
-                    width: 2.5,
-                  ),
+                  border: Border.all(color: EllaColors.mangoDark, width: 2.5),
                   boxShadow: [
                     BoxShadow(
                       color: EllaColors.mangoDark,
@@ -816,11 +824,7 @@ bool _didPrecacheMascotImages = false;
             ),
           ],
         ),
-        child: const Icon(
-          Icons.send_rounded,
-          size: 20,
-          color: Colors.white,
-        ),
+        child: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
       ),
     );
 
@@ -863,10 +867,7 @@ bool _didPrecacheMascotImages = false;
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(
-            color: EllaColors.skyMain,
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: EllaColors.skyMain, width: 1.5),
         ),
       ),
     );
@@ -894,10 +895,7 @@ class _ConversationMascot extends StatefulWidget {
   final _MascotState mascotState;
   final double size;
 
-  const _ConversationMascot({
-    required this.mascotState,
-    required this.size,
-  });
+  const _ConversationMascot({required this.mascotState, required this.size});
 
   @override
   State<_ConversationMascot> createState() => _ConversationMascotState();
@@ -997,7 +995,8 @@ class _ConversationMascotState extends State<_ConversationMascot> {
             _assetPath,
             key: ValueKey<String>(_assetPath),
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+            errorBuilder: (context, error, stackTrace) =>
+                const SizedBox.shrink(),
             alignment: Alignment.center,
           ),
         ),
@@ -1026,7 +1025,11 @@ class _ConversationCaption extends StatelessWidget {
   Widget build(BuildContext context) {
     final bubble = ConstrainedBox(
       constraints: BoxConstraints(
-        maxWidth: (EllaResponsive.isWide(context) ? 768.0 : MediaQuery.of(context).size.width) * 0.80,
+        maxWidth:
+            (EllaResponsive.isWide(context)
+                ? 768.0
+                : MediaQuery.of(context).size.width) *
+            0.80,
       ),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -1396,13 +1399,8 @@ class _KeepTalkingButtonState extends State<_KeepTalkingButton> {
 class _FocusPanel extends StatefulWidget {
   final VoidCallback onDone;
   final bool showDragHandle;
-  final ScrollController? scrollController;
 
-  const _FocusPanel({
-    required this.onDone,
-    required this.showDragHandle,
-    this.scrollController,
-  });
+  const _FocusPanel({required this.onDone, required this.showDragHandle});
 
   @override
   State<_FocusPanel> createState() => _FocusPanelState();
@@ -1424,12 +1422,8 @@ class _FocusPanelState extends State<_FocusPanel> {
 
   void _save() {
     context.read<ChatProvider>().updateFocusSettings(
-          FocusSettings(
-            grammar: _grammar,
-            vocabulary: _vocab,
-            fluency: _fluency,
-          ),
-        );
+      FocusSettings(grammar: _grammar, vocabulary: _vocab, fluency: _fluency),
+    );
     widget.onDone();
   }
 
@@ -1443,7 +1437,6 @@ class _FocusPanelState extends State<_FocusPanel> {
             : BorderRadius.circular(24),
       ),
       child: SingleChildScrollView(
-        controller: widget.scrollController,
         padding: const EdgeInsets.all(24),
         child: SafeArea(
           top: false,
@@ -1496,7 +1489,7 @@ class _FocusPanelState extends State<_FocusPanel> {
                 selected: _grammar,
                 onChanged: (v) => setState(() => _grammar = v),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               FocusBlock<VocabFocus>(
                 icon: Icons.auto_stories_rounded,
@@ -1507,7 +1500,7 @@ class _FocusPanelState extends State<_FocusPanel> {
                 selected: _vocab,
                 onChanged: (v) => setState(() => _vocab = v),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               FocusBlock<FluencyFocus>(
                 icon: Icons.speed_rounded,
@@ -1518,7 +1511,7 @@ class _FocusPanelState extends State<_FocusPanel> {
                 selected: _fluency,
                 onChanged: (v) => setState(() => _fluency = v),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 24),
 
               Align(
                 alignment: Alignment.centerRight,

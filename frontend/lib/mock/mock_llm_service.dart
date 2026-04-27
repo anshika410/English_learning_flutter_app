@@ -24,8 +24,7 @@ class MockLlmService implements LlmServiceBase {
   @override
   Future<PlacementMessageResult> sendPlacementMessage(
     List<Map<String, String>> messages, {
-    String promptPath =
-        'assets/prompts/placement-check-adaptive-friendly.md',
+    String promptPath = 'assets/prompts/placement-check-adaptive-friendly.md',
     String userName = 'there',
     String userAge = '15',
   }) async {
@@ -34,9 +33,7 @@ class MockLlmService implements LlmServiceBase {
     final userTurnCount = messages.where((m) => m['role'] == 'user').length;
 
     if (userTurnCount < _placementQuestions.length) {
-      return PlacementMessageResult.reply(
-        _placementQuestions[userTurnCount],
-      );
+      return PlacementMessageResult.reply(_placementQuestions[userTurnCount]);
     }
 
     return const PlacementMessageResult.complete(
@@ -53,11 +50,11 @@ class MockLlmService implements LlmServiceBase {
     String? topic,
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
-    final effectiveTopic =
-        (topic == null || topic.trim().isEmpty) ? 'Technology' : topic.trim();
+    final effectiveTopic = (topic == null || topic.trim().isEmpty)
+        ? 'Technology'
+        : topic.trim();
     return (
-      starter:
-          "Let's talk about $effectiveTopic! Do you use your phone a lot?",
+      starter: "Let's talk about $effectiveTopic! Do you use your phone a lot?",
       headerTitle: effectiveTopic,
     );
   }
@@ -102,10 +99,10 @@ class MockLlmService implements LlmServiceBase {
 
     // ChatProvider appends the user message before calling sendMessage,
     // so user turn count reflects the message just sent.
-    final userTurnCount =
-        history.where((m) => m.role == MessageRole.user).length;
-    final index =
-        (userTurnCount - 1).clamp(0, _conversationReplies.length - 1);
+    final userTurnCount = history
+        .where((m) => m.role == MessageRole.user)
+        .length;
+    final index = (userTurnCount - 1).clamp(0, _conversationReplies.length - 1);
     final scripted = _conversationReplies[index];
 
     final message = ChatMessage(
@@ -138,8 +135,9 @@ class MockLlmService implements LlmServiceBase {
       courageOrMotivationContent:
           "You kept going even when you weren't sure of the word — that takes real courage!",
       tryNextTimeSkill: "connecting ideas with 'because'",
-      tryNextTimeExample:
-          "I like this app because it helps me learn English.",
+      tryNextTimeExample: "I like this app because it helps me learn English.",
+      wordOfDay: 'technology',
+      wordOfDayLabel: 'noun · used repeatedly today',
       transcriptNotes: [
         EndResultTranscriptNote(
           speaker: 'student',

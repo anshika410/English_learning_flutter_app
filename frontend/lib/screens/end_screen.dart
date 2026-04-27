@@ -29,11 +29,7 @@ enum SessionType {
 
 // ─── Conversation Quality ─────────────────────────────────────────────────────
 
-enum ConversationQuality {
-  great,
-  okayish,
-  struggling,
-}
+enum ConversationQuality { great, okayish, struggling }
 
 // ─── Session Summary ──────────────────────────────────────────────────────────
 
@@ -69,8 +65,7 @@ class SessionSummary {
           wordOfSession: 'usually',
           wordType: 'adverb · used ×3 today',
           wordIsTryMode: false,
-          courageText:
-              'First time trying the past perfect — and you nailed it',
+          courageText: 'First time trying the past perfect — and you nailed it',
           habitText: null,
           stickyLabel: 'One thing to try next time',
           stickyText: 'Irregular past tense — "I ate" not "I eated"',
@@ -96,8 +91,7 @@ class SessionSummary {
           wordType: 'try using this next time',
           wordIsTryMode: true,
           courageText: null,
-          habitText:
-              'Coming back tomorrow matters more than today\'s mistakes',
+          habitText: 'Coming back tomorrow matters more than today\'s mistakes',
           stickyLabel: 'One thing to try next time',
           stickyText:
               'Slow down a little — one clear sentence is better than three rushed ones',
@@ -146,23 +140,22 @@ final List<_TranscriptEntry> _mockTranscript = [
 
 class EndScreen extends StatelessWidget {
   final String topic;
+  final String? retryTopic;
   final String durationLabel;
   final SessionType sessionType;
   final ConversationQuality quality;
   final SessionSummary? summary;
   final Future<EndResultAnalysis?>? analysisFuture;
 
-  final VoidCallback? onTalkToZoe;
-
   const EndScreen({
     super.key,
     required this.topic,
+    this.retryTopic,
     required this.durationLabel,
     this.sessionType = SessionType.full,
     this.quality = ConversationQuality.great,
     this.summary,
     this.analysisFuture,
-    this.onTalkToZoe,
   });
 
   void _showTranscriptSheet(
@@ -172,20 +165,24 @@ class EndScreen extends StatelessWidget {
     final messages = context.read<ChatProvider>().messages;
 
     final entries = messages
-        .where((m) =>
-            m.role == MessageRole.user || m.role == MessageRole.assistant)
+        .where(
+          (m) => m.role == MessageRole.user || m.role == MessageRole.assistant,
+        )
         .map((m) {
-      final isElla = m.role == MessageRole.assistant;
-      String? note;
-      if (!isElla) {
-        final match = transcriptNotes.where((n) =>
-            n.speaker == 'student' &&
-            n.note != null &&
-            m.content.contains(n.text.split(' ').first));
-        if (match.isNotEmpty) note = match.first.note;
-      }
-      return _TranscriptEntry(isElla, m.content, correction: note);
-    }).toList();
+          final isElla = m.role == MessageRole.assistant;
+          String? note;
+          if (!isElla) {
+            final match = transcriptNotes.where(
+              (n) =>
+                  n.speaker == 'student' &&
+                  n.note != null &&
+                  m.content.contains(n.text.split(' ').first),
+            );
+            if (match.isNotEmpty) note = match.first.note;
+          }
+          return _TranscriptEntry(isElla, m.content, correction: note);
+        })
+        .toList();
 
     final displayEntries = entries.isEmpty ? _mockTranscript : entries;
 
@@ -266,82 +263,103 @@ class EndScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
       body: SafeArea(
-        child: Center(
+        child: SizedBox.expand(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: EllaColors.zoeMintLight,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: EllaColors.neutralMuted.withValues(alpha: 0.40),
-                      offset: const Offset(0, 6),
-                      blurRadius: 0,
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 200,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            color: EllaColors.zoeMintLight,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: EllaColors.neutralMuted.withValues(
+                                  alpha: 0.40,
+                                ),
+                                offset: const Offset(0, 6),
+                                blurRadius: 0,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                offset: const Offset(0, 3),
+                                blurRadius: 14,
+                              ),
+                            ],
+                          ),
+                          child: const ClipOval(
+                            child: _ZoeMascotAnimator(size: 200),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'Looks like we lost you there.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Chillax',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              color: EllaColors.neutralPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'No chat happened — that\'s okay. Want to try a fresh start?',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.baloo2(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: EllaColors.neutralSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      offset: const Offset(0, 3),
-                      blurRadius: 14,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _GhostButton(
+                        label: 'PICK NEW TOPIC',
+                        onTap: () => _pickNewTopic(context),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: EllaPrimaryButton(
+                        label: 'TRY AGAIN',
+                        onTap: () {
+                          final restartTopic = retryTopic ?? topic;
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ConversationScreen(topic: restartTopic),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
-                child: ClipOval(
-                  child: const _ZoeMascotAnimator(size: 200),
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                'Looks like we lost you there.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Chillax',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color: EllaColors.neutralPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Text(
-                  'No chat happened — that\'s okay. Want to try a fresh start?',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.baloo2(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: EllaColors.neutralSecondary,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: _GhostButton(
-                      label: 'PICK NEW TOPIC',
-                      onTap: () => _goToHome(context),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: EllaPrimaryButton(
-                      label: 'TRY AGAIN',
-                      onTap: onTalkToZoe ?? () => Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (_) => ConversationScreen(topic: topic),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -370,7 +388,8 @@ class EndScreen extends StatelessWidget {
             notes = analysis.transcriptNotes;
           } else {
             effectiveQuality = quality;
-            effectiveSummary = summary ?? SessionSummary.mockForQuality(quality);
+            effectiveSummary =
+                summary ?? SessionSummary.mockForQuality(quality);
           }
           return _buildSummaryScaffold(
             context,
@@ -441,7 +460,8 @@ class EndScreen extends StatelessWidget {
                       child: Image.asset(
                         'assets/mascot-animations/juggling.webp',
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -486,9 +506,8 @@ class EndScreen extends StatelessWidget {
         : 24.0;
 
     // Courage text: always show for all quality states
-    final courageText = effectiveSummary.courageText ??
-        effectiveSummary.habitText ??
-        '';
+    final courageText =
+        effectiveSummary.courageText ?? effectiveSummary.habitText ?? '';
 
     return Scaffold(
       body: Stack(
@@ -496,17 +515,20 @@ class EndScreen extends StatelessWidget {
           const Positioned.fill(child: _GradientGridBackground()),
           CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(
-                child: _SummaryHeaderCard(
-                  headline: displayHeadline,
-                  emoji: emoji,
-                  durationLabel: durationLabel,
-                  topic: topic,
-                  isWide: isWide,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SummaryHeaderDelegate(
+                  child: _SummaryHeaderCard(
+                    headline: displayHeadline,
+                    emoji: emoji,
+                    durationLabel: durationLabel,
+                    topic: topic,
+                    isWide: isWide,
+                  ),
                 ),
               ),
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(sidePad, 48, sidePad, 16),
+                padding: EdgeInsets.fromLTRB(sidePad, 32, sidePad, 16),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // Best Moment + Courage side by side
@@ -540,6 +562,7 @@ class EndScreen extends StatelessWidget {
                       wordLabel: effectiveSummary.wordType,
                       isTryMode: effectiveSummary.wordIsTryMode,
                       transcriptNotes: transcriptNotes,
+                      isWide: isWide,
                     ),
                     const SizedBox(height: 48),
 
@@ -578,10 +601,7 @@ class EndScreen extends StatelessWidget {
     required ConversationQuality quality,
   }) {
     final bestCard = _QuoteBalloon(text: bestMoment);
-    final courageCard = _CourageCard(
-      text: courageText,
-      quality: quality,
-    );
+    final courageCard = _CourageCard(text: courageText, quality: quality);
 
     if (isWide) {
       return IntrinsicHeight(
@@ -598,11 +618,7 @@ class EndScreen extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        bestCard,
-        const SizedBox(height: 16),
-        courageCard,
-      ],
+      children: [bestCard, const SizedBox(height: 16), courageCard],
     );
   }
 
@@ -612,6 +628,7 @@ class EndScreen extends StatelessWidget {
     required String? wordLabel,
     required bool isTryMode,
     required List<EndResultTranscriptNote> transcriptNotes,
+    required bool isWide,
   }) {
     final transcriptLink = _TranscriptLink(
       onTap: () => _showTranscriptSheet(context, transcriptNotes),
@@ -621,21 +638,31 @@ class EndScreen extends StatelessWidget {
       return Center(child: transcriptLink);
     }
 
-    return Center(
-      child: IntrinsicWidth(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _WordOfDaySection(
-              word: word,
-              subText: wordLabel ?? '',
-              isTryMode: isTryMode,
-            ),
-            const SizedBox(width: 48),
-            transcriptLink,
-          ],
-        ),
-      ),
+    final wordSection = _WordOfDaySection(
+      word: word,
+      subText: wordLabel ?? '',
+      isTryMode: isTryMode,
+    );
+
+    if (isWide) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          wordSection,
+          const SizedBox(width: 24),
+          transcriptLink,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: wordSection),
+        const SizedBox(width: 24),
+        transcriptLink,
+      ],
     );
   }
 }
@@ -663,10 +690,7 @@ class _GradientGridBackground extends StatelessWidget {
             ),
           ),
         ),
-        CustomPaint(
-          painter: _GridPainter(),
-          child: const SizedBox.expand(),
-        ),
+        CustomPaint(painter: _GridPainter(), child: const SizedBox.expand()),
       ],
     );
   }
@@ -685,14 +709,35 @@ class _GridPainter extends CustomPainter {
     const gapLen = 5.0;
 
     for (double x = 0; x <= size.width; x += spacing) {
-      _drawDashedLine(canvas, paint, Offset(x, 0), Offset(x, size.height), dashLen, gapLen);
+      _drawDashedLine(
+        canvas,
+        paint,
+        Offset(x, 0),
+        Offset(x, size.height),
+        dashLen,
+        gapLen,
+      );
     }
     for (double y = 0; y <= size.height; y += spacing) {
-      _drawDashedLine(canvas, paint, Offset(0, y), Offset(size.width, y), dashLen, gapLen);
+      _drawDashedLine(
+        canvas,
+        paint,
+        Offset(0, y),
+        Offset(size.width, y),
+        dashLen,
+        gapLen,
+      );
     }
   }
 
-  void _drawDashedLine(Canvas canvas, Paint paint, Offset start, Offset end, double dashLen, double gapLen) {
+  void _drawDashedLine(
+    Canvas canvas,
+    Paint paint,
+    Offset start,
+    Offset end,
+    double dashLen,
+    double gapLen,
+  ) {
     final dx = end.dx - start.dx;
     final dy = end.dy - start.dy;
     final len = Offset(dx, dy).distance;
@@ -742,9 +787,7 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
   @override
   void initState() {
     super.initState();
-    _confettiCtrl = ConfettiController(
-      duration: const Duration(seconds: 3),
-    );
+    _confettiCtrl = ConfettiController(duration: const Duration(seconds: 3));
     _confettiCtrl.play();
   }
 
@@ -756,7 +799,7 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
 
   @override
   Widget build(BuildContext context) {
-    const mascotSize = 200.0;
+    const mascotSize = 120.0;
 
     return Container(
       width: double.infinity,
@@ -794,17 +837,16 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
             ),
           ),
 
-          // Header content: Zoe left, text right — centered as a group
+          // Header content: mascot top-center, text below
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-              child: Center(
-                child: IntrinsicWidth(
-                  child: Row(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Zoe mascot circle
+                  // Zoe mascot — 120×120, centered
                   Container(
                     width: mascotSize,
                     height: mascotSize,
@@ -823,74 +865,52 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
                       child: _ZoeMascotAnimator(size: mascotSize),
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  const SizedBox(height: 16),
 
-                  // Text column
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // SESSION COMPLETE eyebrow
-                        Text(
-                          'SESSION COMPLETE',
-                          style: GoogleFonts.inconsolata(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2,
-                            color: EllaColors.mangoDark.withValues(alpha: 0.70),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Emoji + headline
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.emoji,
-                              style: TextStyle(
-                                fontSize: widget.isWide ? 28 : 22,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                widget.headline,
-                                style: TextStyle(
-                                  fontFamily: 'Chillax',
-                                  fontSize: widget.isWide ? 28 : 22,
-                                  fontWeight: FontWeight.w700,
-                                  color: EllaColors.neutralPrimary,
-                                  height: 1.2,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Duration + topic chips
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            _MetaChip(
-                              icon: Icons.schedule_rounded,
-                              label: 'Duration · ${widget.durationLabel}',
-                            ),
-                            _MetaChip(
-                              icon: Icons.chat_bubble_outline_rounded,
-                              label: 'Topic · ${widget.topic}',
-                            ),
-                          ],
-                        ),
-                      ],
+                  // SESSION COMPLETE eyebrow
+                  Text(
+                    'SESSION COMPLETE',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inconsolata(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                      color: EllaColors.mangoDark.withValues(alpha: 0.70),
                     ),
                   ),
+                  const SizedBox(height: 8),
+
+                  // Emoji + headline
+                  Text(
+                    '${widget.emoji} ${widget.headline}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Chillax',
+                      fontSize: widget.isWide ? 28 : 22,
+                      fontWeight: FontWeight.w700,
+                      color: EllaColors.neutralPrimary,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Duration + topic chips
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 16,
+                    runSpacing: 6,
+                    children: [
+                      _MetaChip(
+                        icon: Icons.schedule_rounded,
+                        label: 'Duration · ${widget.durationLabel}',
+                      ),
+                      _MetaChip(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        label: 'Topic · ${widget.topic}',
+                      ),
+                    ],
+                  ),
                 ],
-              ),
-                ),
               ),
             ),
           ),
@@ -898,6 +918,34 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
       ),
     );
   }
+}
+
+// ─── Summary Header Delegate (for pinned sticky header) ───────────────────────
+
+class _SummaryHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  // Estimated height: 32 top + 120 mascot + 16 + ~16 eyebrow + 8 + ~26 headline + 12 + ~30 chips + 32 bottom + safe area ~44
+  static const double _height = 336.0;
+
+  const _SummaryHeaderDelegate({required this.child});
+
+  @override
+  double get minExtent => _height;
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(_SummaryHeaderDelegate oldDelegate) =>
+      oldDelegate.child != child;
 }
 
 // ─── Meta Chip ────────────────────────────────────────────────────────────────
@@ -1021,7 +1069,8 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
                 width: s,
                 height: s,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                errorBuilder: (context, error, stackTrace) =>
+                    const SizedBox.shrink(),
               ),
             ),
             AnimatedOpacity(
@@ -1032,7 +1081,8 @@ class _ZoeMascotAnimatorState extends State<_ZoeMascotAnimator> {
                 width: s,
                 height: s,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                errorBuilder: (context, error, stackTrace) =>
+                    const SizedBox.shrink(),
               ),
             ),
           ],
@@ -1137,13 +1187,17 @@ class _CourageCardState extends State<_CourageCard>
     _scale = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 85),
       TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.25)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 1.0,
+          end: 1.25,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 7,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.25, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween(
+          begin: 1.25,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 8,
       ),
     ]).animate(_ctrl);
@@ -1165,9 +1219,13 @@ class _CourageCardState extends State<_CourageCard>
     final isStruggling = widget.quality == ConversationQuality.struggling;
     final emoji = isStruggling ? '🔥' : '⚡';
     final label = isStruggling ? 'KEEP THE HABIT' : 'MOMENT OF COURAGE';
-    final labelColor = isStruggling ? EllaColors.limeDark : EllaColors.grapeDark;
+    final labelColor = isStruggling
+        ? EllaColors.limeDark
+        : EllaColors.grapeDark;
     final textColor = isStruggling ? EllaColors.limeDark : EllaColors.grapeDark;
-    final borderColor = isStruggling ? EllaColors.limeLight : EllaColors.grapeLightest;
+    final borderColor = isStruggling
+        ? EllaColors.limeLight
+        : EllaColors.grapeLightest;
     final shadowColor = isStruggling
         ? EllaColors.limeLight.withValues(alpha: 0.8)
         : EllaColors.grapeLightest.withValues(alpha: 0.8);
@@ -1250,17 +1308,20 @@ class _WordOfDaySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final wordColor = isTryMode ? EllaColors.mangoDark : EllaColors.skyDark;
-    final underlineColor =
-        isTryMode ? EllaColors.mangoLight : EllaColors.skyLight;
+    final underlineColor = isTryMode
+        ? EllaColors.mangoLight
+        : EllaColors.skyLight;
     final icon = isTryMode ? '🎯' : '📖';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(icon, style: const TextStyle(fontSize: 22)),
         const SizedBox(height: 6),
         Text(
           word,
+          softWrap: true,
           style: TextStyle(
             fontFamily: 'Chillax',
             fontSize: 24,
@@ -1275,6 +1336,7 @@ class _WordOfDaySection extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           subText,
+          softWrap: true,
           style: GoogleFonts.baloo2(
             fontSize: 11,
             fontWeight: FontWeight.w500,
@@ -1367,10 +1429,7 @@ class _StickyNote extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
             decoration: BoxDecoration(
               color: const Color(0xFFFFFDE7),
-              border: Border.all(
-                color: const Color(0xFFFFE082),
-                width: 1.5,
-              ),
+              border: Border.all(color: const Color(0xFFFFE082), width: 1.5),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(3),
                 topRight: Radius.circular(14),
@@ -1419,25 +1478,22 @@ class _StickyNote extends StatelessWidget {
             right: 0,
             child: Center(
               child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: EllaColors.mangoMain,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: EllaColors.mangoDark,
-                  width: 1.5,
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: EllaColors.mangoMain,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: EllaColors.mangoDark, width: 1.5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      offset: Offset(0, 1),
+                      blurRadius: 3,
+                    ),
+                  ],
                 ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x33000000),
-                    offset: Offset(0, 1),
-                    blurRadius: 3,
-                  ),
-                ],
               ),
             ),
-          ),
           ),
         ],
       ),
@@ -1542,8 +1598,9 @@ class _TranscriptRow extends StatelessWidget {
                       bottomRight: Radius.circular(4),
                     ),
               border: Border.all(
-                color:
-                    entry.isElla ? EllaColors.skyLight : EllaColors.mangoLight,
+                color: entry.isElla
+                    ? EllaColors.skyLight
+                    : EllaColors.mangoLight,
                 width: 1.5,
               ),
             ),

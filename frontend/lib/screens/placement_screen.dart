@@ -382,11 +382,67 @@ class _PlacementScreenState extends State<PlacementScreen> {
     }
   }
 
+  void _showQuitSheet(BuildContext context) {
+    void onExit(BuildContext ctx) {
+      Navigator.of(ctx).pop();
+      Navigator.of(context).pop();
+    }
+
+    if (EllaResponsive.isWide(context)) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              child: _QuitSheetContent(
+                showDragHandle: false,
+                onExit: () => onExit(ctx),
+                onKeepGoing: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          decoration: const BoxDecoration(
+            color: EllaColors.neutralBg,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+          child: SafeArea(
+            top: false,
+            child: _QuitSheetContent(
+              showDragHandle: true,
+              onExit: () => onExit(ctx),
+              onKeepGoing: () => Navigator.of(ctx).pop(),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWide = EllaResponsive.isWide(context);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _showQuitSheet(context);
+      },
+      child: Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: EllaColors.neutralBg,
       body: Column(
@@ -485,7 +541,8 @@ class _PlacementScreenState extends State<PlacementScreen> {
                                       key: ValueKey(entry.createdAt),
                                       text: entry.text,
                                       isElla: entry.isElla,
-                                      isCentered: entry.isElla &&
+                                      isCentered: isWide &&
+                                          entry.isElla &&
                                           index == 0 &&
                                           !hasUserReply,
                                     );
@@ -544,7 +601,8 @@ class _PlacementScreenState extends State<PlacementScreen> {
           ),
         ],
       ),
-    );
+      ),   // Scaffold
+    );     // PopScope
   }
 
   Widget _buildInputBar(bool isWide) {
@@ -562,6 +620,9 @@ class _PlacementScreenState extends State<PlacementScreen> {
           ? null
           : () {
               setState(() => _isKeyboardMode = true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _scrollToBottom();
+              });
               Future.delayed(const Duration(milliseconds: 50), () {
                 if (mounted) _textFocusNode.requestFocus();
               });
@@ -1119,4 +1180,135 @@ class _DashedGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedGridPainter old) => false;
+}
+
+// ─── Quit Sheet ───────────────────────────────────────────────────────────────
+
+class _QuitSheetContent extends StatelessWidget {
+  final bool showDragHandle;
+  final VoidCallback onExit;
+  final VoidCallback onKeepGoing;
+
+  const _QuitSheetContent({
+    required this.showDragHandle,
+    required this.onExit,
+    required this.onKeepGoing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showDragHandle) ...[
+          const SizedBox(height: 12),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: EllaColors.neutralBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ] else
+          const SizedBox(height: 4),
+        const Text(
+          'Exit early?',
+          style: TextStyle(
+            fontFamily: 'Chillax',
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: EllaColors.neutralPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          "Your progress won't be saved — you'll start the placement check again next time.",
+          style: GoogleFonts.baloo2(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: EllaColors.neutralSecondary,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            GestureDetector(
+              onTap: onExit,
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  color: EllaColors.error,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(20),
+                    bottomRight: Radius.circular(4),
+                    bottomLeft: Radius.circular(20),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: EllaColors.roseDark,
+                      offset: Offset(0, 4),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    'EXIT',
+                    style: GoogleFonts.baloo2(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: onKeepGoing,
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(4),
+                    bottomRight: Radius.circular(20),
+                    bottomLeft: Radius.circular(4),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: EllaColors.neutralBorder,
+                      offset: Offset(0, 4),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    'KEEP GOING',
+                    style: GoogleFonts.baloo2(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: EllaColors.neutralSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
