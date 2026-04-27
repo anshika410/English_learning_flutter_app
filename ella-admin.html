@@ -120,6 +120,7 @@
               <th>Level</th>
               <th>Label</th>
               <th>Joined</th>
+              <th>Transcript</th>
             </tr>
           </thead>
           <tbody id="users-table"></tbody>
@@ -238,8 +239,9 @@
         <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
         <td>${u.level_label || '—'}</td>
         <td>${new Date(u.created_at).toLocaleDateString()}</td>
+        <td>${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">View</button>` : '—'}</td>
       </tr>
-    `).join('') || '<tr><td colspan="6" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
+    `).join('') || '<tr><td colspan="7" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
 
     // Conversations table
     document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
@@ -256,6 +258,29 @@
     `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
 
     document.getElementById('content').style.display = 'block';
+  }
+
+  async function viewPlacementTranscript(userId, name) {
+    document.getElementById('modal-title').textContent = `${name} — Placement Transcript`;
+    document.getElementById('modal-content').innerHTML = '<div style="color:#888;text-align:center;padding:20px">Loading...</div>';
+    document.getElementById('transcript-modal').classList.add('open');
+
+    try {
+      const res = await fetch(`${BASE_URL}/admin/placements/${userId}/transcript?key=${encodeURIComponent(ADMIN_KEY)}`);
+      const msgs = await res.json();
+      if (!msgs.length) {
+        document.getElementById('modal-content').innerHTML = '<p style="color:#aaa">No transcript available</p>';
+        return;
+      }
+      document.getElementById('modal-content').innerHTML = msgs.map(m => `
+        <div class="turn ${m.role === 'user' ? 'user' : 'assistant'}">
+          <div class="role">${m.role === 'user' ? '🎤 Student' : '🤖 Zoe'}</div>
+          <div class="content">${m.content}</div>
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('modal-content').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+    }
   }
 
   async function viewTranscript(convId, title) {

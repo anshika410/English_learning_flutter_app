@@ -190,3 +190,34 @@ async def get_transcript(
         }
         for m in msgs
     ]
+
+
+@router.get("/placements/{user_id}/transcript")
+async def get_placement_transcript(
+    user_id: str,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get placement transcript for a user."""
+    from ..models.placement import Placement
+    import json
+    result = await db.execute(
+        select(Placement)
+        .where(Placement.user_id == user_id)
+        .order_by(desc(Placement.created_at))
+        .limit(1)
+    )
+    placement = result.scalar_one_or_none()
+    if not placement or not placement.transcript_json:
+        return []
+    try:
+        messages = json.loads(placement.transcript_json)
+        return [
+            {
+                "role": m.get("role", "user"),
+                "content": m.get("content", ""),
+            }
+            for m in messages
+        ]
+    except Exception:
+        return []
