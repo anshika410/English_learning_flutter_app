@@ -97,53 +97,10 @@ class ProfileScreen extends StatelessWidget {
     final showFocusSettings = !_isBelowB1(level);
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
-      body: Column(
-        children: [
-          const SafeArea(bottom: false, child: _ProfileBackButton()),
-          Expanded(
-            child: _ProfileHeader(
-              provider: provider,
-              showFocusSettings: showFocusSettings,
-              onLogout: () => _confirmLogout(context, provider),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileBackButton extends StatelessWidget {
-  const _ProfileBackButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 24, top: 24, bottom: 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.arrow_back_rounded,
-                size: 20,
-                color: EllaColors.neutralSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Back to home screen',
-                style: GoogleFonts.baloo2(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.neutralSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
+      body: _ProfileHeader(
+        provider: provider,
+        showFocusSettings: showFocusSettings,
+        onLogout: () => _confirmLogout(context, provider),
       ),
     );
   }
@@ -197,318 +154,213 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
     super.dispose();
   }
 
-  void _showEditSheet(BuildContext context) {
-    final nameCtrl = TextEditingController(text: _nameNotifier.value);
-    final ageCtrl = TextEditingController(text: _ageNotifier.value);
-    final locationCtrl = TextEditingController(text: _locationNotifier.value);
-    final emailCtrl = TextEditingController(text: _emailNotifier.value);
-
-    void onSave(BuildContext ctx) {
-      _nameNotifier.value = nameCtrl.text;
-      _ageNotifier.value = ageCtrl.text;
-      _locationNotifier.value = locationCtrl.text;
-      _emailNotifier.value = emailCtrl.text;
-      widget.provider.setUserProfile(
-        name: nameCtrl.text,
-        age: ageCtrl.text,
-        location: locationCtrl.text,
-      );
-      Navigator.of(ctx).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Profile updated',
-            style: GoogleFonts.baloo2(fontWeight: FontWeight.w600),
-          ),
-          backgroundColor: EllaColors.neutralPrimary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
-
-    Widget formContent(BuildContext ctx) => SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.showFocusSettings) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Edit Your Profile',
-            style: TextStyle(
-              fontFamily: 'Chillax',
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: EllaColors.neutralPrimary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _EditField(label: 'Name', controller: nameCtrl),
-          const SizedBox(height: 12),
-          _EditField(label: 'Age', controller: ageCtrl),
-          const SizedBox(height: 12),
-          _EditField(label: 'Location', controller: locationCtrl),
-          const SizedBox(height: 12),
-          _EditField(label: 'Email', controller: emailCtrl),
-          const SizedBox(height: 24),
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: () => onSave(ctx),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: EllaColors.mangoMain,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(20),
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(4),
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: EllaColors.mangoDark,
-                      offset: Offset(0, 4),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
-                child: Text(
-                  'SAVE PROFILE',
-                  style: GoogleFonts.baloo2(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: EllaColors.neutralPrimary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (EllaResponsive.isWide(context)) {
-      showDialog(
-        context: context,
-        barrierColor: Colors.black54,
-        builder: (dialogContext) => Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Material(
-              color: Colors.transparent,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(dialogContext).viewInsets.bottom,
-                  left: 16,
-                  right: 16,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: EllaColors.neutralBg,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  padding: const EdgeInsets.all(24),
-                  child: formContent(dialogContext),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (sheetCtx) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
-          ),
-          child: Container(
+          // Mango header: avatar + name + level
+          Container(
+            width: double.infinity,
             decoration: const BoxDecoration(
-              color: EllaColors.neutralBg,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-            child: SafeArea(top: false, child: formContent(sheetCtx)),
-          ),
-        ),
-      );
-    }
-  }
-
-  Widget _buildProfileInfo(BuildContext context, {bool centered = false}) {
-    final align = centered
-        ? CrossAxisAlignment.center
-        : CrossAxisAlignment.start;
-    return Column(
-      crossAxisAlignment: align,
-      children: [
-        // Avatar circle
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: EllaColors.mangoLightest,
-            border: Border.all(color: EllaColors.mangoDark, width: 2),
-          ),
-          child: const Icon(
-            Icons.person_rounded,
-            size: 32,
-            color: EllaColors.mangoMain,
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Name
-        ValueListenableBuilder<String>(
-          valueListenable: _nameNotifier,
-          builder: (_, name, _) => Text(
-            name,
-            style: const TextStyle(
-              fontFamily: 'Chillax',
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: EllaColors.neutralPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        // "You speak · level"
-        Text(
-          'You speak · ${_friendlyLevelLabel(widget.provider.userLevel)}',
-          style: GoogleFonts.baloo2(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: EllaColors.neutralSecondary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Location
-        ValueListenableBuilder<String>(
-          valueListenable: _locationNotifier,
-          builder: (_, loc, _) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: EllaColors.neutralMuted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                loc,
-                style: GoogleFonts.baloo2(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.neutralSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        // Email
-        ValueListenableBuilder<String>(
-          valueListenable: _emailNotifier,
-          builder: (_, email, _) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.mail_outline_rounded,
-                size: 14,
-                color: EllaColors.neutralMuted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                email,
-                style: GoogleFonts.baloo2(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.neutralSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        // Edit Profile button
-        GestureDetector(
-          onTap: () => _showEditSheet(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: EllaColors.mangoLightest,
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: EllaColors.mangoDark, width: 1.5),
-              boxShadow: const [
+              color: EllaColors.mangoLight,
+              boxShadow: [
                 BoxShadow(
                   color: EllaColors.mangoDark,
-                  offset: Offset(0, 2),
+                  offset: Offset(0, 4),
                   blurRadius: 0,
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.edit_rounded,
-                  size: 13,
-                  color: EllaColors.mangoDark,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.arrow_back_rounded,
+                              size: 20,
+                              color: EllaColors.neutralSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Back to home screen',
+                              style: GoogleFonts.baloo2(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: EllaColors.neutralSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: EllaColors.mangoLightest,
+                        border: Border.all(color: EllaColors.mangoDark, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        size: 32,
+                        color: EllaColors.mangoDark,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ValueListenableBuilder<String>(
+                      valueListenable: _nameNotifier,
+                      builder: (_, name, _) => Text(
+                        name,
+                        style: const TextStyle(
+                          fontFamily: 'Chillax',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: EllaColors.neutralPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Your level · ${_friendlyLevelLabel(widget.provider.userLevel)}',
+                      style: GoogleFonts.baloo2(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: EllaColors.mangoDark,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'Edit Profile',
-                  style: GoogleFonts.baloo2(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: EllaColors.mangoDark,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ],
-    );
-  }
+          // Gradient strip masks scroll bleed past the header shadow
+          IgnorePointer(
+            child: Container(
+              height: 12,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    EllaColors.mangoLight,
+                    EllaColors.mangoLight.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Info card section
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                child: _YourInfoSection(provider: widget.provider),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final isWide = EllaResponsive.isWide(context);
-
-    if (!widget.showFocusSettings) {
-      return LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
+    // Wide (web/tablet): full-width mango header + centered 540px content column
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: EllaColors.mangoLight,
+            boxShadow: [
+              BoxShadow(
+                color: EllaColors.mangoDark,
+                offset: Offset(0, 4),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 48),
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 768),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildProfileInfo(context, centered: true),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.arrow_back_rounded,
+                            size: 20,
+                            color: EllaColors.neutralSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Back to home screen',
+                            style: GoogleFonts.baloo2(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: EllaColors.neutralSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-                      child: Center(
-                        child: _LogoutButton(onTap: widget.onLogout),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: EllaColors.mangoLightest,
+                      border: Border.all(color: EllaColors.mangoDark, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      size: 32,
+                      color: EllaColors.mangoDark,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ValueListenableBuilder<String>(
+                    valueListenable: _nameNotifier,
+                    builder: (_, name, _) => Text(
+                      name,
+                      style: const TextStyle(
+                        fontFamily: 'Chillax',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: EllaColors.neutralPrimary,
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'You speak · ${_friendlyLevelLabel(widget.provider.userLevel)}',
+                    style: GoogleFonts.baloo2(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: EllaColors.mangoDark,
                     ),
                   ),
                 ],
@@ -516,63 +368,43 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
             ),
           ),
         ),
-      );
-    }
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 48),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 768),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                child: isWide
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildProfileInfo(context),
-                                  const SizedBox(height: 48),
-                                  const _LogoutSeparator(),
-                                  const SizedBox(height: 24),
-                                  _LogoutButton(onTap: widget.onLogout),
-                                ],
-                              ),
-                              const SizedBox(width: 48),
-                              Expanded(
-                                child: const _CoachingStyleSection(
-                                  horizontalPadding: 0,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 48),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildProfileInfo(context),
-                          const SizedBox(height: 32),
-                          const _CoachingStyleSection(horizontalPadding: 0),
-                          const SizedBox(height: 24),
-                          _LogoutButton(onTap: widget.onLogout),
-                          const SizedBox(height: 48),
-                        ],
-                      ),
+        // Gradient strip masks scroll bleed past the header shadow
+        IgnorePointer(
+          child: Container(
+            height: 12,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  EllaColors.mangoLight,
+                  EllaColors.mangoLight.withValues(alpha: 0.0),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 540),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 48),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _YourInfoSection(provider: widget.provider),
+                      const SizedBox(height: 32),
+                      const _CoachingStyleSection(horizontalPadding: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -622,114 +454,111 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _eyebrow('YOUR INFO'),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _showEditSheet(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: EllaColors.mangoLightest,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: EllaColors.mangoDark, width: 1.5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: EllaColors.mangoDark,
+                      offset: Offset(0, 2),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.edit_rounded,
+                      size: 13,
+                      color: EllaColors.mangoDark,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Edit',
+                      style: GoogleFonts.baloo2(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: EllaColors.mangoDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
+            boxShadow: const [
+              BoxShadow(
+                color: EllaColors.neutralBorder,
+                offset: Offset(0, 3),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: Column(
             children: [
-              _eyebrow('YOUR INFO'),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => _showEditSheet(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: EllaColors.mangoLightest,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(color: EllaColors.mangoDark, width: 1.5),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: EllaColors.mangoDark,
-                        offset: Offset(0, 2),
-                        blurRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.edit_rounded,
-                        size: 13,
-                        color: EllaColors.mangoDark,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Edit',
-                        style: GoogleFonts.baloo2(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: EllaColors.mangoDark,
-                        ),
-                      ),
-                    ],
-                  ),
+              ValueListenableBuilder<String>(
+                valueListenable: _nameNotifier,
+                builder: (_, val, _) => _InfoRow(
+                  icon: Icons.person_outline_rounded,
+                  label: 'NAME',
+                  value: val,
+                  isLast: false,
+                ),
+              ),
+              ValueListenableBuilder<String>(
+                valueListenable: _ageNotifier,
+                builder: (_, val, _) => _InfoRow(
+                  icon: Icons.cake_outlined,
+                  label: 'AGE',
+                  value: val,
+                  isLast: false,
+                ),
+              ),
+              ValueListenableBuilder<String>(
+                valueListenable: _locationNotifier,
+                builder: (_, val, _) => _InfoRow(
+                  icon: Icons.location_on_outlined,
+                  label: 'LOCATION',
+                  value: val,
+                  isLast: false,
+                ),
+              ),
+              ValueListenableBuilder<String>(
+                valueListenable: _emailNotifier,
+                builder: (_, val, _) => _InfoRow(
+                  icon: Icons.mail_outline_rounded,
+                  label: 'EMAIL',
+                  value: val,
+                  isLast: true,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
-              boxShadow: const [
-                BoxShadow(
-                  color: EllaColors.neutralBorder,
-                  offset: Offset(0, 3),
-                  blurRadius: 0,
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                ValueListenableBuilder<String>(
-                  valueListenable: _nameNotifier,
-                  builder: (_, val, _) => _InfoRow(
-                    icon: Icons.person_outline_rounded,
-                    label: 'NAME',
-                    value: val,
-                    isLast: false,
-                  ),
-                ),
-                ValueListenableBuilder<String>(
-                  valueListenable: _ageNotifier,
-                  builder: (_, val, _) => _InfoRow(
-                    icon: Icons.cake_outlined,
-                    label: 'AGE',
-                    value: val,
-                    isLast: false,
-                  ),
-                ),
-                ValueListenableBuilder<String>(
-                  valueListenable: _locationNotifier,
-                  builder: (_, val, _) => _InfoRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'LOCATION',
-                    value: val,
-                    isLast: false,
-                  ),
-                ),
-                ValueListenableBuilder<String>(
-                  valueListenable: _emailNotifier,
-                  builder: (_, val, _) => _InfoRow(
-                    icon: Icons.mail_outline_rounded,
-                    label: 'EMAIL',
-                    value: val,
-                    isLast: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -739,112 +568,125 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
     final locationCtrl = TextEditingController(text: _locationNotifier.value);
     final emailCtrl = TextEditingController(text: _emailNotifier.value);
 
+    void onSave(BuildContext dismissContext) {
+      _nameNotifier.value = nameCtrl.text;
+      _ageNotifier.value = ageCtrl.text;
+      _locationNotifier.value = locationCtrl.text;
+      _emailNotifier.value = emailCtrl.text;
+      widget.provider.setUserProfile(
+        name: nameCtrl.text,
+        age: ageCtrl.text,
+        location: locationCtrl.text,
+      );
+      Navigator.of(dismissContext).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Profile updated',
+            style: GoogleFonts.baloo2(fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: EllaColors.neutralPrimary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+
+    Widget formContent(BuildContext dismissContext) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Edit your info',
+          style: TextStyle(
+            fontFamily: 'Chillax',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: EllaColors.neutralPrimary,
+          ),
+        ),
+        const SizedBox(height: 20),
+        _EditField(label: 'Name', controller: nameCtrl),
+        const SizedBox(height: 12),
+        _EditField(label: 'Age', controller: ageCtrl),
+        const SizedBox(height: 12),
+        _EditField(label: 'Location', controller: locationCtrl),
+        const SizedBox(height: 12),
+        _EditField(label: 'Email', controller: emailCtrl),
+        const SizedBox(height: 24),
+        Align(
+          alignment: Alignment.centerRight,
+          child: GestureDetector(
+            onTap: () => onSave(dismissContext),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                color: EllaColors.mangoMain,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(4),
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: EllaColors.mangoDark,
+                    offset: Offset(0, 4),
+                    blurRadius: 0,
+                  ),
+                ],
+              ),
+              child: Text(
+                'Save profile info',
+                style: GoogleFonts.baloo2(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: EllaColors.neutralPrimary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (EllaResponsive.isWide(context)) {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: formContent(dialogContext),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      constraints: const BoxConstraints(maxWidth: 480),
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
         ),
-        child: SingleChildScrollView(
-          child: Container(
-            decoration: BoxDecoration(
-              color: EllaColors.neutralBg,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Edit your info',
-                  style: TextStyle(
-                    fontFamily: 'Chillax',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: EllaColors.neutralPrimary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _EditField(label: 'Name', controller: nameCtrl),
-                const SizedBox(height: 12),
-                _EditField(label: 'Age', controller: ageCtrl),
-                const SizedBox(height: 12),
-                _EditField(label: 'Location', controller: locationCtrl),
-                const SizedBox(height: 12),
-                _EditField(label: 'Email', controller: emailCtrl),
-                const SizedBox(height: 24),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: GestureDetector(
-                    onTap: () {
-                      _nameNotifier.value = nameCtrl.text;
-                      _ageNotifier.value = ageCtrl.text;
-                      _locationNotifier.value = locationCtrl.text;
-                      _emailNotifier.value = emailCtrl.text;
-                      widget.provider.setUserProfile(
-                        name: nameCtrl.text,
-                        age: ageCtrl.text,
-                        location: locationCtrl.text,
-                      );
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Profile updated',
-                            style: GoogleFonts.baloo2(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          backgroundColor: EllaColors.neutralPrimary,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: EllaColors.mangoMain,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(4),
-                          topRight: Radius.circular(20),
-                          bottomLeft: Radius.circular(20),
-                          bottomRight: Radius.circular(4),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: EllaColors.mangoDark,
-                            offset: Offset(0, 4),
-                            blurRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        'Save profile info',
-                        style: GoogleFonts.baloo2(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: EllaColors.neutralPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: EllaColors.neutralBg,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: SingleChildScrollView(child: formContent(sheetContext)),
         ),
       ),
     );
@@ -1189,53 +1031,6 @@ class _FocusBlock<T extends Enum> extends StatelessWidget {
   }
 }
 
-// ─── Logout Button ────────────────────────────────────────────────────────────
-
-class _LogoutButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _LogoutButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: IntrinsicWidth(
-        child: Container(
-          key: const ValueKey('profile_logout_button'),
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: BoxDecoration(
-            color: EllaColors.errorSurface,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(4),
-              topRight: Radius.circular(20),
-              bottomRight: Radius.circular(4),
-              bottomLeft: Radius.circular(20),
-            ),
-            border: Border.all(color: EllaColors.errorLight, width: 1.5),
-            boxShadow: const [
-              BoxShadow(
-                color: EllaColors.roseDark,
-                offset: Offset(0, 4),
-                blurRadius: 0,
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              'LOGOUT',
-              style: GoogleFonts.baloo2(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: EllaColors.error,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _LogoutSheetContent extends StatelessWidget {
   final bool showDragHandle;
@@ -1370,14 +1165,6 @@ class _LogoutSheetContent extends StatelessWidget {
   }
 }
 
-class _LogoutSeparator extends StatelessWidget {
-  const _LogoutSeparator();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 180, height: 1, color: EllaColors.neutralBorder);
-  }
-}
 
 class _LogoutSheet extends StatelessWidget {
   final VoidCallback onStay;

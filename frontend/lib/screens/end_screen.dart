@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
@@ -528,7 +529,7 @@ class EndScreen extends StatelessWidget {
                 ),
               ),
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(sidePad, 32, sidePad, 16),
+                padding: EdgeInsets.fromLTRB(sidePad, 24, sidePad, 16),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // Best Moment + Courage side by side
@@ -564,31 +565,60 @@ class EndScreen extends StatelessWidget {
                       transcriptNotes: transcriptNotes,
                       isWide: isWide,
                     ),
-                    const SizedBox(height: 48),
-
-                    // Pick New Topic button — inline, centered
-                    SafeArea(
-                      top: false,
-                      child: Center(
-                        child: isWide
-                            ? IntrinsicWidth(
-                                child: EllaPrimaryButton(
-                                  label: 'PICK NEW TOPIC',
-                                  onTap: () => _pickNewTopic(context),
-                                ),
-                              )
-                            : EllaPrimaryButton(
-                                label: 'PICK NEW TOPIC',
-                                onTap: () => _pickNewTopic(context),
-                              ),
+                    // On wide: button inline after content; on mobile: space for sticky overlay
+                    if (isWide) ...[
+                      const SizedBox(height: 48),
+                      Center(
+                        child: IntrinsicWidth(
+                          child: EllaPrimaryButton(
+                            label: 'PICK NEW TOPIC',
+                            onTap: () => _pickNewTopic(context),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 48),
+                    ] else
+                      const SizedBox(height: 120),
                   ]),
                 ),
               ),
             ],
           ),
+
+          // Sticky blurred PICK NEW TOPIC button — mobile only
+          if (!isWide)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          EllaColors.neutralBg.withValues(alpha: 0.95),
+                          EllaColors.neutralBg.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                        child: EllaPrimaryButton(
+                          label: 'PICK NEW TOPIC',
+                          onTap: () => _pickNewTopic(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -650,7 +680,7 @@ class EndScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           wordSection,
-          const SizedBox(width: 24),
+          const SizedBox(width: 32),
           transcriptLink,
         ],
       );
@@ -841,7 +871,7 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -924,8 +954,8 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
 
 class _SummaryHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
-  // Estimated height: 32 top + 120 mascot + 16 + ~16 eyebrow + 8 + ~26 headline + 12 + ~30 chips + 32 bottom + safe area ~44
-  static const double _height = 336.0;
+  // Estimated height: SafeArea ~44 + pad top 24 + mascot 120 + 16 + eyebrow 16 + 8 + headline 30 + 12 + chips 30
+  static const double _height = 300.0;
 
   const _SummaryHeaderDelegate({required this.child});
 

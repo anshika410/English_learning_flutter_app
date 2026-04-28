@@ -5,6 +5,7 @@ import '../models/end_result_analysis.dart';
 import '../models/focus_settings.dart';
 import '../models/latency_info.dart';
 import '../services/llm_service.dart';
+import '../services/llm_service_base.dart';
 import '../services/backend_llm_service.dart';
 import '../services/api_service.dart';
 import '../services/stt_service.dart';
@@ -19,7 +20,9 @@ import '../utils/name_formatting.dart';
 enum SttEngineType { system, continuous, whisper }
 
 class ChatProvider extends ChangeNotifier {
-  final LlmService _llm = LlmService();
+  final LlmServiceBase _llm;
+
+  ChatProvider() : _llm = LlmService();
   final BackendLlmService _backendLlm = BackendLlmService();
   final ApiService _api = ApiService.instance;
   final SttService _stt = SttService();

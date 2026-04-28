@@ -214,6 +214,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     }
   }
 
+  // ignore: unused_element
   void _showFocusPanel(BuildContext context) {
     if (EllaResponsive.isWide(context)) {
       showDialog(
@@ -562,62 +563,26 @@ class _ConversationScreenState extends State<ConversationScreen>
       ),
     );
 
-    final focusButton = GestureDetector(
-      onTap: () => _showFocusPanel(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(100),
-          color: EllaColors.neutralBg,
-          border: Border.all(color: EllaColors.neutralBorder, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: EllaColors.neutralBorder,
-              offset: Offset(0, 3),
-              blurRadius: 0,
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.tune_rounded,
-              size: 16,
-              color: EllaColors.neutralSecondary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Focus Areas',
-              style: GoogleFonts.baloo2(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: EllaColors.neutralSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Row(children: [endButton, const Spacer(), focusButton]),
-          const SizedBox(height: 10),
-          Text(
-            topicLabel,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Chillax',
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: EllaColors.neutralPrimary,
+          Expanded(
+            child: Text(
+              topicLabel,
+              style: const TextStyle(
+                fontFamily: 'Chillax',
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: EllaColors.neutralPrimary,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
+          const SizedBox(width: 12),
+          endButton,
         ],
       ),
     );
@@ -728,8 +693,8 @@ class _ConversationScreenState extends State<ConversationScreen>
 
         final label = Text(
           isListening
-              ? (isRecognizing ? 'Listening...' : 'Tap to speak')
-              : 'Tap to speak',
+              ? (isRecognizing ? 'Listening...' : 'Tap to Speak')
+              : 'Tap to Speak',
           style: GoogleFonts.inconsolata(
             fontSize: 11,
             fontWeight: FontWeight.w700,

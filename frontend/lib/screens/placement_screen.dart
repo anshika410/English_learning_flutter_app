@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import '../services/api_service.dart';
 import '../services/native_stt_service.dart';
-import '../services/backend_llm_service.dart';
+import '../services/llm_service_base.dart';
+import '../services/llm_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import '../theme/ella_responsive.dart';
@@ -47,7 +48,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
   final NativeSttService _stt = NativeSttService();
   final TtsManager _tts = TtsManager();
-  final BackendLlmService _llm = BackendLlmService();
+  final LlmServiceBase _llm = LlmService();
   final TextEditingController _textCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
   final FocusNode _textFocusNode = FocusNode();
@@ -197,20 +198,19 @@ class _PlacementScreenState extends State<PlacementScreen> {
     });
 
     try {
-      final result = await _llm.sendPlacementTurn(messages: _apiMessages);
+      final result = await _llm.sendPlacementMessage(_apiMessages);
 
       if (!mounted) return;
-      if (result == null) return;
 
       if (result.isComplete) {
         // Extract student info from LLM final assessment before navigating
-        if (result.extractedName != null) _userName = result.extractedName;
-        if (result.extractedAge != null) _userAge = result.extractedAge;
+        if (result.name != null) _userName = result.name;
+        if (result.age != null) _userAge = result.age;
         // LLM has assessed the student — navigate to result
         await _goToResult(
-          levelCode: result.levelCode ?? 'A2',
-          levelName: result.levelName,
-          levelDescription: result.levelDescription,
+          levelCode: result.assessedLevel ?? 'A2',
+          levelName: null,
+          levelDescription: null,
           confidence: result.confidence,
         );
         return;
