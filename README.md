@@ -26,7 +26,7 @@ Indian school students (primarily Hindi-speaking) at A1–B1 English level who n
 
 ## Design Prototype
 
-All pages live at [navgurukul.github.io/ella_flutter](https://navgurukul.github.io/ella_flutter/):
+All pages live at [ella.navgurukul.org](https://ella.navgurukul.org):
 
 | What | URL | Description |
 |------|-----|-------------|
@@ -34,9 +34,11 @@ All pages live at [navgurukul.github.io/ella_flutter](https://navgurukul.github.
 | 📄 **Project Summary** | [docs/project-summary.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/project-summary.md) | Project overview and goals |
 | 🎨 **Design System** | [docs/zoe-design-system.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/zoe-design-system.md) | Zoe design system reference |
 | 🎨 **Design v0 (Stitch)** | [stitch.withgoogle.com](https://stitch.withgoogle.com/projects/15401642752604590464) | UI design reference for ella-v0 |
-| 📱 **Product v0** | [ella-v0.html](https://navgurukul.github.io/ella_flutter/ella-v0.html) | Interactive HTML prototype of the full app flow |
-| 🎨 **Design v1** | [ella-design-v1.html](https://navgurukul.github.io/ella_flutter/ella-design-v1.html) | Figma-style user flow and design system |
-| 🌐 **Product v1 (Live App)** | [ella-v1](https://navgurukul.github.io/ella_flutter/ella-v1/) | Flutter web build (latest `feature/integration`) |
+| 📱 **Product v0** | [ella.navgurukul.org/v0/](https://ella.navgurukul.org/v0/) | Interactive HTML prototype of the full app flow |
+| 🎨 **Design v1** | [ella.navgurukul.org/design/](https://ella.navgurukul.org/design/) | Figma-style user flow and design system |
+| 🌐 **Product v1 (Live App)** | [ella.navgurukul.org/v1/](https://ella.navgurukul.org/v1/) | Flutter web build (latest) |
+| 📊 **Pilot Dashboard** | [ella.navgurukul.org/admin/](https://ella.navgurukul.org/admin/) | Live screening results |
+| 📲 **Android APK** | [ella.navgurukul.org](https://ella.navgurukul.org) | Download latest release APK |
 
 ## Notion Docs
 
@@ -144,7 +146,7 @@ The backend is hosted on AWS EC2 (ap-south-1, t3.micro, Ubuntu 24.04), running v
 
 > Connection details and SSH access are kept private. Ask a team member for access.
 
-> HTTPS via Cloudflare Tunnel or a subdomain of `navgurukul.org` is planned before production release.
+> Live at **https://ella.navgurukul.org** — HTTPS via Let's Encrypt on nginx.
 
 ### Deploying updates to EC2
 

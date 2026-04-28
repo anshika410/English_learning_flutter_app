@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
+import json
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
@@ -22,7 +23,7 @@ async def create_placement(
         level_label=body.level_label,
         confidence=body.confidence,
         highlight=body.highlight,
-        transcript_json=body.transcript_json,
+        transcript_json=json.dumps(body.transcript_json) if body.transcript_json is not None else None,
     )
     db.add(placement)
 

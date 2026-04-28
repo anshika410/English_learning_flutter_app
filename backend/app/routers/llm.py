@@ -70,7 +70,11 @@ async def placement_turn(
 ):
     try:
         messages = [m.model_dump() for m in body.messages]
-        result = await llm_service.send_placement_turn(messages)
+        result = await llm_service.send_placement_turn(
+            messages=messages,
+            name=body.name or user.name,
+            age=body.age or (int(user.age) if user.age and user.age.isdigit() else None),
+        )
         return PlacementTurnResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")

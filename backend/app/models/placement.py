@@ -1,6 +1,7 @@
 import uuid
+import json
 from datetime import datetime, timezone
-from sqlalchemy import String, Float, Text, DateTime, ForeignKey
+from sqlalchemy import String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.database import Base
 
@@ -18,7 +19,7 @@ class Placement(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     level: Mapped[str] = mapped_column(String(5))
     level_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    confidence: Mapped[str | None] = mapped_column(String(20), nullable=True)
     highlight: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

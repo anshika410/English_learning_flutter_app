@@ -5,8 +5,8 @@ import '../models/end_result_analysis.dart';
 import '../models/focus_settings.dart';
 import '../models/latency_info.dart';
 import '../services/llm_service.dart';
-import '../services/llm_service_base.dart';
-import '../mock/mock_config.dart';
+import '../services/backend_llm_service.dart';
+import '../services/api_service.dart';
 import '../services/stt_service.dart';
 import '../services/continuous_stt_service.dart';
 import '../services/native_stt_service.dart';
@@ -19,12 +19,9 @@ import '../utils/name_formatting.dart';
 enum SttEngineType { system, continuous, whisper }
 
 class ChatProvider extends ChangeNotifier {
-  final LlmServiceBase _llm;
-
-  ChatProvider({LlmServiceBase? llm}) : _llm = llm ?? createLlmService();
-
-  /// Exposes the LLM service so PlacementScreen can share the same instance.
-  LlmServiceBase get llmService => _llm;
+  final LlmService _llm = LlmService();
+  final BackendLlmService _backendLlm = BackendLlmService();
+  final ApiService _api = ApiService.instance;
   final SttService _stt = SttService();
   final ContinuousSttService _continuousStt = ContinuousSttService();
   final NativeSttService _nativeStt = NativeSttService();
@@ -54,15 +51,12 @@ class ChatProvider extends ChangeNotifier {
 
   // Conversation session state
   String? _conversationTopic;
+  String? _conversationId; // backend conversation id
   bool _conversationComplete = false;
 
   // Focus settings & first-session tracking
   bool _hasCompletedFirstSession = false;
   FocusSettings _focusSettings = const FocusSettings.defaults();
-  // True when focus settings should be injected into the next LLM turn.
-  // Starts true so settings are always injected at session start.
-  bool _focusSettingsDirty = true;
-
   // Latency tracking
   DateTime? _sttStartTime; // when mic was tapped
   DateTime?
@@ -145,7 +139,6 @@ class ChatProvider extends ChangeNotifier {
 
   void updateFocusSettings(FocusSettings settings) {
     _focusSettings = settings;
-    _focusSettingsDirty = true;
     _prefs.saveFocusSettings(settings);
     notifyListeners();
   }
@@ -245,16 +238,33 @@ class ChatProvider extends ChangeNotifier {
     _isSpeaking = false;
     _conversationComplete = false;
     _conversationTopic = topic?.trim().isEmpty ?? true ? null : topic;
-    // Reset dirty flag: focus settings will be injected into the starter prompt.
-    _focusSettingsDirty = false;
+    _conversationId = null;
     notifyListeners();
+
+    // Create conversation on backend before starting
+    await _api.ensureAuthenticated();
+    _conversationId = await _api.createConversation(topic: topic);
+    if (_conversationId != null) {
+      debugPrint('✅ Backend conversation created: $_conversationId');
+    } else {
+      debugPrint('⚠️ Backend conversation creation failed — using direct LLM');
+    }
 
     String starter;
     String headerTitle;
     try {
-      final result = await _llm.generateConversationStarter(topic: topic);
-      starter = result.starter;
-      headerTitle = result.headerTitle;
+      // Try backend LLM first, fall back to direct
+      final backendResult = await _backendLlm.generateConversationStarter(topic: topic);
+      if (backendResult != null) {
+        starter = backendResult.starter;
+        headerTitle = backendResult.headerTitle;
+        debugPrint('LLM: using backend proxy');
+      } else {
+        final result = await _llm.generateConversationStarter(topic: topic);
+        starter = result.starter;
+        headerTitle = result.headerTitle;
+        debugPrint('LLM: using direct DeepSeek (backend unavailable)');
+      }
     } catch (_) {
       starter = "Hi! I'm Zoe. What would you like to talk about today?";
       headerTitle = topic ?? 'Free Talk';
@@ -271,7 +281,31 @@ class ChatProvider extends ChangeNotifier {
     return headerTitle;
   }
 
-  Future<EndResultAnalysis?> analyzeConversationEnd() {
+  Future<EndResultAnalysis?> analyzeConversationEnd() async {
+    // Mark conversation complete on backend
+    if (_conversationId != null) {
+      final durationSeconds = _messages.isNotEmpty ? _messages.length * 30 : null;
+      _api.completeConversation(
+        _conversationId!,
+        durationSeconds: durationSeconds,
+        sessionType: 'conversation',
+      );
+    }
+
+    // Try backend analysis first, fall back to direct
+    if (_conversationId != null) {
+      try {
+        final result = await _backendLlm.analyzeConversation(
+          conversationId: _conversationId!,
+          messages: _messages,
+          topic: _conversationTopic ?? 'Free Talk',
+          level: _userLevel ?? 'A2',
+          levelLabel: _userLevelLabel ?? 'Finding My Voice',
+        );
+        if (result != null) return result;
+      } catch (_) {}
+    }
+
     return _llm.analyzeConversation(
       messages: _messages,
       topic: _conversationTopic ?? 'Free Talk',
@@ -456,31 +490,79 @@ class ChatProvider extends ChangeNotifier {
     if (text.trim().isEmpty) return;
 
     final turnStart = DateTime.now();
-    _messages.add(ChatMessage(role: MessageRole.user, content: text.trim()));
+    final userMsg = ChatMessage(role: MessageRole.user, content: text.trim());
+    _messages.add(userMsg);
     _isLoading = true;
     notifyListeners();
 
     Duration? llmDuration;
     Duration? ttsDuration;
+    final turnNumber = _messages.where((m) => m.role == MessageRole.user).length;
 
     try {
-      // --- LLM ---
+      // --- LLM (backend proxy first, direct fallback) ---
       final llmStart = DateTime.now();
-      final turnNumber =
-          _messages.where((m) => m.role == MessageRole.user).length;
-      // Inject focus settings only when dirty (changed since last send).
-      final focusToInject = _focusSettingsDirty ? _focusSettings : null;
-      _focusSettingsDirty = false;
-      final result = await _llm.sendMessage(
-        _messages,
-        topic: _conversationTopic,
-        level: _userLevel,
-        levelLabel: _userLevelLabel,
-        currentTurn: turnNumber,
-        focusSettings: focusToInject,
-      );
-      llmDuration = DateTime.now().difference(llmStart);
-      final reply = result.message;
+      ChatMessage reply;
+      bool conversationComplete = false;
+
+      if (_conversationId != null) {
+        try {
+          final backendResult = await _backendLlm.sendConversationTurn(
+            conversationId: _conversationId!,
+            history: _messages,
+            topic: _conversationTopic,
+            level: _userLevel ?? 'A2',
+            levelLabel: _userLevelLabel ?? 'Finding My Voice',
+            currentTurn: turnNumber,
+            focusSettings: _focusSettings,
+          );
+          if (backendResult != null) {
+            reply = ChatMessage(
+              role: MessageRole.assistant,
+              content: backendResult.reply,
+              correction: backendResult.correction,
+            );
+            conversationComplete = backendResult.conversationComplete;
+            llmDuration = DateTime.now().difference(llmStart);
+
+            // Persist user message to backend
+            _api.storeMessage(
+              conversationId: _conversationId!,
+              role: 'user',
+              content: text.trim(),
+              sttDurationMs: sttDuration?.inMilliseconds,
+              turnNumber: turnNumber,
+            );
+          } else {
+            throw Exception('Backend returned null');
+          }
+        } catch (_) {
+          // Fall back to direct LLM
+          final result = await _llm.sendMessage(
+            _messages,
+            topic: _conversationTopic,
+            level: _userLevel,
+            levelLabel: _userLevelLabel,
+            currentTurn: turnNumber,
+            focusSettings: _focusSettings,
+          );
+          llmDuration = DateTime.now().difference(llmStart);
+          reply = result.message;
+          conversationComplete = result.conversationComplete;
+        }
+      } else {
+        final result = await _llm.sendMessage(
+          _messages,
+          topic: _conversationTopic,
+          level: _userLevel,
+          levelLabel: _userLevelLabel,
+          currentTurn: turnNumber,
+          focusSettings: _focusSettings,
+        );
+        llmDuration = DateTime.now().difference(llmStart);
+        reply = result.message;
+        conversationComplete = result.conversationComplete;
+      }
 
       // Add bubble immediately so it appears before TTS starts
       _messages.add(
@@ -503,7 +585,7 @@ class ChatProvider extends ChangeNotifier {
       }
 
       // Signal conversation completion AFTER TTS finishes
-      if (result.conversationComplete) {
+      if (conversationComplete) {
         _conversationComplete = true;
       }
 
@@ -517,6 +599,27 @@ class ChatProvider extends ChangeNotifier {
       );
 
       debugPrint('⏱ ${latency.summary}');
+
+      final assistantMsg = ChatMessage(
+        role: reply.role,
+        content: reply.content,
+        correction: reply.correction,
+        latency: latency,
+      );
+      _messages.add(assistantMsg);
+
+      // Persist assistant message to backend
+      if (_conversationId != null) {
+        _api.storeMessage(
+          conversationId: _conversationId!,
+          role: 'assistant',
+          content: reply.content,
+          correction: reply.correction,
+          llmDurationMs: llmDuration?.inMilliseconds,
+          ttsDurationMs: ttsDuration?.inMilliseconds,
+          turnNumber: turnNumber,
+        );
+      }
     } catch (e) {
       final totalDuration = DateTime.now().difference(turnStart);
       final latency = LatencyInfo(

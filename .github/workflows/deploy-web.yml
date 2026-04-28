@@ -58,6 +58,7 @@ jobs:
           cp -r frontend/build/web/. deploy/ella-v1/
           cp ella-v0.html deploy/ella-v0.html
           cp ella-design-v1.html deploy/ella-design-v1.html
+          cp ella-admin.html deploy/ella-admin.html
           # Root redirect → ella-v1
           cat > deploy/index.html << 'EOF'
           <!DOCTYPE html>

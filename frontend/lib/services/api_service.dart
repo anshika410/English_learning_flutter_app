@@ -1,18 +1,13 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 /// Central service for all calls to the Ella backend.
-///
-/// Auth flow:
-///   1. On first launch, generate a UUID device_id and call POST /auth/anonymous
-///   2. Store the returned JWT token in SharedPreferences
-///   3. Attach the token as Bearer on every subsequent request
 class ApiService {
   static String get _baseUrl {
-    // Try .env first, fall back to production URL
     final envUrl = dotenv.maybeGet('BACKEND_URL');
     if (envUrl != null && envUrl.isNotEmpty && !envUrl.startsWith('http://localhost')) {
       return envUrl;
@@ -64,8 +59,6 @@ class ApiService {
 
   // ── Auth ────────────────────────────────────────────────────────────────
 
-  /// Ensures the user is authenticated. Calls /auth/anonymous if no token.
-  /// Returns true if successful.
   Future<bool> ensureAuthenticated() async {
     final token = await getToken();
     if (token != null) return true;
@@ -75,6 +68,7 @@ class ApiService {
   Future<bool> _anonymousAuth() async {
     try {
       final deviceId = await _getOrCreateDeviceId();
+      debugPrint('🔐 Auth: calling /auth/anonymous with device_id: $deviceId');
       final response = await http
           .post(
             Uri.parse('$_baseUrl/auth/anonymous'),
@@ -83,15 +77,19 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
 
+      debugPrint('🔐 Auth response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         await _saveToken(data['access_token'] as String);
         final prefs = await _sharedPrefs;
         await prefs.setString(_keyUserId, data['user_id'] as String);
+        debugPrint('✅ Auth successful');
         return true;
       }
+      debugPrint('❌ Auth failed: ${response.body}');
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('❌ Auth error: $e');
       return false;
     }
   }
@@ -113,12 +111,13 @@ class ApiService {
     ).timeout(const Duration(seconds: 10));
   }
 
-  Future<http.Response> _post(String path, Map<String, dynamic> body) async {
+  Future<http.Response> _post(String path, Map<String, dynamic> body,
+      {Duration timeout = const Duration(seconds: 30)}) async {
     return http.post(
       Uri.parse('$_baseUrl$path'),
       headers: await _authHeaders(),
       body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 10));
+    ).timeout(timeout);
   }
 
   Future<http.Response> _put(String path, Map<String, dynamic> body) async {
@@ -131,7 +130,6 @@ class ApiService {
 
   // ── Users ───────────────────────────────────────────────────────────────
 
-  /// Fetch the current user's profile from the backend.
   Future<Map<String, dynamic>?> getMyProfile() async {
     try {
       final response = await _get('/users/me');
@@ -144,7 +142,6 @@ class ApiService {
     }
   }
 
-  /// Update name, age, location on the backend.
   Future<bool> updateProfile({
     String? name,
     String? age,
@@ -156,7 +153,6 @@ class ApiService {
       if (age != null) body['age'] = age;
       if (location != null) body['location'] = location;
       if (body.isEmpty) return true;
-
       final response = await _put('/users/me', body);
       return response.statusCode == 200;
     } catch (_) {
@@ -166,7 +162,6 @@ class ApiService {
 
   // ── Placements ──────────────────────────────────────────────────────────
 
-  /// Save a completed placement result to the backend.
   Future<bool> savePlacement({
     required String level,
     required String levelLabel,
@@ -186,7 +181,6 @@ class ApiService {
     }
   }
 
-  /// Get the latest placement result from the backend.
   Future<Map<String, dynamic>?> getLatestPlacement() async {
     try {
       final response = await _get('/placements/latest');
@@ -199,9 +193,234 @@ class ApiService {
     }
   }
 
+  // ── Conversations ───────────────────────────────────────────────────────
+
+  /// Create a new conversation session. Returns conversation id or null.
+  Future<String?> createConversation({String? topic}) async {
+    try {
+      debugPrint('📡 Creating conversation on backend...');
+      final response = await _post('/conversations', {
+        if (topic != null) 'topic': topic,
+      });
+      debugPrint('📡 Create conversation response: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['id'] as String?;
+      }
+      debugPrint('❌ Create conversation failed: ${response.body}');
+      return null;
+    } catch (e) {
+      debugPrint('❌ Create conversation error: $e');
+      return null;
+    }
+  }
+
+  /// Mark a conversation as complete.
+  Future<bool> completeConversation(String conversationId,
+      {int? durationSeconds, String? sessionType}) async {
+    try {
+      final response = await _put('/conversations/$conversationId/complete', {
+        if (durationSeconds != null) 'duration_seconds': durationSeconds,
+        if (sessionType != null) 'session_type': sessionType,
+      });
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Store a single message in a conversation.
+  Future<bool> storeMessage({
+    required String conversationId,
+    required String role,
+    required String content,
+    String? correction,
+    int? sttDurationMs,
+    int? llmDurationMs,
+    int? ttsDurationMs,
+    int? turnNumber,
+  }) async {
+    try {
+      final response = await _post(
+        '/conversations/$conversationId/messages',
+        {
+          'role': role,
+          'content': content,
+          if (correction != null) 'correction': correction,
+          if (sttDurationMs != null) 'stt_duration_ms': sttDurationMs,
+          if (llmDurationMs != null) 'llm_duration_ms': llmDurationMs,
+          if (ttsDurationMs != null) 'tts_duration_ms': ttsDurationMs,
+          if (turnNumber != null) 'turn_number': turnNumber,
+        },
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Fetch all messages for a conversation.
+  Future<List<Map<String, dynamic>>?> getMessages(String conversationId) async {
+    try {
+      final response = await _get('/conversations/$conversationId/messages');
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list.cast<Map<String, dynamic>>();
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// List all conversations for the current user.
+  Future<List<Map<String, dynamic>>?> listConversations({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final response = await _get('/conversations?limit=$limit&offset=$offset');
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list.cast<Map<String, dynamic>>();
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── LLM Proxy ───────────────────────────────────────────────────────────
+
+  /// Get a conversation starter from the backend (keeps API key server-side).
+  Future<Map<String, dynamic>?> getConversationStarter({String? topic}) async {
+    try {
+      final response = await _post(
+        '/llm/conversation-starter',
+        {if (topic != null) 'topic': topic},
+        timeout: const Duration(seconds: 30),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Send a conversation turn through the backend LLM proxy.
+  Future<Map<String, dynamic>?> sendConversationTurn({
+    required String conversationId,
+    required List<Map<String, String>> messages,
+    String? topic,
+    String level = 'A2',
+    String levelLabel = 'Finding My Voice',
+    int currentTurn = 1,
+    String grammarFocus = 'Catch All',
+    String vocabFocus = 'Occasional',
+    String fluencyFocus = 'After Chat',
+  }) async {
+    try {
+      final response = await _post(
+        '/llm/conversation-turn',
+        {
+          'conversation_id': conversationId,
+          'messages': messages,
+          if (topic != null) 'topic': topic,
+          'level': level,
+          'level_label': levelLabel,
+          'current_turn': currentTurn,
+          'grammar_focus': grammarFocus,
+          'vocab_focus': vocabFocus,
+          'fluency_focus': fluencyFocus,
+        },
+        timeout: const Duration(seconds: 30),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Send a placement turn through the backend LLM proxy.
+  Future<Map<String, dynamic>?> sendPlacementTurn({
+    required List<Map<String, String>> messages,
+    String? name,
+    int? age,
+  }) async {
+    try {
+      final body = <String, dynamic>{'messages': messages};
+      if (name != null) body['name'] = name;
+      if (age != null) body['age'] = age;
+      final response = await _post(
+        '/llm/placement-turn',
+        body,
+        timeout: const Duration(seconds: 30),
+      );
+      debugPrint('📡 placement-turn status: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        debugPrint('📡 placement-turn error body: ${response.body}');
+      }
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e, st) {
+      debugPrint('📡 placement-turn exception: $e\n$st');
+      return null;
+    }
+  }
+
+  /// Request session analysis through the backend LLM proxy.
+  Future<Map<String, dynamic>?> getSessionAnalysis({
+    required String conversationId,
+    required List<Map<String, String>> messages,
+    String topic = 'Free Talk',
+    String level = 'A2',
+    String levelLabel = 'Finding My Voice',
+  }) async {
+    try {
+      final response = await _post(
+        '/llm/session-analysis',
+        {
+          'conversation_id': conversationId,
+          'messages': messages,
+          'topic': topic,
+          'level': level,
+          'level_label': levelLabel,
+        },
+        timeout: const Duration(seconds: 45),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Progress ─────────────────────────────────────────────────────────────
+
+  /// Get the user's progress summary.
+  Future<Map<String, dynamic>?> getProgressSummary() async {
+    try {
+      final response = await _get('/progress/summary');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ── Health ──────────────────────────────────────────────────────────────
 
-  /// Quick connectivity check.
   Future<bool> isReachable() async {
     try {
       final response = await http

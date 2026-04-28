@@ -5,7 +5,13 @@ from pathlib import Path
 import httpx
 from ..core.config import get_settings
 
-PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "assets" / "prompts"
+import os
+
+# In Docker: prompts are at /app/assets/prompts (copied by Dockerfile)
+# Locally: fall back to frontend/assets/prompts relative to repo root
+_DOCKER_PROMPTS = Path("/app/assets/prompts")
+_LOCAL_PROMPTS = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "assets" / "prompts"
+PROMPTS_DIR = _DOCKER_PROMPTS if _DOCKER_PROMPTS.exists() else _LOCAL_PROMPTS
 
 # ── Level instructions (mirrors Flutter client) ──────────────────────────────
 
@@ -160,33 +166,51 @@ async def send_conversation_turn(
 
 # ── Placement Turn ────────────────────────────────────────────────────────────
 
-async def send_placement_turn(messages: list[dict]) -> dict:
-    system_prompt = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+async def send_placement_turn(
+    messages: list[dict],
+    name: str | None = None,
+    age: int | None = None,
+) -> dict:
+    raw_prompt = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+    # Inject student name and age into the prompt
+    system_prompt = (
+        raw_prompt
+        .replace("{{NAME}}", name or "there")
+        .replace("{{AGE}}", str(age) if age is not None else "unknown")
+    )
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
         for m in messages
     ]
-    text = await _chat_completion(api_messages, max_tokens=200, temperature=0.7)
+    text = await _chat_completion(api_messages, max_tokens=300, temperature=0.7)
 
-    # Check for REPLY: prefix
+    # Check for REPLY: prefix — still in conversation
     reply_match = re.search(r"REPLY:\s*(.*)", text, re.IGNORECASE | re.DOTALL)
     if reply_match:
         reply = reply_match.group(1).strip()
         return {"reply": reply or text, "is_complete": False}
 
-    # Try parsing as final JSON assessment
+    # Try parsing as final JSON assessment (new adaptive prompt shape)
     try:
         json_str = _extract_json(text)
         data = json.loads(json_str)
-        if "assessed_level" in data:
+        if "level_code" in data:
             return {
                 "reply": None,
                 "is_complete": True,
                 "name": data.get("name"),
                 "age": data.get("age"),
-                "location": data.get("location"),
-                "assessed_level": data.get("assessed_level"),
+                "age_group": data.get("age_group"),
+                "level_code": data.get("level_code"),
+                "level_name": data.get("level_name"),
+                "level_description": data.get("level_description"),
                 "confidence": data.get("confidence"),
+                "possible_higher": data.get("possible_higher"),
+                "evidence_summary": data.get("evidence_summary"),
+                "probe_targets_covered": data.get("probe_targets_covered"),
+                "turns_taken": data.get("turns_taken"),
+                "code_switch_observed": data.get("code_switch_observed"),
+                "notes_for_first_session": data.get("notes_for_first_session"),
             }
     except Exception:
         pass
