@@ -572,7 +572,9 @@ class ChatProvider extends ChangeNotifier {
         conversationComplete = result.conversationComplete;
       }
 
-      // Add bubble immediately so it appears before TTS starts
+      // Add bubble immediately so it appears before TTS starts, then enrich the
+      // same message with latency once TTS finishes.
+      final assistantIndex = _messages.length;
       _messages.add(
         ChatMessage(
           role: reply.role,
@@ -614,7 +616,9 @@ class ChatProvider extends ChangeNotifier {
         correction: reply.correction,
         latency: latency,
       );
-      _messages.add(assistantMsg);
+      if (assistantIndex < _messages.length) {
+        _messages[assistantIndex] = assistantMsg;
+      }
 
       // Persist assistant message to backend
       if (_conversationId != null) {
