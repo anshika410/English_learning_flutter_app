@@ -103,16 +103,21 @@ class ChatProvider extends ChangeNotifier {
     String? level,
     String? levelLabel,
   }) {
-    final normalizedName = name == null ? null : normalizeDisplayName(name);
+    final normalizedName = name == null || name.trim().isEmpty
+        ? null
+        : normalizeDisplayName(name);
+    final normalizedAge = age == null || age.trim().isEmpty ? null : age.trim();
+    final normalizedLocation =
+        location == null || location.trim().isEmpty ? null : location.trim();
     _userName = normalizedName ?? _userName;
-    _userAge = age ?? _userAge;
-    _userLocation = location ?? _userLocation;
+    _userAge = normalizedAge ?? _userAge;
+    _userLocation = normalizedLocation ?? _userLocation;
     _userLevel = level ?? _userLevel;
     _userLevelLabel = levelLabel ?? _userLevelLabel;
     _prefs.saveProfile(
       name: normalizedName,
-      age: age,
-      location: location,
+      age: normalizedAge,
+      location: normalizedLocation,
       level: level,
       levelLabel: levelLabel,
     );

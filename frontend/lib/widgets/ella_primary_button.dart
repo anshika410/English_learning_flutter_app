@@ -61,13 +61,17 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
         ],
       ),
       child: Center(
-        child: Text(
-          widget.label.toUpperCase(),
-          style: GoogleFonts.baloo2(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-            letterSpacing: 0.2,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            widget.label.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.baloo2(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+              letterSpacing: 0.2,
+            ),
           ),
         ),
       ),

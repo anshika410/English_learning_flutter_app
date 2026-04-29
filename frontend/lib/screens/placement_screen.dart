@@ -203,14 +203,28 @@ class _PlacementScreenState extends State<PlacementScreen> {
       if (!mounted) return;
 
       if (result.isComplete) {
-        // Extract student info from LLM final assessment before navigating
-        if (result.name != null) _userName = result.name;
-        if (result.age != null) _userAge = result.age;
+        // Keep onboarding as the source of truth. Placement extraction can fill
+        // blanks, but it should not replace the name the student already typed.
+        if ((_userName == null || _userName!.trim().isEmpty) &&
+            result.name != null &&
+            result.name!.trim().isNotEmpty) {
+          _userName = result.name;
+        }
+        if ((_userAge == null || _userAge!.trim().isEmpty) &&
+            result.age != null &&
+            result.age!.trim().isNotEmpty) {
+          _userAge = result.age;
+        }
+        if ((_userLocation == null || _userLocation!.trim().isEmpty) &&
+            result.location != null &&
+            result.location!.trim().isNotEmpty) {
+          _userLocation = result.location;
+        }
         // LLM has assessed the student — navigate to result
         await _goToResult(
           levelCode: result.assessedLevel ?? 'A2',
           levelName: null,
-          levelDescription: null,
+          levelDescription: result.notes,
           confidence: result.confidence,
         );
         return;
@@ -288,10 +302,18 @@ class _PlacementScreenState extends State<PlacementScreen> {
         'You expressed yourself clearly and stayed engaged throughout the check.';
 
     if (!mounted) return;
+    final provider = context.read<ChatProvider>();
+    final profileName = provider.userName?.trim().isNotEmpty == true
+        ? provider.userName
+        : _userName;
+    final profileAge = provider.userAge?.trim().isNotEmpty == true
+        ? provider.userAge
+        : _userAge;
+
     // Save profile into ChatProvider for use across the app
-    context.read<ChatProvider>().setUserProfile(
-      name: _userName,
-      age: _userAge,
+    provider.setUserProfile(
+      name: profileName,
+      age: profileAge,
       location: _userLocation,
       level: level,
       levelLabel: resolvedLevelLabel,
@@ -301,8 +323,8 @@ class _PlacementScreenState extends State<PlacementScreen> {
     final api = ApiService.instance;
     api.ensureAuthenticated().then((_) {
       api.updateProfile(
-        name: _userName,
-        age: _userAge,
+        name: profileName,
+        age: profileAge,
         location: _userLocation,
       );
       api.savePlacement(
@@ -318,7 +340,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
         pageBuilder: (context, animation, secondaryAnimation) => ResultScreen(
           level: fallbackLabels.containsKey(level) ? level : 'A2',
           levelName: resolvedLevelLabel,
-          name: _userName ?? 'there',
+          name: profileName ?? 'there',
           city: _userLocation,
         ),
         transitionDuration: const Duration(milliseconds: 400),

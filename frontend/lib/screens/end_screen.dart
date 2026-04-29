@@ -261,6 +261,50 @@ class EndScreen extends StatelessWidget {
   // ── Empty: user never spoke ──────────────────────────────────────────────────
 
   Widget _buildEmptyScreen(BuildContext context) {
+    final isWide = EllaResponsive.isWide(context);
+    final viewport = MediaQuery.of(context).size;
+    final mascotSize = isWide
+        ? 120.0
+        : viewport.shortestSide < 380
+            ? 160.0
+            : 200.0;
+
+    void tryAgain() {
+      final restartTopic = retryTopic ?? topic;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ConversationScreen(topic: restartTopic),
+        ),
+      );
+    }
+
+    Widget actionRow() {
+      return Row(
+        mainAxisSize: isWide ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          Flexible(
+            child: SizedBox(
+              width: isWide ? 180 : double.infinity,
+              child: _GhostButton(
+                label: 'PICK NEW TOPIC',
+                onTap: () => _pickNewTopic(context),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: SizedBox(
+              width: isWide ? 152 : double.infinity,
+              child: EllaPrimaryButton(
+                label: 'TRY AGAIN',
+                onTap: tryAgain,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
       body: SafeArea(
@@ -271,14 +315,14 @@ class EndScreen extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
+                    constraints: BoxConstraints(maxWidth: isWide ? 460 : 360),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
-                          width: 200,
-                          height: 200,
+                          width: mascotSize,
+                          height: mascotSize,
                           decoration: BoxDecoration(
                             color: EllaColors.zoeMintLight,
                             shape: BoxShape.circle,
@@ -297,19 +341,19 @@ class EndScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const ClipOval(
-                            child: _ZoeMascotAnimator(size: 200),
+                          child: ClipOval(
+                            child: _ZoeMascotAnimator(size: mascotSize),
                           ),
                         ),
-                        const SizedBox(height: 28),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 24),
+                        SizedBox(height: isWide ? 24 : 28),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Text(
                             'Looks like we lost you there.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontFamily: 'Chillax',
-                              fontSize: 24,
+                              fontSize: isWide ? 22 : 24,
                               fontWeight: FontWeight.w600,
                               color: EllaColors.neutralPrimary,
                             ),
@@ -329,39 +373,20 @@ class EndScreen extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (isWide) ...[
+                          const SizedBox(height: 48),
+                          actionRow(),
+                        ],
                       ],
                     ),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _GhostButton(
-                        label: 'PICK NEW TOPIC',
-                        onTap: () => _pickNewTopic(context),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: EllaPrimaryButton(
-                        label: 'TRY AGAIN',
-                        onTap: () {
-                          final restartTopic = retryTopic ?? topic;
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ConversationScreen(topic: restartTopic),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+              if (!isWide)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                  child: Center(child: actionRow()),
                 ),
-              ),
             ],
           ),
         ),
@@ -505,6 +530,10 @@ class EndScreen extends StatelessWidget {
     final sidePad = isWide
         ? ((screenWidth - 768) / 2).clamp(24.0, double.infinity)
         : 24.0;
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final headerHeight =
+        MediaQuery.paddingOf(context).top +
+        (isWide ? 260.0 : 340.0) * textScale.clamp(1.0, 1.25);
 
     // Courage text: always show for all quality states
     final courageText =
@@ -519,6 +548,7 @@ class EndScreen extends StatelessWidget {
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _SummaryHeaderDelegate(
+                  height: headerHeight,
                   child: _SummaryHeaderCard(
                     headline: displayHeadline,
                     emoji: emoji,
@@ -954,15 +984,14 @@ class _SummaryHeaderCardState extends State<_SummaryHeaderCard> {
 
 class _SummaryHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
-  // Estimated height: SafeArea ~44 + pad top 24 + mascot 120 + 16 + eyebrow 16 + 8 + headline 30 + 12 + chips 30
-  static const double _height = 300.0;
+  final double height;
 
-  const _SummaryHeaderDelegate({required this.child});
+  const _SummaryHeaderDelegate({required this.child, required this.height});
 
   @override
-  double get minExtent => _height;
+  double get minExtent => height;
   @override
-  double get maxExtent => _height;
+  double get maxExtent => height;
 
   @override
   Widget build(
@@ -970,12 +999,12 @@ class _SummaryHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return child;
+    return SizedBox(height: height, child: child);
   }
 
   @override
   bool shouldRebuild(_SummaryHeaderDelegate oldDelegate) =>
-      oldDelegate.child != child;
+      oldDelegate.child != child || oldDelegate.height != height;
 }
 
 // ─── Meta Chip ────────────────────────────────────────────────────────────────
@@ -1563,13 +1592,17 @@ class _GhostButton extends StatelessWidget {
           ],
         ),
         child: Center(
-          child: Text(
-            label,
-            style: GoogleFonts.baloo2(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: EllaColors.neutralSecondary,
-              letterSpacing: 0.2,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.baloo2(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: EllaColors.neutralSecondary,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ),

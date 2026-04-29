@@ -597,9 +597,12 @@ $transcript
 
     final text = await _sendChatCompletion(
       messages: apiMessages,
-      maxTokens: 200,
+      maxTokens: 700,
       temperature: 0.7,
     );
+
+    final completeResult = _tryParsePlacementComplete(text);
+    if (completeResult != null) return completeResult;
 
     // Check if it's a REPLY: prefixed conversational turn
     final replyMatch = RegExp(
@@ -632,6 +635,86 @@ $transcript
 
     // Fallback: treat entire response as a reply
     return PlacementMessageResult.reply(text);
+  }
+
+  PlacementMessageResult? _tryParsePlacementComplete(String text) {
+    try {
+      final data = jsonDecode(_extractJsonObject(text)) as Map<String, dynamic>;
+      final level = _extractPlacementLevel(data);
+      final looksFinal = level != null ||
+          _hasAnyKey(data, const [
+            'assessed_level',
+            'assessedLevel',
+            'cefr_level',
+            'cefrLevel',
+            'level',
+            'level_code',
+            'levelCode',
+            'confidence',
+            'notes',
+            'feedback',
+            'highlight',
+          ]);
+
+      if (!looksFinal) return null;
+
+      return PlacementMessageResult.complete(
+        name: _firstString(data, const ['name', 'student_name', 'studentName']),
+        age: _firstString(data, const ['age', 'student_age', 'studentAge']),
+        location: _firstString(data, const ['location', 'city', 'place']),
+        assessedLevel: level ?? 'A2',
+        confidence: _stringValue(data['confidence']),
+        notes: _firstString(data, const [
+          'notes',
+          'feedback',
+          'highlight',
+          'level_description',
+          'levelDescription',
+        ]),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _extractPlacementLevel(Map<String, dynamic> data) {
+    final raw = _firstString(data, const [
+      'assessed_level',
+      'assessedLevel',
+      'cefr_level',
+      'cefrLevel',
+      'level',
+      'level_code',
+      'levelCode',
+    ]);
+    if (raw == null) return null;
+    final match = RegExp(
+      r'\b(A1|A2|B1|B2|C1)\b',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    return match?.group(1)?.toUpperCase();
+  }
+
+  bool _hasAnyKey(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      if (data.containsKey(key)) return true;
+    }
+    return false;
+  }
+
+  String? _firstString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = _stringValue(data[key]);
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  String? _stringValue(Object? value) {
+    if (value == null) return null;
+    if (value is String) return value.trim();
+    if (value is num || value is bool) return value.toString();
+    return null;
   }
 
   /// Generic OpenAI-compatible chat completion (works with DeepSeek).

@@ -267,9 +267,22 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
           // Info card section
           Expanded(
             child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-                child: _YourInfoSection(provider: widget.provider),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth:
+                        EllaResponsive.isWide(context) ? 600 : double.infinity,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      EllaResponsive.isWide(context) ? 32 : 24,
+                      20,
+                      48,
+                    ),
+                    child: _YourInfoSection(provider: widget.provider),
+                  ),
+                ),
               ),
             ),
           ),
