@@ -27,6 +27,7 @@ app = FastAPI(
     description="Backend for the Zoe English learning app",
     version="1.0.0",
     lifespan=lifespan,
+    root_path="/api",
     # Hide docs unless explicitly enabled via DOCS_ENABLED=true in .env
     docs_url="/docs" if settings.docs_enabled else None,
     redoc_url="/redoc" if settings.docs_enabled else None,
