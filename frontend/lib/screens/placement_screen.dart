@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import '../services/api_service.dart';
 import '../services/native_stt_service.dart';
-import '../services/llm_service_base.dart';
-import '../services/llm_service.dart';
+import '../services/backend_llm_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
 import '../theme/ella_responsive.dart';
@@ -48,7 +47,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
   final NativeSttService _stt = NativeSttService();
   final TtsManager _tts = TtsManager();
-  final LlmServiceBase _llm = LlmService();
+  final BackendLlmService _llm = BackendLlmService();
   final TextEditingController _textCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
   final FocusNode _textFocusNode = FocusNode();
@@ -198,33 +197,34 @@ class _PlacementScreenState extends State<PlacementScreen> {
     });
 
     try {
-      final result = await _llm.sendPlacementMessage(_apiMessages);
+      final result = await _llm.sendPlacementTurn(
+        messages: _apiMessages,
+        name: _userName,
+        age: int.tryParse(_userAge ?? ''),
+      );
 
       if (!mounted) return;
+      if (result == null) return;
 
       if (result.isComplete) {
         // Keep onboarding as the source of truth. Placement extraction can fill
         // blanks, but it should not replace the name the student already typed.
         if ((_userName == null || _userName!.trim().isEmpty) &&
-            result.name != null &&
-            result.name!.trim().isNotEmpty) {
-          _userName = result.name;
+            result.extractedName != null &&
+            result.extractedName!.trim().isNotEmpty) {
+          _userName = result.extractedName;
         }
         if ((_userAge == null || _userAge!.trim().isEmpty) &&
-            result.age != null &&
-            result.age!.trim().isNotEmpty) {
-          _userAge = result.age;
-        }
-        if ((_userLocation == null || _userLocation!.trim().isEmpty) &&
-            result.location != null &&
-            result.location!.trim().isNotEmpty) {
-          _userLocation = result.location;
+            result.extractedAge != null &&
+            result.extractedAge!.trim().isNotEmpty) {
+          _userAge = result.extractedAge;
         }
         // LLM has assessed the student — navigate to result
         await _goToResult(
-          levelCode: result.assessedLevel ?? 'A2',
-          levelName: null,
-          levelDescription: result.notes,
+          levelCode: result.levelCode ?? 'A2',
+          levelName: result.levelName,
+          levelDescription:
+              result.levelDescription ?? result.evidenceSummary,
           confidence: result.confidence,
         );
         return;
