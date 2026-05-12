@@ -38,7 +38,8 @@ class ChatProvider extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
   String _currentTranscript = '';
   bool _isListening = false;
-  bool _isMicRecognizing = false; // true only when recognizer is actively running
+  bool _isMicRecognizing =
+      false; // true only when recognizer is actively running
   bool _isLoading = false;
   bool _isSpeaking = false;
   bool _autoSpeak = true;
@@ -107,8 +108,9 @@ class ChatProvider extends ChangeNotifier {
         ? null
         : normalizeDisplayName(name);
     final normalizedAge = age == null || age.trim().isEmpty ? null : age.trim();
-    final normalizedLocation =
-        location == null || location.trim().isEmpty ? null : location.trim();
+    final normalizedLocation = location == null || location.trim().isEmpty
+        ? null
+        : location.trim();
     _userName = normalizedName ?? _userName;
     _userAge = normalizedAge ?? _userAge;
     _userLocation = normalizedLocation ?? _userLocation;
@@ -122,6 +124,39 @@ class ChatProvider extends ChangeNotifier {
       levelLabel: levelLabel,
     );
     notifyListeners();
+  }
+
+  Future<bool> updateUserProfile({
+    String? name,
+    String? age,
+    String? location,
+  }) async {
+    final normalizedName = name == null || name.trim().isEmpty
+        ? null
+        : normalizeDisplayName(name);
+    final normalizedAge = age == null || age.trim().isEmpty ? null : age.trim();
+    final normalizedLocation = location == null || location.trim().isEmpty
+        ? null
+        : location.trim();
+
+    try {
+      await _api.ensureAuthenticated();
+      final updated = await _api.updateProfile(
+        name: normalizedName,
+        age: normalizedAge,
+        location: normalizedLocation,
+      );
+      if (!updated) return false;
+
+      setUserProfile(
+        name: normalizedName,
+        age: normalizedAge,
+        location: normalizedLocation,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> logout() async {
@@ -262,7 +297,9 @@ class ChatProvider extends ChangeNotifier {
     String headerTitle;
     try {
       // Try backend LLM first, fall back to direct
-      final backendResult = await _backendLlm.generateConversationStarter(topic: topic);
+      final backendResult = await _backendLlm.generateConversationStarter(
+        topic: topic,
+      );
       if (backendResult != null) {
         starter = backendResult.starter;
         headerTitle = backendResult.headerTitle;
@@ -292,7 +329,9 @@ class ChatProvider extends ChangeNotifier {
   Future<EndResultAnalysis?> analyzeConversationEnd() async {
     // Mark conversation complete on backend
     if (_conversationId != null) {
-      final durationSeconds = _messages.isNotEmpty ? _messages.length * 30 : null;
+      final durationSeconds = _messages.isNotEmpty
+          ? _messages.length * 30
+          : null;
       _api.completeConversation(
         _conversationId!,
         durationSeconds: durationSeconds,
@@ -505,7 +544,9 @@ class ChatProvider extends ChangeNotifier {
 
     Duration? llmDuration;
     Duration? ttsDuration;
-    final turnNumber = _messages.where((m) => m.role == MessageRole.user).length;
+    final turnNumber = _messages
+        .where((m) => m.role == MessageRole.user)
+        .length;
 
     try {
       // --- LLM (backend proxy first, direct fallback) ---
@@ -627,7 +668,7 @@ class ChatProvider extends ChangeNotifier {
           role: 'assistant',
           content: reply.content,
           correction: reply.correction,
-          llmDurationMs: llmDuration?.inMilliseconds,
+          llmDurationMs: llmDuration.inMilliseconds,
           ttsDurationMs: ttsDuration?.inMilliseconds,
           turnNumber: turnNumber,
         );

@@ -213,7 +213,10 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: EllaColors.mangoLightest,
-                        border: Border.all(color: EllaColors.mangoDark, width: 2),
+                        border: Border.all(
+                          color: EllaColors.mangoDark,
+                          width: 2,
+                        ),
                       ),
                       child: const Icon(
                         Icons.person_rounded,
@@ -270,8 +273,9 @@ class _ProfileHeaderState extends State<_ProfileHeader> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth:
-                        EllaResponsive.isWide(context) ? 600 : double.infinity,
+                    maxWidth: EllaResponsive.isWide(context)
+                        ? 600
+                        : double.infinity,
                   ),
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(
@@ -576,21 +580,45 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
   }
 
   void _showEditSheet(BuildContext context) {
-    final nameCtrl = TextEditingController(text: _nameNotifier.value);
-    final ageCtrl = TextEditingController(text: _ageNotifier.value);
-    final locationCtrl = TextEditingController(text: _locationNotifier.value);
+    final nameCtrl = TextEditingController(
+      text: widget.provider.userName ?? '',
+    );
+    final ageCtrl = TextEditingController(text: widget.provider.userAge ?? '');
+    final locationCtrl = TextEditingController(
+      text: widget.provider.userLocation ?? '',
+    );
     final emailCtrl = TextEditingController(text: _emailNotifier.value);
 
-    void onSave(BuildContext dismissContext) {
-      _nameNotifier.value = nameCtrl.text;
-      _ageNotifier.value = ageCtrl.text;
-      _locationNotifier.value = locationCtrl.text;
-      _emailNotifier.value = emailCtrl.text;
-      widget.provider.setUserProfile(
+    Future<bool> onSave(BuildContext dismissContext) async {
+      final saved = await widget.provider.updateUserProfile(
         name: nameCtrl.text,
         age: ageCtrl.text,
         location: locationCtrl.text,
       );
+      if (!mounted || !context.mounted || !dismissContext.mounted) return false;
+
+      if (!saved) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not update profile. Please try again.',
+              style: GoogleFonts.baloo2(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: EllaColors.neutralPrimary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return false;
+      }
+
+      _nameNotifier.value = widget.provider.userName ?? nameCtrl.text;
+      _ageNotifier.value = widget.provider.userAge ?? ageCtrl.text;
+      _locationNotifier.value =
+          widget.provider.userLocation ?? locationCtrl.text;
+      _emailNotifier.value = emailCtrl.text;
       Navigator.of(dismissContext).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -605,65 +633,88 @@ class _YourInfoSectionState extends State<_YourInfoSection> {
           ),
         ),
       );
+      return true;
     }
 
-    Widget formContent(BuildContext dismissContext) => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Edit your info',
-          style: TextStyle(
-            fontFamily: 'Chillax',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: EllaColors.neutralPrimary,
-          ),
-        ),
-        const SizedBox(height: 20),
-        _EditField(label: 'Name', controller: nameCtrl),
-        const SizedBox(height: 12),
-        _EditField(label: 'Age', controller: ageCtrl),
-        const SizedBox(height: 12),
-        _EditField(label: 'Location', controller: locationCtrl),
-        const SizedBox(height: 12),
-        _EditField(label: 'Email', controller: emailCtrl),
-        const SizedBox(height: 24),
-        Align(
-          alignment: Alignment.centerRight,
-          child: GestureDetector(
-            onTap: () => onSave(dismissContext),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              decoration: BoxDecoration(
-                color: EllaColors.mangoMain,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  topRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(4),
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: EllaColors.mangoDark,
-                    offset: Offset(0, 4),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              child: Text(
-                'Save profile info',
-                style: GoogleFonts.baloo2(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+    Widget formContent(BuildContext dismissContext) {
+      var isSaving = false;
+
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> save() async {
+            if (isSaving) return;
+            setSheetState(() => isSaving = true);
+            final saved = await onSave(dismissContext);
+            if (!saved && mounted && context.mounted) {
+              setSheetState(() => isSaving = false);
+            }
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Edit your info',
+                style: TextStyle(
+                  fontFamily: 'Chillax',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                   color: EllaColors.neutralPrimary,
                 ),
               ),
-            ),
-          ),
-        ),
-      ],
-    );
+              const SizedBox(height: 20),
+              _EditField(label: 'Name', controller: nameCtrl),
+              const SizedBox(height: 12),
+              _EditField(label: 'Age', controller: ageCtrl),
+              const SizedBox(height: 12),
+              _EditField(label: 'Location', controller: locationCtrl),
+              const SizedBox(height: 12),
+              _EditField(label: 'Email', controller: emailCtrl),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: isSaving ? null : save,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSaving
+                          ? EllaColors.mangoLight
+                          : EllaColors.mangoMain,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(20),
+                        bottomLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(4),
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: EllaColors.mangoDark,
+                          offset: Offset(0, 4),
+                          blurRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      isSaving ? 'Saving...' : 'Save profile info',
+                      style: GoogleFonts.baloo2(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: EllaColors.neutralPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
 
     if (EllaResponsive.isWide(context)) {
       showDialog<void>(
@@ -1044,7 +1095,6 @@ class _FocusBlock<T extends Enum> extends StatelessWidget {
   }
 }
 
-
 class _LogoutSheetContent extends StatelessWidget {
   final bool showDragHandle;
   final VoidCallback onStay;
@@ -1177,7 +1227,6 @@ class _LogoutSheetContent extends StatelessWidget {
     );
   }
 }
-
 
 class _LogoutSheet extends StatelessWidget {
   final VoidCallback onStay;

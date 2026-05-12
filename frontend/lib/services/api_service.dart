@@ -154,6 +154,7 @@ class ApiService {
       if (location != null) body['location'] = location;
       if (body.isEmpty) return true;
       final response = await _put('/users/me', body);
+      debugPrint('🔄 Update profile response: ${response.statusCode} and ${response.body}');
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -175,6 +176,7 @@ class ApiService {
         'highlight': highlight,
         if (transcript != null) 'transcript_json': transcript,
       });
+        debugPrint('💾 Save /placements response: ${response.statusCode} and ${response.body}');
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -185,6 +187,7 @@ class ApiService {
     try {
       final response = await _get('/placements/latest');
       if (response.statusCode == 200) {
+        debugPrint('📡 Latest placement response: ${response.body}');
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
       return null;
@@ -202,7 +205,7 @@ class ApiService {
       final response = await _post('/conversations', {
         if (topic != null) 'topic': topic,
       });
-      debugPrint('📡 Create conversation response: ${response.statusCode}');
+      debugPrint('📡 Create conversation response /conversations: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return data['id'] as String?;
@@ -223,6 +226,7 @@ class ApiService {
         if (durationSeconds != null) 'duration_seconds': durationSeconds,
         if (sessionType != null) 'session_type': sessionType,
       });
+        debugPrint('💾 Complete conversation response- /complete: ${response.statusCode} and ${response.body}');
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -253,6 +257,7 @@ class ApiService {
           if (turnNumber != null) 'turn_number': turnNumber,
         },
       );
+        debugPrint('💾 Store message response - /messages: ${response.statusCode} and ${response.body}');
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -264,6 +269,7 @@ class ApiService {
     try {
       final response = await _get('/conversations/$conversationId/messages');
       if (response.statusCode == 200) {
+        debugPrint('📡 Fetch messages response: ${response.body}');
         final list = jsonDecode(response.body) as List<dynamic>;
         return list.cast<Map<String, dynamic>>();
       }
@@ -281,6 +287,7 @@ class ApiService {
     try {
       final response = await _get('/conversations?limit=$limit&offset=$offset');
       if (response.statusCode == 200) {
+        debugPrint('📡 List conversations response: ${response.body}');
         final list = jsonDecode(response.body) as List<dynamic>;
         return list.cast<Map<String, dynamic>>();
       }
@@ -301,6 +308,7 @@ class ApiService {
         timeout: const Duration(seconds: 30),
       );
       if (response.statusCode == 200) {
+        debugPrint('🔄 Conversation starter response: ${response.body}');
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
       return null;
@@ -338,6 +346,7 @@ class ApiService {
         timeout: const Duration(seconds: 30),
       );
       if (response.statusCode == 200) {
+        debugPrint('🔄 Conversation turn response- /llm/conversation-turn: ${response.body}');
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
       return null;
@@ -362,6 +371,7 @@ class ApiService {
         timeout: const Duration(seconds: 30),
       );
       debugPrint('📡 placement-turn status: ${response.statusCode}');
+      debugPrint('📡 placement-turn body: ${response.body}');
       if (response.statusCode != 200) {
         debugPrint('📡 placement-turn error body: ${response.body}');
       }
@@ -396,6 +406,7 @@ class ApiService {
         timeout: const Duration(seconds: 45),
       );
       if (response.statusCode == 200) {
+        debugPrint('🔍 Session analysis response: ${response.statusCode}  and ${response.body}');
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
       return null;
