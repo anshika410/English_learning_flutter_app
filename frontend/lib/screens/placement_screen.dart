@@ -191,6 +191,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
           levelName: result.levelName,
           levelDescription: result.levelDescription,
           confidence: result.confidence,
+          interests: result.interests,
         );
         return;
       }
@@ -240,6 +241,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
     String? levelName,
     String? levelDescription,
     String? confidence,
+    List<String>? interests,
   }) async {
     if (!mounted || _isCompleting) return;
     _isCompleting = true;
@@ -279,6 +281,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
         levelLabel: resolvedLevelLabel,
         highlight: highlight,
         transcript: _apiMessages,
+        interests: interests,
       );
     }).ignore();
 

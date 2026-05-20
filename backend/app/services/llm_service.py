@@ -210,6 +210,7 @@ async def send_placement_turn(
                 "probe_targets_covered": data.get("probe_targets_covered"),
                 "turns_taken": data.get("turns_taken"),
                 "code_switch_observed": data.get("code_switch_observed"),
+                "interests": data.get("interests", []),
                 "notes_for_first_session": data.get("notes_for_first_session"),
             }
     except Exception:

@@ -27,9 +27,11 @@ async def create_placement(
     )
     db.add(placement)
 
-    # Also update user's current level
+    # Also update user's current level and interests
     user.level = body.level
     user.level_label = body.level_label
+    if body.interests:
+        user.interests = ",".join(body.interests)
     db.add(user)
 
     await db.flush()

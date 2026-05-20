@@ -55,6 +55,7 @@ class PlacementTurnResponse(BaseModel):
     turns_taken: int | None = None
     code_switch_observed: bool | None = None
     notes_for_first_session: str | None = None
+    interests: list[str] | None = None
 
     @field_validator('age', 'turns_taken', mode='before')
     @classmethod
