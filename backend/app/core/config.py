@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     docs_enabled: bool = False
     # Admin dashboard secret key — set in .env
     admin_secret_key: str = "change-me-admin-key"
+    # Set to true in production if reverse proxy (like Nginx) already handles CORS
+    disable_cors: bool = False
 
     model_config = {"env_file": "backend/.env", "extra": "ignore"}
 
