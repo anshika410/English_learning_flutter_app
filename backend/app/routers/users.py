@@ -21,6 +21,7 @@ def _to_profile(user: User) -> UserProfile:
         vocab_focus=user.vocab_focus,
         fluency_focus=user.fluency_focus,
         first_session_done=user.first_session_done,
+        interests=user.interests.split(",") if user.interests else None,
     )
 
 
