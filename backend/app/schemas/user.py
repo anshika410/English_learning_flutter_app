@@ -13,6 +13,7 @@ class UserProfile(BaseModel):
     vocab_focus: int = 2
     fluency_focus: int = 1
     first_session_done: bool = False
+    interests: list[str] | None = None
 
 
 class UpdateProfileRequest(BaseModel):

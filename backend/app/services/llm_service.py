@@ -182,7 +182,7 @@ async def send_placement_turn(
         {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
         for m in messages
     ]
-    text = await _chat_completion(api_messages, max_tokens=300, temperature=0.7)
+    text = await _chat_completion(api_messages, max_tokens=600, temperature=0.7)
 
     # Check for REPLY: prefix — still in conversation
     reply_match = re.search(r"REPLY:\s*(.*)", text, re.IGNORECASE | re.DOTALL)
@@ -195,6 +195,8 @@ async def send_placement_turn(
         json_str = _extract_json(text)
         data = json.loads(json_str)
         if "level_code" in data:
+            import logging
+            logging.info(f"Placement JSON interests: {data.get('interests')}")
             return {
                 "reply": None,
                 "is_complete": True,
@@ -210,6 +212,7 @@ async def send_placement_turn(
                 "probe_targets_covered": data.get("probe_targets_covered"),
                 "turns_taken": data.get("turns_taken"),
                 "code_switch_observed": data.get("code_switch_observed"),
+                "interests": data.get("interests", []),
                 "notes_for_first_session": data.get("notes_for_first_session"),
             }
     except Exception:

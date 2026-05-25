@@ -89,6 +89,7 @@ class BackendLlmService {
         notesForFirstSession: data['notes_for_first_session'] as String?,
         extractedName: data['name'] as String?,
         extractedAge: data['age']?.toString(),
+        interests: (data['interests'] as List<dynamic>?)?.cast<String>(),
       );
     }
     final reply = data['reply'] as String? ?? '';
@@ -169,6 +170,7 @@ class PlacementMessageResult {
   // Student info extracted by LLM
   final String? extractedName;
   final String? extractedAge;
+  final List<String>? interests;
 
   const PlacementMessageResult.reply(String text)
       : reply = text,
@@ -182,7 +184,8 @@ class PlacementMessageResult {
         turnsTaken = null,
         notesForFirstSession = null,
         extractedName = null,
-        extractedAge = null;
+        extractedAge = null,
+        interests = null;
 
   const PlacementMessageResult.complete({
     this.levelCode,
@@ -195,6 +198,7 @@ class PlacementMessageResult {
     this.notesForFirstSession,
     this.extractedName,
     this.extractedAge,
+    this.interests,
   })  : reply = null,
         isComplete = true;
 }

@@ -27,6 +27,9 @@ class User(Base):
     level: Mapped[str | None] = mapped_column(String(5), nullable=True)
     level_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
+    # Interests detected during placement (comma-separated, e.g. "cricket,music,food")
+    interests: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     # Focus settings (stored as enum indices matching Flutter FocusSettings)
     grammar_focus: Mapped[int] = mapped_column(Integer, default=2)
     vocab_focus: Mapped[int] = mapped_column(Integer, default=2)

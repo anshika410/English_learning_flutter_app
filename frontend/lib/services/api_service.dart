@@ -168,6 +168,7 @@ class ApiService {
     required String levelLabel,
     required String highlight,
     List<Map<String, String>>? transcript,
+    List<String>? interests,
   }) async {
     try {
       final response = await _post('/placements', {
@@ -175,6 +176,7 @@ class ApiService {
         'level_label': levelLabel,
         'highlight': highlight,
         if (transcript != null) 'transcript_json': transcript,
+        if (interests != null && interests.isNotEmpty) 'interests': interests,
       });
         debugPrint('💾 Save /placements response: ${response.statusCode} and ${response.body}');
       return response.statusCode == 200;
