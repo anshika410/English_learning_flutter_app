@@ -87,6 +87,7 @@ class ResultScreen extends StatelessWidget {
   final String levelName;
   final String name;
   final String? city;
+  final List<String>? interests;
 
   const ResultScreen({
     super.key,
@@ -94,6 +95,7 @@ class ResultScreen extends StatelessWidget {
     required this.levelName,
     this.name = 'there',
     this.city,
+    this.interests,
   });
 
   void _goToMainApp(BuildContext context) {
@@ -128,7 +130,7 @@ class ResultScreen extends StatelessWidget {
       const SizedBox(height: 20),
 
       // ── Context chips ───────────────────────────────────────────────
-      if (city != null) ...[
+      if (interests != null && interests!.isNotEmpty) ...[
         Text(
           'A MOMENT FROM YOUR CONVERSATION',
           style: GoogleFonts.inconsolata(
@@ -142,7 +144,7 @@ class ResultScreen extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: [_InfoChip(icon: '📍', label: city!)],
+          children: interests!.map((interest) => _InfoChip(icon: '🎯', label: interest)).toList(),
         ),
         const SizedBox(height: 20),
       ],

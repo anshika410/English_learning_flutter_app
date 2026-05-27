@@ -32,6 +32,7 @@ class ChatProvider extends ChangeNotifier {
   final TtsManager _tts = TtsManager();
   final UserPrefsService _prefs = UserPrefsService();
 
+
   SttEngineType _sttEngineType = SttEngineType.system;
   bool _whisperAvailable = false;
 
@@ -52,6 +53,7 @@ class ChatProvider extends ChangeNotifier {
   String? _userLocation;
   String? _userLevel; // CEFR: A1, A2, B1, B2, C1
   String? _userLevelLabel;
+  List<String>? _userInterests;
 
   // Conversation session state
   String? _conversationTopic;
@@ -96,6 +98,7 @@ class ChatProvider extends ChangeNotifier {
 
   /// Whether the user has already completed placement (persisted).
   bool get hasCompletedPlacement => _userLevel != null;
+  List<String>? get userInterests => _userInterests; // from placement result
 
   void setUserProfile({
     String? name,
@@ -103,6 +106,7 @@ class ChatProvider extends ChangeNotifier {
     String? location,
     String? level,
     String? levelLabel,
+    List<String>? interests,
   }) {
     final normalizedName = name == null || name.trim().isEmpty
         ? null
@@ -116,6 +120,12 @@ class ChatProvider extends ChangeNotifier {
     _userLocation = normalizedLocation ?? _userLocation;
     _userLevel = level ?? _userLevel;
     _userLevelLabel = levelLabel ?? _userLevelLabel;
+    if (interests != null) {
+      _userInterests = interests
+          .map((interest) => interest.trim())
+          .where((interest) => interest.isNotEmpty)
+          .toList();
+    }
     _prefs.saveProfile(
       name: normalizedName,
       age: normalizedAge,

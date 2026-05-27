@@ -22,6 +22,35 @@ const List<String> _topics = [
   'Work & Study',
 ];
 
+List<String> _orderedTopics(List<String>? interests) {
+  if (interests == null || interests.isEmpty) return _topics;
+
+  const interestTopicMap = {
+    'cricket': 'Sports',
+    'sport': 'Sports',
+    'sports': 'Sports',
+    'food': 'Food',
+    'cooking': 'Food',
+    'music': 'Movies & TV',
+    'movies': 'Movies & TV',
+    'youtube': 'Movies & TV',
+    'travel': 'Travel',
+    'gaming': 'About Myself',
+    'games': 'About Myself',
+  };
+
+  final prioritised = interests
+      .map((interest) => interestTopicMap[interest.toLowerCase().trim()])
+      .whereType<String>()
+      .toSet()
+      .toList();
+
+  return [
+    ...prioritised,
+    ..._topics.where((topic) => !prioritised.contains(topic)),
+  ];
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -169,6 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isWide = EllaResponsive.isWide(context);
+    final orderedTopics = _orderedTopics(
+      context.watch<ChatProvider>().userInterests,
+    );
 
     // ── Profile button (pill on wide, circle on mobile) ────────────────
     final profileButton = GestureDetector(
@@ -281,8 +313,8 @@ class _HomeScreenState extends State<HomeScreen> {
         alignment: WrapAlignment.center,
         spacing: 10,
         runSpacing: 10,
-        children: List<Widget>.generate(_topics.length, (index) {
-          final topic = _topics[index];
+        children: List<Widget>.generate(orderedTopics.length, (index) {
+          final topic = orderedTopics[index];
           final palette = _topicPalettes[index % _topicPalettes.length];
           return _TopicChip(
             label: topic,

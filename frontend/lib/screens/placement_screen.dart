@@ -319,6 +319,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
       location: _userLocation,
       level: level,
       levelLabel: resolvedLevelLabel,
+      interests: interests,
     );
 
     // Persist to backend (fire-and-forget — don't block navigation on failure)
@@ -345,6 +346,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
           levelName: resolvedLevelLabel,
           name: profileName ?? 'there',
           city: _userLocation,
+          interests: interests,
         ),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
