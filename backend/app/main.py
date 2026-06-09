@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from .core.database import engine, Base
 from .core.config import get_settings
-from .routers import auth, users, llm, conversations, placements, progress
+from .routers import auth, users, llm, conversations, placements, progress, curriculum
 from .routers.admin import router as admin_router
 # from .routers.accent import router as accent_router, load_accent_model  # disabled — requires numpy/tensorflow
 
@@ -23,8 +23,8 @@ async def lifespan(app: FastAPI):
 settings = get_settings()
 
 app = FastAPI(
-    title="Zoe API",
-    description="Backend for the Zoe English learning app",
+    title="Ella API",
+    description="Backend for the Ella English learning app",
     version="1.0.0",
     lifespan=lifespan,
     root_path="/api",
@@ -49,6 +49,7 @@ app.include_router(llm.router)
 app.include_router(conversations.router)
 app.include_router(placements.router)
 app.include_router(progress.router)
+app.include_router(curriculum.router)
 app.include_router(admin_router)
 
 
@@ -56,7 +57,7 @@ app.include_router(admin_router)
 async def root():
     if settings.docs_enabled:
         return RedirectResponse(url="/docs")
-    return {"status": "ok", "message": "Zoe API"}
+    return {"status": "ok", "message": "Ella API"}
 
 
 @app.get("/health")

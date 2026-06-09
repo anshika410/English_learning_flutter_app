@@ -35,6 +35,12 @@ If struggling: a warm, specific encouragement based on what they did attempt.
 "example": "<a concrete example sentence they could try, at their level>"
 },
 
+"extracted_memory_facts": [
+"<fact 1 about the student, e.g. 'Student likes playing cricket'>",
+"<fact 2, e.g. 'Student has a younger brother'>"
+// Extract only permanent personal facts (hobbies, family, school, preferences, location, pet) mentioned by the student during the conversation. Return empty list if no new facts were mentioned.
+],
+
 "transcript_notes": [
 {
 "speaker": "student" | "zoe",
@@ -57,4 +63,5 @@ ANALYSIS RULES
   Corrections should be framed as "could also say: X" — never "wrong" or "incorrect."
 - transcript_notes for B1+ students: include grammar and vocabulary observations matching their coaching settings.
 - best_moment quote must be a verbatim extract from the transcript. Do not paraphrase.
+- extracted_memory_facts must contain only permanent personal facts about the student (e.g., interests, hobbies, family, pet, favorites, location, school grade). Do not include general conversation details or temporary feelings. Keep facts concise (e.g. "Likes playing video games", not "The student said they like playing video games").
 - Never use the word "incorrect" or "wrong" in any field.

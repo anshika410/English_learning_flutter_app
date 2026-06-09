@@ -14,6 +14,7 @@ class UserProfile(BaseModel):
     fluency_focus: int = 1
     first_session_done: bool = False
     interests: list[str] | None = None
+    persona_memory: dict | None = None
 
 
 class UpdateProfileRequest(BaseModel):
@@ -26,3 +27,8 @@ class UpdateSettingsRequest(BaseModel):
     grammar_focus: int | None = None
     vocab_focus: int | None = None
     fluency_focus: int | None = None
+
+
+class UpdateMemoryRequest(BaseModel):
+    persona_memory: dict
+

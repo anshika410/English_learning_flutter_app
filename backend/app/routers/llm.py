@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
@@ -57,6 +58,7 @@ async def conversation_turn(
             grammar_focus=body.grammar_focus,
             vocab_focus=body.vocab_focus,
             fluency_focus=body.fluency_focus,
+            persona_memory=user.persona_memory,
         )
         return ConversationTurnResponse(**result)
     except Exception as e:
@@ -136,6 +138,29 @@ async def session_analysis(
     sa.try_next_skill = try_next.get("skill")
     sa.try_next_example = try_next.get("example")
     sa.transcript_notes_json = json.dumps(notes)
+
+    # Merge newly extracted memory facts
+    new_facts = analysis.get("extracted_memory_facts", [])
+    if isinstance(new_facts, list) and new_facts:
+        existing_memory = user.persona_memory or {}
+        if not isinstance(existing_memory, dict):
+            existing_memory = {}
+        existing_facts = existing_memory.get("facts", [])
+        if not isinstance(existing_facts, list):
+            existing_facts = [existing_facts] if existing_facts else []
+        
+        # Merge, keeping unique facts (case-insensitive deduplication)
+        seen = {f.strip().lower() for f in existing_facts}
+        merged_facts = list(existing_facts)
+        for fact in new_facts:
+            if isinstance(fact, str) and fact.strip() and fact.strip().lower() not in seen:
+                merged_facts.append(fact.strip())
+                seen.add(fact.strip().lower())
+        
+        existing_memory["facts"] = merged_facts
+        user.persona_memory = dict(existing_memory)
+        flag_modified(user, "persona_memory")
+        db.add(user)
 
     # Update conversation quality
     conversation.quality = analysis.get("overall")

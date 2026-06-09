@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,7 @@ from ..core.deps import get_current_user
 from ..models.user import User
 from ..models.conversation import Conversation
 from ..models.message import Message
+from ..models.session_analysis import SessionAnalysis
 from ..schemas.conversation import (
     CreateConversationRequest, ConversationOut,
     CompleteConversationRequest,
@@ -110,6 +112,45 @@ async def get_messages(
         .order_by(Message.turn_number, Message.created_at)
     )
     return [_msg_out(m) for m in result.scalars().all()]
+
+
+@router.get("/{conversation_id}/analysis")
+async def get_conversation_analysis(
+    conversation_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_owned(conversation_id, user.id, db)
+    result = await db.execute(
+        select(SessionAnalysis).where(
+            SessionAnalysis.conversation_id == conversation_id
+        )
+    )
+    analysis = result.scalar_one_or_none()
+    if not analysis:
+        raise HTTPException(
+            status_code=404, detail="Analysis not found for this conversation"
+        )
+    return {
+        "overall": analysis.overall,
+        "best_moment": {
+            "quote": analysis.best_moment_quote,
+            "note": analysis.best_moment_note,
+        },
+        "courage_or_motivation": {
+            "type": analysis.courage_type,
+            "content": analysis.courage_content,
+        },
+        "try_next_time": {
+            "skill": analysis.try_next_skill,
+            "example": analysis.try_next_example,
+        },
+        "transcript_notes": (
+            json.loads(analysis.transcript_notes_json)
+            if analysis.transcript_notes_json
+            else []
+        ),
+    }
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

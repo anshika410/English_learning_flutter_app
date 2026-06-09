@@ -121,7 +121,23 @@ async def send_conversation_turn(
     grammar_focus: str = "Catch All",
     vocab_focus: str = "Occasional",
     fluency_focus: str = "After Chat",
+    persona_memory: dict | None = None,
 ) -> dict:
+    # Format persona memory
+    memory_str = "None"
+    if persona_memory:
+        facts = persona_memory.get("facts", [])
+        if not isinstance(facts, list):
+            facts = [facts] if facts else []
+        if not facts and isinstance(persona_memory, dict):
+            for k, v in persona_memory.items():
+                if isinstance(v, list):
+                    facts.extend([str(item) for item in v])
+                elif isinstance(v, str):
+                    facts.append(f"{k}: {v}")
+        if facts:
+            memory_str = "\n".join(f"- {fact}" for fact in facts)
+
     prompt_template = (PROMPTS_DIR / "conversation-prompt.md").read_text()
     level_instructions = _LEVEL_INSTRUCTIONS.get(level.upper(), _LEVEL_INSTRUCTIONS["A2"])
     system_prompt = (
@@ -134,6 +150,7 @@ async def send_conversation_turn(
         .replace("{{GRAMMAR_SETTING}}", grammar_focus)
         .replace("{{VOCABULARY_SETTING}}", vocab_focus)
         .replace("{{FLUENCY_SETTING}}", fluency_focus)
+        .replace("{{STUDENT_MEMORY}}", memory_str)
     )
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": m["role"], "content": m["content"]} for m in messages

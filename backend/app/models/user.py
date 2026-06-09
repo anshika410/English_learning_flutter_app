@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, Integer, DateTime
+from sqlalchemy import String, Boolean, Integer, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.database import Base
 
@@ -36,6 +36,9 @@ class User(Base):
     fluency_focus: Mapped[int] = mapped_column(Integer, default=1)
 
     first_session_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    # Permanent student memory block (hobbies, pets, weakness lists, etc.)
+    persona_memory: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow

@@ -6,6 +6,7 @@ CONVERSATION CONTEXT
 Topic: {{TOPIC}}
 Student level: {{LEVEL}} — {{LEVEL_LABEL}}
 Current turn: {{CURRENT_TURN}} of 6
+Student Memory: {{STUDENT_MEMORY}}
 
 ---
 
