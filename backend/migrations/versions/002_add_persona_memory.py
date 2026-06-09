@@ -14,10 +14,22 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column("persona_memory", sa.JSON(), nullable=True))
-    op.add_column("users", sa.Column("interests", sa.String(200), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = [col["name"] for col in inspector.get_columns("users")]
+
+    if "persona_memory" not in columns:
+        op.add_column("users", sa.Column("persona_memory", sa.JSON(), nullable=True))
+    if "interests" not in columns:
+        op.add_column("users", sa.Column("interests", sa.String(200), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("users", "interests")
-    op.drop_column("users", "persona_memory")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = [col["name"] for col in inspector.get_columns("users")]
+
+    if "interests" in columns:
+        op.drop_column("users", "interests")
+    if "persona_memory" in columns:
+        op.drop_column("users", "persona_memory")
