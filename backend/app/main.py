@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_redoc_html
@@ -56,9 +56,11 @@ app.include_router(admin_router)
 
 if settings.docs_enabled:
     @app.get("/redoc", include_in_schema=False)
-    async def custom_redoc_html():
+    async def custom_redoc_html(req: Request):
+        root_path = req.scope.get("root_path", "").rstrip("/")
+        openapi_url = root_path + (app.openapi_url or "/openapi.json")
         return get_redoc_html(
-            openapi_url=app.openapi_url,
+            openapi_url=openapi_url,
             title=app.title + " - ReDoc",
             redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.1.3/bundles/redoc.standalone.js",
         )
