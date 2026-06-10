@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Text, DateTime, ForeignKey
+from sqlalchemy import String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.database import Base
 
@@ -26,4 +26,11 @@ class SessionAnalysis(Base):
     try_next_skill: Mapped[str | None] = mapped_column(Text, nullable=True)
     try_next_example: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript_notes_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Structured CEFR grading and progress columns
+    aimed_at: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    hit_targets: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    skills_evidenced: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    state_changes: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

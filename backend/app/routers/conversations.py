@@ -150,6 +150,10 @@ async def get_conversation_analysis(
             if analysis.transcript_notes_json
             else []
         ),
+        "aimed_at": analysis.aimed_at or [],
+        "hit_targets": analysis.hit_targets or [],
+        "skills_evidenced": analysis.skills_evidenced or [],
+        "state_changes": analysis.state_changes or [],
     }
 
 

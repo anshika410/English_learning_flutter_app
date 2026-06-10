@@ -40,6 +40,12 @@ class User(Base):
     # Permanent student memory block (hobbies, pets, weakness lists, etc.)
     persona_memory: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
 
+    # CEFR flat skills checklist state (emerging, owned, sightings, strength, last_seen)
+    skills_progress: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
+
+    # Current target skills for Zoe
+    due_next: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
     )

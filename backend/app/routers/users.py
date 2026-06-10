@@ -23,6 +23,8 @@ def _to_profile(user: User) -> UserProfile:
         first_session_done=user.first_session_done,
         interests=user.interests.split(",") if user.interests else None,
         persona_memory=user.persona_memory or {},
+        skills_progress=user.skills_progress or {},
+        due_next=user.due_next or {},
     )
 
 
@@ -75,7 +77,10 @@ async def get_user_memory(
     This memory block contains extracted student facts (e.g., interests, sibling info, food preferences)
     used to personalize Zoe's conversation turns in real-time.
     """
-    return {"persona_memory": user.persona_memory or {}}
+    return {
+        "persona_memory": user.persona_memory or {},
+        "skills_progress": user.skills_progress or {}
+    }
 
 
 @router.put("/me/memory")

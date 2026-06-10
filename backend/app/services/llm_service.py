@@ -274,6 +274,71 @@ async def analyze_session(
         return None
 
 
+async def grade_skills(
+    messages: list[dict],
+    level: str,
+    target_skill_ids: list[str],
+) -> list[dict]:
+    if not target_skill_ids:
+        return []
+        
+    from ..core.curriculum_data import get_skill_text
+    
+    # 1. Assembles targets list
+    id_list = "\n".join(f"- {sid}: {get_skill_text(sid)}" for sid in target_skill_ids)
+    
+    # 2. Formats transcript
+    transcript = "\n".join(
+        f"{'Learner' if m['role'] == 'user' else 'Zoe'}: {m['content']}"
+        for m in messages
+    )
+    
+    system_prompt = (
+        "You are an examiner scoring a language-learning conversation. You will be given:\n"
+        "the learner's level, a list of target \"I can\" skills (with IDs), and the transcript.\n\n"
+        "For EACH skill in the list, output STRICT JSON only (no prose):\n"
+        "{\"scores\":[{\"id\":\"<id>\",\"confidence\":<0..1>,\"prompted\":<bool>,\"evidence\":\"<short quote or ''>\"}]}\n\n"
+        "RULES:\n"
+        "- confidence 0..1 = strength of evidence in the transcript.\n"
+        "- These thresholds matter downstream: >=0.7 means the learner OWNS it; 0.3-0.69 = emerging; <0.3 = ignored.\n"
+        "- FORCED COMMIT: if you see real evidence, commit >=0.7. Do not hedge at 0.5. 0.5 is only genuine ambiguity.\n"
+        "- Reward EFFORT not accuracy: a wrong-but-trying attempt that shows the skill still scores.\n"
+        "- prompted=true if Zoe set them up to do it; false if spontaneous.\n"
+        "- evidence = short direct learner quote, or \"\".\n"
+        "Output JSON only."
+    )
+    
+    user_prompt = (
+        f"LEARNER LEVEL: {level}\n\n"
+        f"TARGET SKILLS:\n{id_list}\n\n"
+        f"TRANSCRIPT:\n{transcript}"
+    )
+    
+    try:
+        raw = await _chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=800,
+            temperature=0.3,
+        )
+        json_str = _extract_json(raw)
+        data = json.loads(json_str)
+        return data.get("scores", [])
+    except Exception:
+        # Fallback if LLM fails
+        return [
+            {
+                "id": skill_id,
+                "confidence": 0.0,
+                "prompted": False,
+                "evidence": "",
+            }
+            for skill_id in target_skill_ids
+        ]
+
+
 # ── JSON extraction helper ────────────────────────────────────────────────────
 
 def _extract_json(text: str) -> str:

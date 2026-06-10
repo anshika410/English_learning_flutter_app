@@ -15,6 +15,8 @@ class UserProfile(BaseModel):
     first_session_done: bool = False
     interests: list[str] | None = None
     persona_memory: dict | None = None
+    skills_progress: dict | None = None
+    due_next: dict | None = None
 
 
 class UpdateProfileRequest(BaseModel):

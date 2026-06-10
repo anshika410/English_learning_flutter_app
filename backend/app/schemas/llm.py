@@ -74,3 +74,4 @@ class SessionAnalysisRequest(BaseModel):
     topic: str = "Free Talk"
     level: str = "A2"
     level_label: str = "Finding My Voice"
+    progression_model: str = "unit"
