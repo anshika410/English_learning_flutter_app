@@ -110,13 +110,19 @@ class StateChangeDetail(BaseModel):
     }
 
 
+class TranscriptNote(BaseModel):
+    speaker: str
+    text: str
+    note: str | None = None
+
+
 class SessionAnalysisResponse(BaseModel):
     overall: str
     best_moment: BestMoment
     courage_or_motivation: CourageHighlight
     try_next_time: TryNextTime
     extracted_memory_facts: list[str] = []
-    transcript_notes: list[str] = []
+    transcript_notes: list[TranscriptNote] = []
     aimed_at: list[str] = []
     hit_targets: list[str] = []
     skills_evidenced: list[GradedSkillScore] = []
