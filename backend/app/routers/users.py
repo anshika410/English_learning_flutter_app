@@ -69,7 +69,12 @@ async def update_settings(
 async def get_user_memory(
     user: User = Depends(get_current_user)
 ):
-    """Fetches the user's permanent persona memory block."""
+    """
+    Retrieves the child's permanent persona memory block.
+    
+    This memory block contains extracted student facts (e.g., interests, sibling info, food preferences)
+    used to personalize Zoe's conversation turns in real-time.
+    """
     return {"persona_memory": user.persona_memory or {}}
 
 
@@ -79,7 +84,11 @@ async def update_user_memory(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Manually updates or clears the user's permanent persona memory block."""
+    """
+    Manually updates, overrides, or clears the child's permanent persona memory block.
+    
+    Used to modify narrative facts or clear stored memory to reset the learning context.
+    """
     user.persona_memory = body.persona_memory
     db.add(user)
     await db.flush()

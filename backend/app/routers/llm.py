@@ -88,6 +88,13 @@ async def session_analysis(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Performs post-session analysis on a completed conversation.
+    
+    - Evaluates student performance (best moments, courage highlights, try-next-time recommendations).
+    - Extracts new student persona facts mentioned during the chat.
+    - Idempotently merges these facts with the child's permanent database `persona_memory` profile.
+    """
     # Verify conversation belongs to this user
     conv_result = await db.execute(
         select(Conversation).where(
