@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 
 
 class StarterRequest(BaseModel):
@@ -75,3 +75,49 @@ class SessionAnalysisRequest(BaseModel):
     level: str = "A2"
     level_label: str = "Finding My Voice"
     progression_model: str = "unit"
+
+
+class BestMoment(BaseModel):
+    quote: str | None = None
+    note: str | None = None
+
+
+class CourageHighlight(BaseModel):
+    type: str | None = None
+    content: str | None = None
+
+
+class TryNextTime(BaseModel):
+    skill: str | None = None
+    example: str | None = None
+
+
+class GradedSkillScore(BaseModel):
+    id: str
+    confidence: float
+    prompted: bool
+    evidence: str | None = None
+
+
+class StateChangeDetail(BaseModel):
+    id: str
+    from_: str = Field(alias="from")
+    to: str
+    name: str
+
+    model_config = {
+        "populate_by_name": True
+    }
+
+
+class SessionAnalysisResponse(BaseModel):
+    overall: str
+    best_moment: BestMoment
+    courage_or_motivation: CourageHighlight
+    try_next_time: TryNextTime
+    extracted_memory_facts: list[str] = []
+    transcript_notes: list[str] = []
+    aimed_at: list[str] = []
+    hit_targets: list[str] = []
+    skills_evidenced: list[GradedSkillScore] = []
+    state_changes: list[StateChangeDetail] = []

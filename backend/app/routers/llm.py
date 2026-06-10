@@ -11,7 +11,7 @@ from ..schemas.llm import (
     StarterRequest, StarterResponse,
     ConversationTurnRequest, ConversationTurnResponse,
     PlacementTurnRequest, PlacementTurnResponse,
-    SessionAnalysisRequest,
+    SessionAnalysisRequest, SessionAnalysisResponse,
 )
 from ..services import llm_service
 from ..core.curriculum_data import (
@@ -87,7 +87,7 @@ async def placement_turn(
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
 
-@router.post("/session-analysis")
+@router.post("/session-analysis", response_model=SessionAnalysisResponse)
 async def session_analysis(
     body: SessionAnalysisRequest,
     user: User = Depends(get_current_user),
