@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.openapi.docs import get_redoc_html
 from .core.database import engine, Base
 from .core.config import get_settings
 from .routers import auth, users, llm, conversations, placements, progress, curriculum
@@ -30,7 +31,7 @@ app = FastAPI(
     root_path="/api",
     # Hide docs unless explicitly enabled via DOCS_ENABLED=true in .env
     docs_url="/docs" if settings.docs_enabled else None,
-    redoc_url="/redoc" if settings.docs_enabled else None,
+    redoc_url=None,  # Disable default ReDoc to use custom stable CDN URL below
     openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
 
@@ -51,6 +52,16 @@ app.include_router(placements.router)
 app.include_router(progress.router)
 app.include_router(curriculum.router)
 app.include_router(admin_router)
+
+
+if settings.docs_enabled:
+    @app.get("/redoc", include_in_schema=False)
+    async def custom_redoc_html():
+        return get_redoc_html(
+            openapi_url=app.openapi_url,
+            title=app.title + " - ReDoc",
+            redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.1.3/bundles/redoc.standalone.js",
+        )
 
 
 @app.get("/", include_in_schema=False)
