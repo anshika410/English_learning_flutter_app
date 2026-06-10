@@ -1,0 +1,64 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Ella Docs",
+  "colors": {
+    "primary": "#16A34A",
+    "light": "#07C983",
+    "dark": "#15803D"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "pages": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "readme",
+          "ella-mvp-1-month-plan",
+          "ella-mvp-spec-raw"
+        ]
+      },
+      {
+        "group": "Backend & Database",
+        "pages": [
+          "backend-readme",
+          "existing_api_and_database_inventory",
+          "database_options_readme"
+        ]
+      },
+      {
+        "group": "Architecture & Latency",
+        "pages": [
+          "memory_feature_feasibility",
+          "stt_tts_mobile_constraints"
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Documentation",
+          "href": "https://mintlify.com/docs",
+          "icon": "book-open-cover"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/navgurukul/ella_flutter"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/navgurukul/ella_flutter"
+    }
+  }
+}
