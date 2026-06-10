@@ -1,0 +1,120 @@
+# Feasibility Study: Permanent Learner Memory ("Memory Updates Each Time")
+
+This document details the technical feasibility, database schema alterations, API routing changes, and frontend HTML dashboard updates required to implement a **Permanent Learner Memory** system for the Ella voice tutor.
+
+---
+
+## 1. Feature Definition & Purpose
+
+Currently, the AI tutor (Zoe) has no memory of the student across sessions. If a student mentions their favorite sport, pet names, or family details, Zoe forgets it as soon as the call finishes.
+
+The **Permanent Learner Memory** feature aims to:
+1.  **Extract Personal Facts:** Capture facts the student mentions (e.g., *"My dog's name is Bruno"*, *"I play football on Sundays"*, *"My favorite subject is Science"*).
+2.  **Track Coaching History:** Track recurring grammatical mistakes and vocabulary terms they struggled with.
+3.  **Persist & Inject Memory:** Save this context to the database and inject it into Zoe's prompt on subsequent sessions so she can refer to past conversations naturally.
+
+---
+
+## 2. Backend & Database Feasibility (Python / SQLAlchemy)
+
+Implementing this on your current FastAPI + PostgreSQL stack is **100% feasible** and can be done without adding query latency to the real-time conversation loop.
+
+### A. Database Schema Updates
+We need to store the permanent memory associated with each user. We recommend adding a JSONB column to the `users` table to store structured key-value facts.
+
+#### Recommended changes to `User` model ([user.py](file:///Users/sama/AndroidStudioProjects/ella_flutter/backend/app/models/user.py)):
+```python
+from sqlalchemy import JSON
+from sqlalchemy.orm import Mapped, mapped_column
+
+# Add to the User class:
+persona_memory: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
+```
+
+Example JSON structure for `persona_memory`:
+```json
+{
+  "personal_facts": {
+    "likes": ["cricket", "mangoes"],
+    "pets": ["a dog named Bruno"],
+    "family": ["lives with grandparents"],
+    "school": ["loves science class"]
+  },
+  "coaching_history": {
+    "common_errors": ["omitting past tense -ed", "third-person singular -s"],
+    "words_practiced": ["thrilling", "consistent"]
+  }
+}
+```
+
+---
+
+### B. API Orchestration & Workflow
+
+To prevent network and LLM processing delays during the active conversation, **memory updates should happen asynchronously at the end of the session, not on every turn.**
+
+```
+[Active Conversation Turn]
+Flutter Client ---> FastAPI ---> Gemini (with static profile + memory injected) ---> Returns Speech
+*Zero DB updates for memory during this loop. Latency is preserved.*
+
+[Session Completion]
+Flutter Client ---> PUT /conversations/{id}/complete
+FastAPI (Background Task) ---> Calls LLM to analyze transcript and extract new facts
+FastAPI ---> Merges new facts with user's existing "persona_memory" column ---> Writes to Postgres
+```
+
+#### Step 1: Injecting Memory into the Prompt (`/llm/conversation-turn`)
+When generating Zoe's replies inside [`llm_service.py`](file:///Users/sama/AndroidStudioProjects/ella_flutter/backend/app/services/llm_service.py):
+1.  FastAPI fetches the `User` record, including their `persona_memory`.
+2.  FastAPI serializes the JSON facts into a readable string list (e.g., `"- Likes cricket\n- Has a dog named Bruno"`).
+3.  FastAPI replaces a new token `{{STUDENT_MEMORY}}` inside the prompt template [`conversation-prompt.md`](file:///Users/sama/AndroidStudioProjects/ella_flutter/frontend/assets/prompts/conversation-prompt.md).
+
+#### Step 2: Extracting & Merging Memory (`/llm/session-analysis`)
+During the post-session analysis:
+1.  We update the LLM prompt [`end-result-prompt.md`](file:///Users/sama/AndroidStudioProjects/ella_flutter/frontend/assets/prompts/end-result-prompt.md) to extract a new JSON block called `"extracted_memory_facts"`.
+2.  In the backend service, we load the user's current `persona_memory` from the database.
+3.  We merge the new facts into the existing JSON (e.g., adding a new hobby or updating a pet's name).
+4.  We save the updated JSON back to the `User` row in Postgres.
+
+---
+
+## 3. Auditing HTML Files & Required Changes
+
+Here is an analysis of your current HTML files and what changes are required to support this feature:
+
+### A. `ella-admin.html` (Pilot Dashboard)
+This file serves as the web-based monitoring dashboard for teachers and pilot supervisors.
+
+*   **Current Role:** Displays student tables, CEFR screening levels, and recent transcripts fetched from `/admin/stats`.
+*   **Required Changes:**
+    1.  **Expose Memory on Student Table:** Add a column or details row in the "Screening Results" table to show the extracted student memory card (e.g., a hoverable pill indicating *"Student owns a dog named Bruno, likes cricket"*).
+    2.  **Admin Endpoint Updates:** The backend endpoint `GET /admin/stats` must be modified to return the `persona_memory` column for each user in the `AdminUserOut` schema, allowing `ella-admin.html` to render it.
+
+---
+
+### B. `ella-v0.html` (Local Browser Prototype)
+This file is a fully local web mock-up of the client app, simulating the Flutter UI and calling Gemini directly.
+
+*   **Current Role:** Uses a client-side JavaScript engine (`coach`) to run vocabulary planting, track mistakes, and generate prompts. It uses browser speech synthesis for audio.
+*   **Required Changes:**
+    1.  **localStorage Persistence:** Since this prototype does not connect to your EC2 Postgres backend, we must write code to persist user memory inside the browser's `localStorage` (e.g., `localStorage.setItem('ella_user_memory', JSON.stringify(memory))`).
+    2.  **JavaScript Coach Update:** Update the client-side JavaScript functions to load this memory string on startup, display it on the Home Screen (`S2: HOME`), and append it to `buildSystemPrompt()` during conversation turns.
+
+---
+
+### C. `ella-design-v1.html` (Static User Flow Mockup)
+This is a very large file containing embedded assets and visual flows representing the static user interface design.
+
+*   **Current Role:** Acts as a design specification showing screen flows, typography, color tokens, and layout guidelines.
+*   **Required Changes:**
+    1.  **No Code Changes Needed:** Since this is a static visual mockup, no dynamic data changes are required.
+    2.  **UI Mockup Expansion (Optional):** You can add a mockup screen block illustrating how the "Student profile memory card" appears in the final Flutter application UI.
+
+---
+
+## 4. Feasibility Verdict
+
+*   **Feasibility Score:** **10/10** (Highly Feasible).
+*   **Latency Impact:** **0%** if executed asynchronously. By running the fact-extraction step during the post-session analysis (`/llm/session-analysis`), there is zero delay added to Zoe's active conversation turns.
+*   **Effort Level:** **Low**. Requires updating 1 database column, adding a text injection step in `llm_service.py`, modifying the post-session JSON prompt, and displaying the JSON payload in the pilot dashboard table.
