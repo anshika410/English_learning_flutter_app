@@ -9,3 +9,7 @@ class TopicOut(BaseModel):
     panel_bg: str
     vocab_seeds: list[str]
     structure_targets: list[str]
+    theme: str | None = None
+    description: str | None = None
+    starters: list[str] = []
+

@@ -169,19 +169,28 @@ async def session_analysis(
     updated_progress["effort"]["times_spoken_total"] = updated_progress["effort"].get("times_spoken_total", 0) + turn_count
     
     # Check for unit progression level-up
-    if model == "unit" and level.upper() == "A1":
-        next_step = active_step(updated_progress)
+    if model == "unit":
+        next_step = active_step(updated_progress, level)
         if next_step is None:  # Completed all units
-            user.level = "A2"
-            user.level_label = "Finding My Voice"
-            level = "A2"
+            levels_chain = ["A1", "A2", "B1", "B2", "C1", "C2"]
+            try:
+                current_idx = levels_chain.index(level.upper())
+                if current_idx < len(levels_chain) - 1:
+                    next_lvl = levels_chain[current_idx + 1]
+                    user.level = next_lvl
+                    from ..core.curriculum_data import HEADLINES
+                    user.level_label = HEADLINES.get(next_lvl, "Finding My Voice")
+                    level = next_lvl
+            except ValueError:
+                pass
 
     # Compute next due targets
     due_next_dict = {}
     if model == "unit":
         from ..core.curriculum_data import due_unit
-        du = due_unit(updated_progress)
+        du = due_unit(updated_progress, level)
         picks = du["picks"]
+
     else:
         from ..core.curriculum_data import due_skill
         picks = due_skill(updated_progress, level)
