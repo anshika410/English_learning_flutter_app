@@ -49,7 +49,7 @@ def run_tests():
     assert mem_resp.status_code == 200, f"Get memory failed: {mem_resp.text}"
     mem_data = mem_resp.json()
     # Default is empty
-    assert mem_data.get("persona_memory") == {}, f"Expected empty memory, got {mem_data}"
+    assert mem_data.get("facts") == [], f"Expected empty facts, got {mem_data}"
     print("✓ GET /users/me/memory (initial) successful")
 
     # 4. Put Memory (Manual update)
@@ -67,7 +67,7 @@ def run_tests():
     print("Testing GET /users/me/memory (after PUT)...")
     mem_resp2 = client.get("/users/me/memory", headers=headers)
     assert mem_resp2.status_code == 200
-    assert mem_resp2.json()["persona_memory"]["facts"] == ["Likes playing cricket", "Has a pet dog named Max"]
+    assert mem_resp2.json()["facts"] == ["Likes playing cricket", "Has a pet dog named Max"]
     print("✓ GET /users/me/memory (after PUT) successful")
 
     # Create a test conversation to associate analysis and turns
@@ -80,7 +80,7 @@ def run_tests():
 
     # 5. Conversation Turn with Memory Injection
     print("Testing POST /llm/conversation-turn with memory injection...")
-    mock_turn_response = "REPLY: That is cool! Zoe loves cricket too.\nCORRECTION: I love playing cricket."
+    mock_turn_response = "That is cool! Zoe loves cricket too."
     
     with patch("app.services.llm_service._chat_completion", new_callable=AsyncMock) as mock_completion:
         mock_completion.return_value = mock_turn_response
@@ -103,13 +103,13 @@ def run_tests():
         called_args = mock_completion.call_args[0][0]
         system_prompt = next(msg["content"] for msg in called_args if msg["role"] == "system")
         
-        assert "Student Memory:" in system_prompt, "System prompt missing Student Memory header"
+        assert "STUDENT MEMORY" in system_prompt, "System prompt missing STUDENT MEMORY header"
         assert "- Likes playing cricket" in system_prompt, "Memory facts not injected correctly"
         assert "- Has a pet dog named Max" in system_prompt, "Memory facts not injected correctly"
         
         turn_data = turn_resp.json()
         assert turn_data["reply"] == "That is cool! Zoe loves cricket too."
-        assert turn_data["correction"] == "I love playing cricket."
+        assert turn_data["correction"] is None
         assert turn_data["conversation_complete"] is False
     print("✓ POST /llm/conversation-turn memory injection successful")
 
@@ -163,7 +163,7 @@ def run_tests():
     mem_resp3 = client.get("/users/me/memory", headers=headers)
     assert mem_resp3.status_code == 200
     print("Memory response JSON:", mem_resp3.json())
-    merged_facts = mem_resp3.json()["persona_memory"].get("facts", [])
+    merged_facts = mem_resp3.json().get("facts", [])
     print("Merged facts list:", merged_facts)
     
     assert "Likes playing cricket" in merged_facts

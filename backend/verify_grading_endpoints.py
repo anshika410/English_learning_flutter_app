@@ -33,14 +33,15 @@ def run_tests():
     headers = {"Authorization": f"Bearer {token}"}
     print("✓ Auth successful")
 
-    # Verify initial memory structure includes skills_progress
+    # Verify initial memory structure includes flat fields
     print("Testing initial GET /users/me/memory...")
     mem_resp = client.get("/users/me/memory", headers=headers)
     assert mem_resp.status_code == 200
     mem_data = mem_resp.json()
-    assert "persona_memory" in mem_data
-    assert "skills_progress" in mem_data
-    print("✓ Initial memory schema contains both persona_memory and skills_progress")
+    assert "facts" in mem_data
+    assert "owned" in mem_data
+    assert "emerging" in mem_data
+    print("✓ Initial memory schema contains both facts and progress")
 
     # Create a test conversation
     print("Creating a test conversation...")
@@ -144,12 +145,11 @@ def run_tests():
     assert mem_resp2.status_code == 200
     mem_data2 = mem_resp2.json()
     
-    progress = mem_data2["skills_progress"]
-    print("Skills progress emerging:", progress.get("emerging"))
-    print("Skills progress owned:", progress.get("owned"))
+    print("Skills progress emerging:", mem_data2.get("emerging"))
+    print("Skills progress owned:", mem_data2.get("owned"))
     
-    assert "U1-VOC-01" in progress.get("emerging")
-    assert "U1-GRA-01" in progress.get("emerging")
+    assert "U1-VOC-01" in mem_data2.get("emerging")
+    assert "U1-GRA-01" in mem_data2.get("emerging")
     
     # Check that due_next was calculated on backend and is returned in user profile
     print("Verifying user profile contains updated due_next...")
