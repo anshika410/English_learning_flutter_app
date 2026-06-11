@@ -110,6 +110,51 @@ async def generate_conversation_starter(topic: str | None = None) -> dict:
     return {"starter": starter or text.strip(), "header_title": header_title}
 
 
+# ── Level blocks for the new conversation prompt ──────────────────────────────
+
+_LEVEL_BLOCKS = {
+    "A1": (
+        'LEVEL: A1 (First Words). Your role: CARRIER — you carry the conversation.\n'
+        '- Use very simple present-simple sentences and high-frequency words.\n'
+        '- One idea per turn. Avoid stacked questions except the planned first self-introduction opener.\n'
+        '- Accept fragments. A one-word answer is a success if meaning is clear.\n'
+        '- After success, scaffold one small extension: one more word, one detail, or one sentence frame.\n'
+        '- Use choices when stuck: "Is it big or small?" / "football or drawing?"\n'
+        '- CORRECTION: none. Recast errors naturally; never name grammar rules.\n'
+        '- If the learner is silent or confused, make the task smaller before changing topic.\n'
+        '- ESCALATE: once the learner answers, MOVE ON to a related detail. NEVER re-ask what they already answered.'
+    ),
+    "A2": (
+        'LEVEL: A2 (Finding My Voice). Your role: BRIDGE — help them connect ideas.\n'
+        '- Use simple past and "going to" naturally in your turns so they hear the model.\n'
+        '- Accept short answers but encourage "and then?" or "why?"\n'
+        '- CORRECTION: recast only. Model the correct form in your reply without naming the error.\n'
+        '- ESCALATE: push for one reason, one past event, or one plan after each answer.'
+    ),
+    "B1": (
+        'LEVEL: B1 (Speaking Freely). Your role: SPACE-CREATOR — you talk less, they talk more.\n'
+        '- Use natural language slightly above their level, but keep the task clear.\n'
+        '- Ask open questions that invite reasons, examples, sequence, or opinion.\n'
+        '- Give wait-space: do not over-explain before the learner speaks.\n'
+        '- CORRECTION: nudge gently only if an error blocks meaning; otherwise recast.\n'
+        '- ESCALATE: build on what they say, ask why / what happened next / what if; never re-ask; keep moving forward.\n'
+        '- Encourage longer turns: "Tell me two reasons" or "Give me one example."'
+    ),
+    "B2": (
+        'LEVEL: B2 (Almost Fluent). Your role: CHALLENGER — push for precision and argument.\n'
+        '- Expect connected discourse. Push for claim + reason + evidence.\n'
+        '- CORRECTION: explicit when it blocks meaning; otherwise note and move on.\n'
+        '- ESCALATE: ask for counterarguments, nuance, register shifts.'
+    ),
+    "C1": (
+        'LEVEL: C1 (Fluent). Your role: PEER — equal conversation partner.\n'
+        '- Operate in peer mode. Suggestions, not corrections.\n'
+        '- Introduce stylistic options and expect idiomatic expression.\n'
+        '- ESCALATE: challenge ideas, introduce complexity, expect sustained discourse.'
+    ),
+}
+
+
 # ── Conversation Turn ─────────────────────────────────────────────────────────
 
 async def send_conversation_turn(
@@ -123,6 +168,8 @@ async def send_conversation_turn(
     fluency_focus: str = "After Chat",
     persona_memory: dict | None = None,
 ) -> dict:
+    from ..core.curriculum_data import UNITS, UNIT_SKILLS, LEVEL_TOPICS
+
     # Format persona memory
     memory_str = "None"
     if persona_memory:
@@ -138,19 +185,43 @@ async def send_conversation_turn(
         if facts:
             memory_str = "\n".join(f"- {fact}" for fact in facts)
 
+    # Get unit info for the current level
+    level_upper = level.upper() if level else "A1"
+    units = UNITS.get(level_upper, UNITS.get("A1", []))
+    
+    # Pick first unit as default (can be enhanced later to track progression)
+    unit = units[0] if units else {"name": topic, "focus": "General conversation", "skills": []}
+    unit_name = unit.get("name", topic) or topic
+    unit_focus = unit.get("focus", "General conversation practice")
+    
+    # Build targets list from unit skills
+    skills = unit.get("skills", [])
+    targets_str = "\n".join(f"- [{s['id']}] {s['text']}" for s in skills) if skills else "- General conversation practice"
+    
+    # Build elicitation plan
+    if skills:
+        primary = skills[0]
+        elicitation_str = (
+            f"Primary skill: [{primary['id']}] {primary['text']}\n"
+            f"Ask a natural question that gives them a chance to show this.\n"
+            f"Do not name the skill. Just create an opportunity."
+        )
+    else:
+        elicitation_str = "Ask natural questions related to the topic."
+
+    # Get level block
+    level_block = _LEVEL_BLOCKS.get(level_upper, _LEVEL_BLOCKS["A2"])
+
     prompt_template = (PROMPTS_DIR / "conversation-prompt.md").read_text()
-    level_instructions = _LEVEL_INSTRUCTIONS.get(level.upper(), _LEVEL_INSTRUCTIONS["A2"])
     system_prompt = (
         prompt_template
-        .replace("{{TOPIC}}", topic)
-        .replace("{{LEVEL}}", level)
-        .replace("{{LEVEL_LABEL}}", level_label)
-        .replace("{{CURRENT_TURN}}", str(current_turn))
-        .replace("{{LEVEL_INSTRUCTIONS}}", level_instructions)
-        .replace("{{GRAMMAR_SETTING}}", grammar_focus)
-        .replace("{{VOCABULARY_SETTING}}", vocab_focus)
-        .replace("{{FLUENCY_SETTING}}", fluency_focus)
+        .replace("{{LEVEL_BLOCK}}", level_block)
+        .replace("{{UNITNAME}}", unit_name)
+        .replace("{{UNITFOCUS}}", unit_focus)
+        .replace("{{TARGETS}}", targets_str)
+        .replace("{{ELICITATION}}", elicitation_str)
         .replace("{{STUDENT_MEMORY}}", memory_str)
+        .replace("{{CURRENT_TURN}}", str(current_turn))
     )
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": m["role"], "content": m["content"]} for m in messages
@@ -165,18 +236,9 @@ async def send_conversation_turn(
         complete = True
         reply_text = response[: json_match.start()].strip()
 
-    # Parse REPLY: / CORRECTION:
-    reply = reply_text
+    # Parse reply (no REPLY: prefix needed with new prompt)
+    reply = reply_text.strip()
     correction = None
-    reply_match = re.search(r"REPLY:\s*(.*?)(?:\nCORRECTION:|$)", reply_text, re.IGNORECASE | re.DOTALL)
-    correction_match = re.search(r"CORRECTION:\s*(.*)", reply_text, re.IGNORECASE | re.DOTALL)
-    if reply_match:
-        reply = reply_match.group(1).strip()
-    if correction_match:
-        parsed = correction_match.group(1).strip()
-        correction = parsed if parsed else None
-    if not reply:
-        reply = reply_text
 
     return {"reply": reply, "correction": correction, "conversation_complete": complete}
 
