@@ -72,14 +72,32 @@ async def get_user_memory(
     user: User = Depends(get_current_user)
 ):
     """
-    Retrieves the child's permanent persona memory block.
-    
-    This memory block contains extracted student facts (e.g., interests, sibling info, food preferences)
-    used to personalize Zoe's conversation turns in real-time.
+    Returns the student's full learning memory as a unified object.
+    Combines profile, persona facts, skills progress, and next targets.
     """
+    persona = user.persona_memory or {}
+    progress = user.skills_progress or {}
+    due = user.due_next or {}
+
     return {
-        "persona_memory": user.persona_memory or {},
-        "skills_progress": user.skills_progress or {}
+        "profile": {
+            "name": user.name,
+            "age": user.age,
+            "city": user.location,
+            "grade": None,
+            "home_language": persona.get("home_language", None),
+        },
+        "level": user.level,
+        "owned": progress.get("owned", []),
+        "emerging": progress.get("emerging", []),
+        "due_next": due,
+        "last_topics": persona.get("last_topics", []),
+        "interests": user.interests.split(",") if user.interests else [],
+        "effort": progress.get("effort", {"times_spoken_total": 0}),
+        "sightings": progress.get("sightings", {}),
+        "strength": progress.get("strength", {}),
+        "updated_after_chat": progress.get("updated_after_chat", 0),
+        "facts": persona.get("facts", []),
     }
 
 
