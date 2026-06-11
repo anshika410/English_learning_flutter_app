@@ -34,7 +34,7 @@ All pages live at [ella.navgurukul.org](https://ella.navgurukul.org):
 | 📄 **Project Summary** | [docs/project-summary.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/project-summary.md) | Project overview and goals |
 | 🎨 **Design System** | [docs/zoe-design-system.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/zoe-design-system.md) | Zoe design system reference |
 | 🎨 **Design v0 (Stitch)** | [stitch.withgoogle.com](https://stitch.withgoogle.com/projects/15401642752604590464) | UI design reference for ella-v0 |
-| 📱 **Product v0** | [ella.navgurukul.org/v0/](https://ella.navgurukul.org/v0/) | Interactive HTML prototype of the full app flow |
+| 🗣️ **Conversation Flow (v2)** | [ella.navgurukul.org/v2/conversation-flow/](https://ella.navgurukul.org/v2/conversation-flow/) | Interactive conversation product experience |
 | 🎨 **Design v1** | [ella.navgurukul.org/design/](https://ella.navgurukul.org/design/) | Figma-style user flow and design system |
 | 🌐 **Product v1 (Live App)** | [ella.navgurukul.org/v1/](https://ella.navgurukul.org/v1/) | Flutter web build (latest) |
 | 📊 **Pilot Dashboard** | [ella.navgurukul.org/admin/](https://ella.navgurukul.org/admin/) | Live screening results |
