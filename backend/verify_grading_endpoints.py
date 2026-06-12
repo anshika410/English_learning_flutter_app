@@ -228,7 +228,6 @@ def run_tests():
                     {"role": "user", "content": "I like watching Bollywood movies."}
                 ],
                 "topic": "Movies",
-                "duration_seconds": 120,
                 "session_type": "free_chat",
                 "progression_model": "unit",
                 "level": "A1",
@@ -254,7 +253,7 @@ def run_tests():
         conn.close()
         assert row is not None
         assert row[0] == 1, "Expected conversation to be marked completed (1)"
-        assert row[1] == 120, f"Expected duration 120, got {row[1]}"
+        assert row[1] == 1, f"Expected turn count 1 in duration_seconds column, got {row[1]}"
         assert row[2] == "free_chat", f"Expected session_type 'free_chat', got '{row[2]}'"
         
     print("✓ POST /llm/judge auto-completion successful")

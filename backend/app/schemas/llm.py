@@ -75,7 +75,6 @@ class SessionAnalysisRequest(BaseModel):
     level: str = "A2"
     level_label: str = "Finding My Voice"
     progression_model: str = "unit"
-    duration_seconds: int | None = None
     session_type: str | None = None
 
 
