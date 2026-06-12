@@ -38,10 +38,6 @@ class MessageOut(BaseModel):
     id: str
     role: str
     content: str
-    correction: str | None = None
-    stt_duration_ms: int | None = None
-    llm_duration_ms: int | None = None
-    tts_duration_ms: int | None = None
     turn_number: int = 0
     created_at: datetime
 
@@ -49,10 +45,6 @@ class MessageOut(BaseModel):
 class StoreMessageRequest(BaseModel):
     role: str
     content: str
-    correction: str | None = None
-    stt_duration_ms: int | None = None
-    llm_duration_ms: int | None = None
-    tts_duration_ms: int | None = None
     turn_number: int = 0
 
 
@@ -99,8 +91,6 @@ class SessionLogResponse(BaseModel):
 
 class ConversationTurnRequest(BaseModel):
     content: str
-    stt_duration_ms: int | None = None
-    tts_duration_ms: int | None = None
 
 
 class ConversationTurnResponse(BaseModel):

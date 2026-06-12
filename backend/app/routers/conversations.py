@@ -125,10 +125,6 @@ async def store_message(
         conversation_id=conversation_id,
         role=body.role,
         content=body.content,
-        correction=body.correction,
-        stt_duration_ms=body.stt_duration_ms,
-        llm_duration_ms=body.llm_duration_ms,
-        tts_duration_ms=body.tts_duration_ms,
         turn_number=body.turn_number,
     )
     db.add(msg)
@@ -326,7 +322,6 @@ async def conversation_turn(
         conversation_id=conversation_id,
         role="user",
         content=body.content,
-        stt_duration_ms=body.stt_duration_ms,
         turn_number=user_turn_number,
     )
     db.add(user_msg)
@@ -373,7 +368,6 @@ async def conversation_turn(
         content=llm_result["reply"],
         correction=llm_result.get("correction"),
         llm_duration_ms=llm_duration_ms,
-        tts_duration_ms=body.tts_duration_ms,
         turn_number=user_turn_number,
     )
     db.add(zoe_msg)
@@ -426,10 +420,6 @@ def _msg_out(m: Message) -> MessageOut:
         id=m.id,
         role=m.role,
         content=m.content,
-        correction=m.correction,
-        stt_duration_ms=m.stt_duration_ms,
-        llm_duration_ms=m.llm_duration_ms,
-        tts_duration_ms=m.tts_duration_ms,
         turn_number=m.turn_number,
         created_at=m.created_at,
     )

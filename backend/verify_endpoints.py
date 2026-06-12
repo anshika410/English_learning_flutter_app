@@ -119,7 +119,6 @@ def run_tests():
         
         turn_data = turn_resp.json()
         assert turn_data["zoe_message"]["content"] == "That is cool! Zoe loves cricket too."
-        assert turn_data["zoe_message"]["correction"] is None
         assert turn_data["conversation_complete"] is False
         assert turn_data["user_message"]["content"] == "I like playing cricket."
     print("✓ POST /conversations/{id}/turn memory injection successful")
