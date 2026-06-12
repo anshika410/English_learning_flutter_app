@@ -152,7 +152,7 @@ async def get_session_log(
     )
     messages_db = msg_result.scalars().all()
     transcript = [
-        {"speaker": "zoe" if m.role == "zoe" else "learner", "text": m.content}
+        {"speaker": "zoe" if m.role in ("zoe", "assistant") else "learner", "text": m.content}
         for m in messages_db
     ]
     
@@ -275,7 +275,7 @@ async def conversation_turn(
 
     # 4. Construct messages history list for LLM (existing messages + new user message)
     llm_history = [
-        {"role": "assistant" if m.role == "zoe" else "user", "content": m.content}
+        {"role": "assistant" if m.role in ("zoe", "assistant") else "user", "content": m.content}
         for m in existing_messages
     ] + [{"role": "user", "content": body.content}]
 
@@ -333,7 +333,7 @@ async def conversation_turn(
     )
     db_messages = transcript_result.scalars().all()
     transcript = [
-        {"speaker": "zoe" if m.role == "zoe" else "learner", "text": m.content}
+        {"speaker": "zoe" if m.role in ("zoe", "assistant") else "learner", "text": m.content}
         for m in db_messages
     ]
 
