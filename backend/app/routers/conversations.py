@@ -85,7 +85,10 @@ async def complete_conversation(
             .order_by(Message.turn_number, Message.created_at)
         )
         messages_db = msg_result.scalars().all()
-        messages_list = [{"role": m.role, "content": m.content} for m in messages_db]
+        messages_list = [
+            {"role": "assistant" if m.role == "zoe" else "user", "content": m.content}
+            for m in messages_db
+        ]
 
         # Fallback values if level/label not passed in body
         level = body.level or user.level or "A1"
@@ -331,7 +334,7 @@ async def conversation_turn(
 
     # 4. Construct messages history list for LLM (existing messages + new user message)
     llm_history = [
-        {"role": m.role, "content": m.content}
+        {"role": "assistant" if m.role == "zoe" else "user", "content": m.content}
         for m in existing_messages
     ] + [{"role": "user", "content": body.content}]
 
