@@ -49,7 +49,8 @@ def run_tests():
     assert mem_resp.status_code == 200, f"Get memory failed: {mem_resp.text}"
     mem_data = mem_resp.json()
     # Default is empty
-    assert mem_data.get("facts") == [], f"Expected empty facts, got {mem_data}"
+    profile_resp = client.get("/users/me", headers=headers)
+    assert not profile_resp.json().get("persona_memory", {}).get("facts"), f"Expected empty facts, got {profile_resp.json()}"
     print("✓ GET /users/me/memory (initial) successful")
 
     # 4. Put Memory (Manual update)
@@ -64,10 +65,10 @@ def run_tests():
     print("✓ PUT /users/me/memory successful")
 
     # Verify memory GET matches PUT
-    print("Testing GET /users/me/memory (after PUT)...")
-    mem_resp2 = client.get("/users/me/memory", headers=headers)
-    assert mem_resp2.status_code == 200
-    assert mem_resp2.json()["facts"] == ["Likes playing cricket", "Has a pet dog named Max"]
+    print("Testing GET /users/me (after PUT)...")
+    profile_resp2 = client.get("/users/me", headers=headers)
+    assert profile_resp2.status_code == 200
+    assert profile_resp2.json().get("persona_memory", {}).get("facts") == ["Likes playing cricket", "Has a pet dog named Max"]
     print("✓ GET /users/me/memory (after PUT) successful")
 
     # Create a test conversation to associate analysis and turns
@@ -156,10 +157,11 @@ def run_tests():
 
     # Verify that the new fact was merged and the duplicate was not added twice
     print("Verifying memory was merged correctly in database...")
-    mem_resp3 = client.get("/users/me/memory", headers=headers)
-    assert mem_resp3.status_code == 200
-    print("Memory response JSON:", mem_resp3.json())
-    merged_facts = mem_resp3.json().get("facts", [])
+    profile_resp = client.get("/users/me", headers=headers)
+    assert profile_resp.status_code == 200
+    print("Profile response JSON:", profile_resp.json())
+    persona_data = profile_resp.json().get("persona_memory", {})
+    merged_facts = persona_data.get("facts", [])
     print("Merged facts list:", merged_facts)
     
     assert "Likes playing cricket" in merged_facts

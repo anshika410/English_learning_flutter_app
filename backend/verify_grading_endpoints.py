@@ -38,10 +38,9 @@ def run_tests():
     mem_resp = client.get("/users/me/memory", headers=headers)
     assert mem_resp.status_code == 200
     mem_data = mem_resp.json()
-    assert "facts" in mem_data
     assert "owned" in mem_data
     assert "emerging" in mem_data
-    print("✓ Initial memory schema contains both facts and progress")
+    print("✓ Initial memory schema contains progress checklist")
 
     # Create a test conversation
     print("Creating a test conversation...")

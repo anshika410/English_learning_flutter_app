@@ -85,7 +85,6 @@ async def get_user_memory(
             "age": user.age,
             "city": user.location,
             "grade": None,
-            "home_language": persona.get("home_language", None),
         },
         "level": user.level,
         "owned": progress.get("owned", []),
@@ -97,7 +96,6 @@ async def get_user_memory(
         "sightings": progress.get("sightings", {}),
         "strength": progress.get("strength", {}),
         "updated_after_chat": progress.get("updated_after_chat", 0),
-        "facts": persona.get("facts", []),
     }
 
 
