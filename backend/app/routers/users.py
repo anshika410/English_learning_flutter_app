@@ -13,14 +13,22 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
     progress = user.skills_progress or {}
     due = user.due_next or {}
 
+    # Cast age to integer if it is a numeric string
+    age_val = None
+    if user.age and user.age.isdigit():
+        age_val = int(user.age)
+
+    profile_data = {
+        "name": user.name if user.name else "—",
+        "age": age_val,
+        "city": user.location if user.location else "—",
+        "grade": None
+    }
+
     return UserMemoryResponse(
         id=user.id,
         device_id=user.device_id,
-        name=user.name,
-        age=user.age,
-        location=user.location,
-        city=user.location,
-        grade=None,
+        profile=profile_data,
         level=user.level,
         level_label=user.level_label,
         grammar_focus=user.grammar_focus,

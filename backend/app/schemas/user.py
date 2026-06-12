@@ -35,14 +35,17 @@ class UpdateMemoryRequest(BaseModel):
     persona_memory: dict
 
 
+class MemoryProfileSub(BaseModel):
+    name: str | None = "—"
+    age: int | None = None
+    city: str | None = "—"
+    grade: str | None = None
+
+
 class UserMemoryResponse(BaseModel):
     id: str
     device_id: str
-    name: str | None = None
-    age: str | None = None
-    location: str | None = None
-    city: str | None = None
-    grade: str | None = None
+    profile: MemoryProfileSub
     level: str | None = None
     level_label: str | None = None
     grammar_focus: int = 2
