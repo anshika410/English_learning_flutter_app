@@ -246,6 +246,39 @@ def run_tests():
         
     print("✓ PUT /conversations/{id}/complete with run_analysis=True successful")
 
+    # 9. Test Compiled Session Log API
+    print("Testing GET /conversations/{id}/session-log...")
+    log_resp = client.get(f"/conversations/{conversation_id2}/session-log", headers=headers)
+    assert log_resp.status_code == 200, f"Session log fetch failed: {log_resp.text}"
+    log_data = log_resp.json()
+    
+    # Assert exact sLog schema fields
+    assert "session_id" in log_data
+    assert "child_id" in log_data
+    assert "level" in log_data
+    assert "progression_model" in log_data
+    assert "prompt_version" in log_data
+    assert "timestamp" in log_data
+    assert "turns_total" in log_data
+    assert "topic" in log_data
+    assert "aimed_at" in log_data
+    assert "hit_targets" in log_data
+    assert "skills_evidenced" in log_data
+    assert "state_changes" in log_data
+    assert "transcript" in log_data
+
+    assert log_data["session_id"] == conversation_id2
+    assert len(log_data["transcript"]) == 1
+    assert log_data["transcript"][0]["speaker"] == "learner"
+    assert log_data["transcript"][0]["text"] == "I like watching Bollywood movies."
+    assert len(log_data["skills_evidenced"]) == 1
+    assert log_data["skills_evidenced"][0]["id"] == "U1-VOC-01"
+    assert log_data["skills_evidenced"][0]["confidence"] == 0.9
+    # check mapped reason & name
+    assert "writer" in log_data["skills_evidenced"][0]["name"]
+    assert log_data["skills_evidenced"][0]["reason"] == ""
+    print("✓ GET /conversations/{id}/session-log returned compiled session log successfully")
+
     print("\n==========================================")
     print("ALL GRADING & PROGRESSION TESTS PASSED!")
     print("==========================================")

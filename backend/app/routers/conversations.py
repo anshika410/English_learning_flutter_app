@@ -12,7 +12,7 @@ from ..models.session_analysis import SessionAnalysis
 from ..schemas.conversation import (
     CreateConversationRequest, ConversationOut,
     CompleteConversationRequest, CompleteConversationResponse,
-    StoreMessageRequest, MessageOut,
+    StoreMessageRequest, MessageOut, SessionLogResponse,
 )
 from .analysis_shared import run_and_save_session_analysis
 
@@ -188,6 +188,107 @@ async def get_conversation_analysis(
         "skills_evidenced": analysis.skills_evidenced or [],
         "state_changes": analysis.state_changes or [],
     }
+
+
+@router.get("/{conversation_id}/session-log", response_model=SessionLogResponse)
+async def get_session_log(
+    conversation_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    conv = await _get_owned(conversation_id, user.id, db)
+    
+    # 1. Fetch messages (transcript)
+    msg_result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.turn_number, Message.created_at)
+    )
+    messages_db = msg_result.scalars().all()
+    transcript = [
+        {"speaker": "zoe" if m.role == "zoe" else "learner", "text": m.content}
+        for m in messages_db
+    ]
+    
+    # 2. Fetch SessionAnalysis
+    analysis_result = await db.execute(
+        select(SessionAnalysis).where(SessionAnalysis.conversation_id == conversation_id)
+    )
+    analysis = analysis_result.scalar_one_or_none()
+    
+    # Default progression model
+    progression_model = conv.session_type or "unit"
+    if progression_model not in ("unit", "skill"):
+        progression_model = "unit"
+        
+    if not analysis:
+        # Return a shell response if analysis is missing
+        return SessionLogResponse(
+            session_id=conversation_id,
+            child_id=user.device_id or user.id,
+            level=user.level,
+            progression_model=progression_model,
+            prompt_version="backend_v1",
+            timestamp=conv.created_at or datetime.now(timezone.utc),
+            turns_total=len([m for m in transcript if m["speaker"] == "learner"]),
+            topic=conv.topic,
+            aimed_at=[],
+            hit_targets=[],
+            skills_evidenced=[],
+            state_changes=[],
+            transcript=transcript,
+        )
+
+    from ..core.curriculum_data import get_skill_text
+
+    def get_miss_reason(confidence: float) -> str:
+        if confidence >= 0.7:
+            return ""
+        elif confidence >= 0.3:
+            return "Evidence too weak for this target; Zoe should elicit a clearer answer."
+        else:
+            return "No evidence found. Likely Zoe did not create a chance, learner stayed off-target, or the chat was too short."
+
+    # Map skills evidenced
+    skills_evidenced_list = []
+    raw_evidenced = analysis.skills_evidenced or []
+    for s in raw_evidenced:
+        conf = s.get("confidence", 0.0)
+        skills_evidenced_list.append({
+            "id": s.get("id"),
+            "name": get_skill_text(s.get("id")),
+            "confidence": conf,
+            "prompted": s.get("prompted", False),
+            "evidence": s.get("evidence") or "",
+            "reason": get_miss_reason(conf),
+        })
+
+    # Map state changes
+    state_changes_list = []
+    raw_changes = analysis.state_changes or []
+    for c in raw_changes:
+        state_changes_list.append({
+            "id": c.get("id"),
+            "from": c.get("from"),
+            "to": c.get("to"),
+            "name": get_skill_text(c.get("id")),
+        })
+
+    return SessionLogResponse(
+        session_id=conversation_id,
+        child_id=user.device_id or user.id,
+        level=user.level,
+        progression_model=progression_model,
+        prompt_version="backend_v1",
+        timestamp=conv.created_at or datetime.now(timezone.utc),
+        turns_total=len([m for m in transcript if m["speaker"] == "learner"]),
+        topic=conv.topic,
+        aimed_at=analysis.aimed_at or [],
+        hit_targets=analysis.hit_targets or [],
+        skills_evidenced=skills_evidenced_list,
+        state_changes=state_changes_list,
+        transcript=transcript,
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

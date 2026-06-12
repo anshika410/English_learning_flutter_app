@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 
@@ -54,3 +54,44 @@ class StoreMessageRequest(BaseModel):
     llm_duration_ms: int | None = None
     tts_duration_ms: int | None = None
     turn_number: int = 0
+
+
+class SessionLogTranscriptMessage(BaseModel):
+    speaker: str
+    text: str
+
+
+class SessionLogGradedSkill(BaseModel):
+    id: str
+    name: str
+    confidence: float
+    prompted: bool
+    evidence: str
+    reason: str
+
+
+class SessionLogStateChange(BaseModel):
+    id: str
+    from_state: str = Field(alias="from")
+    to_state: str = Field(alias="to")
+    name: str
+
+    model_config = {
+        "populate_by_name": True
+    }
+
+
+class SessionLogResponse(BaseModel):
+    session_id: str
+    child_id: str
+    level: str | None
+    progression_model: str
+    prompt_version: str
+    timestamp: datetime
+    turns_total: int
+    topic: str | None
+    aimed_at: list[str]
+    hit_targets: list[str]
+    skills_evidenced: list[SessionLogGradedSkill]
+    state_changes: list[SessionLogStateChange]
+    transcript: list[SessionLogTranscriptMessage]
