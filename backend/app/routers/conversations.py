@@ -13,6 +13,7 @@ from ..schemas.conversation import (
     CreateConversationRequest, ConversationOut,
     CompleteConversationRequest, CompleteConversationResponse,
     StoreMessageRequest, MessageOut, SessionLogResponse,
+    ConversationTurnRequest, ConversationTurnResponse,
 )
 from .analysis_shared import run_and_save_session_analysis
 
@@ -288,6 +289,105 @@ async def get_session_log(
         skills_evidenced=skills_evidenced_list,
         state_changes=state_changes_list,
         transcript=transcript,
+    )
+
+
+@router.post("/{conversation_id}/turn", response_model=ConversationTurnResponse)
+async def conversation_turn(
+    conversation_id: str,
+    body: ConversationTurnRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import time
+    from ..services import llm_service
+
+    # 1. Fetch and verify ownership of the conversation
+    conv = await _get_owned(conversation_id, user.id, db)
+    if conv.completed:
+        raise HTTPException(status_code=400, detail="Conversation already completed")
+
+    # 2. Fetch existing messages to calculate turn number and construct LLM history
+    msg_result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.turn_number, Message.created_at)
+    )
+    existing_messages = msg_result.scalars().all()
+    
+    # Calculate turn number for this new turn
+    user_turn_number = len([m for m in existing_messages if m.role == "user"]) + 1
+
+    # 3. Create and store user message
+    user_msg = Message(
+        conversation_id=conversation_id,
+        role="user",
+        content=body.content,
+        stt_duration_ms=body.stt_duration_ms,
+        turn_number=user_turn_number,
+    )
+    db.add(user_msg)
+    await db.flush()
+
+    # 4. Construct messages history list for LLM (existing messages + new user message)
+    llm_history = [
+        {"role": m.role, "content": m.content}
+        for m in existing_messages
+    ] + [{"role": "user", "content": body.content}]
+
+    # 5. Resolve user level details
+    level_label_map = {
+        "A1": "First Words",
+        "A2": "Finding My Voice",
+        "B1": "Building Confidence",
+        "B2": "Expressing Myself",
+        "C1": "Speaking Fluently",
+        "C2": "Mastering the Language"
+    }
+    level_code = user.level or "A1"
+    level_label = level_label_map.get(level_code.upper(), "Finding My Voice")
+
+    # 6. Call LLM service to get Zoe's response
+    start_time = time.time()
+    try:
+        llm_result = await llm_service.send_conversation_turn(
+            messages=llm_history,
+            topic=conv.topic or "Free conversation",
+            level=level_code,
+            level_label=level_label,
+            current_turn=user_turn_number,
+            persona_memory=user.persona_memory,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM service error: {e}")
+    
+    llm_duration_ms = int((time.time() - start_time) * 1000)
+
+    # 7. Save Zoe's reply to the database
+    zoe_msg = Message(
+        conversation_id=conversation_id,
+        role="zoe",
+        content=llm_result["reply"],
+        correction=llm_result.get("correction"),
+        llm_duration_ms=llm_duration_ms,
+        tts_duration_ms=body.tts_duration_ms,
+        turn_number=user_turn_number,
+    )
+    db.add(zoe_msg)
+    
+    # If the LLM indicates the conversation should complete, update conversation status
+    if llm_result.get("conversation_complete"):
+        conv.completed = True
+        conv.completed_at = datetime.now(timezone.utc)
+        
+    await db.commit()
+    await db.refresh(user_msg)
+    await db.refresh(zoe_msg)
+
+    return ConversationTurnResponse(
+        user_message=_msg_out(user_msg),
+        zoe_message=_msg_out(zoe_msg),
+        conversation_complete=conv.completed,
     )
 
 

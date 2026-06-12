@@ -95,3 +95,16 @@ class SessionLogResponse(BaseModel):
     skills_evidenced: list[SessionLogGradedSkill]
     state_changes: list[SessionLogStateChange]
     transcript: list[SessionLogTranscriptMessage]
+
+
+class ConversationTurnRequest(BaseModel):
+    content: str
+    stt_duration_ms: int | None = None
+    tts_duration_ms: int | None = None
+
+
+class ConversationTurnResponse(BaseModel):
+    user_message: MessageOut
+    zoe_message: MessageOut
+    conversation_complete: bool
+

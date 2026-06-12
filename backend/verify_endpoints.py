@@ -79,22 +79,17 @@ def run_tests():
     print(f"✓ Conversation created: {conversation_id}")
 
     # 5. Conversation Turn with Memory Injection
-    print("Testing POST /llm/conversation-turn with memory injection...")
+    print("Testing POST /conversations/{id}/turn with memory injection...")
     mock_turn_response = "That is cool! Zoe loves cricket too."
     
     with patch("app.services.llm_service._chat_completion", new_callable=AsyncMock) as mock_completion:
         mock_completion.return_value = mock_turn_response
         
         turn_resp = client.post(
-            "/llm/conversation-turn",
+            f"/conversations/{conversation_id}/turn",
             headers=headers,
             json={
-                "conversation_id": conversation_id,
-                "messages": [
-                    {"role": "user", "content": "I like playing cricket."}
-                ],
-                "topic": "Cricket",
-                "current_turn": 1
+                "content": "I like playing cricket."
             }
         )
         assert turn_resp.status_code == 200, f"Conversation turn failed: {turn_resp.text}"
@@ -108,10 +103,11 @@ def run_tests():
         assert "- Has a pet dog named Max" in system_prompt, "Memory facts not injected correctly"
         
         turn_data = turn_resp.json()
-        assert turn_data["reply"] == "That is cool! Zoe loves cricket too."
-        assert turn_data["correction"] is None
+        assert turn_data["zoe_message"]["content"] == "That is cool! Zoe loves cricket too."
+        assert turn_data["zoe_message"]["correction"] is None
         assert turn_data["conversation_complete"] is False
-    print("✓ POST /llm/conversation-turn memory injection successful")
+        assert turn_data["user_message"]["content"] == "I like playing cricket."
+    print("✓ POST /conversations/{id}/turn memory injection successful")
 
     # 6. Session Analysis with Memory Extraction and Merging
     print("Testing POST /llm/session-analysis memory extraction...")
