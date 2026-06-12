@@ -83,7 +83,7 @@ uvicorn app.main:app --reload --port 8000
 | POST | `/llm/conversation-starter` | ✓ | Generate opener |
 | POST | `/llm/conversation-turn` | ✓ | Send message, get reply |
 | POST | `/llm/placement-turn` | ✓ | Placement conversation turn |
-| POST | `/llm/session-analysis` | ✓ | End-of-session feedback |
+| POST | `/llm/judge` | ✓ | End-of-session feedback / LLM Judge |
 | POST | `/conversations` | ✓ | Create session |
 | GET | `/conversations` | ✓ | List past sessions |
 | GET | `/conversations/:id` | ✓ | Get session |

@@ -83,7 +83,7 @@ async def placement_turn(
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
 
-@router.post("/session-analysis", response_model=SessionAnalysisResponse)
+@router.post("/judge", response_model=SessionAnalysisResponse)
 async def session_analysis(
     body: SessionAnalysisRequest,
     user: User = Depends(get_current_user),

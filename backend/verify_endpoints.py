@@ -125,7 +125,7 @@ def run_tests():
     print("✓ POST /conversations/{id}/turn memory injection successful")
 
     # 6. Session Analysis with Memory Extraction and Merging
-    print("Testing POST /llm/session-analysis memory extraction...")
+    print("Testing POST /llm/judge memory extraction...")
     mock_analysis_json = json.dumps({
         "overall": "good",
         "best_moment": {
@@ -151,7 +151,7 @@ def run_tests():
         mock_completion.return_value = mock_analysis_json
         
         analysis_resp = client.post(
-            "/llm/session-analysis",
+            "/llm/judge",
             headers=headers,
             json={
                 "conversation_id": conversation_id,
@@ -167,7 +167,7 @@ def run_tests():
         assert analysis_data["overall"] == "good"
         assert "extracted_memory_facts" in analysis_data
         
-    print("✓ POST /llm/session-analysis successful")
+    print("✓ POST /llm/judge successful")
 
     # Verify that the new fact was merged and the duplicate was not added twice
     print("Verifying memory was merged correctly in database...")

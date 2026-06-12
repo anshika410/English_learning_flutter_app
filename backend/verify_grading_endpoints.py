@@ -92,12 +92,12 @@ def run_tests():
         ]
     })
 
-    print("Testing POST /llm/session-analysis in unit mode...")
+    print("Testing POST /llm/judge in unit mode...")
     with patch("app.services.llm_service._chat_completion", new_callable=AsyncMock) as mock_completion:
         mock_completion.return_value = mock_combined_json
         
         analysis_resp = client.post(
-            "/llm/session-analysis",
+            "/llm/judge",
             headers=headers,
             json={
                 "conversation_id": conversation_id,
@@ -131,7 +131,7 @@ def run_tests():
         assert len(changes) >= 1
         assert any(c["id"] == "U1-VOC-01" and c["to"] == "emerging" for c in changes)
 
-    print("✓ POST /llm/session-analysis successfully updated student grading & progression")
+    print("✓ POST /llm/judge successfully updated student grading & progression")
 
     # Verify that the user's progress and next targets are now saved in DB
     print("Verifying user progress and targets in database...")
