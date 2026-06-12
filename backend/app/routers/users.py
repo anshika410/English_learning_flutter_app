@@ -3,37 +3,48 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
-from ..schemas.user import UserProfile, UpdateProfileRequest, UpdateSettingsRequest, UpdateMemoryRequest
+from ..schemas.user import UpdateProfileRequest, UpdateSettingsRequest, UpdateMemoryRequest, UserMemoryResponse
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-def _to_profile(user: User) -> UserProfile:
-    return UserProfile(
+def _to_memory_response(user: User) -> UserMemoryResponse:
+    persona = user.persona_memory or {}
+    progress = user.skills_progress or {}
+    due = user.due_next or {}
+
+    return UserMemoryResponse(
         id=user.id,
         device_id=user.device_id,
         name=user.name,
         age=user.age,
         location=user.location,
+        city=user.location,
+        grade=None,
         level=user.level,
         level_label=user.level_label,
         grammar_focus=user.grammar_focus,
         vocab_focus=user.vocab_focus,
         fluency_focus=user.fluency_focus,
         first_session_done=user.first_session_done,
-        interests=user.interests.split(",") if user.interests else None,
-        persona_memory=user.persona_memory or {},
-        skills_progress=user.skills_progress or {},
-        due_next=user.due_next or {},
+        interests=user.interests.split(",") if user.interests else [],
+        owned=progress.get("owned", []),
+        emerging=progress.get("emerging", []),
+        due_next=due,
+        effort=progress.get("effort", {"times_spoken_total": 0}),
+        sightings=progress.get("sightings", {}),
+        strength=progress.get("strength", {}),
+        updated_after_chat=progress.get("updated_after_chat", 0),
+        last_topics=persona.get("last_topics", []),
     )
 
 
-@router.get("/me", response_model=UserProfile)
+@router.get("/me", response_model=UserMemoryResponse)
 async def get_profile(user: User = Depends(get_current_user)):
-    return _to_profile(user)
+    return _to_memory_response(user)
 
 
-@router.put("/me", response_model=UserProfile)
+@router.put("/me", response_model=UserMemoryResponse)
 async def update_profile(
     body: UpdateProfileRequest,
     user: User = Depends(get_current_user),
@@ -47,10 +58,10 @@ async def update_profile(
         user.location = body.location
     db.add(user)
     await db.flush()
-    return _to_profile(user)
+    return _to_memory_response(user)
 
 
-@router.put("/me/settings", response_model=UserProfile)
+@router.put("/me/settings", response_model=UserMemoryResponse)
 async def update_settings(
     body: UpdateSettingsRequest,
     user: User = Depends(get_current_user),
@@ -64,10 +75,10 @@ async def update_settings(
         user.fluency_focus = body.fluency_focus
     db.add(user)
     await db.flush()
-    return _to_profile(user)
+    return _to_memory_response(user)
 
 
-@router.get("/me/memory")
+@router.get("/me/memory", response_model=UserMemoryResponse)
 async def get_user_memory(
     user: User = Depends(get_current_user)
 ):
@@ -75,28 +86,7 @@ async def get_user_memory(
     Returns the student's full learning memory as a unified object.
     Combines profile, persona facts, skills progress, and next targets.
     """
-    persona = user.persona_memory or {}
-    progress = user.skills_progress or {}
-    due = user.due_next or {}
-
-    return {
-        "profile": {
-            "name": user.name,
-            "age": user.age,
-            "city": user.location,
-            "grade": None,
-        },
-        "level": user.level,
-        "owned": progress.get("owned", []),
-        "emerging": progress.get("emerging", []),
-        "due_next": due,
-        "last_topics": persona.get("last_topics", []),
-        "interests": user.interests.split(",") if user.interests else [],
-        "effort": progress.get("effort", {"times_spoken_total": 0}),
-        "sightings": progress.get("sightings", {}),
-        "strength": progress.get("strength", {}),
-        "updated_after_chat": progress.get("updated_after_chat", 0),
-    }
+    return _to_memory_response(user)
 
 
 @router.put("/me/memory")
@@ -114,4 +104,5 @@ async def update_user_memory(
     db.add(user)
     await db.flush()
     return {"persona_memory": user.persona_memory}
+
 

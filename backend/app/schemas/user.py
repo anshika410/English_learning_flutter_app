@@ -34,3 +34,30 @@ class UpdateSettingsRequest(BaseModel):
 class UpdateMemoryRequest(BaseModel):
     persona_memory: dict
 
+
+class UserMemoryResponse(BaseModel):
+    id: str
+    device_id: str
+    name: str | None = None
+    age: str | None = None
+    location: str | None = None
+    city: str | None = None
+    grade: str | None = None
+    level: str | None = None
+    level_label: str | None = None
+    grammar_focus: int = 2
+    vocab_focus: int = 2
+    fluency_focus: int = 1
+    first_session_done: bool = False
+    interests: list[str] = []
+    owned: list[str] = []
+    emerging: list[str] = []
+    due_next: dict = {}
+    effort: dict = {"times_spoken_total": 0}
+    sightings: dict = {}
+    strength: dict = {}
+    updated_after_chat: int = 0
+    last_topics: list[str] = []
+
+
+

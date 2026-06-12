@@ -48,9 +48,17 @@ def run_tests():
     mem_resp = client.get("/users/me/memory", headers=headers)
     assert mem_resp.status_code == 200, f"Get memory failed: {mem_resp.text}"
     mem_data = mem_resp.json()
-    # Default is empty
-    profile_resp = client.get("/users/me", headers=headers)
-    assert not profile_resp.json().get("persona_memory", {}).get("facts"), f"Expected empty facts, got {profile_resp.json()}"
+    # Default is empty in database
+    import sqlite3
+    db_path = os.path.join(os.path.dirname(__file__), "zoe.db")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT persona_memory FROM users WHERE device_id = 'test-device-uuid-123456'")
+    row = cursor.fetchone()
+    conn.close()
+    assert row is not None
+    db_mem = json.loads(row[0]) if row[0] else {}
+    assert not db_mem.get("facts"), f"Expected empty facts, got {db_mem}"
     print("✓ GET /users/me/memory (initial) successful")
 
     # 4. Put Memory (Manual update)
@@ -64,12 +72,18 @@ def run_tests():
     assert put_resp.json()["persona_memory"]["facts"] == ["Likes playing cricket", "Has a pet dog named Max"]
     print("✓ PUT /users/me/memory successful")
 
-    # Verify memory GET matches PUT
-    print("Testing GET /users/me (after PUT)...")
-    profile_resp2 = client.get("/users/me", headers=headers)
-    assert profile_resp2.status_code == 200
-    assert profile_resp2.json().get("persona_memory", {}).get("facts") == ["Likes playing cricket", "Has a pet dog named Max"]
+    # Verify memory in DB matches PUT
+    print("Testing memory facts in database...")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT persona_memory FROM users WHERE device_id = 'test-device-uuid-123456'")
+    row = cursor.fetchone()
+    conn.close()
+    assert row is not None
+    db_mem = json.loads(row[0])
+    assert db_mem.get("facts") == ["Likes playing cricket", "Has a pet dog named Max"]
     print("✓ GET /users/me/memory (after PUT) successful")
+
 
     # Create a test conversation to associate analysis and turns
     print("Creating a test conversation...")
@@ -157,11 +171,14 @@ def run_tests():
 
     # Verify that the new fact was merged and the duplicate was not added twice
     print("Verifying memory was merged correctly in database...")
-    profile_resp = client.get("/users/me", headers=headers)
-    assert profile_resp.status_code == 200
-    print("Profile response JSON:", profile_resp.json())
-    persona_data = profile_resp.json().get("persona_memory", {})
-    merged_facts = persona_data.get("facts", [])
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT persona_memory FROM users WHERE device_id = 'test-device-uuid-123456'")
+    row = cursor.fetchone()
+    conn.close()
+    assert row is not None
+    db_mem = json.loads(row[0])
+    merged_facts = db_mem.get("facts", [])
     print("Merged facts list:", merged_facts)
     
     assert "Likes playing cricket" in merged_facts
