@@ -11,11 +11,9 @@ from ..models.message import Message
 from ..models.session_analysis import SessionAnalysis
 from ..schemas.conversation import (
     CreateConversationRequest, ConversationOut,
-    CompleteConversationRequest, CompleteConversationResponse,
     StoreMessageRequest, MessageOut, SessionLogResponse,
     ConversationTurnRequest, ConversationTurnResponse,
 )
-from .analysis_shared import run_and_save_session_analysis
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -59,58 +57,6 @@ async def get_conversation(
     return _conv_out(conv)
 
 
-@router.put("/{conversation_id}/complete", response_model=CompleteConversationResponse)
-async def complete_conversation(
-    conversation_id: str,
-    body: CompleteConversationRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    conv = await _get_owned(conversation_id, user.id, db)
-    conv.completed = True
-    conv.completed_at = datetime.now(timezone.utc)
-    if body.duration_seconds is not None:
-        conv.duration_seconds = body.duration_seconds
-    if body.session_type is not None:
-        conv.session_type = body.session_type
-    db.add(conv)
-    await db.flush()
-
-    analysis_out = None
-    if body.run_analysis:
-        # Fetch all messages for the conversation
-        msg_result = await db.execute(
-            select(Message)
-            .where(Message.conversation_id == conversation_id)
-            .order_by(Message.turn_number, Message.created_at)
-        )
-        messages_db = msg_result.scalars().all()
-        messages_list = [
-            {"role": "assistant" if m.role == "zoe" else "user", "content": m.content}
-            for m in messages_db
-        ]
-
-        # Fallback values if level/label not passed in body
-        level = body.level or user.level or "A1"
-        level_label = body.level_label or user.level_label or "First Words"
-        topic = conv.topic or "Free Talk"
-
-        # Run combined analysis and grading
-        analysis_out = await run_and_save_session_analysis(
-            conversation_id=conversation_id,
-            messages=messages_list,
-            topic=topic,
-            level=level,
-            level_label=level_label,
-            progression_model=body.progression_model,
-            user=user,
-            db=db,
-        )
-
-    return CompleteConversationResponse(
-        conversation=_conv_out(conv),
-        analysis=analysis_out
-    )
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageOut)

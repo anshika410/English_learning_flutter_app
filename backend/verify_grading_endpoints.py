@@ -215,35 +215,49 @@ def run_tests():
         ]
     })
 
-    print("Testing PUT /conversations/{id}/complete with run_analysis=True...")
+    print("Testing POST /llm/judge to analyze and automatically complete conversation...")
     with patch("app.services.llm_service._chat_completion", new_callable=AsyncMock) as mock_completion:
         mock_completion.return_value = mock_combined_json
         
-        comp_resp = client.put(
-            f"/conversations/{conversation_id2}/complete",
+        comp_resp = client.post(
+            "/llm/judge",
             headers=headers,
             json={
+                "conversation_id": conversation_id2,
+                "messages": [
+                    {"role": "user", "content": "I like watching Bollywood movies."}
+                ],
+                "topic": "Movies",
                 "duration_seconds": 120,
                 "session_type": "free_chat",
-                "run_analysis": True,
                 "progression_model": "unit",
                 "level": "A1",
                 "level_label": "First Words"
             }
         )
-        assert comp_resp.status_code == 200, f"Completion failed: {comp_resp.text}"
+        assert comp_resp.status_code == 200, f"Judge / Completion failed: {comp_resp.text}"
         comp_data = comp_resp.json()
         
         # Verify response structure
-        assert "conversation" in comp_data
-        assert "analysis" in comp_data
-        assert comp_data["conversation"]["completed"] is True
-        assert comp_data["analysis"]["overall"] == "good"
-        assert len(comp_data["analysis"]["skills_evidenced"]) == 1
-        assert comp_data["analysis"]["skills_evidenced"][0]["id"] == "U1-VOC-01"
-        assert comp_data["analysis"]["skills_evidenced"][0]["confidence"] == 0.9
+        assert comp_data["overall"] == "good"
+        assert len(comp_data["skills_evidenced"]) == 1
+        assert comp_data["skills_evidenced"][0]["id"] == "U1-VOC-01"
+        assert comp_data["skills_evidenced"][0]["confidence"] == 0.9
         
-    print("✓ PUT /conversations/{id}/complete with run_analysis=True successful")
+        # Verify that the conversation was automatically marked completed in database
+        import sqlite3
+        db_path = os.path.join(os.path.dirname(__file__), "zoe.db")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT completed, duration_seconds, session_type FROM conversations WHERE id = ?", (conversation_id2,))
+        row = cursor.fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == 1, "Expected conversation to be marked completed (1)"
+        assert row[1] == 120, f"Expected duration 120, got {row[1]}"
+        assert row[2] == "free_chat", f"Expected session_type 'free_chat', got '{row[2]}'"
+        
+    print("✓ POST /llm/judge auto-completion successful")
 
     # 9. Test Compiled Session Log API
     print("Testing GET /conversations/{id}/session-log...")

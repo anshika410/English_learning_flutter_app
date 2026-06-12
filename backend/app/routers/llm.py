@@ -93,6 +93,7 @@ async def session_analysis(
     """
     Performs post-session analysis on a completed conversation.
     
+    - Marks the conversation as completed in the database.
     - Evaluates student performance (best moments, courage highlights, try-next-time recommendations).
     - Extracts new student persona facts mentioned during the chat.
     - Idempotently merges these facts with the child's permanent database `persona_memory` profile.
@@ -109,6 +110,16 @@ async def session_analysis(
     conversation = conv_result.scalar_one_or_none()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Update completion status and metadata
+    from datetime import datetime, timezone
+    conversation.completed = True
+    conversation.completed_at = datetime.now(timezone.utc)
+    if body.duration_seconds is not None:
+        conversation.duration_seconds = body.duration_seconds
+    if body.session_type is not None:
+        conversation.session_type = body.session_type
+    db.add(conversation)
 
     level = body.level or user.level or "A1"
     messages = [m.model_dump() for m in body.messages]
