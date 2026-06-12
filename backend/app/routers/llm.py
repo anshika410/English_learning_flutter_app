@@ -84,6 +84,7 @@ async def placement_turn(
 
 
 @router.post("/judge", response_model=SessionAnalysisResponse)
+@router.post("/session-analysis", response_model=SessionAnalysisResponse)
 async def session_analysis(
     body: SessionAnalysisRequest,
     user: User = Depends(get_current_user),
