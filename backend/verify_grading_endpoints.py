@@ -51,8 +51,8 @@ def run_tests():
     conversation_id = conv_data["id"]
     print(f"✓ Conversation created: {conversation_id}")
 
-    # Mock responses for qualitative analysis and quantitative grading
-    mock_analysis_json = json.dumps({
+    # Mock responses for qualitative analysis and quantitative grading (consolidated into a single mock LLM response)
+    mock_combined_json = json.dumps({
         "overall": "excellent",
         "best_moment": {
             "quote": "I see... me in space! No pizza. Only stars.",
@@ -70,11 +70,7 @@ def run_tests():
             "Likes watching space shows",
             "Wants to study stars"
         ],
-        "transcript_notes": []
-    })
-
-    # We expect aimed target U1-VOC-01 to be graded with 0.8, U1-GRA-01 with 0.4
-    mock_grading_json = json.dumps({
+        "transcript_notes": [],
         "scores": [
             {
                 "id": "U1-VOC-01",
@@ -99,8 +95,7 @@ def run_tests():
 
     print("Testing POST /llm/session-analysis in unit mode...")
     with patch("app.services.llm_service._chat_completion", new_callable=AsyncMock) as mock_completion:
-        # Side effect: first call is qualitative analysis, second call is quantitative grading
-        mock_completion.side_effect = [mock_analysis_json, mock_grading_json]
+        mock_completion.return_value = mock_combined_json
         
         analysis_resp = client.post(
             "/llm/session-analysis",
@@ -178,6 +173,78 @@ def run_tests():
     assert ret_data["hit_targets"] == data["hit_targets"]
     assert len(ret_data["skills_evidenced"]) == 3
     print("✓ GET /conversations/{id}/analysis returned grading checklist fields successfully")
+
+    # 8. Test Consolidated Completion API
+    print("Creating second test conversation for completion analysis...")
+    conv_resp2 = client.post("/conversations", headers=headers, json={"topic": "Bollywood"})
+    assert conv_resp2.status_code == 200
+    conversation_id2 = conv_resp2.json()["id"]
+
+    print("Storing user message for second conversation...")
+    msg_resp = client.post(
+        f"/conversations/{conversation_id2}/messages",
+        headers=headers,
+        json={"role": "user", "content": "I like watching Bollywood movies.", "turn_number": 1}
+    )
+    assert msg_resp.status_code == 200
+
+    mock_combined_json = json.dumps({
+        "overall": "good",
+        "best_moment": {
+            "quote": "I like watching Bollywood movies.",
+            "note": "Shared interest in movies."
+        },
+        "courage_or_motivation": {
+            "type": "motivation",
+            "content": "Well done."
+        },
+        "try_next_time": {
+            "skill": "use past tense",
+            "example": "I watched a movie."
+        },
+        "extracted_memory_facts": [
+            "Likes Bollywood movies"
+        ],
+        "transcript_notes": [],
+        "scores": [
+            {
+                "id": "U1-VOC-01",
+                "confidence": 0.9,
+                "prompted": False,
+                "evidence": "I like watching Bollywood movies."
+            }
+        ]
+    })
+
+    print("Testing PUT /conversations/{id}/complete with run_analysis=True...")
+    with patch("app.services.llm_service._chat_completion", new_callable=AsyncMock) as mock_completion:
+        mock_completion.return_value = mock_combined_json
+        
+        comp_resp = client.put(
+            f"/conversations/{conversation_id2}/complete",
+            headers=headers,
+            json={
+                "duration_seconds": 120,
+                "session_type": "free_chat",
+                "run_analysis": True,
+                "progression_model": "unit",
+                "level": "A1",
+                "level_label": "First Words"
+            }
+        )
+        assert comp_resp.status_code == 200, f"Completion failed: {comp_resp.text}"
+        comp_data = comp_resp.json()
+        
+        # Verify response structure
+        assert "conversation" in comp_data
+        assert "analysis" in comp_data
+        assert comp_data["conversation"]["completed"] is True
+        assert comp_data["analysis"]["overall"] == "good"
+        assert len(comp_data["analysis"]["skills_evidenced"]) == 1
+        assert comp_data["analysis"]["skills_evidenced"][0]["id"] == "U1-VOC-01"
+        assert comp_data["analysis"]["skills_evidenced"][0]["confidence"] == 0.9
+        
+    print("✓ PUT /conversations/{id}/complete with run_analysis=True successful")
 
     print("\n==========================================")
     print("ALL GRADING & PROGRESSION TESTS PASSED!")

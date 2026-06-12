@@ -11,9 +11,10 @@ from ..models.message import Message
 from ..models.session_analysis import SessionAnalysis
 from ..schemas.conversation import (
     CreateConversationRequest, ConversationOut,
-    CompleteConversationRequest,
+    CompleteConversationRequest, CompleteConversationResponse,
     StoreMessageRequest, MessageOut,
 )
+from .analysis_shared import run_and_save_session_analysis
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -57,7 +58,7 @@ async def get_conversation(
     return _conv_out(conv)
 
 
-@router.put("/{conversation_id}/complete", response_model=ConversationOut)
+@router.put("/{conversation_id}/complete", response_model=CompleteConversationResponse)
 async def complete_conversation(
     conversation_id: str,
     body: CompleteConversationRequest,
@@ -73,7 +74,39 @@ async def complete_conversation(
         conv.session_type = body.session_type
     db.add(conv)
     await db.flush()
-    return _conv_out(conv)
+
+    analysis_out = None
+    if body.run_analysis:
+        # Fetch all messages for the conversation
+        msg_result = await db.execute(
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.turn_number, Message.created_at)
+        )
+        messages_db = msg_result.scalars().all()
+        messages_list = [{"role": m.role, "content": m.content} for m in messages_db]
+
+        # Fallback values if level/label not passed in body
+        level = body.level or user.level or "A1"
+        level_label = body.level_label or user.level_label or "First Words"
+        topic = conv.topic or "Free Talk"
+
+        # Run combined analysis and grading
+        analysis_out = await run_and_save_session_analysis(
+            conversation_id=conversation_id,
+            messages=messages_list,
+            topic=topic,
+            level=level,
+            level_label=level_label,
+            progression_model=body.progression_model,
+            user=user,
+            db=db,
+        )
+
+    return CompleteConversationResponse(
+        conversation=_conv_out(conv),
+        analysis=analysis_out
+    )
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageOut)
