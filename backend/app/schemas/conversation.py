@@ -79,5 +79,4 @@ class ConversationTurnRequest(BaseModel):
 
 class ConversationTurnResponse(BaseModel):
     transcript: list[SessionLogTranscriptMessage]
-    conversation_complete: bool
 

@@ -118,7 +118,6 @@ def run_tests():
         assert "- Has a pet dog named Max" in system_prompt, "Memory facts not injected correctly"
         
         turn_data = turn_resp.json()
-        assert turn_data["conversation_complete"] is False
         assert len(turn_data["transcript"]) >= 2
         assert turn_data["transcript"][-1]["speaker"] == "zoe"
         assert turn_data["transcript"][-1]["text"] == "That is cool! Zoe loves cricket too."
