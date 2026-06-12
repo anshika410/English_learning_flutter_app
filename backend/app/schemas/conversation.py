@@ -94,7 +94,6 @@ class ConversationTurnRequest(BaseModel):
 
 
 class ConversationTurnResponse(BaseModel):
-    user_message: MessageOut
-    zoe_message: MessageOut
+    transcript: list[SessionLogTranscriptMessage]
     conversation_complete: bool
 

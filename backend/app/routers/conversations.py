@@ -378,12 +378,21 @@ async def conversation_turn(
         conv.completed_at = datetime.now(timezone.utc)
         
     await db.commit()
-    await db.refresh(user_msg)
-    await db.refresh(zoe_msg)
+    
+    # 7. Fetch full transcript to return in Response
+    transcript_result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.turn_number, Message.created_at)
+    )
+    db_messages = transcript_result.scalars().all()
+    transcript = [
+        {"speaker": "zoe" if m.role == "zoe" else "learner", "text": m.content}
+        for m in db_messages
+    ]
 
     return ConversationTurnResponse(
-        user_message=_msg_out(user_msg),
-        zoe_message=_msg_out(zoe_msg),
+        transcript=transcript,
         conversation_complete=conv.completed,
     )
 
