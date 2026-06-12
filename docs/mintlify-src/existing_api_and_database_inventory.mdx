@@ -63,7 +63,7 @@ Tracks each session container/call completed by the user.
 | `user_id` | `String(36)` | ForeignKey(`users.id`), Index | The student who conducted this session. |
 | `topic` | `String(100)` | Nullable | Selected conversation topic. |
 | `header_title` | `String(100)` | Nullable | User-facing display title for the call. |
-| `duration_seconds` | `Integer` | Nullable | Length of the call in seconds. |
+| `duration_seconds` | `Integer` | Nullable | Estimated length of the call in seconds. Scaled automatically on the backend from the number of learner turns (turns * 30). |
 | `session_type` | `String(20)` | Nullable | Type of session (e.g. `topic`, `free_flow`). |
 | `quality` | `String(20)` | Nullable | Overall session performance quality. |
 | `completed` | `Boolean` | Default: `False` | Status flag. |
@@ -171,7 +171,7 @@ FastAPI routes are organized under [`backend/app/routers/`](file:///Users/sama/A
 ### Group 5: Post-Session Evaluation & Progress
 *   **`POST https://ella.navgurukul.org/api/llm/session-analysis`**
     *   *Payload:* `SessionAnalysisRequest`
-    *   *Purpose & Reason:* Runs immediately after session completion. Zoe analyzes the full transcript, extracting a "Best Moment" (a spoken quote that was grammatically correct) and "Courage" moments (instances of confidence or clear speech) to build encouragement cards for the End Screen.
+    *   *Purpose & Reason:* Runs immediately after session completion. Zoe analyzes the full transcript, extracting a "Best Moment" and "Courage" moments to build encouragement cards. The endpoint automatically computes practice duration dynamically as `learner_turns * 30` seconds and saves it to the database, completing the conversation.
 *   **`GET https://ella.navgurukul.org/api/progress/summary`**
     *   *Purpose & Reason:* Computes aggregate statistics (total calls, completed sessions, speaking time, and placement history) to display on the student's profile dashboard.
 

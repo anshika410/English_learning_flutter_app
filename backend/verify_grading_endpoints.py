@@ -253,7 +253,7 @@ def run_tests():
         conn.close()
         assert row is not None
         assert row[0] == 1, "Expected conversation to be marked completed (1)"
-        assert row[1] == 1, f"Expected turn count 1 in duration_seconds column, got {row[1]}"
+        assert row[1] == 30, f"Expected turn count 1 (scaled to 30s) in duration_seconds column, got {row[1]}"
         assert row[2] == "free_chat", f"Expected session_type 'free_chat', got '{row[2]}'"
         
     print("✓ POST /llm/judge auto-completion successful")

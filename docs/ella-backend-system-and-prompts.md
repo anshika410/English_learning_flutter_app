@@ -27,7 +27,7 @@ Routers (API modules)
 Database Tables (current)
   users — id, device_id, name, age, location, level, level_label, grammar_focus, vocab_focus, fluency_focus, first_session_done, created_at
   placements — id, user_id, level, level_label, confidence, highlight, transcript_json, created_at
-  conversations — id, user_id, topic, header_title, duration_seconds, session_type, quality, completed, created_at
+  conversations — id, user_id, topic, header_title, duration_seconds (calculated as user_turns * 30), session_type, quality, completed, created_at
   messages — id, conversation_id, role, content, correction, turn_number, stt_duration_ms, llm_duration_ms, tts_duration_ms, created_at
   session_analyses — id, conversation_id, analysis_json, created_at
 
@@ -68,7 +68,7 @@ API Endpoints
   POST /llm/session-analysis
     Body: conversation_id, messages, topic, level, level_label
     Returns: overall, best_moment, courage_or_motivation, try_next_time, transcript_notes
-    Generates post-session analysis
+    Generates post-session analysis, marks session as complete, and computes duration_seconds dynamically as user_turns * 30.
 
   POST /conversations
     Body: topic (optional)
