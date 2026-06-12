@@ -47,11 +47,6 @@ class UserMemoryResponse(BaseModel):
     device_id: str
     profile: MemoryProfileSub
     level: str | None = None
-    level_label: str | None = None
-    grammar_focus: int = 2
-    vocab_focus: int = 2
-    fluency_focus: int = 1
-    first_session_done: bool = False
     interests: list[str] = []
     owned: list[str] = []
     emerging: list[str] = []
