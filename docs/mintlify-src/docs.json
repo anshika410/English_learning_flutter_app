@@ -51,31 +51,9 @@
         ]
       },
       {
-        "group": "API: LLM Services",
+        "group": "API: Placement Loop",
         "pages": [
-          "api/llm/conversation-starter",
-          "api/llm/conversation-turn",
           "api/llm/placement-turn",
-          "api/llm/session-analysis",
-          "api/llm/session-analysis-1"
-        ]
-      },
-      {
-        "group": "API: Call Sessions",
-        "pages": [
-          "api/conversations/list-conversations",
-          "api/conversations/create-conversation",
-          "api/conversations/get-conversation",
-          "api/conversations/get-messages",
-          "api/conversations/store-message",
-          "api/conversations/get-conversation-analysis",
-          "api/conversations/get-session-log",
-          "api/conversations/conversation-turn"
-        ]
-      },
-      {
-        "group": "API: Placements",
-        "pages": [
           "api/placements/list-placements",
           "api/placements/create-placement",
           "api/placements/get-latest-placement"
@@ -88,23 +66,16 @@
         ]
       },
       {
-        "group": "API: Curriculum & Topics",
-        "pages": [
-          "api/curriculum/list-topics"
-        ]
-      },
-      {
         "group": "API: Administration",
         "pages": [
           "api/admin/admin-stats",
-          "api/admin/get-transcript",
           "api/admin/get-placement-transcript"
         ]
       },
       {
         "group": "API: Health Checks",
         "pages": [
-          "api/health"
+          "api/health-check"
         ]
       }
     ]
