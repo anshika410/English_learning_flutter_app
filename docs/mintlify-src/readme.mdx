@@ -39,6 +39,7 @@ All pages live at [ella.navgurukul.org](https://ella.navgurukul.org):
 | 🌐 **Product v1 (Live App)** | [ella.navgurukul.org/v1/](https://ella.navgurukul.org/v1/) | Flutter web build (latest) |
 | 📊 **Pilot Dashboard** | [ella.navgurukul.org/admin/](https://ella.navgurukul.org/admin/) | Live screening results |
 | 📲 **Android APK** | [ella.navgurukul.org](https://ella.navgurukul.org) | Download latest release APK |
+| ⚙️ **API Reference (Swagger)** | [ella.navgurukul.org/api/docs](https://ella.navgurukul.org/api/docs) | Interactive API documentation |
 
 ## Notion Docs
 

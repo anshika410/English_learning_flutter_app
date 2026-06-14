@@ -42,6 +42,10 @@
   "navbar": {
     "links": [
       {
+        "label": "API Swagger",
+        "href": "https://ella.navgurukul.org/api/docs"
+      },
+      {
         "label": "GitHub",
         "href": "https://github.com/navgurukul/ella_flutter"
       }
