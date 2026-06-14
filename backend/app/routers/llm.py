@@ -25,6 +25,11 @@ async def conversation_starter(
     body: StarterRequest,
     user: User = Depends(get_current_user),
 ):
+    """
+    Generates a friendly opening question/starter from the AI tutor matching a selected topic.
+    
+    Acts as a proxy call to the LLM (DeepSeek) using prompt rendering configured server-side.
+    """
     try:
         result = await llm_service.generate_conversation_starter(body.topic)
         return StarterResponse(**result)
@@ -38,6 +43,14 @@ async def conversation_turn(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Handles turn-by-turn logic during an active topic-based conversation session.
+    
+    - Validates that the conversation session exists and belongs to the authenticated user.
+    - Sends the dialogue history to the LLM backend proxy.
+    - Applies custom coaching metrics (grammar, vocabulary, and fluency settings).
+    - Returns Zoe's next spoken reply alongside immediate grammar corrections.
+    """
     # Verify conversation belongs to this user
     result = await db.execute(
         select(Conversation).where(
@@ -71,6 +84,13 @@ async def placement_turn(
     body: PlacementTurnRequest,
     user: User = Depends(get_current_user),
 ):
+    """
+    Executes a dialogue turn during the voice placement screening test.
+    
+    - Accepts the running transcript log.
+    - Queries the backend LLM state machine to decide if the test should continue or complete.
+    - Returns Zoe's next question OR a final CEFR assessment (`is_complete: true`) once enough evidence is gathered.
+    """
     try:
         messages = [m.model_dump() for m in body.messages]
         result = await llm_service.send_placement_turn(

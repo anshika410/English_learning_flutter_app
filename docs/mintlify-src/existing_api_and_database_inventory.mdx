@@ -12,6 +12,28 @@ All API endpoints are deployed behind the production gateway at:
 
 ---
 
+## Placement & Onboarding Flow API Sequence
+
+When a student launches the app and goes through placement, the following APIs are triggered in sequence:
+
+1. **App Launch & Welcome Screen:**
+   - **`POST /auth/anonymous`**: Automatically invoked in the background to exchange the device's generated UUID for a secure JWT access token, registering the account if it's the first run.
+   
+2. **Placement Screen (Voice screening chat):**
+   - **`POST /llm/placement-turn`**: Called on every message turn (speech or text) containing the conversation history. Zoe replies with the next prompt until sufficient turn evidence is gathered, at which point the API responds with `is_complete: true` and the evaluated CEFR level results.
+
+3. **Transitioning to Result Screen:**
+   - **`PUT /users/me`**: Updates student's extracted name, age, and location.
+   - **`POST /placements`**: Persists the final CEFR level assessment, description highlight, hobbies, and conversation transcript.
+
+4. **Topic Hub / Home Screen:**
+   - **No immediate API calls**: Loads stored profile variables locally from device memory. 
+   - When a topic chip is clicked:
+     - **`POST /conversations`**: Registers a new conversation session container.
+     - **`POST /llm/conversation-starter`**: Fetches the initial opening question for the selected topic from the LLM proxy.
+
+---
+
 ## 1. Database Schema & Models
 
 The backend utilizes PostgreSQL 16 (mapped in Docker via SQLAlchemy models under [`backend/app/models/`](file:///Users/sama/AndroidStudioProjects/ella_flutter/backend/app/models/)). There are 5 primary tables in the database:

@@ -73,6 +73,6 @@ flutter {
 }
 
 dependencies {
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.16.3")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
     implementation("com.google.code.gson:gson:2.10.1")
 }

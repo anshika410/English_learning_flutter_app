@@ -17,6 +17,13 @@ async def create_placement(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Finalizes and saves the result of the voice placement screening test.
+    
+    - Creates a new placement history record.
+    - Persists the assessed CEFR level, level label, highlight summary, and full transcript.
+    - Updates the user's permanent profile with the graded level, level label, and interest tags.
+    """
     placement = Placement(
         user_id=user.id,
         level=body.level,
@@ -43,6 +50,11 @@ async def get_latest_placement(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Fetches the student's latest active CEFR placement record.
+    
+    Used to initialize level-specific vocabulary and prompt constraints in subsequent chat screens.
+    """
     result = await db.execute(
         select(Placement)
         .where(Placement.user_id == user.id)
@@ -60,6 +72,11 @@ async def list_placements(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Lists the full history of all completed voice placement tests for the authenticated student.
+    
+    Enables progress tracking and comparative reviews over time.
+    """
     result = await db.execute(
         select(Placement)
         .where(Placement.user_id == user.id)
