@@ -220,3 +220,114 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
                     p["owned"].append(skill_id)
                     
     return p, changes
+
+# Elicitation Mapping & Prompting
+ELICITATION_BY_FUNCTION = {
+    "describe": {
+        "move": "Ask the learner to describe a real or imagined place/person/picture. Do not ask only yes/no.",
+        "question": "Tell me about your room/park/classroom. What can you see? Who is there? What are they doing?",
+        "fallback": "If they give one word, ask: Good. Say one more thing. What colour/size is it? Where is it?",
+        "evidence": "3 details, simple adjectives, or 2-4 connected fragments/sentences."
+    },
+    "present_continuous": {
+        "move": 'Create a "right now / picture" moment so the learner can use is/are + -ing.',
+        "question": "Imagine a picture. What is the boy doing? What are the people doing?",
+        "fallback": "If stuck, offer a frame: He is ___. They are ___.",
+        "evidence": "Any meaningful present-continuous attempt, even with errors: “boy running”, “she is play”."
+    },
+
+    "past": {
+        "move": "Ask about yesterday/last weekend and invite a tiny sequence.",
+        "question": "What did you do yesterday? Tell me two things.",
+        "fallback": "If they answer one word, ask: First? Then?",
+        "evidence": "Past-time expression or past event, even if tense is imperfect."
+    },
+    "opinion": {
+        "move": "Ask preference plus reason; keep it personal and easy.",
+        "question": "Which do you like more? Why?",
+        "fallback": "Offer a frame: I like ___ because ___.",
+        "evidence": "Opinion word/preference plus any reason."
+    },
+    "future": {
+        "move": "Ask about tomorrow/weekend plans using going to/will/want to.",
+        "question": "What will you do tomorrow or this weekend?",
+        "fallback": "Offer a frame: I am going to ___.",
+        "evidence": "Future plan/intention, even with errors."
+    },
+    "sequence": {
+        "move": "Ask for beginning-middle-end of a small story.",
+        "question": "Tell me what happened first, then, and at the end.",
+        "fallback": "Ask one step at a time: First? Then?",
+        "evidence": "2-3 ordered events or connectors."
+    },
+    "self_intro": {
+        "move": "Ask for name, age, and where they are from in a friendly first-meeting flow.",
+        "question": "What is your name? How old are you? Where are you from?",
+        "fallback": "If they answer only name, continue gently: Nice to meet you. How old are you?",
+        "evidence": "Gives name, age, or hometown."
+    },
+    "everyday": {
+        "move": "Ask about a familiar routine/object/person and gently extend.",
+        "question": "Tell me about it. What do you do? Who is with you?",
+        "fallback": "If one word, ask a choice question then one follow-up.",
+        "evidence": "Relevant answer that keeps the exchange alive."
+    }
+}
+
+def elicitation_function(skill_id: str) -> str:
+    # 1. Check unit skills
+    u = UNIT_SKILLS.get(skill_id)
+    if u:
+        step = str(u.get("step", ""))
+        strand = u.get("strand", "")
+        if step == '1':
+            return 'present_continuous' if strand == 'GRA' else 'describe'
+        elif step == '2':
+            return 'past'
+        elif step == '3':
+            return 'opinion'
+        elif step == '4':
+            return 'future'
+        elif step == '5':
+            return 'sequence'
+            
+    # 2. Check flat skills
+    text = get_skill_text(skill_id).lower()
+    if any(k in text for k in ['age', "where i'm from", "where i am from"]):
+        return 'self_intro'
+    if any(k in text for k in ['past', 'yesterday', 'story']):
+        return 'past'
+    if any(k in text for k in ['opinion', 'prefer', 'because', 'reason']):
+        return 'opinion'
+    if any(k in text for k in ['future', 'plan', 'will']):
+        return 'future'
+    if any(k in text for k in ['describe', 'adjective', 'look like']):
+        return 'describe'
+    return 'everyday'
+
+def get_elicitation_plan_for(skill_id: str) -> dict:
+    fn = elicitation_function(skill_id)
+    plan = ELICITATION_BY_FUNCTION.get(fn, ELICITATION_BY_FUNCTION["everyday"])
+    return {
+        "id": skill_id,
+        "fn": fn,
+        "skill": get_skill_text(skill_id),
+        **plan
+    }
+
+def plan_text(ids: list[str]) -> str:
+    if not ids:
+        return "No specific target. Keep the learner talking and listen for interests."
+    lines = []
+    for i, skill_id in enumerate(ids):
+        p = get_elicitation_plan_for(skill_id)
+        role = "PRIMARY" if i == 0 else "WATCH"
+        lines.append(
+            f"{role} {skill_id} ({p['fn']})\n"
+            f"- Skill: {p['skill']}\n"
+            f"- Elicitation move: {p['move']}\n"
+            f"- Strong question: {p['question']}\n"
+            f"- If short/stuck: {p['fallback']}\n"
+            f"- Judgeable evidence: {p['evidence']}"
+        )
+    return "\n\n".join(lines)

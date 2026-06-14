@@ -288,8 +288,22 @@ async def conversation_turn(
         "C1": "Speaking Fluently",
         "C2": "Mastering the Language"
     }
+
     level_code = user.level or "A1"
     level_label = level_label_map.get(level_code.upper(), "Finding My Voice")
+
+    # Resolve target skills
+    due_next = user.due_next or {}
+    if not due_next or not due_next.get("primary"):
+        from ..core.curriculum_data import targets_list_for
+        session_type = conv.session_type or "unit"
+        if session_type not in ("unit", "skill"):
+            session_type = "unit"
+        aimed = targets_list_for(user.skills_progress or {}, session_type, level_code)
+        due_next = {
+            "primary": aimed[0] if aimed else None,
+            "watching": aimed[1:] if len(aimed) > 1 else []
+        }
 
     # 6. Call LLM service to get Zoe's response
     start_time = time.time()
@@ -301,6 +315,8 @@ async def conversation_turn(
             level_label=level_label,
             current_turn=user_turn_number,
             persona_memory=user.persona_memory,
+            due_next=due_next,
+            skills_progress=user.skills_progress or {},
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM service error: {e}")

@@ -167,8 +167,12 @@ async def send_conversation_turn(
     vocab_focus: str = "Occasional",
     fluency_focus: str = "After Chat",
     persona_memory: dict | None = None,
+    due_next: dict | None = None,
+    skills_progress: dict | None = None,
 ) -> dict:
-    from ..core.curriculum_data import UNITS, UNIT_SKILLS, LEVEL_TOPICS
+    from ..core.curriculum_data import (
+        UNITS, UNIT_SKILLS, LEVEL_TOPICS, get_skill_text, plan_text, active_step, targets_list_for
+    )
 
     # Format persona memory
     memory_str = "None"
@@ -185,29 +189,41 @@ async def send_conversation_turn(
         if facts:
             memory_str = "\n".join(f"- {fact}" for fact in facts)
 
-    # Get unit info for the current level
     level_upper = level.upper() if level else "A1"
-    units = UNITS.get(level_upper, UNITS.get("A1", []))
+
+    # Get aimed IDs
+    primary_id = due_next.get("primary") if due_next else None
+    watching_ids = due_next.get("watching", []) if due_next else []
     
-    # Pick first unit as default (can be enhanced later to track progression)
-    unit = units[0] if units else {"name": topic, "focus": "General conversation", "skills": []}
-    unit_name = unit.get("name", topic) or topic
-    unit_focus = unit.get("focus", "General conversation practice")
-    
-    # Build targets list from unit skills
-    skills = unit.get("skills", [])
-    targets_str = "\n".join(f"- [{s['id']}] {s['text']}" for s in skills) if skills else "- General conversation practice"
-    
-    # Build elicitation plan
-    if skills:
-        primary = skills[0]
-        elicitation_str = (
-            f"Primary skill: [{primary['id']}] {primary['text']}\n"
-            f"Ask a natural question that gives them a chance to show this.\n"
-            f"Do not name the skill. Just create an opportunity."
-        )
+    target_ids = []
+    if primary_id:
+        target_ids.append(primary_id)
+    if watching_ids:
+        for wid in watching_ids:
+            if wid not in target_ids:
+                target_ids.append(wid)
+                
+    if not target_ids:
+        # Fallback to computing targets on the fly
+        target_ids = targets_list_for(skills_progress or {}, "unit", level_upper)
+
+    # Get active unit name & focus
+    active_unit = active_step(skills_progress or {}, level_upper)
+    if active_unit:
+        unit_name = active_unit.get("name", topic) or topic
+        unit_focus = active_unit.get("focus", "General conversation practice")
     else:
-        elicitation_str = "Ask natural questions related to the topic."
+        unit_name = topic
+        unit_focus = "General conversation practice"
+
+    # Build targets list text showing IDs and descriptions
+    if target_ids:
+        targets_str = "\n".join(f"- [{sid}] {get_skill_text(sid)}" for sid in target_ids)
+    else:
+        targets_str = "- General conversation practice"
+
+    # Build elicitation plan (using plan_text(target_ids))
+    elicitation_str = plan_text(target_ids)
 
     # Get level block
     level_block = _LEVEL_BLOCKS.get(level_upper, _LEVEL_BLOCKS["A2"])
@@ -223,6 +239,7 @@ async def send_conversation_turn(
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", str(current_turn))
     )
+
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": m["role"], "content": m["content"]} for m in messages
     ]
