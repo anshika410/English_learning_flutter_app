@@ -33,15 +33,6 @@ def run_tests():
     headers = {"Authorization": f"Bearer {token}"}
     print("✓ Auth successful")
 
-    # 2. Get Curriculum Topics
-    print("Testing GET /curriculum/topics...")
-    topics_resp = client.get("/curriculum/topics", headers=headers)
-    assert topics_resp.status_code == 200, f"Curriculum failed: {topics_resp.text}"
-    topics = topics_resp.json()
-    assert len(topics) == 11, f"Expected 11 topics, got {len(topics)}"
-    assert topics[0]["id"] == "my_name_and_where_i_m_from", f"Expected my_name_and_where_i_m_from, got {topics[0]['id']}"
-    print("✓ GET /curriculum/topics successful")
-
 
     # 3. Get Initial Memory
     print("Testing GET /users/me/memory (initial)...")

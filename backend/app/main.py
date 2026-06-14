@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_redoc_html
 from .core.database import engine, Base
 from .core.config import get_settings
-from .routers import auth, users, llm, conversations, placements, progress, curriculum
+from .routers import auth, users, llm, conversations, placements, progress
 from .routers.admin import router as admin_router
 # from .routers.accent import router as accent_router, load_accent_model  # disabled — requires numpy/tensorflow
 
@@ -50,7 +50,6 @@ app.include_router(llm.router)
 app.include_router(conversations.router)
 app.include_router(placements.router)
 app.include_router(progress.router)
-app.include_router(curriculum.router)
 app.include_router(admin_router)
 
 
