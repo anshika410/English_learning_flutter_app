@@ -8,6 +8,9 @@
     "dark": "#15803D"
   },
   "favicon": "/favicon.svg",
+  "api": {
+    "openapi": "https://ella.navgurukul.org/api/openapi.json"
+  },
   "navigation": {
     "pages": [
       {
@@ -31,6 +34,79 @@
         "pages": [
           "memory_feature_feasibility",
           "stt_tts_mobile_constraints"
+        ]
+      },
+      {
+        "group": "API: Authentication",
+        "pages": [
+          "api/auth/anonymous-auth"
+        ]
+      },
+      {
+        "group": "API: Users & Profiles",
+        "pages": [
+          "api/users/get-profile",
+          "api/users/update-profile",
+          "api/users/update-settings",
+          "api/users/get-user-memory",
+          "api/users/update-user-memory"
+        ]
+      },
+      {
+        "group": "API: LLM Services",
+        "pages": [
+          "api/llm/conversation-starter",
+          "api/llm/conversation-turn",
+          "api/llm/placement-turn",
+          "api/llm/session-analysis",
+          "api/llm/session-analysis-1"
+        ]
+      },
+      {
+        "group": "API: Call Sessions",
+        "pages": [
+          "api/conversations/list-conversations",
+          "api/conversations/create-conversation",
+          "api/conversations/get-conversation",
+          "api/conversations/get-messages",
+          "api/conversations/store-message",
+          "api/conversations/get-conversation-analysis",
+          "api/conversations/get-session-log",
+          "api/conversations/conversation-turn"
+        ]
+      },
+      {
+        "group": "API: Placements",
+        "pages": [
+          "api/placements/list-placements",
+          "api/placements/create-placement",
+          "api/placements/get-latest-placement"
+        ]
+      },
+      {
+        "group": "API: Progress & Learning",
+        "pages": [
+          "api/progress/get-progress-summary"
+        ]
+      },
+      {
+        "group": "API: Curriculum & Topics",
+        "pages": [
+          "api/curriculum/list-topics"
+        ]
+      },
+      {
+        "group": "API: Administration",
+        "pages": [
+          "api/admin/admin-stats",
+          "api/admin/get-transcript",
+          "api/admin/get-placement-transcript"
+        ]
+      },
+      {
+        "group": "API: Health Checks",
+        "pages": [
+          "api/health"
         ]
       }
     ]
