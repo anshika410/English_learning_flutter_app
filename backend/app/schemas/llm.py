@@ -119,11 +119,6 @@ class TranscriptNote(BaseModel):
 
 
 class SessionAnalysisResponse(BaseModel):
-    overall: str
-    best_moment: BestMoment
-    courage_or_motivation: CourageHighlight
-    try_next_time: TryNextTime
-    extracted_memory_facts: list[str] = []
     transcript_notes: list[TranscriptNote] = []
     aimed_at: list[str] = []
     hit_targets: list[str] = []

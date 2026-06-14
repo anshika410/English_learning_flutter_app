@@ -1446,34 +1446,6 @@
         ],
         "title": "AnonymousAuthRequest"
       },
-      "BestMoment": {
-        "properties": {
-          "quote": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quote"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          }
-        },
-        "type": "object",
-        "title": "BestMoment"
-      },
       "ConversationOut": {
         "properties": {
           "id": {
@@ -1552,34 +1524,6 @@
           "created_at"
         ],
         "title": "ConversationOut"
-      },
-      "CourageHighlight": {
-        "properties": {
-          "type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Type"
-          },
-          "content": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content"
-          }
-        },
-        "type": "object",
-        "title": "CourageHighlight"
       },
       "CreateConversationRequest": {
         "properties": {
@@ -2200,27 +2144,6 @@
       },
       "SessionAnalysisResponse": {
         "properties": {
-          "overall": {
-            "type": "string",
-            "title": "Overall"
-          },
-          "best_moment": {
-            "$ref": "#/components/schemas/BestMoment"
-          },
-          "courage_or_motivation": {
-            "$ref": "#/components/schemas/CourageHighlight"
-          },
-          "try_next_time": {
-            "$ref": "#/components/schemas/TryNextTime"
-          },
-          "extracted_memory_facts": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Extracted Memory Facts",
-            "default": []
-          },
           "transcript_notes": {
             "items": {
               "$ref": "#/components/schemas/TranscriptNote"
@@ -2263,12 +2186,6 @@
           }
         },
         "type": "object",
-        "required": [
-          "overall",
-          "best_moment",
-          "courage_or_motivation",
-          "try_next_time"
-        ],
         "title": "SessionAnalysisResponse"
       },
       "SessionLogGradedSkill": {
@@ -2684,34 +2601,6 @@
           "text"
         ],
         "title": "TranscriptNote"
-      },
-      "TryNextTime": {
-        "properties": {
-          "skill": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Skill"
-          },
-          "example": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Example"
-          }
-        },
-        "type": "object",
-        "title": "TryNextTime"
       },
       "UpdateMemoryRequest": {
         "properties": {

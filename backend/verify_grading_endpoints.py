@@ -114,7 +114,6 @@ def run_tests():
         data = analysis_resp.json()
         
         print("Analysis response keys:", list(data.keys()))
-        assert data["overall"] == "excellent"
         
         # Verify grading details are returned in payload
         assert "aimed_at" in data
@@ -238,7 +237,6 @@ def run_tests():
         comp_data = comp_resp.json()
         
         # Verify response structure
-        assert comp_data["overall"] == "good"
         assert len(comp_data["skills_evidenced"]) == 1
         assert comp_data["skills_evidenced"][0]["id"] == "U1-VOC-01"
         assert comp_data["skills_evidenced"][0]["confidence"] == 0.9
