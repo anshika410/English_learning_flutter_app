@@ -76,6 +76,8 @@ class SessionAnalysisRequest(BaseModel):
     level_label: str = "Finding My Voice"
     progression_model: str = "unit"
     session_type: str | None = None
+    turns_total: int | None = Field(default=None, description="Total turns taken in the session")
+    duration_seconds: int | None = Field(default=None, description="[PROVISIONAL/HIGHLIGHTED] Total duration of the session in seconds (under review)")
 
 
 class BestMoment(BaseModel):
