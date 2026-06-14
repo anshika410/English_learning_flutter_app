@@ -21,6 +21,7 @@ async def run_and_save_session_analysis(
     progression_model: str,
     user: User,
     db: AsyncSession,
+    turns_total: int | None = None,
 ) -> dict:
     # Initialize progress if empty
     progress = user.skills_progress or {}
@@ -60,7 +61,10 @@ async def run_and_save_session_analysis(
     updated_progress, changes = apply_merge(progress, scores, level)
     
     # Increment times spoken
-    turn_count = len([m for m in messages if m["role"] == "user"])
+    if turns_total is not None:
+        turn_count = turns_total
+    else:
+        turn_count = len([m for m in messages if m["role"] in ("user", "learner")])
     updated_progress["effort"]["times_spoken_total"] = updated_progress["effort"].get("times_spoken_total", 0) + turn_count
     
     # Check for unit progression level-up

@@ -153,6 +153,7 @@ async def session_analysis(
         progression_model=body.progression_model,
         user=user,
         db=db,
+        turns_total=body.turns_total,
     )
     
     return SessionAnalysisResponse(**analysis_out)
