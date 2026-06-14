@@ -131,11 +131,12 @@ async def session_analysis(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Update completion status and metadata (automatically count user turns, scaled to 30s per turn if not provided)
+    # Update completion status and metadata (automatically calculate duration from turns_total if provided)
     from datetime import datetime, timezone
     conversation.completed = True
     conversation.completed_at = datetime.now(timezone.utc)
-    conversation.duration_seconds = body.duration_seconds if body.duration_seconds is not None else len([m for m in body.messages if m.role in ("user", "learner")]) * 30
+    turns = body.turns_total if body.turns_total is not None else len([m for m in body.messages if m.role in ("user", "learner")])
+    conversation.duration_seconds = turns * 30
     if body.session_type is not None:
         conversation.session_type = body.session_type
     db.add(conversation)
