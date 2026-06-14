@@ -122,6 +122,10 @@
         "href": "https://ella.navgurukul.org/api/docs"
       },
       {
+        "label": "API ReDoc",
+        "href": "https://ella.navgurukul.org/api/redoc"
+      },
+      {
         "label": "GitHub",
         "href": "https://github.com/navgurukul/ella_flutter"
       }
