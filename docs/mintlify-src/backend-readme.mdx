@@ -53,8 +53,9 @@ cd backend
 docker-compose up --build
 ```
 
-API available at `http://localhost:8000`  
-Docs at `http://localhost:8000/docs`
+API available at `http://localhost:8000` (Local) / `https://ella.navgurukul.org/api` (Production)  
+Swagger Docs at `http://localhost:8000/docs` (Local) / `https://ella.navgurukul.org/api/docs` (Production)  
+ReDoc at `http://localhost:8000/redoc` (Local) / `https://ella.navgurukul.org/api/redoc` (Production)
 
 ### 3. Run locally (without Docker)
 
