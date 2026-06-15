@@ -278,9 +278,9 @@ def run_tests():
     assert "transcript" in log_data
 
     assert log_data["session_id"] == conversation_id2
-    assert len(log_data["transcript"]) == 1
-    assert log_data["transcript"][0]["speaker"] == "learner"
-    assert log_data["transcript"][0]["text"] == "I like watching Bollywood movies."
+    assert len(log_data["transcript"]) == 2
+    assert log_data["transcript"][1]["speaker"] == "learner"
+    assert log_data["transcript"][1]["text"] == "I like watching Bollywood movies."
     assert len(log_data["skills_evidenced"]) == 1
     assert log_data["skills_evidenced"][0]["id"] == "U1-VOC-01"
     assert log_data["skills_evidenced"][0]["confidence"] == 0.9
