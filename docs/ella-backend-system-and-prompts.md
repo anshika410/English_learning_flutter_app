@@ -18,7 +18,7 @@ Routers (API modules)
   auth — anonymous device-based authentication
   users — profile read/update
   llm — LLM proxy (placement turn, conversation turn, conversation starter, session analysis)
-  conversations — create, list, complete, messages
+   session — create, list, turn, messages, analysis, session-log
   placements — save and retrieve placement results
   progress — progress summary
   admin — admin stats and transcript viewer (key-protected)
@@ -70,23 +70,29 @@ API Endpoints
     Returns: overall, best_moment, courage_or_motivation, try_next_time, transcript_notes
     Generates post-session analysis, marks session as complete, and computes duration_seconds dynamically as user_turns * 30.
 
-  POST /conversations
+  POST /session
     Body: topic (optional)
-    Returns: conversation object with id
+    Returns: session object with session_id
 
-  GET /conversations
-    Returns: list of user's conversations
+  GET /session
+    Returns: list of user's sessions
 
-  PUT /conversations/{id}/complete
-    Body: duration_seconds, session_type
-    Marks conversation as complete
+  POST /session/{session_id}/turn
+    Body: content
+    Executes a turn in the practice chat, returns reply, correction, conversation_complete
 
-  POST /conversations/{id}/messages
+  POST /session/{session_id}/messages
     Body: role, content, correction, stt_duration_ms, llm_duration_ms, tts_duration_ms, turn_number
     Stores a message
 
-  GET /conversations/{id}/messages
-    Returns: all messages for a conversation
+  GET /session/{session_id}/messages
+    Returns: all messages for a session
+
+  GET /session/{session_id}/analysis
+    Returns: qualitative and quantitative analysis of the session
+
+  GET /session/{session_id}/session-log
+    Returns: compiled session log data
 
   POST /placements
     Body: level, level_label, highlight, transcript_json

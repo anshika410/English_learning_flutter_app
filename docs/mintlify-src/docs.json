@@ -51,15 +51,15 @@
         ]
       },
       {
-        "group": "API: Conversations",
+        "group": "API: Sessions",
         "pages": [
-          "api/conversations/list-conversations",
-          "api/conversations/create-conversation",
-          "api/conversations/get-conversation",
-          "api/conversations/get-messages",
-          "api/conversations/store-message",
-          "api/conversations/conversation-turn",
-          "api/conversations/get-session-log"
+          "api/session/list-sessions",
+          "api/session/create-session",
+          "api/session/get-session",
+          "api/session/get-messages",
+          "api/session/store-message",
+          "api/session/session-turn",
+          "api/session/get-session-log"
         ]
       },
       {
@@ -80,7 +80,7 @@
       {
         "group": "API: LLM Judge",
         "pages": [
-          "api/conversations/get-conversation-analysis",
+          "api/session/get-session-analysis",
           "api/llm/session-analysis",
           "api/llm/conversation-starter",
           "api/llm/conversation-turn"

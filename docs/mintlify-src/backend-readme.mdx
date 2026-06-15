@@ -85,12 +85,14 @@ uvicorn app.main:app --reload --port 8000
 | POST | `/llm/conversation-turn` | ✓ | Send user spoken message to Zoe, receive reply and grammar corrections. |
 | POST | `/llm/placement-turn` | ✓ | Executes a turn in the voice placement screening test. Evaluates speech CEFR level; returns Zoe's next response or complete assessment (`is_complete=True`). |
 | POST | `/llm/session-analysis` | ✓ | Generates overall post-session encouraging feedback cards, best moment highlights, and skills grade. |
-| POST | `/conversations` | ✓ | Create a new active voice chat session container. |
-| GET | `/conversations` | ✓ | Retrieve user conversation history list. |
-| GET | `/conversations/:id` | ✓ | Fetch specific conversation session metadata. |
-| PUT | `/conversations/:id/complete` | ✓ | Conclude the session and log calculated speaking duration. |
-| POST | `/conversations/:id/messages` | ✓ | Persist individual spoken message bubble, corrections, and latency metrics to database history. |
-| GET | `/conversations/:id/messages` | ✓ | Retrieve transcript history of a conversation session. |
+| POST | `/session` | ✓ | Create a new active voice chat session container. |
+| GET | `/session` | ✓ | Retrieve user conversation history list. |
+| GET | `/session/:session_id` | ✓ | Fetch specific conversation session metadata. |
+| POST | `/session/:session_id/turn` | ✓ | Submit user response and get Zoe's response. |
+| POST | `/session/:session_id/messages` | ✓ | Persist individual spoken message bubble, corrections, and latency metrics to database history. |
+| GET | `/session/:session_id/messages` | ✓ | Retrieve transcript history of a conversation session. |
+| GET | `/session/:session_id/analysis` | ✓ | Retrieve qualitative/quantitative conversation analysis. |
+| GET | `/session/:session_id/session-log` | ✓ | Retrieve compiled session log. |
 | POST | `/placements` | ✓ | Save placement test CEFR level, highlights, interests, and transcript. |
 | GET | `/placements/latest` | ✓ | Fetch latest active CEFR level placement details. |
 | GET | `/placements` | ✓ | Retrieve full level history of all completed placement tests. |

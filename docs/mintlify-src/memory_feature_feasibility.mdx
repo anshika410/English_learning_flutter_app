@@ -59,7 +59,7 @@ Flutter Client ---> FastAPI ---> Gemini (with static profile + memory injected) 
 *Zero DB updates for memory during this loop. Latency is preserved.*
 
 [Session Completion]
-Flutter Client ---> PUT /conversations/{id}/complete
+Flutter Client ---> POST /session/{session_id}/turn (or POST /llm/judge)
 FastAPI (Background Task) ---> Calls LLM to analyze transcript and extract new facts
 FastAPI ---> Merges new facts with user's existing "persona_memory" column ---> Writes to Postgres
 ```

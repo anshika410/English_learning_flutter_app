@@ -52,11 +52,13 @@ This table summarizes which backend APIs are actively integrated and called by t
 | `/placements` | `GET` | — | *Unused* |
 | `/llm/placement-turn` | `POST` | `sendPlacementTurn()` | **Active** (Drives placement chat) |
 | **Active Practice Chat** | | | |
-| `/conversations` | `POST` | `createConversation()` | **Active** (Starts new learning session) |
-| `/conversations` | `GET` | `listConversations()` | *Unused* (History screen not implemented) |
-| `/conversations/{id}/messages` | `POST` | `storeMessage()` | **Active** (Saves message bubbles) |
-| `/conversations/{id}/messages` | `GET` | `getMessages()` | *Unused* |
-| `/conversations/{id}/complete` | `PUT` | `completeConversation()` | **Active** (Marks session complete on client) |
+| `/session` | `POST` | `createConversation()` | **Active** (Starts new learning session) |
+| `/session` | `GET` | `listConversations()` | *Unused* (History screen not implemented) |
+| `/session/{session_id}/messages` | `POST` | `storeMessage()` | **Active** (Saves message bubbles) |
+| `/session/{session_id}/messages` | `GET` | `getMessages()` | *Unused* |
+| `/session/{session_id}/turn` | `POST` | `conversationTurn()` | **Active** (Submit user response and get Zoe's response) |
+| `/session/{session_id}/analysis` | `GET` | `getConversationAnalysis()` | **Active** (Retrieve qualitative/quantitative conversation analysis) |
+| `/session/{session_id}/session-log` | `GET` | `getSessionLog()` | **Active** (Retrieve compiled session log) |
 | `/llm/conversation-starter` | `POST` | `getConversationStarter()` | **Active** (Generates Zoe's opening question) |
 | `/llm/conversation-turn` | `POST` | `sendConversationTurn()` | **Active** (Zoe's chat responses + corrections) |
 | `/llm/session-analysis` | `POST` | `getSessionAnalysis()` | **Active** (Generates end-of-session summary card) |
@@ -202,23 +204,21 @@ FastAPI routes are organized under [`backend/app/routers/`](file:///Users/sama/A
 ---
 
 ### Group 4: Call Sessions & Active Voice Chat
-*   **`POST https://ella.navgurukul.org/api/conversations`**
+*   **`POST https://ella.navgurukul.org/api/session`**
     *   *Payload:* `CreateConversationRequest` (`topic`)
-    *   *Purpose & Reason:* Creates a new conversation session container. Binds the selected learning theme (e.g. "My Family") to a unique conversation ID, allowing us to group subsequent message turns under one session.
-*   **`POST https://ella.navgurukul.org/api/llm/conversation-starter`**
-    *   *Payload:* `StarterRequest` (`topic`)
-    *   *Purpose & Reason:* Triggers Zoe's opening question. It asks the LLM to generate 3 friendly openers matching the chosen topic.
-*   **`POST https://ella.navgurukul.org/api/llm/conversation-turn`**
-    *   *Payload:* `ConversationTurnRequest` (chat logs, topic, focus settings)
-    *   *Purpose & Reason:* The core turn-by-turn conversational logic. For every sentence the student speaks, this endpoint takes the transcript history, applies focus metrics (grammar, vocab, fluency settings), and queries Gemini/OpenAI to generate Zoe's next spoken reply alongside immediate grammar corrections.
-*   **`POST https://ella.navgurukul.org/api/conversations/{conversation_id}/messages`**
+    *   *Purpose & Reason:* Creates a new session container. Binds the selected learning theme (e.g. "My Family") to a unique session ID, allowing us to group subsequent message turns under one session.
+*   **`POST https://ella.navgurukul.org/api/session/{session_id}/turn`**
+    *   *Payload:* `ConversationTurnRequest` (`content`)
+    *   *Purpose & Reason:* The core turn-by-turn conversational logic. For every sentence the student speaks, this endpoint processes the message, runs context analysis, and returns Zoe's response.
+*   **`POST https://ella.navgurukul.org/api/session/{session_id}/messages`**
     *   *Payload:* `StoreMessageRequest` (`role`, `content`, `correction`, `stt_duration_ms`, `llm_duration_ms`, `tts_duration_ms`, `turn_number`)
     *   *Purpose & Reason:* Persists individual message bubbles, corrections, and latency metrics to database history.
-*   **`GET https://ella.navgurukul.org/api/conversations/{conversation_id}/messages`**
+*   **`GET https://ella.navgurukul.org/api/session/{session_id}/messages`**
     *   *Purpose & Reason:* Returns the transcript history of a call to display the chat list UI.
-*   **`PUT https://ella.navgurukul.org/api/conversations/{conversation_id}/complete`**
-    *   *Payload:* `CompleteConversationRequest` (`duration_seconds`, `session_type`)
-    *   *Purpose & Reason:* Concludes the session, logs call duration, and marks the conversation as completed.
+*   **`GET https://ella.navgurukul.org/api/session/{session_id}/analysis`**
+    *   *Purpose & Reason:* Returns qualitative and quantitative evaluation of the session once completed.
+*   **`GET https://ella.navgurukul.org/api/session/{session_id}/session-log`**
+    *   *Purpose & Reason:* Returns the compiled structured log for learning analytics.
 
 ---
 
@@ -277,10 +277,10 @@ curl -X GET https://ella.navgurukul.org/api/users/me \
   -H "Authorization: Bearer <your_access_token>"
 ```
 
-### 3. Start a Conversation Session
-Creates a conversation call container for a specific topic:
+### 3. Start a Session
+Creates a session call container for a specific topic:
 ```bash
-curl -X POST https://ella.navgurukul.org/api/conversations \
+curl -X POST https://ella.navgurukul.org/api/session \
   -H "Authorization: Bearer <your_access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -315,7 +315,7 @@ curl -X POST https://ella.navgurukul.org/api/llm/conversation-turn \
 ### 5. Log Message Turn (Telemetry and Corrections)
 Saves the message bubble, corrections, and latency metrics to database history:
 ```bash
-curl -X POST https://ella.navgurukul.org/api/conversations/3be40648-1fd1-4942-b96f-44c3a02344db/messages \
+curl -X POST https://ella.navgurukul.org/api/session/3be40648-1fd1-4942-b96f-44c3a02344db/messages \
   -H "Authorization: Bearer <your_access_token>" \
   -H "Content-Type: application/json" \
   -d '{
