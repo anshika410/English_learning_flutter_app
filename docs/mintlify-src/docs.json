@@ -9,7 +9,10 @@
   },
   "favicon": "/favicon.svg",
   "api": {
-    "openapi": "/openapi.json"
+    "openapi": "/openapi.json",
+    "playground": {
+      "proxy": false
+    }
   },
   "navigation": {
     "pages": [
