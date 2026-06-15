@@ -30,6 +30,11 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         device_id=user.device_id,
         profile=profile_data,
         level=user.level,
+        level_label=user.level_label,
+        grammar_focus=user.grammar_focus,
+        vocab_focus=user.vocab_focus,
+        fluency_focus=user.fluency_focus,
+        first_session_done=user.first_session_done,
         interests=user.interests.split(",") if user.interests else [],
         owned=progress.get("owned", []),
         emerging=progress.get("emerging", []),
@@ -40,6 +45,7 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         updated_after_chat=progress.get("updated_after_chat", 0),
         last_topics=persona.get("last_topics", []),
         persona_memory=user.persona_memory or {},
+        skills_progress=user.skills_progress or {},
     )
 
 
