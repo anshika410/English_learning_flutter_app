@@ -9,7 +9,7 @@
   },
   "favicon": "/favicon.svg",
   "api": {
-    "openapi": "https://ella.navgurukul.org/api/openapi.json"
+    "openapi": "/openapi.json"
   },
   "navigation": {
     "pages": [

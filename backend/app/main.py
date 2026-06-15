@@ -21,6 +21,8 @@ async def lifespan(app: FastAPI):
     yield
 
 
+from fastapi.openapi.utils import get_openapi
+
 settings = get_settings()
 
 app = FastAPI(
@@ -38,6 +40,25 @@ app = FastAPI(
     redoc_url=None,  # Disable default ReDoc to use custom stable CDN URL below
     openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    openapi_schema["servers"] = [
+        {"url": "https://ella.navgurukul.org/api", "description": "Production Server"},
+        {"url": "http://localhost:8000/api", "description": "Local Server"}
+    ]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 
 if not settings.disable_cors:
     app.add_middleware(
