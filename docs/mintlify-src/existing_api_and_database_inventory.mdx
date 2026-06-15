@@ -39,6 +39,40 @@ When a student launches the app and goes through placement, the following APIs a
 
 ---
 
+## Client App API Integration Summary
+
+This table summarizes which backend APIs are actively integrated and called by the student-facing Flutter client app versus those that are unused, administrative, or diagnostic.
+
+| API Group / Endpoint | HTTP Method | Frontend Service Method | Status in Client App |
+| :--- | :---: | :--- | :--- |
+| **Authentication** | | | |
+| `/auth/anonymous` | `POST` | `ensureAuthenticated()` / `_anonymousAuth()` | **Active** (Called on launch) |
+| **User Profiles** | | | |
+| `/users/me` | `GET` | `getMyProfile()` | *Unused* (No client-side consumption yet) |
+| `/users/me` | `PUT` | `updateProfile()` | **Active** (Updates profile details after placement) |
+| `/users/me/settings` | `PUT` | — | *Unused* |
+| `/users/me/memory` | `GET` | — | *Unused* (Only used in loop simulator) |
+| `/users/me/memory` | `PUT` | — | *Unused* |
+| **Placement Loop** | | | |
+| `/placements` | `POST` | `savePlacement()` | **Active** (Saves test result on completion) |
+| `/placements/latest` | `GET` | `getLatestPlacement()` | *Unused* (No client-side consumption yet) |
+| `/placements` | `GET` | — | *Unused* |
+| `/llm/placement-turn` | `POST` | `sendPlacementTurn()` | **Active** (Drives placement chat) |
+| **Active Practice Chat** | | | |
+| `/conversations` | `POST` | `createConversation()` | **Active** (Starts new learning session) |
+| `/conversations` | `GET` | `listConversations()` | *Unused* (History screen not implemented) |
+| `/conversations/{id}/messages` | `POST` | `storeMessage()` | **Active** (Saves message bubbles) |
+| `/conversations/{id}/messages` | `GET` | `getMessages()` | *Unused* |
+| `/conversations/{id}/complete` | `PUT` | `completeConversation()` | **Active** (Marks session complete on client) |
+| `/llm/conversation-starter` | `POST` | `getConversationStarter()` | **Active** (Generates Zoe's opening question) |
+| `/llm/conversation-turn` | `POST` | `sendConversationTurn()` | **Active** (Zoe's chat responses + corrections) |
+| `/llm/session-analysis` | `POST` | `getSessionAnalysis()` | **Active** (Generates end-of-session summary card) |
+| **Progress & Admin** | | | |
+| `/progress/summary` | `GET` | `getProgressSummary()` | *Unused* (Dashboard not yet built) |
+| `/admin/*` | `GET` | — | *Unused* (Supervisor portal only) |
+
+---
+
 ## 1. Database Schema & Models
 
 The backend utilizes PostgreSQL 16 (mapped in Docker via SQLAlchemy models under [`backend/app/models/`](file:///Users/sama/AndroidStudioProjects/ella_flutter/backend/app/models/)). There are 5 primary tables in the database:
