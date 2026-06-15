@@ -56,6 +56,7 @@ class UserMemoryResponse(BaseModel):
     strength: dict = {}
     updated_after_chat: int = 0
     last_topics: list[str] = []
+    persona_memory: dict = {}
 
 
 

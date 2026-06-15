@@ -39,6 +39,7 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         strength=progress.get("strength", {}),
         updated_after_chat=progress.get("updated_after_chat", 0),
         last_topics=persona.get("last_topics", []),
+        persona_memory=user.persona_memory or {},
     )
 
 
