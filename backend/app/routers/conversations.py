@@ -25,17 +25,46 @@ async def create_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     from ..services import llm_service
+    from ..core.curriculum_data import UNITS, LEVEL_TOPICS
+
+    # Determine topic from due_next skills or fallback to body.topic
+    topic = body.topic
+    level = (user.level or "A1").upper()
+
+    if not topic:
+        # Use due_next to find the current unit and derive topic
+        due = user.due_next or {}
+        primary_skill_id = due.get("primary")
+
+        if primary_skill_id:
+            # Find which unit step this skill belongs to
+            units = UNITS.get(level, UNITS.get("A1", []))
+            for unit in units:
+                skill_ids = [s["id"] for s in unit.get("skills", [])]
+                if primary_skill_id in skill_ids:
+                    topic = unit.get("name", "Free Talk")
+                    break
+
+        # Fallback: pick first topic for this level
+        if not topic:
+            level_topics = LEVEL_TOPICS.get(level, LEVEL_TOPICS.get("A1", []))
+            valid_topics = [t for t in level_topics if t.get("name")]
+            if valid_topics:
+                topic = valid_topics[0]["name"]
+            else:
+                topic = "Free Talk"
+
     # Generate starter using LLM
     try:
-        starter_data = await llm_service.generate_conversation_starter(body.topic)
+        starter_data = await llm_service.generate_conversation_starter(topic)
         starter_text = starter_data["starter"]
-        header_title = starter_data.get("header_title", body.topic)
+        header_title = starter_data.get("header_title", topic)
     except Exception as e:
         # Fallback starter if LLM fails
         starter_text = "Hi! I’m Zoe. Let's talk!"
-        header_title = body.topic or "Free Talk"
+        header_title = topic or "Free Talk"
 
-    conv = Conversation(user_id=user.id, topic=body.topic, header_title=header_title)
+    conv = Conversation(user_id=user.id, topic=topic, header_title=header_title)
     db.add(conv)
     await db.flush()
 
