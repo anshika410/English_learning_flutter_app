@@ -3402,7 +3402,8 @@
     "securitySchemes": {
       "HTTPBearer": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "x-default": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1N2U0NDg0NC04YWRiLTQyNTgtYWI4Mi05MWNmNDUxZTQ4OGEiLCJleHAiOjIwOTY4Njg2Njh9._oyjz0enX_sLYvidUm4EUMq5oTNUpxZmowoxIf5J7dc"
       }
     }
   },

@@ -54,6 +54,13 @@ def custom_openapi():
         {"url": "https://ella.navgurukul.org/api", "description": "Production Server"},
         {"url": "http://localhost:8000/api", "description": "Local Server"}
     ]
+    # Inject 10-year demo token as x-default for Bearer auth
+    if "components" in openapi_schema and "securitySchemes" in openapi_schema["components"]:
+        if "HTTPBearer" in openapi_schema["components"]["securitySchemes"]:
+            openapi_schema["components"]["securitySchemes"]["HTTPBearer"]["x-default"] = (
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1N2U0NDg0NC04YWRiLTQyNTgtYWI4Mi05"
+                "MWNmNDUxZTQ4OGEiLCJleHAiOjIwOTY4Njg2Njh9._oyjz0enX_sLYvidUm4EUMq5oTNUpxZmowoxIf5J7dc"
+            )
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
