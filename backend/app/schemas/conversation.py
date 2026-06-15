@@ -24,6 +24,8 @@ class ConversationOut(BaseModel):
     completed: bool = False
     created_at: datetime
     starter: str | None = None
+    level: str | None = None
+    aimed_at: list[str] | None = None
 
 
 

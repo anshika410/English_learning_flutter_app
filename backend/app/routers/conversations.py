@@ -30,6 +30,7 @@ async def create_conversation(
     # Determine topic from due_next skills or fallback to body.topic
     topic = body.topic
     level = (user.level or "A1").upper()
+    aimed_skills = []
 
     if not topic:
         # Use due_next to find the current unit and derive topic
@@ -43,6 +44,7 @@ async def create_conversation(
                 skill_ids = [s["id"] for s in unit.get("skills", [])]
                 if primary_skill_id in skill_ids:
                     topic = unit.get("name", "Free Talk")
+                    aimed_skills = skill_ids
                     break
 
         # Fallback: pick first topic for this level
@@ -78,7 +80,10 @@ async def create_conversation(
     db.add(starter_msg)
     await db.flush()
 
-    return _conv_out(conv, starter=starter_text)
+    # Determine aimed_at skills from the current unit
+    aimed_at = aimed_skills if aimed_skills else []
+
+    return _conv_out(conv, starter=starter_text, level=level, aimed_at=aimed_at)
 
 
 @router.get("", response_model=list[ConversationOut])
@@ -424,7 +429,7 @@ async def _get_owned(conv_id: str, user_id: str, db: AsyncSession) -> Conversati
     return conv
 
 
-def _conv_out(c: Conversation, starter: str | None = None) -> ConversationOut:
+def _conv_out(c: Conversation, starter: str | None = None, level: str | None = None, aimed_at: list | None = None) -> ConversationOut:
     return ConversationOut(
         session_id=c.id,
         topic=c.topic,
@@ -435,6 +440,8 @@ def _conv_out(c: Conversation, starter: str | None = None) -> ConversationOut:
         completed=c.completed,
         created_at=c.created_at,
         starter=starter,
+        level=level,
+        aimed_at=aimed_at,
     )
 
 
