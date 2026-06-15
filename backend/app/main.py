@@ -29,6 +29,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
     root_path="/api",
+    servers=[
+        {"url": "https://ella.navgurukul.org/api", "description": "Production Server"},
+        {"url": "http://localhost:8000/api", "description": "Local Server"}
+    ],
     # Hide docs unless explicitly enabled via DOCS_ENABLED=true in .env
     docs_url="/docs" if settings.docs_enabled else None,
     redoc_url=None,  # Disable default ReDoc to use custom stable CDN URL below
