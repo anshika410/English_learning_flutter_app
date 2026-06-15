@@ -24,15 +24,47 @@ class UpdateProfileRequest(BaseModel):
     age: str | None = None
     location: str | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "Aarav",
+                "age": "12",
+                "location": "Delhi"
+            }
+        }
+    }
+
 
 class UpdateSettingsRequest(BaseModel):
     grammar_focus: int | None = None
     vocab_focus: int | None = None
     fluency_focus: int | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "grammar_focus": 2,
+                "vocab_focus": 2,
+                "fluency_focus": 1
+            }
+        }
+    }
+
 
 class UpdateMemoryRequest(BaseModel):
     persona_memory: dict
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "persona_memory": {
+                    "likes": "playing cricket",
+                    "has_pet": "dog named Max",
+                    "favorite_food": "mangoes"
+                }
+            }
+        }
+    }
 
 
 class MemoryProfileSub(BaseModel):

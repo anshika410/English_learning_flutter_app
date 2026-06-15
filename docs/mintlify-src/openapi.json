@@ -1821,7 +1821,10 @@
         "required": [
           "device_id"
         ],
-        "title": "AnonymousAuthRequest"
+        "title": "AnonymousAuthRequest",
+        "example": {
+          "device_id": "3fab614c-1234-5678-abcd-1234567890ab"
+        }
       },
       "ConversationOut": {
         "properties": {
@@ -1928,7 +1931,10 @@
           }
         },
         "type": "object",
-        "title": "CreateConversationRequest"
+        "title": "CreateConversationRequest",
+        "example": {
+          "topic": "My Favorite Animal"
+        }
       },
       "CreatePlacementRequest": {
         "properties": {
@@ -1997,7 +2003,27 @@
         "required": [
           "level"
         ],
-        "title": "CreatePlacementRequest"
+        "title": "CreatePlacementRequest",
+        "example": {
+          "confidence": "high",
+          "highlight": "Raj spoke confidently about his favorite books and showed good grammar.",
+          "interests": [
+            "reading",
+            "comics"
+          ],
+          "level": "A2",
+          "level_label": "Finding My Voice",
+          "transcript_json": [
+            {
+              "speaker": "assistant",
+              "text": "Hi! Do you like reading?"
+            },
+            {
+              "speaker": "user",
+              "text": "Yes, I like reading comic books."
+            }
+          ]
+        }
       },
       "GradedSkillScore": {
         "properties": {
@@ -2243,7 +2269,21 @@
         "required": [
           "messages"
         ],
-        "title": "PlacementTurnRequest"
+        "title": "PlacementTurnRequest",
+        "example": {
+          "age": 10,
+          "messages": [
+            {
+              "content": "Hi! What is your name?",
+              "role": "assistant"
+            },
+            {
+              "content": "My name is Raj.",
+              "role": "user"
+            }
+          ],
+          "name": "Raj"
+        }
       },
       "PlacementTurnResponse": {
         "properties": {
@@ -2528,7 +2568,25 @@
           "conversation_id",
           "messages"
         ],
-        "title": "SessionAnalysisRequest"
+        "title": "SessionAnalysisRequest",
+        "example": {
+          "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+          "level": "A2",
+          "level_label": "Finding My Voice",
+          "messages": [
+            {
+              "content": "Hi! Let's talk about food. What did you eat for breakfast?",
+              "role": "assistant"
+            },
+            {
+              "content": "I ate dosas and drank some milk.",
+              "role": "user"
+            }
+          ],
+          "progression_model": "unit",
+          "topic": "Food",
+          "turns_total": 2
+        }
       },
       "SessionAnalysisResponse": {
         "properties": {
@@ -2778,7 +2836,10 @@
           }
         },
         "type": "object",
-        "title": "StarterRequest"
+        "title": "StarterRequest",
+        "example": {
+          "topic": "School and Friends"
+        }
       },
       "StarterResponse": {
         "properties": {
@@ -2847,7 +2908,12 @@
           "role",
           "content"
         ],
-        "title": "StoreMessageRequest"
+        "title": "StoreMessageRequest",
+        "example": {
+          "content": "Hello Zoe! I want to talk about dogs today.",
+          "role": "user",
+          "turn_number": 1
+        }
       },
       "TokenResponse": {
         "properties": {
@@ -2917,7 +2983,14 @@
         "required": [
           "persona_memory"
         ],
-        "title": "UpdateMemoryRequest"
+        "title": "UpdateMemoryRequest",
+        "example": {
+          "persona_memory": {
+            "favorite_food": "mangoes",
+            "has_pet": "dog named Max",
+            "likes": "playing cricket"
+          }
+        }
       },
       "UpdateProfileRequest": {
         "properties": {
@@ -2956,7 +3029,12 @@
           }
         },
         "type": "object",
-        "title": "UpdateProfileRequest"
+        "title": "UpdateProfileRequest",
+        "example": {
+          "age": "12",
+          "location": "Delhi",
+          "name": "Aarav"
+        }
       },
       "UpdateSettingsRequest": {
         "properties": {
@@ -2995,7 +3073,12 @@
           }
         },
         "type": "object",
-        "title": "UpdateSettingsRequest"
+        "title": "UpdateSettingsRequest",
+        "example": {
+          "fluency_focus": 1,
+          "grammar_focus": 2,
+          "vocab_focus": 2
+        }
       },
       "UserMemoryResponse": {
         "properties": {
@@ -3174,7 +3257,10 @@
         "required": [
           "content"
         ],
-        "title": "ConversationTurnRequest"
+        "title": "ConversationTurnRequest",
+        "example": {
+          "content": "Yes, I have a big golden retriever."
+        }
       },
       "app__schemas__conversation__ConversationTurnResponse": {
         "properties": {
@@ -3257,7 +3343,31 @@
           "conversation_id",
           "messages"
         ],
-        "title": "ConversationTurnRequest"
+        "title": "ConversationTurnRequest",
+        "example": {
+          "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+          "current_turn": 3,
+          "fluency_focus": "After Chat",
+          "grammar_focus": "Catch All",
+          "level": "A2",
+          "level_label": "Finding My Voice",
+          "messages": [
+            {
+              "content": "You are Zoe, a friendly English tutor.",
+              "role": "system"
+            },
+            {
+              "content": "Hi there! Let's talk about sports. Do you play cricket?",
+              "role": "assistant"
+            },
+            {
+              "content": "Yes, I play cricket with my friends every Sunday.",
+              "role": "user"
+            }
+          ],
+          "topic": "Sports",
+          "vocab_focus": "Occasional"
+        }
       },
       "app__schemas__llm__ConversationTurnResponse": {
         "properties": {

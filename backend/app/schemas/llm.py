@@ -4,6 +4,14 @@ from pydantic import BaseModel, field_validator, Field
 class StarterRequest(BaseModel):
     topic: str | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "topic": "School and Friends"
+            }
+        }
+    }
+
 
 class StarterResponse(BaseModel):
     starter: str
@@ -26,6 +34,26 @@ class ConversationTurnRequest(BaseModel):
     vocab_focus: str = "Occasional"
     fluency_focus: str = "After Chat"
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+                "messages": [
+                    {"role": "system", "content": "You are Zoe, a friendly English tutor."},
+                    {"role": "assistant", "content": "Hi there! Let's talk about sports. Do you play cricket?"},
+                    {"role": "user", "content": "Yes, I play cricket with my friends every Sunday."}
+                ],
+                "topic": "Sports",
+                "level": "A2",
+                "level_label": "Finding My Voice",
+                "current_turn": 3,
+                "grammar_focus": "Catch All",
+                "vocab_focus": "Occasional",
+                "fluency_focus": "After Chat"
+            }
+        }
+    }
+
 
 class ConversationTurnResponse(BaseModel):
     reply: str
@@ -37,6 +65,19 @@ class PlacementTurnRequest(BaseModel):
     messages: list[MessageIn]
     name: str | None = None
     age: int | None = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "messages": [
+                    {"role": "assistant", "content": "Hi! What is your name?"},
+                    {"role": "user", "content": "My name is Raj."}
+                ],
+                "name": "Raj",
+                "age": 10
+            }
+        }
+    }
 
 
 class PlacementTurnResponse(BaseModel):
@@ -77,6 +118,23 @@ class SessionAnalysisRequest(BaseModel):
     progression_model: str = "unit"
     session_type: str | None = None
     turns_total: int | None = Field(default=None, description="Total turns taken in the session")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+                "messages": [
+                    {"role": "assistant", "content": "Hi! Let's talk about food. What did you eat for breakfast?"},
+                    {"role": "user", "content": "I ate dosas and drank some milk."}
+                ],
+                "topic": "Food",
+                "level": "A2",
+                "level_label": "Finding My Voice",
+                "progression_model": "unit",
+                "turns_total": 2
+            }
+        }
+    }
 
 
 class BestMoment(BaseModel):

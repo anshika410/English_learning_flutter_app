@@ -5,6 +5,14 @@ from datetime import datetime
 class CreateConversationRequest(BaseModel):
     topic: str | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "topic": "My Favorite Animal"
+            }
+        }
+    }
+
 
 class ConversationOut(BaseModel):
     session_id: str
@@ -32,6 +40,16 @@ class StoreMessageRequest(BaseModel):
     role: str
     content: str
     turn_number: int = 0
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "role": "user",
+                "content": "Hello Zoe! I want to talk about dogs today.",
+                "turn_number": 1
+            }
+        }
+    }
 
 
 class SessionLogTranscriptMessage(BaseModel):
@@ -77,6 +95,14 @@ class SessionLogResponse(BaseModel):
 
 class ConversationTurnRequest(BaseModel):
     content: str
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "content": "Yes, I have a big golden retriever."
+            }
+        }
+    }
 
 
 class ConversationTurnResponse(BaseModel):
