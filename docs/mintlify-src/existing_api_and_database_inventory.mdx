@@ -30,13 +30,6 @@ When a student launches the app and goes through placement, the following APIs a
 3. **Transitioning to Result Screen:**
    - **`PUT /users/me`**: Updates student's extracted name, age, and location.
    - **`POST /placements`**: Persists the final CEFR level assessment, description highlight, hobbies, and conversation transcript.
-
-4. **Topic Hub / Home Screen:**
-   - **No immediate API calls**: Loads stored profile variables locally from device memory. 
-   - When a topic chip is clicked:
-     - **`POST /conversations`**: Registers a new conversation session container.
-     - **`POST /llm/conversation-starter`**: Fetches the initial opening question for the selected topic from the LLM proxy.
-
 ---
 
 ## Client App API Integration Summary
