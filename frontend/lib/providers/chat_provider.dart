@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
-import '../models/focus_settings.dart';
 import '../models/latency_info.dart';
 import '../services/llm_service.dart';
 import '../services/backend_llm_service.dart';
@@ -53,9 +52,8 @@ class ChatProvider extends ChangeNotifier {
   String? _conversationId; // backend conversation id
   bool _conversationComplete = false;
 
-  // Focus settings & first-session tracking
+  // First-session tracking
   bool _hasCompletedFirstSession = false;
-  FocusSettings _focusSettings = const FocusSettings.defaults();
 
   // Latency tracking
   DateTime? _sttStartTime; // when mic was tapped
@@ -115,19 +113,12 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Focus settings & first-session tracking
+  // First-session tracking
   bool get hasCompletedFirstSession => _hasCompletedFirstSession;
-  FocusSettings get focusSettings => _focusSettings;
 
   void markFirstSessionComplete() {
     _hasCompletedFirstSession = true;
     _prefs.setFirstSessionComplete();
-    notifyListeners();
-  }
-
-  void updateFocusSettings(FocusSettings settings) {
-    _focusSettings = settings;
-    _prefs.saveFocusSettings(settings);
     notifyListeners();
   }
 
@@ -163,7 +154,6 @@ class ChatProvider extends ChangeNotifier {
     _userLevel = _prefs.userLevel;
     _userLevelLabel = _prefs.userLevelLabel;
     _hasCompletedFirstSession = _prefs.hasCompletedFirstSession;
-    _focusSettings = _prefs.focusSettings;
 
     await _stt.initialize();
     _whisperAvailable = await _whisperStt.initialize();
@@ -486,7 +476,6 @@ class ChatProvider extends ChangeNotifier {
             level: _userLevel ?? 'A2',
             levelLabel: _userLevelLabel ?? 'Finding My Voice',
             currentTurn: turnNumber,
-            focusSettings: _focusSettings,
           );
           if (backendResult != null) {
             reply = ChatMessage(
@@ -516,7 +505,6 @@ class ChatProvider extends ChangeNotifier {
             level: _userLevel,
             levelLabel: _userLevelLabel,
             currentTurn: turnNumber,
-            focusSettings: _focusSettings,
           );
           llmDuration = DateTime.now().difference(llmStart);
           reply = result.message;
@@ -529,7 +517,6 @@ class ChatProvider extends ChangeNotifier {
           level: _userLevel,
           levelLabel: _userLevelLabel,
           currentTurn: turnNumber,
-          focusSettings: _focusSettings,
         );
         llmDuration = DateTime.now().difference(llmStart);
         reply = result.message;
@@ -577,7 +564,7 @@ class ChatProvider extends ChangeNotifier {
           role: 'assistant',
           content: reply.content,
           correction: reply.correction,
-          llmDurationMs: llmDuration?.inMilliseconds,
+          llmDurationMs: llmDuration.inMilliseconds,
           ttsDurationMs: ttsDuration?.inMilliseconds,
           turnNumber: turnNumber,
         );

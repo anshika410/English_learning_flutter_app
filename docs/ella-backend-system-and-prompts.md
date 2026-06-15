@@ -25,7 +25,7 @@ Routers (API modules)
 
 
 Database Tables (current)
-  users — id, device_id, name, age, location, level, level_label, grammar_focus, vocab_focus, fluency_focus, first_session_done, created_at
+  users — id, device_id, name, age, location, level, level_label, first_session_done, created_at
   placements — id, user_id, level, level_label, confidence, highlight, transcript_json, created_at
   conversations — id, user_id, topic, header_title, duration_seconds (calculated as user_turns * 30), session_type, quality, completed, created_at
   messages — id, conversation_id, role, content, correction, turn_number, stt_duration_ms, llm_duration_ms, tts_duration_ms, created_at
@@ -46,9 +46,6 @@ API Endpoints
     Body: name, age, location (all optional)
     Updates user profile
 
-  PUT /users/me/settings
-    Body: grammar_focus, vocab_focus, fluency_focus
-    Updates coaching preferences
 
   POST /llm/placement-turn
     Body: messages (array of role/content), name, age
@@ -61,7 +58,7 @@ API Endpoints
     Generates opening line for a conversation
 
   POST /llm/conversation-turn
-    Body: conversation_id, messages, topic, level, level_label, current_turn, grammar_focus, vocab_focus, fluency_focus
+    Body: conversation_id, messages, topic, level, level_label, current_turn
     Returns: reply, correction, conversation_complete
     Proxies to DeepSeek with conversation prompt
 

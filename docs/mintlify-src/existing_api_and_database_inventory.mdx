@@ -43,7 +43,6 @@ This table summarizes which backend APIs are actively integrated and called by t
 | **User Profiles** | | | |
 | `/users/me` | `GET` | `getMyProfile()` | *Unused* (No client-side consumption yet) |
 | `/users/me` | `PUT` | `updateProfile()` | **Active** (Updates profile details after placement) |
-| `/users/me/settings` | `PUT` | — | *Unused* |
 | `/users/me/memory` | `GET` | — | *Unused* (Only used in loop simulator) |
 | `/users/me/memory` | `PUT` | — | *Unused* |
 | **Placement Loop** | | | |
@@ -85,9 +84,6 @@ Stores registered students, their CEFR levels, interest tags, and learning setti
 | `level` | `String(5)` | Nullable | Assigned CEFR level (e.g., `A1`, `A2`, `B1`). |
 | `level_label` | `String(50)` | Nullable | User-facing label (e.g., `Beginner`, `Intermediate`). |
 | `interests` | `String(200)` | Nullable | Comma-separated interest tags (e.g., `cricket,music`). |
-| `grammar_focus` | `Integer` | Default: `2` | Grammar priority index. |
-| `vocab_focus` | `Integer` | Default: `2` | Vocabulary priority index. |
-| `fluency_focus` | `Integer` | Default: `1` | Fluency priority index. |
 | `first_session_done`| `Boolean` | Default: `False` | Tracks if onboarding is complete. |
 | `created_at` | `DateTime(timezone=True)` | Default: UTC Now | Account creation timestamp. |
 | `updated_at` | `DateTime(timezone=True)` | Default/Update: UTC Now | Account last update timestamp. |
@@ -183,9 +179,6 @@ FastAPI routes are organized under [`backend/app/routers/`](file:///Users/sama/A
 *   **`PUT https://ella.navgurukul.org/api/users/me`**
     *   *Payload:* `UpdateProfileRequest` (`name`, `age`, `location`)
     *   *Purpose & Reason:* Captures details parsed from LLM placement transcripts. It updates demographic details on the student's profile for localized progress grouping.
-*   **`PUT https://ella.navgurukul.org/api/users/me/settings`**
-    *   *Payload:* `UpdateSettingsRequest` (`grammar_focus`, `vocab_focus`, `fluency_focus`)
-    *   *Purpose & Reason:* Updates the user's coaching settings. If a student chooses to focus on vocabulary, the integer values are saved in `users`, changing how Zoe shapes prompts and evaluates spoken sentences.
 
 ---
 
@@ -305,10 +298,7 @@ curl -X POST https://ella.navgurukul.org/api/llm/conversation-turn \
     "topic": "My Favorite Sports",
     "level": "A1",
     "level_label": "Getting Started",
-    "current_turn": 1,
-    "grammar_focus": "Immediate Correction",
-    "vocab_focus": "Occasional",
-    "fluency_focus": "After Chat"
+    "current_turn": 1
   }'
 ```
 

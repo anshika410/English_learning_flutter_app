@@ -30,9 +30,6 @@ class ConversationTurnRequest(BaseModel):
     level: str = "A2"
     level_label: str = "Finding My Voice"
     current_turn: int = 1
-    grammar_focus: str = "Catch All"
-    vocab_focus: str = "Occasional"
-    fluency_focus: str = "After Chat"
 
     model_config = {
         "json_schema_extra": {
@@ -46,10 +43,7 @@ class ConversationTurnRequest(BaseModel):
                 "topic": "Sports",
                 "level": "A2",
                 "level_label": "Finding My Voice",
-                "current_turn": 3,
-                "grammar_focus": "Catch All",
-                "vocab_focus": "Occasional",
-                "fluency_focus": "After Chat"
+                "current_turn": 3
             }
         }
     }

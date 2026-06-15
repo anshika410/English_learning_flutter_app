@@ -69,9 +69,6 @@ async def conversation_turn(
             level=body.level,
             level_label=body.level_label,
             current_turn=body.current_turn,
-            grammar_focus=body.grammar_focus,
-            vocab_focus=body.vocab_focus,
-            fluency_focus=body.fluency_focus,
             persona_memory=user.persona_memory,
         )
         return ConversationTurnResponse(**result)

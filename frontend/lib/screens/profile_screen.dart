@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import '../models/focus_settings.dart';
 import '../providers/chat_provider.dart';
 import '../theme/ella_theme.dart';
 
 // ─── Mock / fallback profile data ────────────────────────────────────────────
 
 const _mockEmail = 'test@navgurukul.org';
-
-bool _isBelowB1(String level) => level == 'A1' || level == 'A2';
 
 String _friendlyLevelLabel(String? level) {
   switch ((level ?? '').toUpperCase()) {
@@ -36,7 +33,6 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ChatProvider>();
-    final level = provider.userLevel ?? 'A2';
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
       body: Column(
@@ -50,10 +46,6 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   const SizedBox(height: 24),
                   _YourInfoSection(provider: provider),
-                  if (!_isBelowB1(level)) ...[
-                    const SizedBox(height: 28),
-                    const _CoachingStyleSection(),
-                  ],
                 ],
               ),
             ),
@@ -534,211 +526,6 @@ class _EditField extends StatelessWidget {
   }
 }
 
-// ─── Zoe's Coaching Style Section ────────────────────────────────────────────
-
-class _CoachingStyleSection extends StatelessWidget {
-  const _CoachingStyleSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<ChatProvider>(
-      builder: (context, provider, _) {
-        final settings = provider.focusSettings;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _eyebrow('ZOE\'S COACHING STYLE'),
-              const SizedBox(height: 4),
-              Text(
-                'Zoe uses these in every session',
-                style: GoogleFonts.baloo2(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: EllaColors.neutralSecondary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _FocusBlock<GrammarFocus>(
-                icon: Icons.spellcheck_rounded,
-                iconColor: EllaColors.skyMain,
-                title: 'Grammar',
-                subtitle: 'How Zoe handles your grammar errors',
-                values: GrammarFocus.values,
-                selected: settings.grammar,
-                onChanged: (v) => provider.updateFocusSettings(
-                  settings.copyWith(grammar: v),
-                ),
-              ),
-              const SizedBox(height: 20),
-              _FocusBlock<VocabFocus>(
-                icon: Icons.auto_stories_rounded,
-                iconColor: EllaColors.limeMain,
-                title: 'Vocabulary',
-                subtitle: 'How actively Zoe suggests new words',
-                values: VocabFocus.values,
-                selected: settings.vocabulary,
-                onChanged: (v) => provider.updateFocusSettings(
-                  settings.copyWith(vocabulary: v),
-                ),
-              ),
-              const SizedBox(height: 20),
-              _FocusBlock<FluencyFocus>(
-                icon: Icons.speed_rounded,
-                iconColor: EllaColors.mangoMain,
-                title: 'Fluency',
-                subtitle: 'How Zoe tracks your pace and fillers',
-                values: FluencyFocus.values,
-                selected: settings.fluency,
-                onChanged: (v) => provider.updateFocusSettings(
-                  settings.copyWith(fluency: v),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ─── Generic Focus Block (chips + description) ────────────────────────────────
-
-class _FocusBlock<T extends Enum> extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final List<T> values;
-  final T selected;
-  final ValueChanged<T> onChanged;
-
-  const _FocusBlock({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.values,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  String _descriptionFor(T value) {
-    if (value is GrammarFocus) return value.description;
-    if (value is VocabFocus) return value.description;
-    if (value is FluencyFocus) return value.description;
-    return '';
-  }
-
-  String _labelFor(T value) {
-    if (value is GrammarFocus) return value.label;
-    if (value is VocabFocus) return value.label;
-    if (value is FluencyFocus) return value.label;
-    return value.name;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 18, color: iconColor),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.baloo2(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: EllaColors.neutralPrimary,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.baloo2(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: EllaColors.neutralMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          padding: const EdgeInsets.only(left: 2, right: 8),
-          child: Row(
-            children: values.map((v) {
-              final isSelected = v == selected;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => onChanged(v),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? EllaColors.mangoLightest : Colors.white,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(
-                        color: isSelected ? EllaColors.mangoDark : EllaColors.neutralBorder,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isSelected ? EllaColors.mangoDark : EllaColors.neutralBorder,
-                          offset: const Offset(0, 3),
-                          blurRadius: 0,
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      _labelFor(v),
-                      style: GoogleFonts.baloo2(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected
-                            ? EllaColors.mangoDeepest
-                            : EllaColors.neutralSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _descriptionFor(selected),
-          style: GoogleFonts.baloo2(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: EllaColors.neutralSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

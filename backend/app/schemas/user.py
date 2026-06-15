@@ -9,9 +9,6 @@ class UserProfile(BaseModel):
     location: str | None = None
     level: str | None = None
     level_label: str | None = None
-    grammar_focus: int = 2
-    vocab_focus: int = 2
-    fluency_focus: int = 1
     first_session_done: bool = False
     interests: list[str] | None = None
     persona_memory: dict | None = None
@@ -30,22 +27,6 @@ class UpdateProfileRequest(BaseModel):
                 "name": "Aarav",
                 "age": "12",
                 "location": "Delhi"
-            }
-        }
-    }
-
-
-class UpdateSettingsRequest(BaseModel):
-    grammar_focus: int | None = None
-    vocab_focus: int | None = None
-    fluency_focus: int | None = None
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "grammar_focus": 2,
-                "vocab_focus": 2,
-                "fluency_focus": 1
             }
         }
     }
@@ -80,9 +61,6 @@ class UserMemoryResponse(BaseModel):
     profile: MemoryProfileSub
     level: str | None = None
     level_label: str | None = None
-    grammar_focus: int = 2
-    vocab_focus: int = 2
-    fluency_focus: int = 1
     first_session_done: bool = False
     interests: list[str] = []
     owned: list[str] = []

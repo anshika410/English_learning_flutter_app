@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/focus_settings.dart';
 
 /// Persists user profile and settings to SharedPreferences.
 class UserPrefsService {
@@ -9,9 +8,6 @@ class UserPrefsService {
   static const _keyLevel = 'user_level';
   static const _keyLevelLabel = 'user_level_label';
   static const _keyFirstSessionDone = 'first_session_done';
-  static const _keyGrammar = 'focus_grammar';
-  static const _keyVocab = 'focus_vocab';
-  static const _keyFluency = 'focus_fluency';
 
   static SharedPreferences? _sharedPrefs;
 
@@ -57,23 +53,7 @@ class UserPrefsService {
     await _prefs.setBool(_keyFirstSessionDone, true);
   }
 
-  // ── Focus settings ───────────────────────────────────────────────────────
 
-  FocusSettings get focusSettings => FocusSettings(
-        grammar: GrammarFocus.values[_prefs.getInt(_keyGrammar) ??
-            GrammarFocus.catchAll.index],
-        vocabulary: VocabFocus.values[_prefs.getInt(_keyVocab) ??
-            VocabFocus.occasional.index],
-        fluency: FluencyFocus.values[_prefs.getInt(_keyFluency) ??
-            FluencyFocus.afterChat.index],
-      );
-
-  Future<void> saveFocusSettings(FocusSettings s) async {
-    await init();
-    await _prefs.setInt(_keyGrammar, s.grammar.index);
-    await _prefs.setInt(_keyVocab, s.vocabulary.index);
-    await _prefs.setInt(_keyFluency, s.fluency.index);
-  }
 
   bool get hasCompletedPlacement => _prefs.getString(_keyLevel) != null;
 }

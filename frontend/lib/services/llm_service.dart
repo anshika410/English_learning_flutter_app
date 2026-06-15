@@ -4,7 +4,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
-import '../models/focus_settings.dart';
 import '../models/placement_result.dart';
 
 enum LlmProvider { deepseek }
@@ -229,7 +228,6 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     String? level,
     String? levelLabel,
     int currentTurn = 1,
-    FocusSettings? focusSettings,
   }) async {
     if (useMockData) {
       await Future.delayed(const Duration(milliseconds: 1200));
@@ -249,7 +247,6 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       level: level ?? 'A2',
       levelLabel: levelLabel ?? 'Finding My Voice',
       currentTurn: currentTurn,
-      focusSettings: focusSettings ?? const FocusSettings.defaults(),
     );
 
     final apiMessages = <Map<String, String>>[
@@ -288,7 +285,6 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     required String level,
     required String levelLabel,
     required int currentTurn,
-    required FocusSettings focusSettings,
   }) async {
     _cachedConversationPrompt ??= await rootBundle.loadString(
       'assets/prompts/conversation-prompt.md',
@@ -299,10 +295,7 @@ TITLE: <3-4 word header for this conversation, no punctuation>
         .replaceAll('{{LEVEL}}', level)
         .replaceAll('{{LEVEL_LABEL}}', levelLabel)
         .replaceAll('{{CURRENT_TURN}}', '$currentTurn')
-        .replaceAll('{{LEVEL_INSTRUCTIONS}}', levelInstructions)
-        .replaceAll('{{GRAMMAR_SETTING}}', focusSettings.grammar.label)
-        .replaceAll('{{VOCABULARY_SETTING}}', focusSettings.vocabulary.label)
-        .replaceAll('{{FLUENCY_SETTING}}', focusSettings.fluency.label);
+        .replaceAll('{{LEVEL_INSTRUCTIONS}}', levelInstructions);
   }
 
   String _levelInstructions(String level) {

@@ -30,11 +30,6 @@ class User(Base):
     # Interests detected during placement (comma-separated, e.g. "cricket,music,food")
     interests: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
-    # Focus settings (stored as enum indices matching Flutter FocusSettings)
-    grammar_focus: Mapped[int] = mapped_column(Integer, default=2)
-    vocab_focus: Mapped[int] = mapped_column(Integer, default=2)
-    fluency_focus: Mapped[int] = mapped_column(Integer, default=1)
-
     first_session_done: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # Permanent student memory block (hobbies, pets, weakness lists, etc.)

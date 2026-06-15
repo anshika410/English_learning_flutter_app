@@ -319,9 +319,6 @@ class ApiService {
     String level = 'A2',
     String levelLabel = 'Finding My Voice',
     int currentTurn = 1,
-    String grammarFocus = 'Catch All',
-    String vocabFocus = 'Occasional',
-    String fluencyFocus = 'After Chat',
   }) async {
     try {
       final response = await _post(
@@ -333,9 +330,6 @@ class ApiService {
           'level': level,
           'level_label': levelLabel,
           'current_turn': currentTurn,
-          'grammar_focus': grammarFocus,
-          'vocab_focus': vocabFocus,
-          'fluency_focus': fluencyFocus,
         },
         timeout: const Duration(seconds: 30),
       );

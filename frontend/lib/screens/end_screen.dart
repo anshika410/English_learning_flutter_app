@@ -10,7 +10,6 @@ import '../models/end_result_analysis.dart';
 import '../providers/chat_provider.dart';
 import '../theme/ella_theme.dart';
 import '../widgets/ella_primary_button.dart';
-import 'focus_discovery_screen.dart';
 import 'home_screen.dart';
 import 'conversation_screen.dart';
 
@@ -257,13 +256,8 @@ class EndScreen extends StatelessWidget {
     final provider = context.read<ChatProvider>();
     if (!provider.hasCompletedFirstSession) {
       provider.markFirstSessionComplete();
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const FocusDiscoveryScreen()),
-        (_) => false,
-      );
-    } else {
-      _goToHome(context);
     }
+    _goToHome(context);
   }
 
   @override

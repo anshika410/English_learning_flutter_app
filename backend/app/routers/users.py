@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
-from ..schemas.user import UpdateProfileRequest, UpdateSettingsRequest, UpdateMemoryRequest, UserMemoryResponse
+from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -31,9 +31,6 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         profile=profile_data,
         level=user.level,
         level_label=user.level_label,
-        grammar_focus=user.grammar_focus,
-        vocab_focus=user.vocab_focus,
-        fluency_focus=user.fluency_focus,
         first_session_done=user.first_session_done,
         interests=user.interests.split(",") if user.interests else [],
         owned=progress.get("owned", []),
@@ -66,23 +63,6 @@ async def update_profile(
         user.age = body.age
     if body.location is not None:
         user.location = body.location
-    db.add(user)
-    await db.flush()
-    return _to_memory_response(user)
-
-
-@router.put("/me/settings", response_model=UserMemoryResponse)
-async def update_settings(
-    body: UpdateSettingsRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    if body.grammar_focus is not None:
-        user.grammar_focus = body.grammar_focus
-    if body.vocab_focus is not None:
-        user.vocab_focus = body.vocab_focus
-    if body.fluency_focus is not None:
-        user.fluency_focus = body.fluency_focus
     db.add(user)
     await db.flush()
     return _to_memory_response(user)
