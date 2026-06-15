@@ -7,7 +7,7 @@ class CreateConversationRequest(BaseModel):
 
 
 class ConversationOut(BaseModel):
-    id: str
+    session_id: str
     topic: str | None = None
     header_title: str | None = None
     duration_seconds: int | None = None

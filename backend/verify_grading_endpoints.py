@@ -44,10 +44,10 @@ def run_tests():
 
     # Create a test conversation
     print("Creating a test conversation...")
-    conv_resp = client.post("/conversations", headers=headers, json={"topic": "Cricket"})
+    conv_resp = client.post("/session", headers=headers, json={"topic": "Cricket"})
     assert conv_resp.status_code == 200, f"Create conversation failed: {conv_resp.text}"
     conv_data = conv_resp.json()
-    conversation_id = conv_data["id"]
+    conversation_id = conv_data["session_id"]
     print(f"✓ Conversation created: {conversation_id}")
 
     # Mock responses for qualitative analysis and quantitative grading (consolidated into a single mock LLM response)
@@ -156,8 +156,8 @@ def run_tests():
     print("✓ User progress and targets saved successfully")
 
     # Verify retrieve session analysis includes the new JSON fields
-    print("Testing GET /conversations/{id}/analysis...")
-    ret_resp = client.get(f"/conversations/{conversation_id}/analysis", headers=headers)
+    print("Testing GET /session/{id}/analysis...")
+    ret_resp = client.get(f"/session/{conversation_id}/analysis", headers=headers)
     assert ret_resp.status_code == 200, f"Retrieving analysis failed: {ret_resp.text}"
     ret_data = ret_resp.json()
     
@@ -174,13 +174,13 @@ def run_tests():
 
     # 8. Test Consolidated Completion API
     print("Creating second test conversation for completion analysis...")
-    conv_resp2 = client.post("/conversations", headers=headers, json={"topic": "Bollywood"})
+    conv_resp2 = client.post("/session", headers=headers, json={"topic": "Bollywood"})
     assert conv_resp2.status_code == 200
-    conversation_id2 = conv_resp2.json()["id"]
+    conversation_id2 = conv_resp2.json()["session_id"]
 
     print("Storing user message for second conversation...")
     msg_resp = client.post(
-        f"/conversations/{conversation_id2}/messages",
+        f"/session/{conversation_id2}/messages",
         headers=headers,
         json={"role": "user", "content": "I like watching Bollywood movies.", "turn_number": 1}
     )
@@ -257,8 +257,8 @@ def run_tests():
     print("✓ POST /llm/judge auto-completion successful")
 
     # 9. Test Compiled Session Log API
-    print("Testing GET /conversations/{id}/session-log...")
-    log_resp = client.get(f"/conversations/{conversation_id2}/session-log", headers=headers)
+    print("Testing GET /session/{id}/session-log...")
+    log_resp = client.get(f"/session/{conversation_id2}/session-log", headers=headers)
     assert log_resp.status_code == 200, f"Session log fetch failed: {log_resp.text}"
     log_data = log_resp.json()
     

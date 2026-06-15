@@ -78,21 +78,21 @@ def run_tests():
 
     # Create a test conversation to associate analysis and turns
     print("Creating a test conversation...")
-    conv_resp = client.post("/conversations", headers=headers, json={"topic": "Cricket"})
+    conv_resp = client.post("/session", headers=headers, json={"topic": "Cricket"})
     assert conv_resp.status_code == 200, f"Create conversation failed: {conv_resp.text}"
     conv_data = conv_resp.json()
-    conversation_id = conv_data["id"]
+    conversation_id = conv_data["session_id"]
     print(f"✓ Conversation created: {conversation_id}")
 
     # 5. Conversation Turn with Memory Injection
-    print("Testing POST /conversations/{id}/turn with memory injection...")
+    print("Testing POST /session/{id}/turn with memory injection...")
     mock_turn_response = "That is cool! Zoe loves cricket too."
     
     with patch("app.services.llm_service._chat_completion", new_callable=AsyncMock) as mock_completion:
         mock_completion.return_value = mock_turn_response
         
         turn_resp = client.post(
-            f"/conversations/{conversation_id}/turn",
+            f"/session/{conversation_id}/turn",
             headers=headers,
             json={
                 "content": "I like playing cricket."
@@ -114,7 +114,7 @@ def run_tests():
         assert turn_data["transcript"][-1]["text"] == "That is cool! Zoe loves cricket too."
         assert turn_data["transcript"][-2]["speaker"] == "learner"
         assert turn_data["transcript"][-2]["text"] == "I like playing cricket."
-    print("✓ POST /conversations/{id}/turn memory injection successful")
+    print("✓ POST /session/{id}/turn memory injection successful")
 
     # 6. Session Analysis with Memory Extraction and Merging
     print("Testing POST /llm/judge memory extraction...")
@@ -180,14 +180,14 @@ def run_tests():
     print("✓ Memory merged and saved successfully without duplicates")
 
     # 7. Get Conversation Analysis (Retrieval Endpoint)
-    print("Testing GET /conversations/{id}/analysis...")
-    ret_resp = client.get(f"/conversations/{conversation_id}/analysis", headers=headers)
+    print("Testing GET /session/{id}/analysis...")
+    ret_resp = client.get(f"/session/{conversation_id}/analysis", headers=headers)
     assert ret_resp.status_code == 200, f"Retrieving analysis failed: {ret_resp.text}"
     ret_data = ret_resp.json()
     assert ret_data["overall"] == "good"
     assert ret_data["best_moment"]["quote"] == "I like playing cricket."
     assert ret_data["try_next_time"]["skill"] == "use complex sentences"
-    print("✓ GET /conversations/{id}/analysis successful")
+    print("✓ GET /session/{id}/analysis successful")
 
     print("\n=================================")
     print("ALL API INTEGRATION TESTS PASSED!")

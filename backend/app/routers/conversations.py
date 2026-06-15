@@ -15,7 +15,7 @@ from ..schemas.conversation import (
     ConversationTurnRequest, ConversationTurnResponse,
 )
 
-router = APIRouter(prefix="/conversations", tags=["conversations"])
+router = APIRouter(prefix="", tags=["session"])
 
 
 @router.post("", response_model=ConversationOut)
@@ -69,28 +69,28 @@ async def list_conversations(
     return [_conv_out(c) for c in result.scalars().all()]
 
 
-@router.get("/{conversation_id}", response_model=ConversationOut)
+@router.get("/{session_id}", response_model=ConversationOut)
 async def get_conversation(
-    conversation_id: str,
+    session_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    conv = await _get_owned(conversation_id, user.id, db)
+    conv = await _get_owned(session_id, user.id, db)
     return _conv_out(conv)
 
 
 
 
-@router.post("/{conversation_id}/messages", response_model=MessageOut)
+@router.post("/{session_id}/messages", response_model=MessageOut)
 async def store_message(
-    conversation_id: str,
+    session_id: str,
     body: StoreMessageRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_owned(conversation_id, user.id, db)
+    await _get_owned(session_id, user.id, db)
     msg = Message(
-        conversation_id=conversation_id,
+        conversation_id=session_id,
         role=body.role,
         content=body.content,
         turn_number=body.turn_number,
@@ -100,31 +100,31 @@ async def store_message(
     return _msg_out(msg)
 
 
-@router.get("/{conversation_id}/messages", response_model=list[MessageOut])
+@router.get("/{session_id}/messages", response_model=list[MessageOut])
 async def get_messages(
-    conversation_id: str,
+    session_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_owned(conversation_id, user.id, db)
+    await _get_owned(session_id, user.id, db)
     result = await db.execute(
         select(Message)
-        .where(Message.conversation_id == conversation_id)
+        .where(Message.conversation_id == session_id)
         .order_by(Message.turn_number, Message.created_at)
     )
     return [_msg_out(m) for m in result.scalars().all()]
 
 
-@router.get("/{conversation_id}/analysis")
+@router.get("/{session_id}/analysis")
 async def get_conversation_analysis(
-    conversation_id: str,
+    session_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_owned(conversation_id, user.id, db)
+    await _get_owned(session_id, user.id, db)
     result = await db.execute(
         select(SessionAnalysis).where(
-            SessionAnalysis.conversation_id == conversation_id
+            SessionAnalysis.conversation_id == session_id
         )
     )
     analysis = result.scalar_one_or_none()
@@ -158,18 +158,18 @@ async def get_conversation_analysis(
     }
 
 
-@router.get("/{conversation_id}/session-log", response_model=SessionLogResponse)
+@router.get("/{session_id}/session-log", response_model=SessionLogResponse)
 async def get_session_log(
-    conversation_id: str,
+    session_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    conv = await _get_owned(conversation_id, user.id, db)
+    conv = await _get_owned(session_id, user.id, db)
     
     # 1. Fetch messages (transcript)
     msg_result = await db.execute(
         select(Message)
-        .where(Message.conversation_id == conversation_id)
+        .where(Message.conversation_id == session_id)
         .order_by(Message.turn_number, Message.created_at)
     )
     messages_db = msg_result.scalars().all()
@@ -180,7 +180,7 @@ async def get_session_log(
     
     # 2. Fetch SessionAnalysis
     analysis_result = await db.execute(
-        select(SessionAnalysis).where(SessionAnalysis.conversation_id == conversation_id)
+        select(SessionAnalysis).where(SessionAnalysis.conversation_id == session_id)
     )
     analysis = analysis_result.scalar_one_or_none()
     
@@ -192,7 +192,7 @@ async def get_session_log(
     if not analysis:
         # Return a shell response if analysis is missing
         return SessionLogResponse(
-            session_id=conversation_id,
+            session_id=session_id,
             child_id=user.device_id or user.id,
             level=user.level,
             progression_model=progression_model,
@@ -243,7 +243,7 @@ async def get_session_log(
         })
 
     return SessionLogResponse(
-        session_id=conversation_id,
+        session_id=session_id,
         child_id=user.device_id or user.id,
         level=user.level,
         progression_model=progression_model,
@@ -259,9 +259,9 @@ async def get_session_log(
     )
 
 
-@router.post("/{conversation_id}/turn", response_model=ConversationTurnResponse)
+@router.post("/{session_id}/turn", response_model=ConversationTurnResponse)
 async def conversation_turn(
-    conversation_id: str,
+    session_id: str,
     body: ConversationTurnRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -270,14 +270,14 @@ async def conversation_turn(
     from ..services import llm_service
 
     # 1. Fetch and verify ownership of the conversation
-    conv = await _get_owned(conversation_id, user.id, db)
+    conv = await _get_owned(session_id, user.id, db)
     if conv.completed:
         raise HTTPException(status_code=400, detail="Conversation already completed")
 
     # 2. Fetch existing messages to calculate turn number and construct LLM history
     msg_result = await db.execute(
         select(Message)
-        .where(Message.conversation_id == conversation_id)
+        .where(Message.conversation_id == session_id)
         .order_by(Message.turn_number, Message.created_at)
     )
     existing_messages = msg_result.scalars().all()
@@ -287,7 +287,7 @@ async def conversation_turn(
 
     # 3. Create and store user message
     user_msg = Message(
-        conversation_id=conversation_id,
+        conversation_id=session_id,
         role="user",
         content=body.content,
         turn_number=user_turn_number,
@@ -347,7 +347,7 @@ async def conversation_turn(
 
     # 7. Save Zoe's reply to the database
     zoe_msg = Message(
-        conversation_id=conversation_id,
+        conversation_id=session_id,
         role="zoe",
         content=llm_result["reply"],
         correction=llm_result.get("correction"),
@@ -366,7 +366,7 @@ async def conversation_turn(
     # 7. Fetch full transcript to return in Response
     transcript_result = await db.execute(
         select(Message)
-        .where(Message.conversation_id == conversation_id)
+        .where(Message.conversation_id == session_id)
         .order_by(Message.turn_number, Message.created_at)
     )
     db_messages = transcript_result.scalars().all()
@@ -397,7 +397,7 @@ async def _get_owned(conv_id: str, user_id: str, db: AsyncSession) -> Conversati
 
 def _conv_out(c: Conversation, starter: str | None = None) -> ConversationOut:
     return ConversationOut(
-        id=c.id,
+        session_id=c.id,
         topic=c.topic,
         header_title=c.header_title,
         duration_seconds=c.duration_seconds,
