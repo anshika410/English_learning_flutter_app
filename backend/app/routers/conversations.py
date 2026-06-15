@@ -355,6 +355,7 @@ async def conversation_turn(
 
     return ConversationTurnResponse(
         transcript=transcript,
+        conversation_complete=conv.completed,
     )
 
 
