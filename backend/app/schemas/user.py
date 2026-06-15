@@ -60,7 +60,6 @@ class UserMemoryResponse(BaseModel):
     device_id: str
     profile: MemoryProfileSub
     level: str | None = None
-    level_label: str | None = None
     first_session_done: bool = False
     interests: list[str] = []
     owned: list[str] = []

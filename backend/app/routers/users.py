@@ -30,7 +30,6 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         device_id=user.device_id,
         profile=profile_data,
         level=user.level,
-        level_label=user.level_label,
         first_session_done=user.first_session_done,
         interests=user.interests.split(",") if user.interests else [],
         owned=progress.get("owned", []),
