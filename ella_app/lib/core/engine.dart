@@ -43,6 +43,45 @@ String bucketOf(MemoryState mem, String id) {
   return 'locked';
 }
 
+// Four-state garden value for a skill, used by the non-linear garden map.
+// The engine only tracks locked / emerging / owned; the garden UI shows an
+// extra "growing" tier for emerging skills the learner has used spontaneously
+// at least once (strength >= 1 — "you've used it on your own").
+//   0 = empty (locked, no evidence)   2 = growing (emerging + spontaneous use)
+//   1 = emerging (spotted once)        3 = owned
+int gardenStateOf(MemoryState mem, String id) {
+  if (mem.owned.contains(id)) return 3;
+  if (mem.emerging.contains(id)) {
+    return (mem.strength[id] ?? 0) >= 1 ? 2 : 1;
+  }
+  return 0;
+}
+
+// Aggregate counts for the garden meter, folded over every unit-step skill.
+// owned = state 3, sprouting = state 1 or 2, total = all unit skills.
+class GardenTally {
+  final int owned;
+  final int sprouting;
+  final int total;
+  const GardenTally({required this.owned, required this.sprouting, required this.total});
+}
+
+GardenTally gardenTally(MemoryState mem) {
+  var owned = 0, sprouting = 0, total = 0;
+  for (final u in kUnitSteps) {
+    for (final s in u.skills) {
+      total++;
+      final st = gardenStateOf(mem, s.id);
+      if (st == 3) {
+        owned++;
+      } else if (st > 0) {
+        sprouting++;
+      }
+    }
+  }
+  return GardenTally(owned: owned, sprouting: sprouting, total: total);
+}
+
 // Works on mutable working copies (write path inside applyMerge).
 String _bucketFromLists(List<String> owned, List<String> emerging, String id) {
   if (owned.contains(id)) return 'owned';

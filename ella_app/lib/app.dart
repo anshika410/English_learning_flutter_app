@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'screens/child_view/child_chat_screen.dart';
+import 'screens/child_view/home_screen.dart';
+import 'screens/child_view/garden_screen.dart';
 import 'screens/glass_box/glass_box_screen.dart';
 
 // kShowGlassBox: flip to false before shipping to production.
-// Phase 6 will fill in the Glass Box tab content.
+// When false the bottom nav collapses to [Talk | Garden].
 const bool kShowGlassBox = true;
 
 class EllaApp extends StatelessWidget {
@@ -36,7 +37,7 @@ class _EllaHomeState extends State<_EllaHome> with SingleTickerProviderStateMixi
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: kShowGlassBox ? 2 : 1, vsync: this);
+    _tabs = TabController(length: kShowGlassBox ? 3 : 2, vsync: this);
   }
 
   @override
@@ -47,41 +48,23 @@ class _EllaHomeState extends State<_EllaHome> with SingleTickerProviderStateMixi
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // Sky → grass gradient background (matches android prototype spec)
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF87CEEB), // sky blue
-            Color(0xFF4CAF50), // grass green
-          ],
-          stops: [0.0, 1.0],
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        bottomNavigationBar: kShowGlassBox
-            ? _GlassTabBar(controller: _tabs)
-            : null,
-        body: kShowGlassBox
-            ? TabBarView(
-                controller: _tabs,
-                children: const [
-                  ChildChatScreen(),
-                  GlassBoxScreen(),
-                ],
-              )
-            : const ChildChatScreen(),
-      ),
+    final tabViews = <Widget>[
+      const HomeScreen(),
+      const GardenScreen(),
+      if (kShowGlassBox) const GlassBoxScreen(),
+    ];
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFFDF8),
+      bottomNavigationBar: _EllaTabBar(controller: _tabs),
+      body: TabBarView(controller: _tabs, children: tabViews),
     );
   }
 }
 
-class _GlassTabBar extends StatelessWidget {
+class _EllaTabBar extends StatelessWidget {
   final TabController controller;
-  const _GlassTabBar({required this.controller});
+  const _EllaTabBar({required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -92,12 +75,13 @@ class _GlassTabBar extends StatelessWidget {
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white54,
         indicatorColor: Colors.white,
-        tabs: const [
-          Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Zoe'),
-          Tab(icon: Icon(Icons.science_outlined), text: 'Glass Box'),
+        tabs: [
+          const Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Talk'),
+          const Tab(icon: Icon(Icons.local_florist_outlined), text: 'Garden'),
+          if (kShowGlassBox)
+            const Tab(icon: Icon(Icons.science_outlined), text: 'Glass Box'),
         ],
       ),
     );
   }
 }
-
