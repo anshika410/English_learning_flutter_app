@@ -15,6 +15,8 @@ class ConversationOut(BaseModel):
     quality: str | None = None
     completed: bool = False
     created_at: datetime
+    starter: str | None = None
+
 
 
 

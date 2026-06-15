@@ -24,10 +24,32 @@ async def create_conversation(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    conv = Conversation(user_id=user.id, topic=body.topic)
+    from ..services import llm_service
+    # Generate starter using LLM
+    try:
+        starter_data = await llm_service.generate_conversation_starter(body.topic)
+        starter_text = starter_data["starter"]
+        header_title = starter_data.get("header_title", body.topic)
+    except Exception as e:
+        # Fallback starter if LLM fails
+        starter_text = "Hi! I’m Zoe. Let's talk!"
+        header_title = body.topic or "Free Talk"
+
+    conv = Conversation(user_id=user.id, topic=body.topic, header_title=header_title)
     db.add(conv)
     await db.flush()
-    return _conv_out(conv)
+
+    # Save starter as the first message (Zoe's opener)
+    starter_msg = Message(
+        conversation_id=conv.id,
+        role="assistant",
+        content=starter_text,
+        turn_number=0
+    )
+    db.add(starter_msg)
+    await db.flush()
+
+    return _conv_out(conv, starter=starter_text)
 
 
 @router.get("", response_model=list[ConversationOut])
@@ -373,7 +395,7 @@ async def _get_owned(conv_id: str, user_id: str, db: AsyncSession) -> Conversati
     return conv
 
 
-def _conv_out(c: Conversation) -> ConversationOut:
+def _conv_out(c: Conversation, starter: str | None = None) -> ConversationOut:
     return ConversationOut(
         id=c.id,
         topic=c.topic,
@@ -383,6 +405,7 @@ def _conv_out(c: Conversation) -> ConversationOut:
         quality=c.quality,
         completed=c.completed,
         created_at=c.created_at,
+        starter=starter,
     )
 
 
