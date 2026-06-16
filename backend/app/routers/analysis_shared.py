@@ -190,6 +190,38 @@ async def run_and_save_session_analysis(
         conversation.quality = analysis.get("overall")
         db.add(conversation)
 
+    # Update last_topics (track which topics have been used to avoid repeats)
+    persona = user.persona_memory or {}
+    last_topics = persona.get("last_topics", [])
+    if not isinstance(last_topics, list):
+        last_topics = []
+    if topic and topic not in last_topics:
+        last_topics.append(topic)
+        # Keep only last 20 topics
+        if len(last_topics) > 20:
+            last_topics = last_topics[-20:]
+        persona["last_topics"] = last_topics
+        user.persona_memory = dict(persona)
+        flag_modified(user, "persona_memory")
+
+    # Update interests from extracted facts (detect interest-like facts)
+    new_facts = analysis.get("extracted_memory_facts", [])
+    if isinstance(new_facts, list) and new_facts:
+        interest_keywords = ["likes", "loves", "enjoys", "interested in", "hobby", "favourite", "favorite", "passion"]
+        existing_interests = user.interests.split(",") if user.interests else []
+        for fact in new_facts:
+            if isinstance(fact, str):
+                fact_lower = fact.lower()
+                if any(kw in fact_lower for kw in interest_keywords):
+                    # Extract the interest (take words after the keyword)
+                    clean = fact.strip().rstrip(".")
+                    if clean and clean not in existing_interests:
+                        existing_interests.append(clean)
+        # Keep max 10 interests
+        if len(existing_interests) > 10:
+            existing_interests = existing_interests[-10:]
+        user.interests = ",".join(existing_interests) if existing_interests else None
+
     await db.flush()
 
     return {
