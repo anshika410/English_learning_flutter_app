@@ -17,15 +17,11 @@ class CreateConversationRequest(BaseModel):
 class ConversationOut(BaseModel):
     session_id: str
     topic: str | None = None
-    header_title: str | None = None
-    duration_seconds: int | None = None
-    session_type: str | None = None
-    quality: str | None = None
-    completed: bool = False
-    created_at: datetime
     starter: str | None = None
     level: str | None = None
     aimed_at: list[str] | None = None
+    completed: bool = False
+    created_at: datetime
 
 
 

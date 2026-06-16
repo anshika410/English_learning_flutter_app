@@ -433,15 +433,11 @@ def _conv_out(c: Conversation, starter: str | None = None, level: str | None = N
     return ConversationOut(
         session_id=c.id,
         topic=c.topic,
-        header_title=c.header_title,
-        duration_seconds=c.duration_seconds,
-        session_type=c.session_type,
-        quality=c.quality,
-        completed=c.completed,
-        created_at=c.created_at,
         starter=starter,
         level=level,
         aimed_at=aimed_at,
+        completed=c.completed,
+        created_at=c.created_at,
     )
 
 
