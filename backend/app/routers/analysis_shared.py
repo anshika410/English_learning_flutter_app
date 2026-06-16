@@ -105,6 +105,28 @@ async def run_and_save_session_analysis(
     flag_modified(user, "skills_progress")
     flag_modified(user, "due_next")
 
+    # Check if user should advance level based on owned skills
+    from ..core.curriculum_data import UNITS
+    owned = updated_progress.get("owned", [])
+    current_level = user.level or "A1"
+    # Ensure level is always set in DB
+    if not user.level:
+        user.level = "A1"
+    level_units = UNITS.get(current_level.upper(), [])
+    if level_units:
+        # All skills across all units at this level
+        all_level_skills = []
+        for u in level_units:
+            all_level_skills.extend([s["id"] for s in u.get("skills", [])])
+        # If 80%+ of level skills are owned, advance to next level
+        if all_level_skills:
+            owned_at_level = [s for s in owned if s in all_level_skills]
+            if len(owned_at_level) >= len(all_level_skills) * 0.8:
+                level_order = ["A1", "A2", "B1", "B2", "C1", "C2"]
+                current_idx = level_order.index(current_level.upper()) if current_level.upper() in level_order else 0
+                if current_idx < len(level_order) - 1:
+                    user.level = level_order[current_idx + 1]
+
     # Persist qualitative and quantitative analysis
     best = analysis.get("best_moment", {})
     courage = analysis.get("courage_or_motivation", {})
