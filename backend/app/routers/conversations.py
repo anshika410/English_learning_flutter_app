@@ -258,7 +258,7 @@ async def get_session_log(
         conf = s.get("confidence", 0.0)
         skills_evidenced_list.append({
             "id": s.get("id"),
-            "name": get_skill_text(s.get("id")),
+            "name": get_skill_text(s.get("id"), user.level),
             "confidence": conf,
             "prompted": s.get("prompted", False),
             "evidence": s.get("evidence") or "",
@@ -273,7 +273,7 @@ async def get_session_log(
             "id": c.get("id"),
             "from": c.get("from"),
             "to": c.get("to"),
-            "name": get_skill_text(c.get("id")),
+            "name": get_skill_text(c.get("id"), user.level),
         })
 
     return SessionLogResponse(

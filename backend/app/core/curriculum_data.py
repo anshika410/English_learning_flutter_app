@@ -26,10 +26,12 @@ LEVEL_TOPICS = {'A1': [{'id': 'my_name_and_where_i_m_from', 'name': "My name and
 SKILLS = {item[0]: {"level": item[1], "strand": item[2], "text": item[3]} for item in CAT}
 
 UNIT_SKILLS = {}
+UNIT_SKILLS_BY_LEVEL = {}  # level-aware lookup: {"A1": {"U1-VOC-01": {...}}, "A2": {...}}
 for lvl, u_list in UNITS.items():
+    UNIT_SKILLS_BY_LEVEL[lvl] = {}
     for u in u_list:
         for s in u["skills"]:
-            UNIT_SKILLS[s["id"]] = {
+            entry = {
                 "id": s["id"],
                 "strand": s["strand"],
                 "text": s["text"],
@@ -37,6 +39,10 @@ for lvl, u_list in UNITS.items():
                 "step_name": u["name"],
                 "level": lvl
             }
+            UNIT_SKILLS_BY_LEVEL[lvl][s["id"]] = entry
+            # UNIT_SKILLS keeps the FIRST level's version (A1) as fallback
+            if s["id"] not in UNIT_SKILLS:
+                UNIT_SKILLS[s["id"]] = entry
 
 STRANDS = {
     "VOC": "Vocabulary",
@@ -56,7 +62,12 @@ OWN_BAR = {
 FLOOR = 0.3
 SIGHTINGS_TO_OWN = 2
 
-def get_skill_text(skill_id: str) -> str:
+def get_skill_text(skill_id: str, level: str = None) -> str:
+    # Level-aware lookup first
+    if level and level.upper() in UNIT_SKILLS_BY_LEVEL:
+        lvl_skills = UNIT_SKILLS_BY_LEVEL[level.upper()]
+        if skill_id in lvl_skills:
+            return lvl_skills[skill_id]["text"]
     if skill_id in SKILLS:
         return SKILLS[skill_id]["text"]
     if skill_id in UNIT_SKILLS:
@@ -210,7 +221,7 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
             next_state = "owned"
             
         if next_state != prior:
-            changes.append({"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id)})
+            changes.append({"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id, level)})
             if prior == "locked":
                 p["emerging"].append(skill_id)
             if prior == "emerging" and next_state == "owned":

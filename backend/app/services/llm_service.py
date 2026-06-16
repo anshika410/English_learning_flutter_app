@@ -215,7 +215,7 @@ async def send_conversation_turn(
 
     # Build targets list text showing IDs and descriptions
     if target_ids:
-        targets_str = "\n".join(f"- [{sid}] {get_skill_text(sid)}" for sid in target_ids)
+        targets_str = "\n".join(f"- [{sid}] {get_skill_text(sid, level_upper)}" for sid in target_ids)
     else:
         targets_str = "- General conversation practice"
 
