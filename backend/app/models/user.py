@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, Integer, DateTime, JSON
+from sqlalchemy import String, Boolean, Integer, DateTime, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.database import Base
 
@@ -28,7 +28,7 @@ class User(Base):
     level_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Interests detected during placement (comma-separated, e.g. "cricket,music,food")
-    interests: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    interests: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     first_session_done: Mapped[bool] = mapped_column(Boolean, default=False)
     
