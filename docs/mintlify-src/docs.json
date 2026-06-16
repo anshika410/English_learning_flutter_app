@@ -19,7 +19,8 @@
       {
         "group": "Getting Started",
         "pages": [
-          "readme"
+          "readme",
+          "conversation-flow-simulator"
         ]
       },
       {
