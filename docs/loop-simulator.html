@@ -895,7 +895,7 @@ function App(){
 
     if (LLM_CONFIG.mode === 'api' && activeConvId) {
       try {
-        const msgsToUse = customMsgs || msgs;
+        const msgsToUse = Array.isArray(customMsgs) ? customMsgs : (Array.isArray(msgs) ? msgs : []);
         const apiMsgs = msgsToUse.filter(m=>m.role==='zoe'||m.role==='me').map(m=>({
           role: m.role==='me' ? 'user' : 'assistant',
           content: m.text
@@ -963,7 +963,7 @@ function App(){
           aimed_at:aimed, 
           hit_targets:hit,
           skills_evidenced:scores.map(s=>({id:s.id,name:skillText(s.id),confidence:s.confidence,prompted:s.prompted,evidence:s.evidence||'',reason:s.miss_reason||missReason(s)})),
-          state_changes:chg.map(c=>({...c,name:skillText(c.id)})),
+          state_changes:chg,
           transcript:msgs.filter(m=>m.role!=='sys').map(m=>({speaker:m.role==='zoe'?'zoe':'learner',text:m.text}))
         };
         setSessions(p=>[...p,sLog]);
@@ -1011,7 +1011,7 @@ function App(){
         topic: currentTopic? currentTopic.topic : null,
         aimed_at:aimed, hit_targets:hit,
         skills_evidenced:primaryScores.map(s=>({id:s.id,name:skillText(s.id),confidence:s.confidence,prompted:s.prompted,evidence:s.evidence||'',reason:s.miss_reason||missReason(s)})),
-        state_changes:chg.map(c=>({...c,name:skillText(c.id)})),
+        state_changes:chg,
         transcript:msgs.filter(m=>m.role!=='sys').map(m=>({speaker:m.role==='zoe'?'zoe':'learner',text:m.text}))};
       setSessions(p=>[...p,sLog]);
       setHistory(h=>[...h,{chat:chatNum,level,model,owned:merged.owned.length,emerging:merged.emerging.length,changes:chg.length,turns:turnCount,aimed:aimed.length,hit:hit.length}]);
@@ -1425,24 +1425,9 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode}){
 
   return(<div>
     {changes.length>0&&<div><div className="lbl">state changes this chat</div>
-      {changes.map((c,i)=><div className="chg" key={i}><b>{c.id}</b> — {skillText(c.id)}<br/>{c.from} → <b>{c.to}</b> {c.to==='owned'?'🌸':'🌱'}</div>)}</div>}
+      {changes.map((c,i)=><div className="chg" key={i}><b>{c.id}</b> — {c.name || skillText(c.id)}<br/>{c.from} → <b>{c.to}</b> {c.to==='owned'?'🌸':'🌱'}</div>)}</div>}
     <div className="lbl">memory object {mem.updated_after_chat>0?('· updated after chat '+mem.updated_after_chat):'· (fresh)'}</div>
-    <div className="mono">
-{'{'}
-<div className="memfield">  <span className="k">"profile"</span>: {'{'} name:"{mem.name||'—'}", age:{mem.age||'null'}, city:"{mem.city||'—'}", grade:{mem.grade||'null'} {'}'}</div>
-<div className="memfield">  <span className="k">"level"</span>: "{mem.level}",</div>
-<div className={'memfield '+(hl.owned?'hl':'')}>  <span className="k">"owned"</span> [{mem.owned.length}]: {JSON.stringify(mem.owned)}</div>
-<div className={'memfield '+(hl.emerging?'hl':'')}>  <span className="k">"emerging"</span>: {JSON.stringify(mem.emerging)}</div>
-<div className={'memfield '+(hl.due_next?'hl':'')}>  <span className="k">"due_next"</span>: {JSON.stringify(mem.due_next)}</div>
-<div className="memfield">  <span className="k">"last_topics"</span>: {JSON.stringify(mem.last_topics||[])}</div>
-<div className="memfield">  <span className="k">"interests"</span>: "{mem.interests}"</div>
-<div className={'memfield '+(hl.effort?'hl':'')}>  <span className="k">"effort"</span>: {JSON.stringify(mem.effort)}</div>
-<div className="memfield">  <span className="k">"sightings"</span>: {JSON.stringify(mem.sightings)}</div>
-<div className="memfield">  <span className="k">"strength"</span>: {JSON.stringify(mem.strength)}</div>
-<div className="memfield">  <span className="k">"updated_after_chat"</span>: {mem.updated_after_chat}</div>
-{'}'}
-    </div>
-    {isApiMode && (
+    <div className="mono" style={{whiteSpace:"pre-wrap",fontSize:"11px",lineHeight:"1.5",maxHeight:"400px",overflowY:"auto"}}>{JSON.stringify({profile:{name:mem.name||"—",age:mem.age||null,city:mem.city||"—"},level:mem.level,owned:mem.owned,emerging:mem.emerging,due_next:mem.due_next,last_topics:(mem.last_topics||[]).slice(-5),interests:(mem.interests||"").slice(0,100),effort:mem.effort,sightings:mem.sightings,strength:mem.strength},null,2)}</div>
       <div style={{marginTop:14}}>
         <div className="lbl">Database Record (PostgreSQL users table)</div>
         {renderDbMemoryTable()}
