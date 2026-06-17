@@ -1639,7 +1639,7 @@ function SettingsView({isApiAuthed}){
     <div className="warn">Switch which LLM powers Zoe and the Judge. Four modes — see notes. Keys you paste live only in this page (never stored/sent anywhere but the provider).</div>
     <div className="lbl">mode</div>
     <div className="modeToggle" style={{marginBottom:10,display:'inline-flex'}}>
-      {[['api','Ella API'],['runtime','Claude.ai runtime'],['direct','Direct (browser→provider)'],['proxy','Proxy (your backend)']].map(([m,l])=>(
+      {[['api','Ella API'],['direct','Direct (browser→provider)']].map(([m,l])=>(
         <button key={m} className={C.mode===m?'on':''} onClick={()=>setMode(m)}>{l}</button>))}
     </div>
     {C.mode==='api'&&<div className="ev">Calls the live Ella FastAPI backend. <b>Recommended mode for end-to-end curriculum progression.</b>
@@ -1648,12 +1648,8 @@ function SettingsView({isApiAuthed}){
       </div>
       <input style={{width:'100%',marginTop:6,padding:'5px 8px',border:'1.5px solid var(--ink)',borderRadius:6,fontSize:12}}
         placeholder="Ella API Url" value={C.ellaApiUrl} onChange={e=>{C.ellaApiUrl=e.target.value;rerender();}}/></div>}
-    {C.mode==='runtime'&&<div className="ev">Uses the built-in Claude channel. Works <b>only inside Claude.ai</b>. No key needed. Won't work if you send the file to a colleague.</div>}
-    {C.mode==='direct'&&<div className="ev">Browser calls the provider directly with your key. <b>Works for CORS-friendly providers (OpenRouter reliably; DeepSeek sometimes).</b> Most providers BLOCK this — if you get a CORS error, use Proxy mode.</div>}
-    {C.mode==='proxy'&&<div className="ev">Calls your backend, which holds the key and forwards to any provider. <b>Works for everything incl. Gemini. Lets colleagues use it.</b> Needs the proxy running (see the proxy file).
-      <input style={{width:'100%',marginTop:6,padding:'5px 8px',border:'1.5px solid var(--ink)',borderRadius:6,fontSize:12}}
-        placeholder="proxy URL e.g. http://localhost:8000/complete" value={C.proxyUrl} onChange={e=>{C.proxyUrl=e.target.value;rerender();}}/></div>}
-    {C.mode!=='runtime' && <div>{roleBlock('conv','🗣️ Conversation (Zoe)')}{roleBlock('judge','⚖️ Judge — use a DIFFERENT model than Zoe')}</div>}
+    {C.mode==='direct'&&<div className="ev">Browser calls the provider directly with your key. <b>Works for CORS-friendly providers (OpenRouter reliably; DeepSeek sometimes).</b> Most providers BLOCK this — if you get a CORS error, use Ella API mode.</div>}
+    {<div>{roleBlock('conv','🗣️ Conversation (Zoe)')}{roleBlock('judge','⚖️ Judge — use a DIFFERENT model than Zoe')}</div>}
     <button className="ghost" onClick={testCall}>Test conv model</button> <span style={{fontSize:12,marginLeft:8}}>{test}</span>
     <small className="note">Your stated eval principle: the judge should be a different model than the one being tested. This panel lets you set them separately.</small>
   </div>);
