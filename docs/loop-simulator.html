@@ -764,10 +764,14 @@ function App(){
         const conv = await callEllaAPI('/session', 'POST', {});
         setActiveConvId(conv.session_id);
 
+        // Update currentTopic from API response (backend derives from due_next)
+        const apiTopic = conv.topic ? {topic: conv.topic} : topic;
+        setCurrentTopic(apiTopic);
+
         const text = conv.starter || "Hi! Let's talk!";
 
         setMsgs([
-          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(topic?(' — topic: '+topic.topic):'')},
+          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(apiTopic?(' — topic: '+apiTopic.topic):'')},
           {role:'zoe',text:text}
         ]);
         setLlmLive(true);
@@ -1021,9 +1025,42 @@ function App(){
     }
   }
 
-  function nextChat(){ const n=chatNum+1; setChatNum(n); const carried={...mem}; carried.due_next=targetsListFor(carried);
-    setMem(carried); setJudgeOut(null);setJudgeDebug(null);setDualJudge(null);setChanges([]);setTurnCount(0);autoStep.current=0;
-    setMsgs([{role:'sys',text:'Chat '+n+' — '+model+' mode'}]); setTimeout(()=>zoeOpens(n,model,carried),60); }
+  async function nextChat(){ const n=chatNum+1; setChatNum(n);
+    setJudgeOut(null);setJudgeDebug(null);setDualJudge(null);setChanges([]);setTurnCount(0);autoStep.current=0;
+    if (LLM_CONFIG.mode === 'api') {
+      // Re-fetch memory from backend (due_next was updated after judging)
+      try {
+        const memoryData = await callEllaAPI('/users/me/memory');
+        setDbMemory(memoryData || {});
+        const prof = memoryData.profile || {};
+        const nm = freshMemory(level);
+        nm.name = prof.name === '—' ? '' : (prof.name || '');
+        nm.age = prof.age ? parseInt(prof.age) : null;
+        nm.city = prof.city === '—' ? '' : (prof.city || '');
+        nm.interests = memoryData.interests ? (Array.isArray(memoryData.interests) ? memoryData.interests.join(', ') : memoryData.interests) : '';
+        nm.owned = memoryData.owned || [];
+        nm.emerging = memoryData.emerging || [];
+        nm.sightings = memoryData.sightings || {};
+        nm.strength = memoryData.strength || {};
+        nm.effort = memoryData.effort || { times_spoken_total: 0 };
+        nm.last_topics = memoryData.last_topics || [];
+        nm.due_next = (memoryData.due_next && memoryData.due_next.primary) ? memoryData.due_next : targetsListFor(nm, model);
+        setMem(nm);
+        setMsgs([{role:'sys',text:'Chat '+n+' — '+model+' mode'}]);
+        setTimeout(()=>zoeOpens(n,model,nm),60);
+      } catch(e) {
+        console.error("Failed to refresh memory for next chat:", e);
+        const carried={...mem}; carried.due_next=targetsListFor(carried);
+        setMem(carried);
+        setMsgs([{role:'sys',text:'Chat '+n+' — '+model+' mode'}]);
+        setTimeout(()=>zoeOpens(n,model,carried),60);
+      }
+    } else {
+      const carried={...mem}; carried.due_next=targetsListFor(carried);
+      setMem(carried);
+      setMsgs([{role:'sys',text:'Chat '+n+' — '+model+' mode'}]); setTimeout(()=>zoeOpens(n,model,carried),60);
+    }
+  }
   function resetAll(){
     if (LLM_CONFIG.mode === 'api') {
       localStorage.removeItem('ella_access_token');

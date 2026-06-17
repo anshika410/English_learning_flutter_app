@@ -141,10 +141,14 @@ async def session_analysis(
     level = body.level or user.level or "A1"
     messages = [m.model_dump() for m in body.messages]
     
+    # Use the conversation's stored topic (set from due_next at creation time)
+    # rather than trusting the client-sent topic which may be stale
+    topic = conversation.topic or body.topic
+
     analysis_out = await run_and_save_session_analysis(
         conversation_id=body.conversation_id,
         messages=messages,
-        topic=body.topic,
+        topic=topic,
         level=level,
         level_label=body.level_label,
         progression_model=body.progression_model,
