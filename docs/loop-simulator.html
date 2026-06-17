@@ -1146,7 +1146,7 @@ function App(){
         {tab==='apicalls'&&<ApiCallsView logs={apiLogs} onClear={()=>setApiLogs([])}/>}
         {tab==='dual'&&<DualView dual={dualJudge}/>}
         {tab==='session'&&<SessionView sessions={sessions}/>}
-        {tab==='due'&&<DueView model={model} mem={mem} level={level}/>}
+        {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'}/>}
         {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)}/>}
         {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model}/>}
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
@@ -1463,10 +1463,10 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode}){
   return(<div>
     {changes.length>0&&<div><div className="lbl">state changes this chat</div>
       {changes.map((c,i)=><div className="chg" key={i}><b>{c.id}</b> — {c.name || skillText(c.id)}<br/>{c.from} → <b>{c.to}</b> {c.to==='owned'?'🌸':'🌱'}</div>)}</div>}
-    <div className="lbl">memory object {mem.updated_after_chat>0?('· updated after chat '+mem.updated_after_chat):'· (fresh)'}</div>
-    <div className="mono" style={{whiteSpace:"pre-wrap",fontSize:"11px",lineHeight:"1.5",maxHeight:"400px",overflowY:"auto"}}>{JSON.stringify({profile:{name:mem.name||"—",age:mem.age||null,city:mem.city||"—"},level:mem.level,owned:mem.owned,emerging:mem.emerging,due_next:mem.due_next,last_topics:(mem.last_topics||[]).slice(-5),interests:(mem.interests||"").slice(0,100),effort:mem.effort,sightings:mem.sightings,strength:mem.strength},null,2)}</div>
+    {!isApiMode && <><div className="lbl">memory object {mem.updated_after_chat>0?('· updated after chat '+mem.updated_after_chat):'· (fresh)'}</div>
+    <div className="mono" style={{whiteSpace:"pre-wrap",fontSize:"11px",lineHeight:"1.5",maxHeight:"400px",overflowY:"auto"}}>{JSON.stringify({profile:{name:mem.name||"—",age:mem.age||null,city:mem.city||"—"},level:mem.level,owned:mem.owned,emerging:mem.emerging,due_next:mem.due_next,last_topics:(mem.last_topics||[]).slice(-5),interests:(mem.interests||"").slice(0,100),effort:mem.effort,sightings:mem.sightings,strength:mem.strength},null,2)}</div></>}
       <div style={{marginTop:14}}>
-        <div className="lbl">Database Record (PostgreSQL users table)</div>
+        <div className="lbl">{isApiMode ? 'Memory (from GET /users/me/memory)' : 'Database Record (PostgreSQL users table)'}</div>
         {renderDbMemoryTable()}
       </div>
     )}
@@ -1558,7 +1558,20 @@ function SessionView({sessions}){
     <small className="note">Accumulate (memory overwrites; these don't). 'aimed/hit' shows whether due_next steering worked.</small>
   </div>);
 }
-function DueView({model,mem,level}){
+function DueView({model,mem,level,isApiMode}){
+  if (isApiMode) {
+    // In API mode, show due_next directly from backend (already in mem.due_next)
+    const due = mem.due_next || {};
+    const primary = due.primary;
+    const watching = due.watching || [];
+    const allTargets = [primary, ...watching].filter(Boolean);
+    return(<div><div className="lbl">due_next — from backend (GET /users/me/memory)</div>
+      {!primary&&<div style={{color:'#8a8678'}}>Nothing due (all complete at this level).</div>}
+      {primary&&<div className="due"><div className="b">#1 · primary target</div><b>{primary}</b><br/>{skillText(primary)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(primary).question}</span></div>}
+      {watching.map((id,i)=>(<div className="due" key={i}><div className="b">#{i+2} · watching</div><b>{id}</b><br/>{skillText(id)}</div>))}
+      <small className="note">These targets are computed by the backend after each judge run and stored in the DB. The next POST /session uses them to pick the topic and steer Zoe.</small>
+    </div>);
+  }
   const picks = model==='unit'? dueUnit(mem).picks : dueSkill(mem,level);
   const u = model==='unit'? activeStep(mem):null;
   return(<div><div className="lbl">due_next — what Zoe is steered toward {model==='unit'?'(units mode)':'(micro-skill mode)'}</div>
