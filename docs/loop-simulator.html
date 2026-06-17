@@ -496,7 +496,8 @@ function freshMemory(level){ return {
 // ---------- LLM routing (Option B) ----------
 // config is mutated by the Settings panel; role = 'conv' | 'judge'
 const LLM_CONFIG = {
-  mode:'api',              // 'runtime' | 'direct' | 'proxy' | 'api'
+  mode:'api',              // 'direct' | 'api'
+  showClientSide: false,   // toggle: show client-side computed data in tabs
   proxyUrl:'',             // e.g. http://localhost:8000/complete
   ellaApiUrl:'https://ella.navgurukul.org/api', // live Ella API url
   // per-role provider settings
@@ -1141,12 +1142,12 @@ function App(){
       </div>
       <div className="panel">
         {tab==='readme'&&<ReadmeView/>}
-        {tab==='memory'&&<MemoryView mem={mem} hl={hl} changes={changes} snapshots={snapshots} dbMemory={dbMemory} isApiMode={LLM_CONFIG.mode==='api'}/>}
+        {tab==='memory'&&<MemoryView mem={mem} hl={hl} changes={changes} snapshots={snapshots} dbMemory={dbMemory} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='judge'&&<JudgeView scores={judgeOut} debug={judgeDebug} backendAnalysis={backendAnalysis} isApiMode={LLM_CONFIG.mode==='api'}/>}
         {tab==='apicalls'&&<ApiCallsView logs={apiLogs} onClear={()=>setApiLogs([])}/>}
         {tab==='dual'&&<DualView dual={dualJudge}/>}
         {tab==='session'&&<SessionView sessions={sessions}/>}
-        {tab==='due'&&<DueView model={model} mem={mem} level={level}/>}
+        {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)}/>}
         {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model}/>}
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
@@ -1280,7 +1281,7 @@ function ReadmeView(){
     <div className="note" style={{marginTop:6}}><span className="lab">Honest limits</span>This proves the <b>loop and the prompts</b>, not the production model or the voice layer. It uses typed text (no speech/STT), and the model is whatever ⚙︎ LLM is set to (Claude runtime by default, not Gemini). Treat the behaviour as directional, not final.</div>
   </div>);
 }
-function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode}){
+function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}){
   const getSkillBadge = (id) => {
     if (!id || typeof id !== 'string') return id;
     let bg = '#eee';
@@ -1463,10 +1464,10 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode}){
   return(<div>
     {changes.length>0&&<div><div className="lbl">state changes this chat</div>
       {changes.map((c,i)=><div className="chg" key={i}><b>{c.id}</b> — {c.name || skillText(c.id)}<br/>{c.from} → <b>{c.to}</b> {c.to==='owned'?'🌸':'🌱'}</div>)}</div>}
-    <div className="lbl">memory object {mem.updated_after_chat>0?('· updated after chat '+mem.updated_after_chat):'· (fresh)'}</div>
-    <div className="mono" style={{whiteSpace:"pre-wrap",fontSize:"11px",lineHeight:"1.5",maxHeight:"400px",overflowY:"auto"}}>{JSON.stringify({profile:{name:mem.name||"—",age:mem.age||null,city:mem.city||"—"},level:mem.level,owned:mem.owned,emerging:mem.emerging,due_next:mem.due_next,last_topics:(mem.last_topics||[]).slice(-5),interests:(mem.interests||"").slice(0,100),effort:mem.effort,sightings:mem.sightings,strength:mem.strength},null,2)}</div>
+    {(!isApiMode || showClientSide) && <><div className="lbl">Local memory (client-side) {mem.updated_after_chat>0?('· updated after chat '+mem.updated_after_chat):'· (fresh)'}</div>
+    <div className="mono" style={{whiteSpace:"pre-wrap",fontSize:"11px",lineHeight:"1.5",maxHeight:"400px",overflowY:"auto"}}>{JSON.stringify({profile:{name:mem.name||"—",age:mem.age||null,city:mem.city||"—"},level:mem.level,owned:mem.owned,emerging:mem.emerging,due_next:mem.due_next,last_topics:(mem.last_topics||[]).slice(-5),interests:(mem.interests||"").slice(0,100),effort:mem.effort,sightings:mem.sightings,strength:mem.strength},null,2)}</div></>}
       <div style={{marginTop:14}}>
-        <div className="lbl">Database Record (PostgreSQL users table)</div>
+        <div className="lbl">{isApiMode ? 'Memory (from GET /users/me/memory)' : 'Database Record (PostgreSQL users table)'}</div>
         {renderDbMemoryTable()}
       </div>
     )}
@@ -1558,7 +1559,21 @@ function SessionView({sessions}){
     <small className="note">Accumulate (memory overwrites; these don't). 'aimed/hit' shows whether due_next steering worked.</small>
   </div>);
 }
-function DueView({model,mem,level}){
+function DueView({model,mem,level,isApiMode,showClientSide}){
+  if (isApiMode) {
+    const due = mem.due_next || {};
+    const primary = due.primary;
+    const watching = due.watching || [];
+    return(<div><div className="lbl">due_next — from backend (GET /users/me/memory)</div>
+      {!primary&&<div style={{color:'#8a8678'}}>Nothing due (all complete at this level).</div>}
+      {primary&&<div className="due"><div className="b">#1 · primary target</div><b>{primary}</b><br/>{skillText(primary)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(primary).question}</span></div>}
+      {watching.map((id,i)=>(<div className="due" key={i}><div className="b">#{i+2} · watching</div><b>{id}</b><br/>{skillText(id)}</div>))}
+      {showClientSide&&(()=>{const picks=model==='unit'?dueUnit(mem).picks:dueSkill(mem,level); const u=model==='unit'?activeStep(mem):null; return(<><div className="lbl" style={{marginTop:16,color:'var(--purple)'}}>🧮 Client-side computed (for comparison)</div>
+        {model==='unit'&&u&&<div className="warn" style={{opacity:0.7}}>Active unit: <b>{u.name}</b></div>}
+        {picks.map((d,i)=>(<div className="due" key={i} style={{opacity:0.7,borderStyle:'dashed'}}><div className="b">#{i+1} · {d.why}</div><b>{d.id}</b><br/>{skillText(d.id)}</div>))}</>);})()}
+      <small className="note">Backend computes this after each judge run. POST /session reads it to pick topic and steer Zoe.</small>
+    </div>);
+  }
   const picks = model==='unit'? dueUnit(mem).picks : dueSkill(mem,level);
   const u = model==='unit'? activeStep(mem):null;
   return(<div><div className="lbl">due_next — what Zoe is steered toward {model==='unit'?'(units mode)':'(micro-skill mode)'}</div>
@@ -1615,10 +1630,19 @@ function SettingsView({isApiAuthed}){
   const setMode=m=>{C.mode=m;rerender();};
   const setRole=(role,field,val)=>{C[role][field]=val;rerender();};
   const [test,setTest]=React.useState('');
+  const [healthStatus,setHealthStatus]=React.useState('');
   async function testCall(){
     setTest('testing…');
     const r=await callLLM('Reply with exactly: OK','conv');
     setTest(r.ok?('✓ conv model replied: "'+String(r.text).slice(0,40)+'"'):('✗ '+r.err));
+  }
+  async function checkHealth(){
+    setHealthStatus('checking…');
+    try {
+      const res = await fetch(`${C.ellaApiUrl}/health`);
+      if(res.ok){ const data = await res.json(); setHealthStatus('✓ Backend healthy: ' + JSON.stringify(data)); }
+      else { setHealthStatus('✗ Backend returned ' + res.status); }
+    } catch(e){ setHealthStatus('✗ Cannot reach backend: ' + e.message); }
   }
   const providers=['openrouter','deepseek','openai','custom'];
   const roleBlock=(role,label)=>(
@@ -1636,26 +1660,33 @@ function SettingsView({isApiAuthed}){
         type="password" placeholder="API key (stays in this page only)" value={C[role].key} onChange={e=>setRole(role,'key',e.target.value)}/>}
     </div>);
   return(<div>
-    <div className="warn">Switch which LLM powers Zoe and the Judge. Four modes — see notes. Keys you paste live only in this page (never stored/sent anywhere but the provider).</div>
-    <div className="lbl">mode</div>
-    <div className="modeToggle" style={{marginBottom:10,display:'inline-flex'}}>
-      {[['api','Ella API'],['runtime','Claude.ai runtime'],['direct','Direct (browser→provider)'],['proxy','Proxy (your backend)']].map(([m,l])=>(
-        <button key={m} className={C.mode===m?'on':''} onClick={()=>setMode(m)}>{l}</button>))}
+    <div className="warn">Configure data sources. Ella API is the recommended mode. Enable client-side logic to see locally computed data alongside API data.</div>
+    <div className="lbl">Data Sources</div>
+    <div style={{display:'flex',gap:12,marginBottom:14,flexWrap:'wrap'}}>
+      <label style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',border:'1.5px solid var(--ink)',borderRadius:8,background:C.mode==='api'?'var(--green-soft)':'#fff',cursor:'pointer',fontWeight:600,fontSize:12}}>
+        <input type="checkbox" checked={C.mode==='api'} onChange={e=>{C.mode=e.target.checked?'api':'direct';rerender();}} style={{width:16,height:16}}/>
+        🔌 Ella API
+      </label>
+      <label style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',border:'1.5px solid var(--ink)',borderRadius:8,background:C.showClientSide?'var(--purple-soft)':'#fff',cursor:'pointer',fontWeight:600,fontSize:12}}>
+        <input type="checkbox" checked={C.showClientSide} onChange={e=>{C.showClientSide=e.target.checked;rerender();}} style={{width:16,height:16}}/>
+        🧮 Client-side logic
+      </label>
     </div>
     {C.mode==='api'&&<div className="ev">Calls the live Ella FastAPI backend. <b>Recommended mode for end-to-end curriculum progression.</b>
       <div style={{marginTop: 6, fontWeight: 'bold', color: isApiAuthed ? 'var(--green-dk)' : 'var(--rust)'}}>
         Status: {isApiAuthed ? '🔌 Connected & Authenticated (Anonymous JWT)' : '✗ Not Connected'}
       </div>
       <input style={{width:'100%',marginTop:6,padding:'5px 8px',border:'1.5px solid var(--ink)',borderRadius:6,fontSize:12}}
-        placeholder="Ella API Url" value={C.ellaApiUrl} onChange={e=>{C.ellaApiUrl=e.target.value;rerender();}}/></div>}
-    {C.mode==='runtime'&&<div className="ev">Uses the built-in Claude channel. Works <b>only inside Claude.ai</b>. No key needed. Won't work if you send the file to a colleague.</div>}
-    {C.mode==='direct'&&<div className="ev">Browser calls the provider directly with your key. <b>Works for CORS-friendly providers (OpenRouter reliably; DeepSeek sometimes).</b> Most providers BLOCK this — if you get a CORS error, use Proxy mode.</div>}
-    {C.mode==='proxy'&&<div className="ev">Calls your backend, which holds the key and forwards to any provider. <b>Works for everything incl. Gemini. Lets colleagues use it.</b> Needs the proxy running (see the proxy file).
-      <input style={{width:'100%',marginTop:6,padding:'5px 8px',border:'1.5px solid var(--ink)',borderRadius:6,fontSize:12}}
-        placeholder="proxy URL e.g. http://localhost:8000/complete" value={C.proxyUrl} onChange={e=>{C.proxyUrl=e.target.value;rerender();}}/></div>}
-    {C.mode!=='runtime' && <div>{roleBlock('conv','🗣️ Conversation (Zoe)')}{roleBlock('judge','⚖️ Judge — use a DIFFERENT model than Zoe')}</div>}
-    <button className="ghost" onClick={testCall}>Test conv model</button> <span style={{fontSize:12,marginLeft:8}}>{test}</span>
-    <small className="note">Your stated eval principle: the judge should be a different model than the one being tested. This panel lets you set them separately.</small>
+        placeholder="Ella API Url" value={C.ellaApiUrl} onChange={e=>{C.ellaApiUrl=e.target.value;rerender();}}/>
+      <div style={{marginTop:8}}>
+        <button className="ghost" onClick={checkHealth}>🏥 Health Check</button>
+        <span style={{fontSize:12,marginLeft:8}}>{healthStatus}</span>
+      </div>
+    </div>}
+    {C.mode==='direct'&&<div className="ev">Browser calls the provider directly with your key. <b>Works for CORS-friendly providers (OpenRouter reliably; DeepSeek sometimes).</b> Most providers BLOCK this — if you get a CORS error, use Ella API mode.</div>}
+    {C.mode==='direct'&&<div>{roleBlock('conv','🗣️ Conversation (Zoe)')}{roleBlock('judge','⚖️ Judge — use a DIFFERENT model than Zoe')}</div>}
+    {C.mode==='direct'&&<><button className="ghost" onClick={testCall}>Test conv model</button> <span style={{fontSize:12,marginLeft:8}}>{test}</span>
+    <small className="note">Your stated eval principle: the judge should be a different model than the one being tested. This panel lets you set them separately.</small></>}
   </div>);
 }
 function HistView({history}){
