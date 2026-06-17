@@ -49,9 +49,9 @@ class UpdateMemoryRequest(BaseModel):
 
 
 class MemoryProfileSub(BaseModel):
-    name: str | None = "—"
+    name: str | None = None
     age: int | None = None
-    city: str | None = "—"
+    city: str | None = None
     grade: str | None = None
 
 

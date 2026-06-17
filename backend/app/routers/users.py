@@ -19,9 +19,9 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         age_val = int(user.age)
 
     profile_data = {
-        "name": user.name if user.name else "—",
+        "name": user.name or None,
         "age": age_val,
-        "city": user.location if user.location else "—",
+        "city": user.location or None,
         "grade": None
     }
 
