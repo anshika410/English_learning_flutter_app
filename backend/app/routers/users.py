@@ -41,7 +41,6 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         updated_after_chat=progress.get("updated_after_chat", 0),
         last_topics=persona.get("last_topics", []),
         persona_memory={k: v for k, v in (user.persona_memory or {}).items() if k != "last_topics"},
-        skills_progress=user.skills_progress or {},
     )
 
 

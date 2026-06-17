@@ -71,7 +71,6 @@ class UserMemoryResponse(BaseModel):
     updated_after_chat: int = 0
     last_topics: list[str] = []
     persona_memory: dict = {}
-    skills_progress: dict = {}
 
 
 
