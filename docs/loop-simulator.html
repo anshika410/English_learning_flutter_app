@@ -566,6 +566,8 @@ function App(){
   const [input,setInput]=useState('');
   const [busy,setBusy]=useState(false);
   const [tab,setTab]=useState('readme');
+  const [llmConfigVersion,setLlmConfigVersion]=useState(0);
+  const bumpLlmConfig=()=>setLlmConfigVersion(v=>v+1);
   const [judgeOut,setJudgeOut]=useState(null);
   const [judgeDebug,setJudgeDebug]=useState(null);
   const [dualJudge,setDualJudge]=useState(null); // {skill:[],unit:[]}
@@ -1153,7 +1155,7 @@ function App(){
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
         {tab==='units'&&<UnitsView mem={mem}/>}
         {tab==='hist'&&<HistView history={history}/>}
-        {tab==='settings'&&<SettingsView isApiAuthed={isApiAuthed}/>}
+        {tab==='settings'&&<SettingsView isApiAuthed={isApiAuthed} onConfigChange={bumpLlmConfig}/>}
       </div>
     </div>
   </div>);
@@ -1624,8 +1626,8 @@ function UnitsView({mem}){
     <small className="note">A level-up = all 5 steps complete. The active step drives due_next. This is the units answer to the "level-up rule" hole.</small>
   </div>);
 }
-function SettingsView({isApiAuthed}){
-  const [,force]=React.useState(0); const rerender=()=>force(x=>x+1);
+function SettingsView({isApiAuthed,onConfigChange}){
+  const [,force]=React.useState(0); const rerender=()=>{force(x=>x+1);if(onConfigChange)onConfigChange();};
   const C=LLM_CONFIG;
   const setMode=m=>{C.mode=m;rerender();};
   const setRole=(role,field,val)=>{C[role][field]=val;rerender();};
