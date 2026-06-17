@@ -1750,6 +1750,29 @@ function JsonViewer({ value, depth = 0 }) {
 }
 function ApiCallsView({logs, onClear}){
   const [openId, setOpenId] = React.useState(null);
+  const [copied, setCopied] = React.useState(false);
+
+  function copyAllLogs() {
+    const lines = logs.map((log, i) => {
+      const divider = '─'.repeat(60);
+      let out = `${divider}\n`;
+      out += `#${i+1}  ${log.method} ${LLM_CONFIG.ellaApiUrl}${log.path}\n`;
+      out += `Time: ${log.timestamp}  |  Status: ${log.status}\n`;
+      out += `${divider}\n`;
+      out += `▸ Request Body:\n`;
+      out += log.requestBody ? JSON.stringify(log.requestBody, null, 2) : '(empty)';
+      out += `\n\n▸ Response Body:\n`;
+      out += log.responseBody ? (typeof log.responseBody === 'string' ? log.responseBody : JSON.stringify(log.responseBody, null, 2)) : '(empty)';
+      out += '\n';
+      return out;
+    }).join('\n');
+
+    const header = `ELLA API Traffic — ${logs.length} calls — copied at ${new Date().toLocaleString()}\n\n`;
+    navigator.clipboard.writeText(header + lines).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   if (logs.length === 0) {
     return (
@@ -1763,7 +1786,12 @@ function ApiCallsView({logs, onClear}){
     <div>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
         <div className="lbl" style={{marginTop:0}}>API Traffic Logs ({logs.length})</div>
-        <button className="ghost" style={{padding:'3px 8px', fontSize:11}} onClick={onClear}>Clear Logs</button>
+        <div style={{display:'flex', gap:6}}>
+          <button className="act" style={{padding:'4px 10px', fontSize:11, background: copied ? '#2f7d46' : 'var(--green)'}} onClick={copyAllLogs}>
+            {copied ? '✓ Copied!' : '📋 Copy All'}
+          </button>
+          <button className="ghost" style={{padding:'3px 8px', fontSize:11}} onClick={onClear}>Clear Logs</button>
+        </div>
       </div>
 
       {logs.map((log) => {
