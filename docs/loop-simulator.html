@@ -1615,10 +1615,19 @@ function SettingsView({isApiAuthed}){
   const setMode=m=>{C.mode=m;rerender();};
   const setRole=(role,field,val)=>{C[role][field]=val;rerender();};
   const [test,setTest]=React.useState('');
+  const [healthStatus,setHealthStatus]=React.useState('');
   async function testCall(){
     setTest('testing…');
     const r=await callLLM('Reply with exactly: OK','conv');
     setTest(r.ok?('✓ conv model replied: "'+String(r.text).slice(0,40)+'"'):('✗ '+r.err));
+  }
+  async function checkHealth(){
+    setHealthStatus('checking…');
+    try {
+      const res = await fetch(`${C.ellaApiUrl}/health`);
+      if(res.ok){ const data = await res.json(); setHealthStatus('✓ Backend healthy: ' + JSON.stringify(data)); }
+      else { setHealthStatus('✗ Backend returned ' + res.status); }
+    } catch(e){ setHealthStatus('✗ Cannot reach backend: ' + e.message); }
   }
   const providers=['openrouter','deepseek','openai','custom'];
   const roleBlock=(role,label)=>(
@@ -1647,7 +1656,12 @@ function SettingsView({isApiAuthed}){
         Status: {isApiAuthed ? '🔌 Connected & Authenticated (Anonymous JWT)' : '✗ Not Connected'}
       </div>
       <input style={{width:'100%',marginTop:6,padding:'5px 8px',border:'1.5px solid var(--ink)',borderRadius:6,fontSize:12}}
-        placeholder="Ella API Url" value={C.ellaApiUrl} onChange={e=>{C.ellaApiUrl=e.target.value;rerender();}}/></div>}
+        placeholder="Ella API Url" value={C.ellaApiUrl} onChange={e=>{C.ellaApiUrl=e.target.value;rerender();}}/>
+      <div style={{marginTop:8}}>
+        <button className="ghost" onClick={checkHealth}>🏥 Health Check</button>
+        <span style={{fontSize:12,marginLeft:8}}>{healthStatus}</span>
+      </div>
+    </div>}
     {C.mode==='direct'&&<div className="ev">Browser calls the provider directly with your key. <b>Works for CORS-friendly providers (OpenRouter reliably; DeepSeek sometimes).</b> Most providers BLOCK this — if you get a CORS error, use Ella API mode.</div>}
     {C.mode==='direct'&&<div>{roleBlock('conv','🗣️ Conversation (Zoe)')}{roleBlock('judge','⚖️ Judge — use a DIFFERENT model than Zoe')}</div>}
     {C.mode==='direct'&&<><button className="ghost" onClick={testCall}>Test conv model</button> <span style={{fontSize:12,marginLeft:8}}>{test}</span>
