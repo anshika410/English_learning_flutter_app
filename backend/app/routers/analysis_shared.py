@@ -105,6 +105,10 @@ async def run_and_save_session_analysis(
     flag_modified(user, "skills_progress")
     flag_modified(user, "due_next")
 
+    # Mark first session as done
+    if not user.first_session_done:
+        user.first_session_done = True
+
     # Check if user should advance level based on owned skills
     from ..core.curriculum_data import UNITS
     owned = updated_progress.get("owned", [])
