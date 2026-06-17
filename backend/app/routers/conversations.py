@@ -47,12 +47,12 @@ async def create_conversation(
                     aimed_skills = skill_ids
                     break
 
-        # Fallback: pick first topic for this level
+        # Fallback: pick first unit name for this level (not level topics)
         if not topic:
-            level_topics = LEVEL_TOPICS.get(level, LEVEL_TOPICS.get("A1", []))
-            valid_topics = [t for t in level_topics if t.get("name")]
-            if valid_topics:
-                topic = valid_topics[0]["name"]
+            units = UNITS.get(level, UNITS.get("A1", []))
+            if units:
+                topic = units[0].get("name", "Free Talk")
+                aimed_skills = [s["id"] for s in units[0].get("skills", [])]
             else:
                 topic = "Free Talk"
 
