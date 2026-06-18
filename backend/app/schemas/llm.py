@@ -171,6 +171,11 @@ class TranscriptNote(BaseModel):
 
 
 class SessionAnalysisResponse(BaseModel):
+    overall: str | None = None
+    best_moment: dict | None = None
+    courage_or_motivation: dict | None = None
+    try_next_time: dict | None = None
+    extracted_memory_facts: list[str] = []
     transcript_notes: list[TranscriptNote] = []
     aimed_at: list[str] = []
     hit_targets: list[str] = []
