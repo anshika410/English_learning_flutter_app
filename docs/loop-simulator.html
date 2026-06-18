@@ -960,21 +960,7 @@ function App(){
 
         setSnapshots(prev=>[...prev,{chat:chatNum,model,owned:[...merged.owned],emerging:[...merged.emerging],due:flatTargets(merged)}]);
 
-        const sLog={
-          session_id:'s_'+String(chatNum).padStart(4,'0'),
-          child_id:merged.child_id,
-          level,
-          progression_model:model,
-          prompt_version:'backend_v1',
-          timestamp:new Date().toISOString(),
-          turns_total:turnCount,
-          topic: currentTopic? currentTopic.topic : null,
-          aimed_at:aimed, 
-          hit_targets:hit,
-          skills_evidenced:scores.map(s=>({id:s.id,name:skillText(s.id),confidence:s.confidence,prompted:s.prompted,evidence:s.evidence||'',reason:s.miss_reason||missReason(s)})),
-          state_changes:chg,
-          transcript:msgs.filter(m=>m.role!=='sys').map(m=>({speaker:m.role==='zoe'?'zoe':'learner',text:m.text}))
-        };
+        const sLog = await callEllaAPI(`/session/${activeConvId}/session-log`);
         setSessions(p=>[...p,sLog]);
         setHistory(h=>[...h,{chat:chatNum,level,model,owned:merged.owned.length,emerging:merged.emerging.length,changes:chg.length,turns:turnCount,aimed:aimed.length,hit:hit.length}]);
 
