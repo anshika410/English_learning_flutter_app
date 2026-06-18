@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./zoe.db"
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440
+    access_token_expire_minutes: int = 43200
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     deepseek_model: str = "deepseek-chat"
