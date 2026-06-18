@@ -1463,7 +1463,6 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
         <div className="lbl">{isApiMode ? 'Memory (from GET /users/me/memory)' : 'Database Record (PostgreSQL users table)'}</div>
         {renderDbMemoryTable()}
       </div>
-    )}
     {snapshots.length>0&&<div><div className="lbl">memory after each chat</div>
       {snapshots.map((s,i)=><div className="hist" key={i}><b>after chat {s.chat}</b> ({s.model}) · owned {s.owned.length} · emerging {s.emerging.length}<br/><span style={{fontFamily:'monospace',fontSize:'10px',color:'#5b50c4'}}>due → {s.due.join(', ')}</span></div>)}</div>}
     <small className="note">owned/emerging hold buckets; confidence is NOT stored here (see Session log). Snapshots show how memory evolved chat by chat.</small>
