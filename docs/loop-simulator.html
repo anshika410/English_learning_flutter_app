@@ -1542,9 +1542,14 @@ function SessionView({sessions}){
     {sessions.map((s,i)=>(<div key={i} style={{marginBottom:8}}>
       <div className="due" style={{cursor:'pointer',background:open===i?'#fff':'var(--blue-soft)'}} onClick={()=>setOpen(open===i?null:i)}>
         <div className="b">{s.session_id} · {s.level} · {s.progression_model} · {s.turns_total} turns</div>
-        aimed {s.aimed_at.length}, hit <b>{s.hit_targets.length}</b> · {s.state_changes.length} changes {open===i?'▲':'▼'}
+        aimed {(s.aimed_at||[]).length}, hit <b>{(s.hit_targets||[]).length}</b> · {(s.state_changes||[]).length} changes {open===i?'▲':'▼'}
       </div>
-      {open===i&&<div className="mono" style={{background:'#1f1b16',color:'#efe9d8',padding:12,borderRadius:8,marginTop:4}}>{JSON.stringify(s,null,1)}</div>}
+      {open===i&&<div>
+        <div style={{padding:'6px 10px',background:'#f1f2f4',border:'1px solid var(--rule)',borderRadius:6,marginTop:4,fontFamily:'monospace',fontSize:11,color:'var(--blue)',wordBreak:'break-all'}}>
+          GET {LLM_CONFIG.ellaApiUrl}/session/{s.session_id}/session-log
+        </div>
+        <div className="mono" style={{background:'#1f1b16',color:'#efe9d8',padding:12,borderRadius:8,marginTop:4}}>{JSON.stringify(s,null,2)}</div>
+      </div>}
     </div>))}
     <small className="note">Accumulate (memory overwrites; these don't). 'aimed/hit' shows whether due_next steering worked.</small>
   </div>);
