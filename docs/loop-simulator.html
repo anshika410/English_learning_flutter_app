@@ -1130,7 +1130,7 @@ function App(){
         <select value={level} onChange={e=>changeLevel(e.target.value)}>{['A1','A2','B1','B2','C1','C2'].map(l=><option key={l}>{l}</option>)}</select>
       </div>
       <div className="tabs">
-        {[['readme','📖 Read me'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>k!=='apicalls'||LLM_CONFIG.mode==='api').map(([k,lab])=>(
+        {[['readme','📖 Read me'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
           <div key={k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{lab}</div>))}
       </div>
       <div className="panel">
