@@ -99,8 +99,10 @@ const byLevel = lvl => SKILLS.filter(s=>s.level===lvl);
 const STRANDS={VOC:'Vocabulary',GRA:'Grammar',FLU:'Fluency'};
 // flatten units into a lookup: id -> {text,strand,step,stepName}
 const UNIT_SKILLS={};
-Object.entries(UNITS).forEach(([lvl, uList])=>{ uList.forEach(u=>u.skills.forEach(s=>{ UNIT_SKILLS[s.id]={...s,step:u.step,stepName:u.name,level:lvl}; })); });
-function skillText(id){
+const UNIT_SKILLS_BY_LEVEL={};
+Object.entries(UNITS).forEach(([lvl, uList])=>{ if(!UNIT_SKILLS_BY_LEVEL[lvl]) UNIT_SKILLS_BY_LEVEL[lvl]={}; uList.forEach(u=>u.skills.forEach(s=>{ UNIT_SKILLS[s.id]={...s,step:u.step,stepName:u.name,level:lvl}; UNIT_SKILLS_BY_LEVEL[lvl][s.id]={...s,step:u.step,stepName:u.name,level:lvl}; })); });
+function skillText(id, lvl){
+  if(lvl && UNIT_SKILLS_BY_LEVEL[lvl] && UNIT_SKILLS_BY_LEVEL[lvl][id]) return UNIT_SKILLS_BY_LEVEL[lvl][id].text;
   const s=SKILLS.find(x=>x.id===id); if(s)return s.text;
   if(UNIT_SKILLS[id])return UNIT_SKILLS[id].text;
   return id;
@@ -1568,11 +1570,11 @@ function DueView({model,mem,level,isApiMode,showClientSide}){
     const watching = due.watching || [];
     return(<div><div className="lbl">due_next — from backend (GET /users/me/memory)</div>
       {!primary&&<div style={{color:'#8a8678'}}>Nothing due (all complete at this level).</div>}
-      {primary&&<div className="due"><div className="b">#1 · primary target</div><b>{primary}</b><br/>{skillText(primary)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(primary).question}</span></div>}
-      {watching.map((id,i)=>(<div className="due" key={i}><div className="b">#{i+2} · watching</div><b>{id}</b><br/>{skillText(id)}</div>))}
+      {primary&&<div className="due"><div className="b">#1 · primary target</div><b>{primary}</b><br/>{skillText(primary,level)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(primary).question}</span></div>}
+      {watching.map((id,i)=>(<div className="due" key={i}><div className="b">#{i+2} · watching</div><b>{id}</b><br/>{skillText(id,level)}</div>))}
       {showClientSide&&(()=>{const picks=model==='unit'?dueUnit(mem).picks:dueSkill(mem,level); const u=model==='unit'?activeStep(mem):null; return(<><div className="lbl" style={{marginTop:16,color:'var(--purple)'}}>🧮 Client-side computed (for comparison)</div>
         {model==='unit'&&u&&<div className="warn" style={{opacity:0.7}}>Active unit: <b>{u.name}</b></div>}
-        {picks.map((d,i)=>(<div className="due" key={i} style={{opacity:0.7,borderStyle:'dashed'}}><div className="b">#{i+1} · {d.why}</div><b>{d.id}</b><br/>{skillText(d.id)}</div>))}</>);})()}
+        {picks.map((d,i)=>(<div className="due" key={i} style={{opacity:0.7,borderStyle:'dashed'}}><div className="b">#{i+1} · {d.why}</div><b>{d.id}</b><br/>{skillText(d.id,level)}</div>))}</>);})()}
       <small className="note">Backend computes this after each judge run. POST /session reads it to pick topic and steer Zoe.</small>
     </div>);
   }
@@ -1581,7 +1583,7 @@ function DueView({model,mem,level,isApiMode,showClientSide}){
   return(<div><div className="lbl">due_next — what Zoe is steered toward {model==='unit'?'(units mode)':'(micro-skill mode)'}</div>
     {model==='unit'&&u&&<div className="warn">Active unit: <b>{u.name}</b> — {u.focus}</div>}
     {picks.length===0&&<div style={{color:'#8a8678'}}>Nothing due (all complete at this level/unit).</div>}
-    {picks.map((d,i)=>(<div className="due" key={i}><div className="b">#{i+1} · {d.why}</div><b>{d.id}</b><br/>{skillText(d.id)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(d.id).question}</span><br/><span style={{fontSize:11,color:'#6b6258'}}>If short/stuck: {skillPlan(d.id).fallback}</span></div>))}
+    {picks.map((d,i)=>(<div className="due" key={i}><div className="b">#{i+1} · {d.why}</div><b>{d.id}</b><br/>{skillText(d.id,level)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(d.id).question}</span><br/><span style={{fontSize:11,color:'#6b6258'}}>If short/stuck: {skillPlan(d.id).fallback}</span></div>))}
     <small className="note">This exact list plus the Teacher Invisible Plan is injected into Zoe's prompt. Recomputed after every chat.</small>
   </div>);
 }
