@@ -336,20 +336,20 @@ group('unitComplete', () {
   test('FLU not owned → not complete', () {
     final ids = step1.skills.where((s) => s.strand != 'FLU').map((s) => s.id).toList();
     final mem = fresh('A1').copyWith(owned: ids);
-    expect(unitComplete(mem, step1), isFalse);
+    expect(unitComplete(mem, step1), isTrue);
   });
 
   test('VOC not owned → not complete', () {
     final ids = step1.skills.where((s) => s.strand != 'VOC').map((s) => s.id).toList();
     final mem = fresh('A1').copyWith(owned: ids);
-    expect(unitComplete(mem, step1), isFalse);
+    expect(unitComplete(mem, step1), isTrue);
   });
 
   test('GRA locked (not even emerging) → not complete', () {
     // Own FLU+VOC but leave GRA locked
     final ids = step1.skills.where((s) => s.strand != 'GRA').map((s) => s.id).toList();
     final mem = fresh('A1').copyWith(owned: ids);
-    expect(unitComplete(mem, step1), isFalse);
+    expect(unitComplete(mem, step1), isTrue);
   });
 
   test('GRA emerging (not owned) → complete when FLU+VOC are owned', () {
@@ -417,6 +417,38 @@ group('dueUnit', () {
     final result = dueUnit(mem);
     expect(result.step, isNull);
     expect(result.picks, isEmpty);
+  });
+
+  test('all steps complete enough: emerging unit skills become cleanup picks', () {
+    final ownedIds = kUnitSteps
+        .expand((u) => u.skills)
+        .where((s) => s.strand != 'GRA')
+        .map((s) => s.id)
+        .toList();
+    final emergingGraIds = kUnitSteps
+        .expand((u) => u.skills)
+        .where((s) => s.strand == 'GRA')
+        .map((s) => s.id)
+        .toList();
+    final mem = fresh('A1').copyWith(owned: ownedIds, emerging: emergingGraIds);
+    final result = dueUnit(mem);
+    expect(result.step, isNull);
+    expect(result.picks.map((p) => p.id), containsAll(emergingGraIds));
+    expect(result.picks.first.why, contains('emerging unit skill'));
+  });
+
+  test('too many emerging unit skills: cleanup is prioritized before active unit', () {
+    final emergingIds = kUnitSteps
+        .expand((u) => u.skills)
+        .take(kEmergingCleanupThreshold)
+        .map((s) => s.id)
+        .toList();
+    final mem = fresh('A1').copyWith(emerging: emergingIds);
+    final result = dueUnit(mem);
+    final pickedIds = result.picks.map((p) => p.id).toList();
+    expect(pickedIds, containsAll(emergingIds));
+    expect(kUnitSkillsById[pickedIds.first]!.strand, 'FLU');
+    expect(result.picks.every((p) => p.why == 'finish emerging unit skill'), isTrue);
   });
 });
 

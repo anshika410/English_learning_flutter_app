@@ -268,7 +268,7 @@ void main() {
           .map((s) => s.id)
           .toList();
       final partial = mem.copyWith(owned: fluVocIds); // GRA still locked
-      expect(unitComplete(partial, step), isFalse);
+      expect(unitComplete(partial, step), isTrue);
     });
 
     test('unitComplete: FLU+VOC owned and GRA emerging → true', () {

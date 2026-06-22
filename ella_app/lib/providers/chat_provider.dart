@@ -658,6 +658,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     if (mode == 'units') {
       final due = mem.dueNext.flat;
       if (due.isNotEmpty) return due;
+      final freshDue = dueUnit(mem).picks.map((p) => p.id).toList();
+      if (freshDue.isNotEmpty) return freshDue;
       final firstStep = kUnitSteps.isNotEmpty ? kUnitSteps.first : null;
       return firstStep == null
           ? const []

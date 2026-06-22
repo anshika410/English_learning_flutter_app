@@ -89,7 +89,32 @@ String _bucketFromLists(List<String> owned, List<String> emerging, String id) {
   return 'locked';
 }
 
-const Map<String, String> _strandLabels = {'VOC': 'Vocabulary', 'GRA': 'Grammar', 'FLU': 'Fluency'};
+const Map<String, String> _strandLabels = {
+  'VOC': 'Vocabulary',
+  'GRA': 'Grammar',
+  'FLU': 'Fluency'
+};
+const int kEmergingCleanupThreshold = 3;
+
+int _unitStrandRank(String strand) =>
+    strand == 'FLU' ? 0 : strand == 'VOC' ? 1 : 2;
+
+List<SkillTarget> _unitEmergingCleanup(MemoryState mem) {
+  final emerging = mem.emerging
+      .where((id) => !mem.owned.contains(id) && kUnitSkillsById.containsKey(id))
+      .toList();
+  emerging.sort((a, b) {
+    final sa = kUnitSkillsById[a]!;
+    final sb = kUnitSkillsById[b]!;
+    final rankCompare =
+        _unitStrandRank(sa.strand).compareTo(_unitStrandRank(sb.strand));
+    if (rankCompare != 0) return rankCompare;
+    return a.compareTo(b);
+  });
+  return emerging
+      .map((id) => SkillTarget(id: id, why: 'finish emerging unit skill'))
+      .toList();
+}
 
 // ── applyMerge ───────────────────────────────────────────────────────────────
 //
@@ -228,14 +253,12 @@ List<SkillTarget> dueSkill(MemoryState mem, String level) {
 
 // ── unitComplete ─────────────────────────────────────────────────────────────
 //
-// FLU + VOC must be owned; GRA must be at least emerging (not locked).
+// A unit unlocks the next unit when at least half of its skills are owned.
 bool unitComplete(MemoryState mem, UnitStep unit) {
-  for (final s in unit.skills) {
-    final b = bucketOf(mem, s.id);
-    if ((s.strand == 'FLU' || s.strand == 'VOC') && b != 'owned') return false;
-    if (s.strand == 'GRA' && b == 'locked') return false;
-  }
-  return true;
+  if (unit.skills.isEmpty) return false;
+  final requiredOwned = max(1, (unit.skills.length / 2).ceil());
+  final ownedCount = unit.skills.where((s) => mem.owned.contains(s.id)).length;
+  return ownedCount >= requiredOwned;
 }
 
 // ── activeStep ───────────────────────────────────────────────────────────────
@@ -254,12 +277,19 @@ UnitStep? activeStep(MemoryState mem) {
 // Returns all unowned skills in the active step, sorted FLU → VOC → GRA.
 DueUnitResult dueUnit(MemoryState mem) {
   final u = activeStep(mem);
-  if (u == null) return const DueUnitResult();
+  final cleanup = _unitEmergingCleanup(mem);
 
-  int rank(String strand) => strand == 'FLU' ? 0 : strand == 'VOC' ? 1 : 2;
+  if (u == null) {
+    return DueUnitResult(picks: cleanup);
+  }
+
+  if (cleanup.length >= kEmergingCleanupThreshold) {
+    return DueUnitResult(step: u, picks: cleanup);
+  }
 
   final sorted = [...u.skills]
-    ..sort((a, b) => rank(a.strand).compareTo(rank(b.strand)));
+    ..sort((a, b) =>
+        _unitStrandRank(a.strand).compareTo(_unitStrandRank(b.strand)));
 
   final picks = sorted
       .where((s) => bucketOf(mem, s.id) != 'owned')
