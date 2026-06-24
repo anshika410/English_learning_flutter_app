@@ -100,14 +100,22 @@ const STRANDS={VOC:'Vocabulary',GRA:'Grammar',FLU:'Fluency'};
 // flatten units into a lookup: id -> {text,strand,step,stepName}
 const UNIT_SKILLS={};
 const UNIT_SKILLS_BY_LEVEL={};
-Object.entries(UNITS).forEach(([lvl, uList])=>{ if(!UNIT_SKILLS_BY_LEVEL[lvl]) UNIT_SKILLS_BY_LEVEL[lvl]={}; uList.forEach(u=>u.skills.forEach(s=>{ UNIT_SKILLS[s.id]={...s,step:u.step,stepName:u.name,level:lvl}; UNIT_SKILLS_BY_LEVEL[lvl][s.id]={...s,step:u.step,stepName:u.name,level:lvl}; })); });
-function skillText(id, lvl){
-  if(lvl && UNIT_SKILLS_BY_LEVEL[lvl] && UNIT_SKILLS_BY_LEVEL[lvl][id]) return UNIT_SKILLS_BY_LEVEL[lvl][id].text;
+Object.entries(UNITS).forEach(([lvl, uList]) => {
+  if (!UNIT_SKILLS_BY_LEVEL[lvl]) UNIT_SKILLS_BY_LEVEL[lvl] = {};
+  uList.forEach(u => u.skills.forEach(s => {
+    if (!UNIT_SKILLS[s.id]) {
+      UNIT_SKILLS[s.id] = {...s, step: u.step, stepName: u.name, level: lvl};
+    }
+    UNIT_SKILLS_BY_LEVEL[lvl][s.id] = {...s, step: u.step, stepName: u.name, level: lvl};
+  }));
+});
+function skillText(id, level = null){
   const s=SKILLS.find(x=>x.id===id); if(s)return s.text;
+  if(level && UNIT_SKILLS_BY_LEVEL[level] && UNIT_SKILLS_BY_LEVEL[level][id]) return UNIT_SKILLS_BY_LEVEL[level][id].text;
   if(UNIT_SKILLS[id])return UNIT_SKILLS[id].text;
   return id;
 }
-function skillMeta(id){ return SKILLS.find(x=>x.id===id) || UNIT_SKILLS[id] || {id,strand:strandOf(id),text:skillText(id)}; }
+function skillMeta(id, level = null){ return SKILLS.find(x=>x.id===id) || (level && UNIT_SKILLS_BY_LEVEL[level] && UNIT_SKILLS_BY_LEVEL[level][id]) || UNIT_SKILLS[id] || {id,strand:strandOf(id,level),text:skillText(id,level)}; }
 const ELICITATION_BY_FUNCTION={
   describe:{
     move:'Ask the learner to describe a real or imagined place/person/picture. Do not ask only yes/no.',
@@ -158,8 +166,8 @@ const ELICITATION_BY_FUNCTION={
     evidence:'Relevant answer that keeps the exchange alive.'
   }
 };
-function elicitationFunction(id){
-  const u=UNIT_SKILLS[id];
+function elicitationFunction(id, level = null){
+  const u=(level && UNIT_SKILLS_BY_LEVEL[level] && UNIT_SKILLS_BY_LEVEL[level][id]) || UNIT_SKILLS[id];
   if(u){
     if(u.step==='1') return u.strand==='GRA'?'present_continuous':'describe';
     if(u.step==='2') return 'past';
@@ -177,28 +185,29 @@ function elicitationFunction(id){
   if(txt.includes('conversation')||txt.includes('exchange')||txt.includes('keep')) return 'everyday';
   return 'everyday';
 }
-function skillPlan(id){
-  const fn=elicitationFunction(id), plan=ELICITATION_BY_FUNCTION[fn]||ELICITATION_BY_FUNCTION.everyday;
-  return {id,fn,...plan,skill:skillText(id)};
+function skillPlan(id, level = null){
+  const fn=elicitationFunction(id, level), plan=ELICITATION_BY_FUNCTION[fn]||ELICITATION_BY_FUNCTION.everyday;
+  return {id,fn,...plan,skill:skillText(id, level)};
 }
-function planText(ids){
+function planText(ids, level = null){
   if(!ids||!ids.length)return 'No specific target. Keep the learner talking and listen for interests.';
-  return ids.map((id,i)=>{const p=skillPlan(id); return `${i===0?'PRIMARY':'WATCH'} ${id} (${p.fn})
+  return ids.map((id,i)=>{const p=skillPlan(id, level); return `${i===0?'PRIMARY':'WATCH'} ${id} (${p.fn})
 - Skill: ${p.skill}
 - Elicitation move: ${p.move}
 - Strong question: ${p.question}
 - If short/stuck: ${p.fallback}
 - Judgeable evidence: ${p.evidence}`;}).join('\n\n');
 }
-function missReason(score){
+function missReason(score, level = null){
   const c=Number(score&&score.confidence||0);
-  if(c>=0.7)return 'Strong evidence; counts as a qualifying sighting.';
+  const bar = level ? ownBar(level) : 0.7;
+  if(c>=bar)return 'Strong evidence; counts as a qualifying sighting.';
   if(c>=FLOOR)return 'Partial evidence; mark emerging but ask one more scaffolded follow-up next time.';
   if(score&&score.evidence)return 'Evidence too weak for this target; Zoe should elicit a clearer answer.';
   return 'No evidence found. Likely Zoe did not create a chance, learner stayed off-target, or the chat was too short.';
 }
-function sentenceStarterFor(id){
-  const p=skillPlan(id), fn=p.fn;
+function sentenceStarterFor(id, level = null){
+  const p=skillPlan(id, level), fn=p.fn;
   if(fn==='self_intro') return "My name is __. I am __. I am from __.";
   if(fn==='describe') return "I can see __. It is __. A person is __.";
   if(fn==='present_continuous') return "He is __. She is __. They are __.";
@@ -207,10 +216,10 @@ function sentenceStarterFor(id){
   if(fn==='future') return "Tomorrow, I will __. I want to __.";
   return "I see __. I like __. It is __.";
 }
-function studentMission(id){
+function studentMission(id, level = null){
   if(!id) return {title:'Talk with Zoe', micro:'Answer in English. Small answers are okay.', starter:'I think __.'};
-  const p=skillPlan(id);
-  return {title:p.skill.replace(/^I can /,'Try to '), micro:p.question, starter:sentenceStarterFor(id)};
+  const p=skillPlan(id, level);
+  return {title:p.skill.replace(/^I can /,'Try to '), micro:p.question, starter:sentenceStarterFor(id, level)};
 }
 function supportIntent(text){
   const t=(text||'').toLowerCase();
@@ -226,15 +235,15 @@ function sessionStage(turns){
   if(turns<=4) return 'extension';
   return 'recap / close';
 }
-function chatGoalFor(primary, topic){
+function chatGoalFor(primary, topic, level = null){
   if(!primary) return {phase:'warm-up', aim:'Help the learner answer in English.', success:'Learner says anything meaningful in English.', easier:'Give a choice question.'};
-  const p=skillPlan(primary);
-  return {phase:'warm-up', primary, topic:topic?topic.topic:null, aim:p.skill, success:p.evidence, strong:p.question, easier:p.fallback.replace(/^If[^:]*:\s*/,''), starter:sentenceStarterFor(primary)};
+  const p=skillPlan(primary, level);
+  return {phase:'warm-up', primary, topic:topic?topic.topic:null, aim:p.skill, success:p.evidence, strong:p.question, easier:p.fallback.replace(/^If[^:]*:\s*/,''), starter:sentenceStarterFor(primary, level)};
 }
-function learnerRecap(scores, aimed){
+function learnerRecap(scores, aimed, level = null){
   const strong=(scores||[]).filter(s=>aimed.includes(s.id)&&Number(s.confidence)>=0.7);
   const partial=(scores||[]).filter(s=>aimed.includes(s.id)&&Number(s.confidence)>=0.3&&Number(s.confidence)<0.7);
-  if(strong.length) return 'You did it — I heard clear evidence for '+strong.map(s=>skillText(s.id).replace(/^I can /,'')).join('; ')+'.';
+  if(strong.length) return 'You did it — I heard clear evidence for '+strong.map(s=>skillText(s.id, level).replace(/^I can /,'')).join('; ')+'.';
   if(partial.length) return 'Almost there: you gave a good start. Next time, add one more detail.';
   return 'Good try. Next time Zoe will make the question smaller.';
 }
@@ -442,8 +451,8 @@ const TOPIC_AFFINITY={
   "My name and where I'm from":["self_intro"]
 };
 // Map a target skill's step+strand to the function it most needs.
-function skillFunction(skillId){
-  const u=UNIT_SKILLS[skillId]; if(!u) return elicitationFunction(skillId);
+function skillFunction(skillId, level = null){
+  const u=(level && UNIT_SKILLS_BY_LEVEL[level] && UNIT_SKILLS_BY_LEVEL[level][skillId]) || UNIT_SKILLS[skillId]; if(!u) return elicitationFunction(skillId, level);
   const step=u.step, strand=u.strand;
   if(step==='1') return strand==='GRA'?'present_continuous':'describe';
   if(step==='2') return 'past';
@@ -472,7 +481,7 @@ function pickTopic(mem, targetSkill, apiTopics = []){
   let pool=bank.filter(t=>!recent.includes(t.topic));
   if(!pool.length) pool=bank; // all used recently → allow reuse
   // 1) prefer topics that ELICIT the target skill's function (skill-aware)
-  const fn=targetSkill?skillFunction(targetSkill):null;
+  const fn=targetSkill?skillFunction(targetSkill, mem.level):null;
   if(targetSkill==='A1-VOC-01'){
     const exact=bank.find(t=>t.topic==="My name and where I'm from");
     if(exact && !recent.includes(exact.topic)) return exact;
@@ -734,12 +743,12 @@ function App(){
     const flat=flatTargets(mctx, activeModel);
     const primary=flat[0]; const watching=flat.slice(1);
     const topic=topicArg!==undefined?topicArg:currentTopic; // explicit arg wins; else state
-    const primaryLine = primary? ('PRIMARY skill to steer toward: '+primary+' — '+skillText(primary)) : 'PRIMARY: keep them talking';
-    const watchLine = watching.length? ('\nAlso fine if these come up: '+watching.map(id=>id+' ('+skillText(id)+')').join('; ')) : '';
-    const topicLine = topic? ('\nTODAY\u2019S TOPIC: "'+topic.topic+'" ('+topic.theme+'). Use this as the setting to practise the PRIMARY skill. Openers you can adapt: '+topic.starters) : '';
+    const primaryLine = primary? ('PRIMARY skill to steer toward: '+primary+' — '+skillText(primary, mctx.level)) : 'PRIMARY: keep them talking';
+    const watchLine = watching.length? ('\nAlso fine if these come up: '+watching.map(id=>id+' ('+skillText(id, mctx.level)+')').join('; ')) : '';
+    const topicLine = topic? ('\nTODAY’S TOPIC: "'+topic.topic+'" ('+topic.theme+'). Use this as the setting to practise the PRIMARY skill. Openers you can adapt: '+topic.starters) : '';
     let frame;
     const allTargets=[primary,...watching].filter(Boolean);
-    const et=planText(allTargets);
+    const et=planText(allTargets, mctx.level);
     if(activeModel==='unit'){ const u=activeStep(mctx);
       frame=prompts.convUnit.replace('{{UNITNAME}}',u?u.name:'(complete)').replace('{{UNITFOCUS}}',u?u.focus:'').replace('{{TARGETS}}',primaryLine+watchLine).replace('{{ELICITATION}}',et);
     } else { frame=prompts.convSkill.replace('{{TARGETS}}',primaryLine+watchLine).replace('{{ELICITATION}}',et); }
@@ -747,7 +756,7 @@ function App(){
     const lastLearner=[...curMsgs].reverse().find(m=>m.role==='me');
     const intent=supportIntent(lastLearner&&lastLearner.text);
     const phase=sessionStage(curMsgs.filter(m=>m.role==='me').length);
-    const goal=chatGoalFor(primary, topic);
+    const goal=chatGoalFor(primary, topic, mctx.level);
     const arc=`\nSESSION ARC: This is a 5-7 minute mini-lesson, not random chat. Current phase: ${phase}. Aim: ${goal.aim||primaryLine}. Success evidence: ${goal.success||'meaningful answer'}. If the learner asks for help or is stuck, respond to that first, then give one easier frame. By turn 5+, celebrate one thing and ask one closing/recap question.`;
     const support=intent?`\nLEARNER SUPPORT SIGNAL: ${intent}. First handle this: ${intent==='example'?'give one simple example, then ask them to try':intent==='easier'?'make the question smaller and offer a sentence frame':intent==='repeat'?'repeat in simpler words':intent==='affect'?'validate the feeling briefly and switch to an easier/fun choice question':'support'}.`:'';
     return `${prompts.base}\n\n${profileFor(level)}\n\n${frame}${topicLine}${arc}${support}\n${mctx.interests?('\nLEARNER INTERESTS: '+mctx.interests):''}${(mctx.last_topics&&mctx.last_topics.length)?('\nRECENT TOPICS (avoid repeating): '+mctx.last_topics.join(', ')):''}\n\nCONVERSATION SO FAR:\n${convo||'(none — you open)'}\n\nReply with ONLY Zoe's next short spoken turn.`;
@@ -759,7 +768,7 @@ function App(){
     const primary=flatTargets(mctx, activeModel)[0];
     const topic=pickTopic(mctx, primary, topicsDataArg || apiTopics);
     setCurrentTopic(topic);
-    setChatGoal(chatGoalFor(primary, topic));
+    setChatGoal(chatGoalFor(primary, topic, mctx.level));
     setLlmLive(null);
     const activeChatNum = chatOverride || chatNum;
 
@@ -782,18 +791,18 @@ function App(){
         setLlmLive(true);
       } catch (err) {
         console.error("Failed to start API conversation:", err);
-        fallbackZoeOpens(activeChatNum, activeModel, primary, topic);
+        fallbackZoeOpens(activeChatNum, activeModel, primary, topic, mctx.level);
       } finally {
         setBusy(false);
       }
     } else {
-      fallbackZoeOpens(activeChatNum, activeModel, primary, topic);
+      fallbackZoeOpens(activeChatNum, activeModel, primary, topic, mctx.level);
       setBusy(false);
     }
   }
 
-  function fallbackZoeOpens(activeChatNum, activeModel, primary, topic) {
-    const plannedOpen=primary ? ('Hi! I’m Zoe. '+skillPlan(primary).question) : "Hi! I'm Zoe. What's your name?";
+  function fallbackZoeOpens(activeChatNum, activeModel, primary, topic, lvl) {
+    const plannedOpen=primary ? ('Hi! I’m Zoe. '+skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
     setMsgs([
       {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(topic?(' — topic: '+topic.topic):'')},
       {role:'zoe',text:plannedOpen}
@@ -845,21 +854,21 @@ function App(){
     } else {
       const intent=supportIntent(text);
       let reply=null;
-      if(intent && LLM_CONFIG.mode==='runtime') reply=localSupportReply(intent, flatTargets(mem)[0]);
+      if(intent && LLM_CONFIG.mode==='runtime') reply=localSupportReply(intent, flatTargets(mem)[0], level);
       const r=reply?{ok:false,text:''}:await callLLM(buildConvPrompt(nm),"conv"); setLlmLive(reply?false:r.ok);
       setMsgs(m=>[...m,{role:'zoe',text:reply || (r.ok?r.text.trim():mockZoe(nm.length,text))}]); setBusy(false);
     }
   }
-  function localSupportReply(intent, primary){
-    const p=primary?skillPlan(primary):null;
-    if(intent==='example') return 'Sure. Example: '+(p?sentenceStarterFor(primary):'I like football because it is fun.')+' Now you try.';
+  function localSupportReply(intent, primary, lvl){
+    const p=primary?skillPlan(primary, lvl):null;
+    if(intent==='example') return 'Sure. Example: '+(p?sentenceStarterFor(primary, lvl):'I like football because it is fun.')+' Now you try.';
     if(intent==='easier') return p?('Of course. '+p.fallback.replace(/^If[^:]*:\s*/,'')):'Of course. Say one word first.';
     if(intent==='repeat') return p?('Sure — '+p.question):'Sure — can you say one small thing?';
     if(intent==='affect') return 'That is okay. Let’s make it easy. Choose one: football, food, or school?';
     return null;
   }
   function mockZoe(n, latestText){
-    const primary=flatTargets(mem)[0], p=primary?skillPlan(primary):null;
+    const primary=flatTargets(mem)[0], p=primary?skillPlan(primary, level):null;
     const learner=[...msgs].reverse().find(m=>m.role==='me');
     const txt=(latestText || (learner&&learner.text)||'').toLowerCase();
     if(/my name|i am|i'm|from/.test(txt) && /\b(ten|eleven|twelve|[0-9]{1,2})\b/.test(txt)) return "Nice to meet you! Tell me one thing you like.";
@@ -893,7 +902,7 @@ function App(){
     if(!scores){ dbg.used_mock=true; scores=skillIds.map((id,i)=>({id,confidence:i===0?0.8:(i===1?0.55:0.4),prompted:i>0,evidence:'(mock fallback — judge failed)'})); }
     const byId={}; scores.forEach(s=>byId[s.id]=s);
     scores=skillIds.map(id=>byId[id]||{id,confidence:0,prompted:false,evidence:''});
-    scores=scores.map(s=>({...s,miss_reason:missReason(s)}));
+    scores=scores.map(s=>({...s,miss_reason:missReason(s, level)}));
     setJudgeDebug(prev=>({...prev,[label]:dbg}));
     return scores;
   }
@@ -968,10 +977,10 @@ function App(){
           setLevel(memoryData.level);
         }
 
-        const learnerWin = learnerRecap(scores, aimed);
+        const learnerWin = learnerRecap(scores, aimed, level);
         setMsgs(m=>{
           const filtered = m.filter(msg => msg.text !== 'Chat ended — judging...');
-          return [...filtered,{role:'sys good',text:learnerWin+' '+(chg.length?('Progress: '+chg.map(c=>c.id+' '+c.from+'→'+c.to).join(', ')):'No state change yet')+' · aimed '+aimed.length+', hit '+hit.length+' · next: '+(merged.due_next.primary?skillPlan(merged.due_next.primary).question:'free talk')}];
+          return [...filtered,{role:'sys good',text:learnerWin+' '+(chg.length?('Progress: '+chg.map(c=>c.id+' '+c.from+'→'+c.to).join(', ')):'No state change yet')+' · aimed '+aimed.length+', hit '+hit.length+' · next: '+(merged.due_next.primary?skillPlan(merged.due_next.primary, level).question:'free talk')}];
         });
         setLlmLive(true);
       } catch (err) {
@@ -982,14 +991,14 @@ function App(){
       }
     } else {
       const primaryIds = model==='unit'
-        ? Array.from(new Set([...targetsList(), ...mem.emerging.filter(id=>UNIT_SKILLS[id])]))
+        ? Array.from(new Set([...targetsList(), ...mem.emerging.filter(id=>(UNIT_SKILLS_BY_LEVEL[level] && UNIT_SKILLS_BY_LEVEL[level][id]) || UNIT_SKILLS[id])]))
         : Array.from(new Set([...targetsList(), ...mem.emerging.filter(id=>id.startsWith(level))]));
       const primaryScores = await runJudge(primaryIds,'primary');
       let otherScores=null, otherLabel='';
       if(model==='skill'){
         const activeUnits = UNITS[level] || UNITS["A1"] || []; const uids=activeUnits.flatMap(u=>u.skills.map(s=>s.id)).slice(0,8); otherScores=await runJudge(uids,'other'); otherLabel='units';
       } else {
-        const sids=byLevel('A1').slice(0,8).map(s=>s.id); otherScores=await runJudge(sids,'other'); otherLabel='micro-skill';
+        const sids=byLevel(level).slice(0,8).map(s=>s.id); otherScores=await runJudge(sids,'other'); otherLabel='micro-skill';
       }
       setJudgeOut(primaryScores);
       setDualJudge({primary:{label:model,scores:primaryScores},other:{label:otherLabel,scores:otherScores}});
@@ -1008,13 +1017,13 @@ function App(){
         timestamp:new Date().toISOString(),turns_total:turnCount,
         topic: currentTopic? currentTopic.topic : null,
         aimed_at:aimed, hit_targets:hit,
-        skills_evidenced:primaryScores.map(s=>({id:s.id,name:skillText(s.id),confidence:s.confidence,prompted:s.prompted,evidence:s.evidence||'',reason:s.miss_reason||missReason(s)})),
-        state_changes:chg,
+        skills_evidenced:primaryScores.map(s=>({id:s.id,name:skillText(s.id, level),confidence:s.confidence,prompted:s.prompted,evidence:s.evidence||'',reason:s.miss_reason||missReason(s, level)})),
+        state_changes:chg.map(c=>({...c,name:skillText(c.id, level)})),
         transcript:msgs.filter(m=>m.role!=='sys').map(m=>({speaker:m.role==='zoe'?'zoe':'learner',text:m.text}))};
       setSessions(p=>[...p,sLog]);
       setHistory(h=>[...h,{chat:chatNum,level,model,owned:merged.owned.length,emerging:merged.emerging.length,changes:chg.length,turns:turnCount,aimed:aimed.length,hit:hit.length}]);
-      const learnerWin = learnerRecap(primaryScores, aimed);
-      setMsgs(m=>[...m,{role:'sys good',text:learnerWin+' '+(chg.length?('Progress: '+chg.map(c=>c.id+' '+c.from+'→'+c.to).join(', ')):'No state change yet')+' · aimed '+aimed.length+', hit '+hit.length+' · next: '+(merged.due_next.primary?skillPlan(merged.due_next.primary).question:'free talk')}]);
+      const learnerWin = learnerRecap(primaryScores, aimed, level);
+      setMsgs(m=>[...m,{role:'sys good',text:learnerWin+' '+(chg.length?('Progress: '+chg.map(c=>c.id+' '+c.from+'→'+c.to).join(', ')):'No state change yet')+' · aimed '+aimed.length+', hit '+hit.length+' · next: '+(merged.due_next.primary?skillPlan(merged.due_next.primary, level).question:'free talk')}]);
       setBusy(false);
     }
   }
@@ -1094,7 +1103,7 @@ function App(){
         </div>
       </div>
       <div className="statline">Chat #{chatNum} · {model} · {level} · turns: {turnCount} · lifetime talks: {mem.effort.times_spoken_total} · LLM: {llmLive===null?'—':llmLive?'live':'mock'}</div>
-      {(()=>{const ms=studentMission(flatTargets(mem)[0]); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()}
+      {(()=>{const ms=studentMission(flatTargets(mem)[0], level); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()}
       <div className="chat" ref={chatRef}>
         {msgs.map((m,i)=>(
           <div key={i} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
@@ -1109,7 +1118,7 @@ function App(){
         {busy&&<div className="bub sys">…thinking…</div>}
       </div>
       <div className="quickbar">
-        <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput(studentMission(flatTargets(mem)[0]).starter)}>💡 help me answer</button>
+        <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput(studentMission(flatTargets(mem)[0], level).starter)}>💡 help me answer</button>
         <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput('Can you make it easier?')}>Make it easier</button>
         <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput('Please give me an example.')}>Example</button>
       </div>
@@ -1136,9 +1145,9 @@ function App(){
       <div className="panel">
         {tab==='readme'&&<ReadmeView/>}
         {tab==='memory'&&<MemoryView mem={mem} hl={hl} changes={changes} snapshots={snapshots} dbMemory={dbMemory} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
-        {tab==='judge'&&<JudgeView scores={judgeOut} debug={judgeDebug} backendAnalysis={backendAnalysis} isApiMode={LLM_CONFIG.mode==='api'}/>}
+        {tab==='judge'&&<JudgeView scores={judgeOut} debug={judgeDebug} backendAnalysis={backendAnalysis} isApiMode={LLM_CONFIG.mode==='api'} level={level}/>}
         {tab==='apicalls'&&<ApiCallsView logs={apiLogs} onClear={()=>setApiLogs([])}/>}
-        {tab==='dual'&&<DualView dual={dualJudge}/>}
+        {tab==='dual'&&<DualView dual={dualJudge} level={level}/>}
         {tab==='session'&&<SessionView sessions={sessions}/>}
         {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)}/>}
@@ -1468,7 +1477,7 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
     <small className="note">owned/emerging hold buckets; confidence is NOT stored here (see Session log). Snapshots show how memory evolved chat by chat.</small>
   </div>);
 }
-function JudgeView({scores,debug,backendAnalysis,isApiMode}){
+function JudgeView({scores,debug,backendAnalysis,isApiMode,level}){
   if(!scores && !backendAnalysis)return<div style={{color:'#8a8678'}}>No judge run yet. Have a short chat, then <b>End chat &amp; judge</b>.</div>;
   const dbg=debug&&debug.primary;
   return(<div>
@@ -1511,18 +1520,18 @@ function JudgeView({scores,debug,backendAnalysis,isApiMode}){
     {scores && scores.map((s,i)=>(<div className="ev" key={i}>
       <span className="conf" style={{color:s.confidence>=0.7?'#23682f':s.confidence>=0.3?'#c8861a':'#b8472f'}}>{Number(s.confidence).toFixed(2)}</span>
       <span className="id">{s.id}</span> {s.prompted?'· prompted':'· unprompted'}
-      <span className="nm">{skillText(s.id)}</span>
+      <span className="nm">{skillText(s.id, level)}</span>
       <div className="confbar"><i style={{width:(s.confidence*100)+'%'}}></i></div>
       {s.evidence&&<div style={{marginTop:5,fontStyle:'italic',color:'#4a443c'}}>"{s.evidence}"</div>}
-      <div style={{marginTop:5,fontSize:11,color:'#6b6258'}}><b>Reason:</b> {s.miss_reason||missReason(s)}</div>
-      <div style={{marginTop:5,fontSize:11,color:'#5b50c4'}}><b>Next Zoe move:</b> {skillPlan(s.id).fallback}</div>
+      <div style={{marginTop:5,fontSize:11,color:'#6b6258'}}><b>Reason:</b> {s.miss_reason||missReason(s, level)}</div>
+      <div style={{marginTop:5,fontSize:11,color:'#5b50c4'}}><b>Next Zoe move:</b> {skillPlan(s.id, level).fallback}</div>
     </div>))}
     {dbg&&dbg.raw&&<details style={{marginTop:8}}><summary className="lbl" style={{cursor:'pointer'}}>raw judge output</summary><div className="mono" style={{whiteSpace:'pre-wrap'}}>{dbg.raw}</div></details>}
     <small className="note">≥0.70 strong evidence · ≥0.30 emerging · &lt;0.30 ignored. Reasons show whether Zoe needs a better elicitation follow-up.</small>
   </div>);
 }
 
-function DualView({dual}){
+function DualView({dual,level}){
   if(!dual)return<div style={{color:'#8a8678'}}>No comparison yet. End a chat — the same transcript is judged under BOTH models and shown side by side.</div>;
   const col=(c)=>c>=0.7?'#23682f':c>=0.3?'#c8861a':'#b8472f';
   const render=(blk)=>(<div style={{flex:1,minWidth:0}}>
@@ -1530,7 +1539,7 @@ function DualView({dual}){
     {blk.scores.map((s,i)=>(<div className="ev" key={i} style={{padding:'5px 7px'}}>
       <span className="conf" style={{color:col(s.confidence)}}>{Number(s.confidence).toFixed(2)}</span>
       <span className="id" style={{fontSize:'10px'}}>{s.id}</span>
-      <span className="nm" style={{fontSize:'11px'}}>{skillText(s.id)}</span>
+      <span className="nm" style={{fontSize:'11px'}}>{skillText(s.id, level)}</span>
     </div>))}
   </div>);
   return(<div><div className="warn">Same transcript, judged two ways. The conversation was steered by the <b>{dual.primary.label}</b> model; this shows how each curriculum would score it.</div>
@@ -1563,7 +1572,7 @@ function DueView({model,mem,level,isApiMode,showClientSide}){
     const watching = due.watching || [];
     return(<div><div className="lbl">due_next — from backend (GET /users/me/memory)</div>
       {!primary&&<div style={{color:'#8a8678'}}>Nothing due (all complete at this level).</div>}
-      {primary&&<div className="due"><div className="b">#1 · primary target</div><b>{primary}</b><br/>{skillText(primary,level)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(primary).question}</span></div>}
+      {primary&&<div className="due"><div className="b">#1 · primary target</div><b>{primary}</b><br/>{skillText(primary,level)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(primary, level).question}</span></div>}
       {watching.map((id,i)=>(<div className="due" key={i}><div className="b">#{i+2} · watching</div><b>{id}</b><br/>{skillText(id,level)}</div>))}
       {showClientSide&&(()=>{const picks=model==='unit'?dueUnit(mem).picks:dueSkill(mem,level); const u=model==='unit'?activeStep(mem):null; return(<><div className="lbl" style={{marginTop:16,color:'var(--purple)'}}>🧮 Client-side computed (for comparison)</div>
         {model==='unit'&&u&&<div className="warn" style={{opacity:0.7}}>Active unit: <b>{u.name}</b></div>}
@@ -1576,7 +1585,7 @@ function DueView({model,mem,level,isApiMode,showClientSide}){
   return(<div><div className="lbl">due_next — what Zoe is steered toward {model==='unit'?'(units mode)':'(micro-skill mode)'}</div>
     {model==='unit'&&u&&<div className="warn">Active unit: <b>{u.name}</b> — {u.focus}</div>}
     {picks.length===0&&<div style={{color:'#8a8678'}}>Nothing due (all complete at this level/unit).</div>}
-    {picks.map((d,i)=>(<div className="due" key={i}><div className="b">#{i+1} · {d.why}</div><b>{d.id}</b><br/>{skillText(d.id,level)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(d.id).question}</span><br/><span style={{fontSize:11,color:'#6b6258'}}>If short/stuck: {skillPlan(d.id).fallback}</span></div>))}
+    {picks.map((d,i)=>(<div className="due" key={i}><div className="b">#{i+1} · {d.why}</div><b>{d.id}</b><br/>{skillText(d.id,level)}<br/><span style={{fontSize:11,color:'#5b50c4'}}>Zoe move: {skillPlan(d.id, level).question}</span><br/><span style={{fontSize:11,color:'#6b6258'}}>If short/stuck: {skillPlan(d.id, level).fallback}</span></div>))}
     <small className="note">This exact list plus the Teacher Invisible Plan is injected into Zoe's prompt. Recomputed after every chat.</small>
   </div>);
 }
