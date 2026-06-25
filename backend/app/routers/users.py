@@ -3,7 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
-from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse
+from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse
+from ..core.curriculum_data import UNITS, active_step, unit_complete, bucket_of
+
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -92,5 +94,71 @@ async def update_user_memory(
     db.add(user)
     await db.flush()
     return {"persona_memory": user.persona_memory}
+
+
+@router.get("/me/garden", response_model=GardenResponse)
+async def get_user_garden(user: User = Depends(get_current_user)):
+    level = user.level or "A1"
+    progress = user.skills_progress or {}
+    
+    units_list = UNITS.get(level.upper(), [])
+    active_unit = active_step(progress, level)
+    active_index = int(active_unit["step"]) if active_unit else 5
+    
+    steps_data = []
+    for u in units_list:
+        skills_data = []
+        total_points = 0
+        
+        for s in u["skills"]:
+            status = bucket_of(progress, s["id"])
+            sightings = progress.get("sightings", {}).get(s["id"], 0)
+            
+            # Map sightings to growth stage
+            if sightings == 0:
+                stage = 0
+            elif sightings == 1:
+                stage = 1
+            elif sightings == 2:
+                stage = 2
+            else:
+                stage = 3
+                
+            if status == "owned":
+                total_points += 2
+            elif status == "emerging":
+                total_points += 1
+                
+            skills_data.append({
+                "id": s["id"],
+                "strand": s["strand"],
+                "text": s["text"],
+                "status": status,
+                "sightings": sightings,
+                "growth_stage": stage
+            })
+            
+        max_points = len(u["skills"]) * 2
+        fraction = total_points / max_points if max_points > 0 else 0.0
+        
+        steps_data.append({
+          "step": int(u["step"]),
+          "name": u["name"],
+          "focus": u["focus"],
+          "progress_percentage": round(fraction * 100, 1),
+          "growth_stage": 3 if unit_complete(progress, u) else 2 if fraction > 0.0 else 0,
+          "is_completed": unit_complete(progress, u),
+          "skills": skills_data
+        })
+        
+    return {
+        "level": level,
+        "level_label": user.level_label or "First Words",
+        "theme": "The Clearing" if level.upper() == "A1" else "The Young Garden",
+        "active_step_index": active_index,
+        "recommended_topic": "Today, I wanted to talk about cricket. Shall we?",
+        "steps": steps_data
+    }
+
 
 

@@ -73,5 +73,34 @@ class UserMemoryResponse(BaseModel):
     persona_memory: dict = {}
 
 
+class GardenSkill(BaseModel):
+    id: str
+    strand: str
+    text: str
+    status: str  # "owned", "emerging", "locked"
+    sightings: int
+    growth_stage: int
+
+
+class GardenStep(BaseModel):
+    step: int
+    name: str
+    focus: str
+    progress_percentage: float
+    growth_stage: int
+    is_completed: bool
+    skills: list[GardenSkill]
+
+
+class GardenResponse(BaseModel):
+    level: str
+    level_label: str
+    theme: str
+    active_step_index: int
+    recommended_topic: str
+    steps: list[GardenStep]
+
+
+
 
 
