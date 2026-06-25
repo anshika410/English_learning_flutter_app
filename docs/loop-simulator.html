@@ -80,6 +80,41 @@ small.note{display:block;color:var(--grey);font-size:10.5px;margin-top:6px}
 .ubar{height:7px;background:#eee;border-radius:4px;overflow:hidden;margin:4px 0 8px}
 .ubar i{display:block;height:100%;background:var(--green)}
 .hit{color:var(--green-dk);font-weight:700}.miss{color:var(--rust);font-weight:700}
+/* Garden progress CSS styling */
+.garden-map-container { display: flex; flex-direction: column; background: #e8f5e9; border: 1.5px solid var(--ink); border-radius: 12px; padding: 12px; height: 100%; min-height: 500px; box-shadow: 2px 2px 0 var(--ink); overflow: hidden; position: relative; }
+.garden-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px dashed var(--ink); padding-bottom: 8px; margin-bottom: 12px; }
+.garden-header h3 { margin: 0; color: #2e7d32; font-family: sans-serif; font-size: 16px; font-weight: 700; }
+.garden-header .active-badge { background: #c8e6c9; color: #1b5e20; border: 1px solid #81c784; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+.garden-viewport { position: relative; height: 950px; border-radius: 8px; background: #c8e6c9; border: 1px solid #a5d6a7; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
+.path-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+.garden-step-node { position: absolute; display: flex; align-items: center; width: 290px; height: 140px; z-index: 2; }
+.garden-step-node.step-left { left: 16px; flex-direction: row; }
+.garden-step-node.step-right { right: 16px; flex-direction: row-reverse; }
+.step-label { background: #fffde7; border: 1.5px solid var(--ink); border-radius: 8px; padding: 6px 10px; width: 140px; box-shadow: 1.5px 1.5px 0 var(--ink); z-index: 3; }
+.step-num { font-size: 9px; font-weight: 800; color: var(--grey); text-transform: uppercase; }
+.step-title { font-size: 12px; font-weight: 700; color: var(--ink); margin: 1px 0; }
+.step-focus { font-size: 9px; color: #666; line-height: 1.2; }
+.garden-step-node.active .step-label { border-color: var(--blue); box-shadow: 1.5px 1.5px 0 var(--blue); }
+.raised-bed-tile { width: 110px; height: 110px; margin: 0 10px; display: flex; justify-content: center; align-items: center; z-index: 3; }
+.tile-surface { width: 90px; height: 90px; background: #8d6e63; border: 2px solid #5d4037; border-radius: 12px; box-shadow: 0 6px 0 #3e2723, inset 0 2px 4px rgba(0,0,0,0.15); display: flex; justify-content: center; align-items: center; transform: rotateX(25deg); }
+.grid-2x2 { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); width: 100%; height: 100%; padding: 4px; gap: 4px; }
+.grid-slot { position: relative; border-radius: 4px; display: flex; justify-content: center; align-items: center; overflow: visible; background: #795548; width: 34px; height: 34px; }
+.grid-slot.locked { background: #4e342e; opacity: 0.5; }
+.slot-soil { position: absolute; width: 80%; height: 80%; background: #3e2723; border-radius: 50%; bottom: 2px; }
+.garden-avatar { position: absolute; width: 32px; height: 32px; background: #ff5722; color: #fff; border: 2px solid var(--ink); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 15px; box-shadow: 2px 2px 0 var(--ink); z-index: 10; animation: bounce-avatar 2s infinite; }
+@keyframes bounce-avatar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+/* Plants & Sprout CSS */
+.plant-sprout { display: flex; position: absolute; bottom: 8px; align-items: flex-end; }
+.leaf-left, .leaf-right { width: 8px; height: 12px; background: #4caf50; border-radius: 0 8px; transform: rotate(-35deg); transform-origin: bottom right; }
+.leaf-right { border-radius: 8px 0; transform: rotate(35deg); transform-origin: bottom left; margin-left: -2px; }
+.plant-stem { width: 3px; height: 22px; background: #4caf50; border-radius: 2px; position: absolute; bottom: 6px; }
+.plant-stem.tall { height: 34px; }
+.plant-bud { width: 10px; height: 12px; border-radius: 5px 5px 0 0; position: absolute; bottom: 26px; animation: pulse-bud 1.5s infinite ease-in-out; }
+@keyframes pulse-bud { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+.plant-bloom { position: absolute; bottom: 34px; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; }
+.petal { position: absolute; width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); animation: spin-petal 10s infinite linear; }
+.petal-center { position: absolute; width: 8px; height: 8px; border-radius: 50%; z-index: 2; border: 1px solid rgba(0,0,0,0.1); }
+@keyframes spin-petal { 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -1139,11 +1174,12 @@ function App(){
         <select value={level} onChange={e=>changeLevel(e.target.value)}>{['A1','A2','B1','B2','C1','C2'].map(l=><option key={l}>{l}</option>)}</select>
       </div>
       <div className="tabs">
-        {[['readme','📖 Read me'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
+        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
           <div key={k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{lab}</div>))}
       </div>
       <div className="panel">
         {tab==='readme'&&<ReadmeView/>}
+        {tab==='garden'&&<GardenView mem={mem}/>}
         {tab==='memory'&&<MemoryView mem={mem} hl={hl} changes={changes} snapshots={snapshots} dbMemory={dbMemory} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='judge'&&<JudgeView scores={judgeOut} debug={judgeDebug} backendAnalysis={backendAnalysis} isApiMode={LLM_CONFIG.mode==='api'} level={level}/>}
         {tab==='apicalls'&&<ApiCallsView logs={apiLogs} onClear={()=>setApiLogs([])}/>}
@@ -1630,6 +1666,127 @@ function UnitsView({mem}){
     <small className="note">A level-up = all 5 steps complete. The active step drives due_next. This is the units answer to the "level-up rule" hole.</small>
   </div>);
 }
+function GardenView({mem}) {
+  const level = mem.level || 'A1';
+  const steps = UNITS[level] || UNITS['A1'] || [];
+  const active = activeStep(mem);
+  const activeStepNum = active ? active.step : 5;
+  const sightings = mem.sightings || {};
+
+  const renderPlant = (skill) => {
+    const count = sightings[skill.id] || 0;
+    
+    const colors = {
+      VOC: { bud: '#ff8da1', bloomBg: '#ffccd5', center: '#d90429' },
+      GRA: { bud: '#ffc107', bloomBg: '#fff3cd', center: '#b89500' },
+      FLU: { bud: '#9b5de5', bloomBg: '#e8dbfc', center: '#5a189a' }
+    };
+    
+    const theme = colors[skill.strand] || colors.VOC;
+
+    if (count === 0) {
+      return (
+        <div className="grid-slot locked" key={skill.id} title={`${skill.id} - Locked (0 sightings)`}>
+          <div className="slot-soil"></div>
+        </div>
+      );
+    }
+
+    if (count === 1) {
+      return (
+        <div className="grid-slot" key={skill.id} title={`${skill.id} - Sprouting (1 sighting)`}>
+          <div className="slot-soil"></div>
+          <div className="plant-sprout">
+            <div className="leaf-left"></div>
+            <div className="leaf-right"></div>
+          </div>
+        </div>
+      );
+    }
+
+    if (count === 2) {
+      return (
+        <div className="grid-slot" key={skill.id} title={`${skill.id} - Budding (2 sightings)`}>
+          <div className="slot-soil"></div>
+          <div className="plant-stem"></div>
+          <div className="plant-bud" style={{background: theme.bud}}></div>
+        </div>
+      );
+    }
+
+    // count >= 3
+    return (
+      <div className="grid-slot" key={skill.id} title={`${skill.id} - Bloomed! (${count} sightings)`}>
+        <div className="slot-soil"></div>
+        <div className="plant-stem tall"></div>
+        <div className="plant-bloom">
+          <div className="petal" style={{background: theme.bloomBg}}></div>
+          <div className="petal-center" style={{background: theme.center}}></div>
+        </div>
+      </div>
+    );
+  };
+
+  const avatarStyle = {
+    top: `${(activeStepNum - 1) * 180 + 90}px`,
+    left: (activeStepNum - 1) % 2 === 0 ? '160px' : '210px'
+  };
+
+  return (
+    <div className="garden-map-container">
+      <div className="garden-header">
+        <h3>🏡 {level} Garden Map: {level === 'A1' ? 'The Clearing' : 'The Young Garden'}</h3>
+        <div className="active-badge">Active Step: {activeStepNum}</div>
+      </div>
+      
+      <div className="garden-viewport">
+        {/* Winding Path SVG */}
+        <svg className="path-svg" viewBox="0 0 400 950" preserveAspectRatio="none">
+          <path 
+            d="M 200,0 C 250,150 150,250 200,400 C 250,550 150,650 200,800 C 250,950 150,1050 200,1200" 
+            fill="none" 
+            stroke="#e2f0d9" 
+            strokeWidth="16"
+            strokeLinecap="round"
+          />
+        </svg>
+
+        {/* Floating Avatar */}
+        <div className="garden-avatar" style={avatarStyle} title="You are here!">
+          N
+        </div>
+
+        {/* Alternate Nodes along the path */}
+        {steps.map((u, i) => {
+          const isActive = activeStepNum === u.step;
+          const sideClass = i % 2 === 0 ? 'step-left' : 'step-right';
+
+          return (
+            <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
+              <div className="step-label">
+                <div className="step-num">Step {u.step}</div>
+                <div className="step-title">{u.name}</div>
+                <div className="step-focus" title={u.focus}>{u.focus.substring(0, 42)}...</div>
+              </div>
+
+              <div className="raised-bed-tile">
+                <div className="tile-surface">
+                  <div className="grid-2x2">
+                    {renderPlant(u.skills[0])}
+                    {u.skills[1] ? renderPlant(u.skills[1]) : <div className="grid-slot locked" key="s1"></div>}
+                    {u.skills[2] ? renderPlant(u.skills[2]) : <div className="grid-slot locked" key="s2"></div>}
+                    {u.skills[3] ? renderPlant(u.skills[3]) : <div className="grid-slot locked" key="s3"></div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SettingsView({isApiAuthed,onConfigChange}){
   const [,force]=React.useState(0); const rerender=()=>{force(x=>x+1);if(onConfigChange)onConfigChange();};
   const C=LLM_CONFIG;
