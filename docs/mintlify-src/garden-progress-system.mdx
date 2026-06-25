@@ -1,0 +1,196 @@
+---
+title: "Garden Progress System"
+sidebarTitle: "Garden System"
+description: "Architecture, database specs, API structures, and visual progression logic for the level-aware Garden."
+---
+
+# Garden Progress System
+
+This document outlines the database schema, API responses, backend progression logic, and visual mapping specifications for the level-aware Garden Map progress experience.
+
+---
+
+## 1. Database Architecture (Zero-Migration Schema)
+
+The garden progress system is built on top of the existing SQLite/PostgreSQL `users` table. Instead of creating new database tables, it stores all dynamic checklists, mastery levels, and sightings counts in a single JSON column named `skills_progress`.
+
+### Column Definitions
+*   **`level`** (`VARCHAR(5)`): Determines which CEFR syllabus map is loaded (e.g. `'A1'`, `'A2'`).
+*   **`skills_progress`** (`JSON`): Stores the user's progress arrays and sighting counts.
+
+### JSON Schema
+```json
+{
+  "owned": [
+    "U1-VOC-01",
+    "U1-GRA-01"
+  ],
+  "emerging": [
+    "U1-FLU-01",
+    "U2-VOC-01"
+  ],
+  "sightings": {
+    "U1-VOC-01": 2,
+    "U1-GRA-01": 3,
+    "U1-FLU-01": 1
+  },
+  "strength": {
+    "U1-VOC-01": 1,
+    "U1-GRA-01": 2
+  },
+  "last_seen": {
+    "U1-VOC-01": "2026-06-24",
+    "U1-GRA-01": "2026-06-25"
+  },
+  "effort": {
+    "times_spoken_total": 42
+  }
+}
+```
+
+---
+
+## 2. API Specification (`GET /users/me/garden`)
+
+The mobile client fetches the garden layout via this endpoint. The backend processes the raw database checklists on the fly and returns a pre-computed layout payload.
+
+*   **Method**: `GET`
+*   **Route**: `/users/me/garden`
+*   **Headers**: `Authorization: Bearer JWT_ACCESS_TOKEN`
+
+### Response Payload
+```json
+{
+  "level": "A1",
+  "level_label": "First Words",
+  "theme": "The Clearing",
+  "active_step_index": 1,
+  "recommended_topic": "Today, I wanted to talk about cricket. Shall we?",
+  "steps": [
+    {
+      "step": 1,
+      "name": "Describing the world",
+      "focus": "Moving from naming things to describing them.",
+      "progress_percentage": 50.0,
+      "growth_stage": 2,
+      "is_completed": false,
+      "skills": [
+        {
+          "id": "U1-VOC-01",
+          "strand": "VOC",
+          "text": "I can describe what people look like and how they feel using simple adjectives.",
+          "status": "owned",
+          "sightings": 2,
+          "growth_stage": 2
+        },
+        {
+          "id": "U1-GRA-01",
+          "strand": "GRA",
+          "text": "I can use the present continuous to describe what is happening now — She is running.",
+          "status": "emerging",
+          "sightings": 1,
+          "growth_stage": 1
+        },
+        {
+          "id": "U1-FLU-01",
+          "strand": "FLU",
+          "text": "I can describe a picture or a place using 3–4 connected sentences.",
+          "status": "locked",
+          "sightings": 0,
+          "growth_stage": 0
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## 3. Pure Backend Progression Logic
+
+The backend calculates all user states and step transitions dynamically using three rules:
+
+### A. Skill Mastery Status
+For each skill ID in the active level's curriculum, the backend checks the database arrays:
+*   **`"owned"`**: The skill ID exists in `progress["owned"]`.
+*   **`"emerging"`**: The skill ID exists in `progress["emerging"]` but not in `owned`.
+*   **`"locked"`**: The skill ID is in neither array.
+
+### B. Plant Growth Stages
+Sightings are mapped directly to four visual growth integers:
+*   **`growth_stage = 0`** (0 sightings): Empty slot / soil.
+*   **`growth_stage = 1`** (1 sighting): Small sprout.
+*   **`growth_stage = 2`** (2 sightings): Leafy stem with closed bud.
+*   **`growth_stage = 3`** (3+ sightings): Fully open bloomed flower.
+
+### C. Step Completion Rule (The "Grammar Matures Later" Gate)
+A step (raised bed) is complete (`is_completed = true`) only when:
+1.  All `VOC` (Vocabulary) and `FLU` (Fluency) skills in that step are **`"owned"`** (mastered).
+2.  All `GRA` (Grammar) skills in that step are **at least `"emerging"`** (or `"owned"`). 
+*(Note: Grammar skills do not block step completion as long as the student has attempted them at least once.)*
+
+### D. Active Step Selection
+The client avatar stands at the step matching `active_step_index`.
+*   **Algorithm**: The backend loops from Step 1 to Step 5. It returns the step number of the **first incomplete step** (`is_completed == false`).
+*   **Fallback**: If all 5 steps are completed, it returns `5` (allowing the avatar to stand at the end of the map).
+
+### E. Progress Percentage Weighting ($f_U$)
+For a step containing $N$ skills, points are allocated based on status weights:
+*   `owned` $\rightarrow$ `2` points
+*   `emerging` $\rightarrow$ `1` point
+*   `locked` $\rightarrow$ `0` points
+
+$$f_U = \frac{\sum_{\text{skills in } U} \text{Weight}}{2 \times N} \times 100\%$$
+
+---
+
+## 4. Visual Mapping Specifications
+
+The front-end client reads the API payload and translates it to visual layout attributes:
+
+*   **Theme Background**:
+    *   If `level == "A1"`, load `"The Clearing"` layout (light green meadow theme).
+    *   If `level != "A1"`, load `"The Young Garden"` layout (densely forested garden theme).
+*   **Alternating Path**:
+    *   For step index $i$ ($0$ to $4$):
+        *   If $i$ is even $\rightarrow$ Render raised bed on the **left** side of the winding path.
+        *   If $i$ is odd $\rightarrow$ Render raised bed on the **right** side of the winding path.
+*   **2x2 Slot Layout**:
+    *   Map `skills[i]` to `Slot i+1` of the bed's 2x2 grid:
+        *   Slot 1: Back-Left
+        *   Slot 2: Back-Right
+        *   Slot 3: Front-Left
+        *   Slot 4: Front-Right
+    *   Render the corresponding plant asset based on `growth_stage` (Empty Soil $\rightarrow$ Sprout $\rightarrow$ Bud $\rightarrow$ Flower).
+*   **Strand Colors**:
+    *   `VOC` $\rightarrow$ Pink Flower
+    *   `GRA` $\rightarrow$ Yellow Flower
+    *   `FLU` $\rightarrow$ Purple Flower
+
+### Status UI Translation Rules
+*   **`"locked"` Status $\rightarrow$ Slatted Bare Soil Tiles (e.g. Steps 3, 4, 5)**:
+    *   *Visual:* The raised bed is rendered as a clean, wooden-slatted flat bed of soil with no plants.
+    *   *Logic:* All skills inside these steps have `status == "locked"` and `sightings == 0`.
+*   **`"emerging"` Status $\rightarrow$ Buds and Sprouts (e.g. Step 2)**:
+    *   *Visual:* The bed contains young plants. Slots display a tiny green sprout (`growth_stage == 1` / 1 sighting) or a green stem topped with a closed, colored bud (`growth_stage == 2` / 2 sightings).
+    *   *Logic:* The user is actively practicing these skills in conversation but has not yet reached mastery thresholds.
+*   **`"owned"` Status $\rightarrow$ Open Bloomed Flowers (e.g. Step 1)**:
+    *   *Visual:* The slots display tall green stems with fully bloomed, open petals colored according to the strand theme.
+    *   *Logic:* The user has successfully demonstrated and passed these skills, earning mastery status.
+
+---
+
+## 5. Key Questions & Discussion Points for the Demo Call
+
+### Q1: What happens when a user completes all 5 steps of the Garden?
+> Once all 5 steps are marked completed (`is_completed = true` for all), the backend detects the level-up state. The student is prompted to transition to the next CEFR level (e.g. A1 $\rightarrow$ A2). The user's `level` in the database is updated to the next level. The next time `/users/me/garden` is called, it loads the new level's steps and resets the `active_step_index` back to `1`.
+
+### Q2: Why are some steps locked? Can a student skip steps?
+> The garden progress is linear. The user avatar stands at `active_step_index`. While the student can see future raised beds, they are rendered as empty, locked wooden grids. The tutor restricts active conversation topics to target only the skills within the current active step.
+
+### Q3: How does the AI Judge score sightings?
+> After each chat conversation ends, the transaction history is processed by the asynchronous LLM Judge. The judge scores the student's usage of specific targeted skills. If a skill has a confidence score matching or exceeding the master threshold (`FLOOR = 0.8`), it increments the sightings count in the database.
+
+### Q4: How is the database optimized for scaling?
+> Because all progress checkmarks and sightings are stored inside a single JSON document (`skills_progress`) rather than separate relational database tables, fetching the garden status requires only a single, fast SQL lookup on the `users` table. This prevents database joins and scales cleanly to millions of users.
