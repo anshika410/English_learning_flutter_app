@@ -633,6 +633,7 @@ function App(){
   const [apiTopics, setApiTopics] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
   const [dbMemory, setDbMemory] = useState({});
+  const [dbGarden, setDbGarden] = useState(null);
   const [backendAnalysis, setBackendAnalysis] = useState(null);
   const [isApiAuthed, setIsApiAuthed] = useState(false);
   const [apiLogs, setApiLogs] = useState([]);
@@ -724,6 +725,12 @@ function App(){
 
         const memoryData = await callEllaAPI('/users/me/memory');
         setDbMemory(memoryData || {});
+        try {
+          const gardenData = await callEllaAPI('/users/me/garden');
+          setDbGarden(gardenData || null);
+        } catch (ge) {
+          console.error("Failed to fetch garden data:", ge);
+        }
 
         let targetLvl = lvl || memoryData.level || 'A1';
         setLevel(targetLvl);
@@ -968,6 +975,12 @@ function App(){
 
         const memoryData = await callEllaAPI('/users/me/memory');
         setDbMemory(memoryData || {});
+        try {
+          const gardenData = await callEllaAPI('/users/me/garden');
+          setDbGarden(gardenData || null);
+        } catch (ge) {
+          console.error("Failed to fetch garden data after judge:", ge);
+        }
 
         const prof = memoryData.profile || {};
         const merged = freshMemory(memoryData.level || level);
@@ -1070,6 +1083,12 @@ function App(){
       try {
         const memoryData = await callEllaAPI('/users/me/memory');
         setDbMemory(memoryData || {});
+        try {
+          const gardenData = await callEllaAPI('/users/me/garden');
+          setDbGarden(gardenData || null);
+        } catch (ge) {
+          console.error("Failed to refresh garden data:", ge);
+        }
         const prof = memoryData.profile || {};
         const nm = freshMemory(level);
         nm.name = prof.name === '—' ? '' : (prof.name || '');
@@ -1179,7 +1198,7 @@ function App(){
       </div>
       <div className="panel">
         {tab==='readme'&&<ReadmeView/>}
-        {tab==='garden'&&<GardenView mem={mem}/>}
+        {tab==='garden'&&<GardenView mem={mem} dbGarden={dbGarden}/>}
         {tab==='memory'&&<MemoryView mem={mem} hl={hl} changes={changes} snapshots={snapshots} dbMemory={dbMemory} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='judge'&&<JudgeView scores={judgeOut} debug={judgeDebug} backendAnalysis={backendAnalysis} isApiMode={LLM_CONFIG.mode==='api'} level={level}/>}
         {tab==='apicalls'&&<ApiCallsView logs={apiLogs} onClear={()=>setApiLogs([])}/>}
@@ -1666,15 +1685,27 @@ function UnitsView({mem}){
     <small className="note">A level-up = all 5 steps complete. The active step drives due_next. This is the units answer to the "level-up rule" hole.</small>
   </div>);
 }
-function GardenView({mem}) {
-  const level = mem.level || 'A1';
+function GardenView({mem, dbGarden}) {
+  const isApi = LLM_CONFIG.mode === 'api' && dbGarden;
+  const level = isApi ? (dbGarden.level || mem.level || 'A1') : (mem.level || 'A1');
   const steps = UNITS[level] || UNITS['A1'] || [];
   const active = activeStep(mem);
-  const activeStepNum = active ? active.step : 5;
-  const sightings = mem.sightings || {};
+  const activeStepNum = isApi ? (dbGarden.active_step_index || 1) : (active ? active.step : 5);
+  
+  // Create a mapping from skill.id to its API sightings count
+  const apiSightings = {};
+  if (isApi && dbGarden.steps) {
+    dbGarden.steps.forEach(s => {
+      if (s.skills) {
+        s.skills.forEach(sk => {
+          apiSightings[sk.id] = sk.sightings;
+        });
+      }
+    });
+  }
 
   const renderPlant = (skill) => {
-    const count = sightings[skill.id] || 0;
+    const count = isApi ? (apiSightings[skill.id] || 0) : (mem.sightings ? mem.sightings[skill.id] || 0 : 0);
     
     const colors = {
       VOC: { bud: '#ff8da1', bloomBg: '#ffccd5', center: '#d90429' },
@@ -1735,7 +1766,7 @@ function GardenView({mem}) {
   return (
     <div className="garden-map-container">
       <div className="garden-header">
-        <h3>🏡 {level} Garden Map: {level === 'A1' ? 'The Clearing' : 'The Young Garden'}</h3>
+        <h3>🏡 {level} Garden Map: {isApi && dbGarden.theme ? dbGarden.theme : (level === 'A1' ? 'The Clearing' : 'The Young Garden')}</h3>
         <div className="active-badge">Active Step: {activeStepNum}</div>
       </div>
       
