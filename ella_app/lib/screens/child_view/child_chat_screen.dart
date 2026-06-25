@@ -14,6 +14,11 @@ import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import 'chat_bubble.dart';
 
+// The progression-model (micro-skill ⟷ units) toggle is cosmetic while the
+// live conversation framing is decided server-side. Hidden until the backend
+// accepts a progression_model on session creation. Flip to true to restore.
+const bool kShowModePill = false;
+
 class ChildChatScreen extends ConsumerStatefulWidget {
   const ChildChatScreen({super.key});
 
@@ -76,14 +81,15 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
             style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
         actions: [
-          chatAsync.when(
-            data: (s) => _ModePill(
-              mode: s.memory.progressionModel,
-              onChange: (m) => _confirmModeChange(context, m),
+          if (kShowModePill)
+            chatAsync.when(
+              data: (s) => _ModePill(
+                mode: s.memory.progressionModel,
+                onChange: (m) => _confirmModeChange(context, m),
+              ),
+              loading: () => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
             ),
-            loading: () => const SizedBox.shrink(),
-            error: (_, _) => const SizedBox.shrink(),
-          ),
           const SizedBox(width: 8),
         ],
       ),

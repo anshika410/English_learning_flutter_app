@@ -8,7 +8,6 @@
 // The LLM result (SkillScore list) is passed to the engine, never written directly.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/constants.dart';
 import '../core/engine.dart';
 import '../core/skill_data.dart';
@@ -52,6 +51,10 @@ class ChatState {
   final List<String> aimedAt;
   final List<String> hitTargets;
   final bool liveLlmLastCall;
+  final String? activeSessionId;
+  // Skills the server aimed this session at (from POST /session → aimed_at).
+  // Authoritative aim list when online; empty in offline fallback.
+  final List<String> serverAimedAt;
 
   // Most recent Supabase failure (auth, ensureChild, endChat persist).
   // Surfaced as a red banner in Glass Box → Memory tab.
@@ -79,6 +82,8 @@ class ChatState {
     this.aimedAt = const [],
     this.hitTargets = const [],
     this.liveLlmLastCall = true,
+    this.activeSessionId,
+    this.serverAimedAt = const [],
     this.lastSyncError,
   });
 
@@ -107,6 +112,9 @@ class ChatState {
     List<String>? aimedAt,
     List<String>? hitTargets,
     bool? liveLlmLastCall,
+    String? activeSessionId,
+    bool clearActiveSessionId = false,
+    List<String>? serverAimedAt,
     String? lastSyncError,
     bool clearSyncError = false,
   }) =>
@@ -132,6 +140,10 @@ class ChatState {
         aimedAt: aimedAt ?? this.aimedAt,
         hitTargets: hitTargets ?? this.hitTargets,
         liveLlmLastCall: liveLlmLastCall ?? this.liveLlmLastCall,
+        activeSessionId: clearActiveSessionId
+            ? null
+            : (activeSessionId ?? this.activeSessionId),
+        serverAimedAt: serverAimedAt ?? this.serverAimedAt,
         lastSyncError:
             clearSyncError ? null : (lastSyncError ?? this.lastSyncError),
       );
@@ -168,8 +180,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     final stt = ref.read(sttProvider);
     await stt.initialize();
 
-    final supabaseClient = Supabase.instance.client;
-    final svc = ref.read(supabaseServiceProvider);
+    final api = ref.read(ellaApiServiceProvider);
 
     String? syncError;
     MemoryState mem;
@@ -185,25 +196,35 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       // Supabase → Authentication → Sign In / Up. If it's off, this throws
       // AuthApiException(code: anonymous_provider_disabled) and we fall back
       // to offline-only mode below.
-      if (supabaseClient.auth.currentUser == null) {
-        await supabaseClient.auth.signInAnonymously();
-      }
-      _childId = supabaseClient.auth.currentUser!.id;
+      await api.getOrCreateToken();
+      _childId = await api.getCachedUserId() ?? _kOfflineChildId;
 
       // Make sure a `children` row exists for this uid (FK source).
-      await svc.ensureChild(childId: _childId);
+      // User creation is handled by POST /auth/anonymous.
 
       // Resume memory from persisted state if any, else fresh.
-      mem = await svc.fetchMemory(_childId) ??
-          MemoryState.fresh('A1', childId: _childId);
+      mem = await api.getUserMemory();
+      final latestPlacement = await api.latestPlacement().catchError((_) => null);
+      final placedLevel = latestPlacement?['level'] as String?;
+      if (placedLevel != null &&
+          placedLevel.isNotEmpty &&
+          placedLevel != mem.level) {
+        mem = mem.copyWith(level: placedLevel);
+      }
+      // The server returns its own due_next, but the engine's due_next-stage
+      // rules (engine.dart) are authoritative on the frontend. Recompute over
+      // the server's owned/emerging so those rules drive the due_next display
+      // and judge framing. (Live Zoe targeting is still server-side.)
+      mem = mem.copyWith(
+        dueNext: targetsListFor(mem, mem.progressionModel, mem.level),
+      );
       nextChatNumber = mem.chatCount > 0 ? mem.chatCount + 1 : 1;
       _online = true;
 
       // Restore Session/History tabs from the last 20 chats. Best-effort:
       // a failure here doesn't break memory restoration.
       try {
-        final fetched =
-            await svc.fetchRecentSessions(childId: _childId, limit: 20);
+        final fetched = await api.listSessions(limit: 20);
         // Order ascending by chat_number for the UI lists (oldest first).
         sessions =
             [...fetched]..sort((a, b) => a.chatNumber.compareTo(b.chatNumber));
@@ -235,7 +256,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       _online = false;
       _childId = _kOfflineChildId;
       mem = MemoryState.fresh('A1', childId: _childId);
-      syncError = 'Supabase init failed: $e';
+      syncError = 'Ella API init failed: $e';
     }
 
     return ChatState(
@@ -254,10 +275,49 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     if (cur.sessionEnded || cur.messages.isNotEmpty) return;
 
     final topic = pickTopic(cur.memory);
+    String? backendSessionId;
+    String? starter;
+    List<String> serverAimedAt = const [];
+    String? syncError;
+    if (_online) {
+      try {
+        final api = ref.read(ellaApiServiceProvider);
+        final conversation =
+            await api.createConversation(topic: topic?.topic);
+        backendSessionId = conversation['session_id'] as String?;
+        starter = conversation['starter'] as String?;
+        serverAimedAt =
+            List<String>.from((conversation['aimed_at'] as List?) ?? const []);
+        if (starter == null || starter.trim().isEmpty) {
+          starter = await api.conversationStarter(topic: topic?.topic);
+        }
+      } catch (e) {
+        syncError = 'Create conversation failed: $e';
+      }
+    }
+
     state = AsyncValue.data(cur.copyWith(
       status: ChatStatus.zoeThinking,
       currentTopic: topic,
+      activeSessionId: backendSessionId,
+      serverAimedAt: serverAimedAt,
+      lastSyncError: syncError,
+      clearSyncError: syncError == null,
     ));
+
+    if (starter != null && starter.trim().isNotEmpty) {
+      final zoeMsg = ChatMessage(sender: MessageSender.zoe, text: starter.trim());
+      state = AsyncValue.data(state.requireValue.copyWith(
+        messages: [zoeMsg],
+        status: ChatStatus.idle,
+        liveLlmLastCall: true,
+      ));
+      try {
+        final tts = ref.read(ttsProvider);
+        await tts.speak(zoeMsg.text);
+      } catch (_) {}
+      return;
+    }
 
     await _zoeTurn([], topic);
   }
@@ -339,112 +399,156 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
     state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
 
-    final llm = ref.read(llmServiceProvider);
-    final prompts = ref.read(promptsOverrideProvider);
     final mem = cur.memory;
     final mode = mem.progressionModel;
-
-    // Build both judge prompts
-    final primaryIds = _idsForFraming(mem, mode);
-    final primaryPrompt = buildJudgePrompt(
-      level: mem.level,
-      skillIds: primaryIds,
-      history: cur.convHistory,
-      prompts: prompts,
-    );
-    final otherMode = mode == 'units' ? 'micro-skill' : 'units';
-    final otherIds = _idsForFraming(mem, otherMode);
-    final otherPrompt = buildJudgePrompt(
-      level: mem.level,
-      skillIds: otherIds,
-      history: cur.convHistory,
-      prompts: prompts,
-    );
-
-    // Run both in parallel. Each catches its own error and returns [] so the
-    // user can ALWAYS reach sessionEnded=true and move on to the next chat.
-    final primaryFuture =
-        llm.judge(primaryPrompt).catchError((Object _) => <SkillScore>[]);
-    final otherFuture =
-        llm.judge(otherPrompt).catchError((Object _) => <SkillScore>[]);
-    final results = await Future.wait([primaryFuture, otherFuture]);
-    final primaryScores = results[0];
-    final otherScores = results[1];
-    final judgeFailed = primaryScores.isEmpty;
-    final liveLlm = !judgeFailed;
-
-    // Aim/hit
-    final aimed = mem.dueNext.flat;
-    final hitTargets = aimed
-        .where((id) => primaryScores
-            .any((s) => s.id == id && s.confidence >= kFloor))
-        .toList();
-
-    // Deterministic merge — LLM never writes state.
-    // If primary failed, scores is empty so no state changes; user can still move on.
-    final mergeResult = applyMerge(mem, primaryScores, mem.level);
     final chatNumber = cur.chatNumber;
-    final newMem = applyEndChat(
-      mem: mem,
-      mergeResult: mergeResult,
-      turnCount: cur.turnCount,
-      chatNumber: chatNumber,
-      usedTopic: cur.currentTopic,
-      progressionModel: mode,
-      level: mem.level,
-    ).copyWith(chatCount: mem.chatCount + 1);
 
-    // Build the transcript as {speaker,text} maps — kept in memory for the
-    // Session tab JSON, and also sent to the `transcripts` table.
+    String? syncError;
+    List<SkillScore> primaryScores = const [];
+    List<SkillScore> otherScores = const [];
+    List<StateChange> effectiveChanges = const [];
+    MemoryState newMem;
+    List<String> aimed;
+    List<String> hitTargets;
+    var liveLlm = false;
+
+    if (_online && cur.activeSessionId != null) {
+      // ── Ella API is the single backend: the server runs the judge AND the
+      // deterministic merge, then persists the transcript + new memory. ───────
+      try {
+        final api = ref.read(ellaApiServiceProvider);
+        final analysis = await api.sessionAnalysis(
+          conversationId: cur.activeSessionId!,
+          history: cur.convHistory,
+          topic: cur.currentTopic?.topic ?? 'Free Talk',
+          level: mem.level,
+          progressionModel: mode,
+          turnsTotal: cur.turnCount,
+        );
+        primaryScores = analysis.scores;
+        effectiveChanges = analysis.changes;
+        aimed = analysis.aimedAt.isNotEmpty
+            ? analysis.aimedAt
+            : (cur.serverAimedAt.isNotEmpty
+                ? cur.serverAimedAt
+                : mem.dueNext.flat);
+        hitTargets = analysis.hitTargets;
+        liveLlm = true;
+
+        // Secondary judge pass for the Glass Box — uses the SAME framing as
+        // the primary analysis (the dual opposite-framing comparison is
+        // retired now that the server is the single source of truth).
+        try {
+          final other = await api.judge(
+            conversationId: cur.activeSessionId!,
+            history: cur.convHistory,
+            topic: cur.currentTopic?.topic ?? 'Free Talk',
+            level: mem.level,
+            progressionModel: mode,
+            turnsTotal: cur.turnCount,
+          );
+          otherScores = other.scores;
+        } catch (_) {}
+
+        // The server already merged state — re-fetch owned/emerging as the
+        // source of truth, but recompute due_next locally so the engine's
+        // due_next-stage rules (engine.dart) drive the next stage.
+        final serverMem = (await api.getUserMemory()).copyWith(
+          chatCount: mem.chatCount + 1,
+          progressionModel: mode,
+        );
+        newMem = serverMem.copyWith(
+          dueNext: targetsListFor(serverMem, mode, serverMem.level),
+        );
+      } catch (e) {
+        syncError = 'Session analysis API failed: $e';
+        // Degraded fallback — merge whatever scores we have locally so the
+        // user can still move on. primaryScores is empty here → no changes.
+        final merge = applyMerge(mem, primaryScores, mem.level);
+        effectiveChanges = merge.changes;
+        aimed =
+            cur.serverAimedAt.isNotEmpty ? cur.serverAimedAt : mem.dueNext.flat;
+        hitTargets = aimed
+            .where((id) =>
+                primaryScores.any((s) => s.id == id && s.confidence >= kFloor))
+            .toList();
+        newMem = applyEndChat(
+          mem: mem,
+          mergeResult: merge,
+          turnCount: cur.turnCount,
+          chatNumber: chatNumber,
+          usedTopic: cur.currentTopic,
+          progressionModel: mode,
+          level: mem.level,
+        ).copyWith(chatCount: mem.chatCount + 1);
+      }
+    } else {
+      // ── Offline fallback: local LLM judge + deterministic engine merge.
+      // LLM never writes state — applyMerge/applyEndChat own that. ────────────
+      final prompts = ref.read(promptsOverrideProvider);
+      final primaryPrompt = buildJudgePrompt(
+        level: mem.level,
+        skillIds: _idsForFraming(mem, mode),
+        history: cur.convHistory,
+        prompts: prompts,
+      );
+      final otherPrompt = buildJudgePrompt(
+        level: mem.level,
+        skillIds: _idsForFraming(mem, mode),
+        history: cur.convHistory,
+        prompts: prompts,
+      );
+      final llm = ref.read(llmServiceProvider);
+      final results = await Future.wait([
+        llm.judge(primaryPrompt).catchError((Object _) => <SkillScore>[]),
+        llm.judge(otherPrompt).catchError((Object _) => <SkillScore>[]),
+      ]);
+      primaryScores = results[0];
+      otherScores = results[1];
+      liveLlm = primaryScores.isNotEmpty;
+
+      final merge = applyMerge(mem, primaryScores, mem.level);
+      effectiveChanges = merge.changes;
+      aimed = mem.dueNext.flat;
+      hitTargets = aimed
+          .where((id) =>
+              primaryScores.any((s) => s.id == id && s.confidence >= kFloor))
+          .toList();
+      newMem = applyEndChat(
+        mem: mem,
+        mergeResult: merge,
+        turnCount: cur.turnCount,
+        chatNumber: chatNumber,
+        usedTopic: cur.currentTopic,
+        progressionModel: mode,
+        level: mem.level,
+      ).copyWith(chatCount: mem.chatCount + 1);
+      if (!_online) {
+        syncError = 'Offline mode — using local engine (Ella API unavailable).';
+      }
+    }
+
+    final judgeFailed = primaryScores.isEmpty;
+
+    // Build the transcript as {speaker,text} maps for the Session tab JSON.
+    // (The server already stored the canonical transcript via /turn.)
     final transcript = cur.messages
         .where((m) => m.sender != MessageSender.system)
         .map((m) => {
-              'speaker':
-                  m.sender == MessageSender.zoe ? 'zoe' : 'learner',
+              'speaker': m.sender == MessageSender.zoe ? 'zoe' : 'learner',
               'text': m.text,
             })
         .toList();
 
     final scoresJson = primaryScores.map((s) => s.toJson()).toList();
-    final changesJson = mergeResult.changes
+    final changesJson = effectiveChanges
         .map((c) => {'id': c.id, 'from': c.from, 'to': c.to})
         .toList();
 
-    // Persist to Supabase — only when we successfully signed in at startup.
-    // Offline mode (e.g. anonymous sign-ins disabled in the project) keeps
-    // the chat working in memory without spamming failed requests.
-    String? transcriptId;
-    String? sessionId;
-    String? syncError;
-    if (_online) {
-      try {
-        final supabase = ref.read(supabaseServiceProvider);
-        transcriptId = await supabase.insertTranscript(
-          childId: _childId,
-          turns: transcript,
-        );
-        final dbSession = SessionLog(
-          childId: _childId,
-          chatNumber: chatNumber,
-          level: mem.level,
-          progressionModel: mode,
-          turnsTotal: cur.turnCount,
-          topic: cur.currentTopic?.topic,
-          aimedAt: aimed,
-          hitTargets: hitTargets,
-          judgeScoresRaw: scoresJson,
-          stateChanges: changesJson,
-          transcriptRef: transcriptId,
-        );
-        sessionId = await supabase.insertSession(dbSession);
-        await supabase.upsertMemory(newMem);
-      } catch (e) {
-        syncError = 'Supabase persist failed: $e';
-      }
-    } else {
-      syncError =
-          'Offline mode — Supabase writes skipped (anon sign-in disabled?).';
-    }
+    // The Ella session id is the persistence reference — the server owns the
+    // transcript + analysis. No Supabase writes in single-backend mode.
+    final sessionId = cur.activeSessionId;
+    final transcriptId = cur.activeSessionId;
 
     // In-memory session record (also drives Glass Box → Session tab).
     final inMemSession = SessionLog(
@@ -475,7 +579,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       model: mode,
       owned: newMem.owned.length,
       emerging: newMem.emerging.length,
-      changes: mergeResult.changes.length,
+      changes: effectiveChanges.length,
       turns: cur.turnCount,
       aimed: aimed.length,
       hit: hitTargets.length,
@@ -486,9 +590,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     if (judgeFailed) {
       sysText = '⚠️ Judge unavailable — chat ended, no state changes.';
     } else {
-      final grew = mergeResult.changes.isEmpty
+      final grew = effectiveChanges.isEmpty
           ? 'No state changes'
-          : 'Grew: ${mergeResult.changes.map((c) => '${c.id} ${c.from}→${c.to}').join(', ')}';
+          : 'Grew: ${effectiveChanges.map((c) => '${c.id} ${c.from}→${c.to}').join(', ')}';
       sysText = '$grew · aimed ${aimed.length}, hit ${hitTargets.length}';
     }
     final sysMsg =
@@ -498,11 +602,11 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       memory: newMem,
       messages: [...cur.messages, sysMsg],
       status: ChatStatus.idle,
-      lastChanges: mergeResult.changes,
+      lastChanges: effectiveChanges,
       sessionEnded: true,
       lastJudgeScores: primaryScores,
       lastJudgeScoresOther: otherScores,
-      lastJudgeOtherLabel: otherMode,
+      lastJudgeOtherLabel: mode,
       snapshots: [...cur.snapshots, snap],
       sessionLogs: [...cur.sessionLogs, inMemSession],
       historyEntries: [...cur.historyEntries, hist],
@@ -511,6 +615,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       liveLlmLastCall: liveLlm,
       lastSyncError: syncError,
       clearSyncError: syncError == null,
+      clearActiveSessionId: true,
     ));
   }
 
@@ -675,6 +780,43 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   Future<void> _zoeTurn(List<ConvMessage> history, Topic? topic) async {
     final cur = state.requireValue;
+    String? lastUserText;
+    for (final m in history) {
+      if (m.role == 'user') lastUserText = m.text;
+    }
+    if (_online && cur.activeSessionId != null && lastUserText != null) {
+      try {
+        final api = ref.read(ellaApiServiceProvider);
+        final turn = await api.conversationTurn(
+          sessionId: cur.activeSessionId!,
+          content: lastUserText,
+        );
+        final reply = turn.latestAssistantText;
+        if (reply != null && reply.trim().isNotEmpty) {
+          final zoeMsg =
+              ChatMessage(sender: MessageSender.zoe, text: reply.trim());
+          state = AsyncValue.data(state.requireValue.copyWith(
+            messages: [...state.requireValue.messages, zoeMsg],
+            status: ChatStatus.zoeSpeaking,
+            liveLlmLastCall: true,
+          ));
+          try {
+            final tts = ref.read(ttsProvider);
+            await tts.speak(zoeMsg.text);
+          } catch (_) {}
+          if (state.hasValue) {
+            state = AsyncValue.data(
+                state.requireValue.copyWith(status: ChatStatus.idle));
+          }
+          return;
+        }
+      } catch (e) {
+        state = AsyncValue.data(cur.copyWith(
+          lastSyncError: 'Conversation turn API failed: $e',
+        ));
+      }
+    }
+
     final prompts = ref.read(promptsOverrideProvider);
     final prompt = buildConvPrompt(
       mem: cur.memory,

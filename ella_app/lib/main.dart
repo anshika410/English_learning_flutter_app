@@ -9,10 +9,21 @@ Future<void> main() async {
 
   await dotenv.load(fileName: '.env');
 
-  await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
-  );
+  // The Ella REST API is the single backend now; Supabase is only used by the
+  // Glass Box (testing) tabs. Initialize it best-effort so a missing/blank
+  // SUPABASE_URL no longer crashes boot.
+  final supabaseUrl = dotenv.env['SUPABASE_URL'];
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+  if (supabaseUrl != null &&
+      supabaseUrl.isNotEmpty &&
+      supabaseAnonKey != null &&
+      supabaseAnonKey.isNotEmpty) {
+    try {
+      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    } catch (_) {
+      // Non-fatal — chat runs entirely on the Ella API.
+    }
+  }
 
   runApp(const ProviderScope(child: EllaApp()));
 }
