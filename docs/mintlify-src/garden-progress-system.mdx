@@ -188,19 +188,3 @@ The front-end client reads the API payload and translates it to visual layout at
 *   **`"owned"` Status $\rightarrow$ Open Bloomed Flowers (e.g. Step 1)**:
     *   *Visual:* The slots display tall green stems with fully bloomed, open petals colored according to the strand theme.
     *   *Logic:* The user has successfully demonstrated and passed these skills, earning mastery status.
-
----
-
-## 5. Key Questions & Discussion Points for the Demo Call
-
-### Q1: What happens when a user completes all 4 steps of the Garden?
-> Once all 4 steps are marked completed (`is_completed = true` for all), the backend detects the level-up state. The student is prompted to transition to the next CEFR level (e.g. A1 $\rightarrow$ A2). The user's `level` in the database is updated to the next level. The next time `/users/me/garden` is called, it loads the new level's steps and resets the `active_step_index` back to `1`.
-
-### Q2: Why are some steps locked? Can a student skip steps?
-> The garden progress is linear. The user avatar stands at `active_step_index`. While the student can see future raised beds, they are rendered as empty, locked wooden grids. The tutor restricts active conversation topics to target only the skills within the current active step.
-
-### Q3: How does the AI Judge score sightings?
-> After each chat conversation ends, the transaction history is processed by the asynchronous LLM Judge. The judge scores the student's usage of specific targeted skills. If a skill has a confidence score matching or exceeding the master threshold (`FLOOR = 0.8`), it increments the sightings count in the database.
-
-### Q4: How is the database optimized for scaling?
-> Because all progress checkmarks and sightings are stored inside a single JSON document (`skills_progress`) rather than separate relational database tables, fetching the garden status requires only a single, fast SQL lookup on the `users` table. This prevents database joins and scales cleanly to millions of users.
