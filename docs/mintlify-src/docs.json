@@ -29,14 +29,24 @@
         "pages": [
           "backend-readme",
           "existing_api_and_database_inventory",
-          "database_options_readme",
+          "database_options_readme"
+        ]
+      },
+      {
+        "group": "Gamification",
+        "pages": [
           "garden-progress-system"
         ]
       },
       {
         "group": "Architecture & Latency",
         "pages": [
-          "memory_feature_feasibility",
+          "memory_feature_feasibility"
+        ]
+      },
+      {
+        "group": "Voice",
+        "pages": [
           "stt_tts_mobile_constraints"
         ]
       },
