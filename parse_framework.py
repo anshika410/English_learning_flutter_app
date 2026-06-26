@@ -142,13 +142,16 @@ def main():
             
             if col0 and str(col0).startswith('Step '):
                 step_num = str(col0).replace('Step ', '').strip()
-                current_unit = {
-                    'step': step_num,
-                    'name': col1.strip() if col1 else '',
-                    'focus': '',
-                    'skills': []
-                }
-                units_list.append(current_unit)
+                if step_num in ('1', '2', '3', '4'):
+                    current_unit = {
+                        'step': step_num,
+                        'name': col1.strip() if col1 else '',
+                        'focus': '',
+                        'skills': []
+                    }
+                    units_list.append(current_unit)
+                else:
+                    current_unit = None
                 
             if current_unit:
                 if col2 == 'Focus' and col3:

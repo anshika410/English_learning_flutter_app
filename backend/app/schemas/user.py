@@ -86,7 +86,6 @@ class GardenStep(BaseModel):
     step: int
     name: str
     focus: str
-    progress_percentage: float
     is_completed: bool
     skills: list[GardenSkill]
 

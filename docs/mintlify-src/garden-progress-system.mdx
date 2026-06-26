@@ -80,7 +80,6 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
       "step": 1,
       "name": "Describing the world",
       "focus": "Moving from naming things to describing them.",
-      "progress_percentage": 50.0,
       "is_completed": false,
       "skills": [
         {
@@ -151,16 +150,8 @@ A step (raised bed) is complete (`is_completed = true`) only when:
 
 ### E. Active Step Selection
 The client avatar stands at the step matching `active_step_index`.
-*   **Algorithm**: The backend loops from Step 1 to Step 5. It returns the step number of the **first incomplete step** (`is_completed == false`).
-*   **Fallback**: If all 5 steps are completed, it returns `5` (allowing the avatar to stand at the end of the map).
-
-### F. Progress Percentage Weighting ($f_U$)
-For a step containing $N$ skills, points are allocated based on status weights:
-*   `owned` $\rightarrow$ `2` points
-*   `emerging` $\rightarrow$ `1` point
-*   `locked` $\rightarrow$ `0` points
-
-$$f_U = \frac{\sum_{\text{skills in } U} \text{Weight}}{2 \times N} \times 100\%$$
+*   **Algorithm**: The backend loops from Step 1 to Step 4. It returns the step number of the **first incomplete step** (`is_completed == false`).
+*   **Fallback**: If all 4 steps are completed, it returns `4` (allowing the avatar to stand at the end of the map).
 
 ---
 
@@ -172,7 +163,7 @@ The front-end client reads the API payload and translates it to visual layout at
     *   If `level == "A1"`, load `"The Clearing"` layout (light green meadow theme).
     *   If `level != "A1"`, load `"The Young Garden"` layout (densely forested garden theme).
 *   **Alternating Path**:
-    *   For step index $i$ ($0$ to $4$):
+    *   For step index $i$ ($0$ to $3$):
         *   If $i$ is even $\rightarrow$ Render raised bed on the **left** side of the winding path.
         *   If $i$ is odd $\rightarrow$ Render raised bed on the **right** side of the winding path.
 *   **2x2 Slot Layout**:
@@ -188,7 +179,7 @@ The front-end client reads the API payload and translates it to visual layout at
     *   `FLU` $\rightarrow$ Purple Flower
 
 ### Status UI Translation Rules
-*   **`"locked"` Status $\rightarrow$ Slatted Bare Soil Tiles (e.g. Steps 3, 4, 5)**:
+*   **`"locked"` Status $\rightarrow$ Slatted Bare Soil Tiles (e.g. Steps 3, 4)**:
     *   *Visual:* The raised bed is rendered as a clean, wooden-slatted flat bed of soil with no plants.
     *   *Logic:* All skills inside these steps have `status == "locked"` and `sightings == 0`.
 *   **`"emerging"` Status $\rightarrow$ Buds and Sprouts (e.g. Step 2)**:
@@ -202,8 +193,8 @@ The front-end client reads the API payload and translates it to visual layout at
 
 ## 5. Key Questions & Discussion Points for the Demo Call
 
-### Q1: What happens when a user completes all 5 steps of the Garden?
-> Once all 5 steps are marked completed (`is_completed = true` for all), the backend detects the level-up state. The student is prompted to transition to the next CEFR level (e.g. A1 $\rightarrow$ A2). The user's `level` in the database is updated to the next level. The next time `/users/me/garden` is called, it loads the new level's steps and resets the `active_step_index` back to `1`.
+### Q1: What happens when a user completes all 4 steps of the Garden?
+> Once all 4 steps are marked completed (`is_completed = true` for all), the backend detects the level-up state. The student is prompted to transition to the next CEFR level (e.g. A1 $\rightarrow$ A2). The user's `level` in the database is updated to the next level. The next time `/users/me/garden` is called, it loads the new level's steps and resets the `active_step_index` back to `1`.
 
 ### Q2: Why are some steps locked? Can a student skip steps?
 > The garden progress is linear. The user avatar stands at `active_step_index`. While the student can see future raised beds, they are rendered as empty, locked wooden grids. The tutor restricts active conversation topics to target only the skills within the current active step.

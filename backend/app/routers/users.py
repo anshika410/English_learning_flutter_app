@@ -103,23 +103,17 @@ async def get_user_garden(user: User = Depends(get_current_user)):
     
     units_list = UNITS.get(level.upper(), [])
     active_unit = active_step(progress, level)
-    active_index = int(active_unit["step"]) if active_unit else 5
+    active_index = int(active_unit["step"]) if active_unit else len(units_list)
     
     steps_data = []
     for u in units_list:
         skills_data = []
-        total_points = 0
         
         for s in u["skills"]:
             status = bucket_of(progress, s["id"])
             sightings = progress.get("sightings", {}).get(s["id"], 0)
             evidence_list = progress.get("evidence", {}).get(s["id"], [])
             
-            if status == "owned":
-                total_points += 2
-            elif status == "emerging":
-                total_points += 1
-                
             skills_data.append({
                 "id": s["id"],
                 "strand": s["strand"],
@@ -129,14 +123,10 @@ async def get_user_garden(user: User = Depends(get_current_user)):
                 "evidence": evidence_list
             })
             
-        max_points = len(u["skills"]) * 2
-        fraction = total_points / max_points if max_points > 0 else 0.0
-        
         steps_data.append({
           "step": int(u["step"]),
           "name": u["name"],
           "focus": u["focus"],
-          "progress_percentage": round(fraction * 100, 1),
           "is_completed": unit_complete(progress, u),
           "skills": skills_data
         })
