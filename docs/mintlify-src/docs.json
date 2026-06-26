@@ -21,6 +21,7 @@
         "group": "Getting Started",
         "pages": [
           "readme",
+          "system-architecture",
           "conversation-flow-simulator"
         ]
       },
