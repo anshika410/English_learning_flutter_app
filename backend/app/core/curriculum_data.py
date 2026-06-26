@@ -56,7 +56,7 @@ OWN_BAR = {
 FLOOR = 0.3
 SIGHTINGS_TO_OWN = 2
 
-def get_skill_text(skill_id: str) -> str:
+def get_skill_text(skill_id: str, level = None) -> str:
     if skill_id in SKILLS:
         return SKILLS[skill_id]["text"]
     if skill_id in UNIT_SKILLS:
