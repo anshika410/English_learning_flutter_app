@@ -2118,9 +2118,12 @@ function ApiCallsView({logs, onClear}){
       out += `#${i+1}  ${log.method} ${LLM_CONFIG.ellaApiUrl}${log.path}\n`;
       out += `Time: ${log.timestamp}  |  Status: ${log.status}\n`;
       out += `${divider}\n`;
-      out += `▸ Request Body:\n`;
-      out += log.requestBody ? JSON.stringify(log.requestBody, null, 2) : '(empty)';
-      out += `\n\n▸ Response Body:\n`;
+      if (log.method !== 'GET') {
+        out += `▸ Request Body:\n`;
+        out += log.requestBody ? JSON.stringify(log.requestBody, null, 2) : '(empty)';
+        out += `\n\n`;
+      }
+      out += `▸ Response Body:\n`;
       out += log.responseBody ? (typeof log.responseBody === 'string' ? log.responseBody : JSON.stringify(log.responseBody, null, 2)) : '(empty)';
       out += '\n';
       return out;
@@ -2221,6 +2224,7 @@ function ApiCallsView({logs, onClear}){
                 </div>
                 {(() => {
                   const meta = getEndpointMeta(log.path, log.method);
+                  const showRequestBody = log.method !== 'GET';
                   return (
                     <>
                       {meta && (
@@ -2228,28 +2232,30 @@ function ApiCallsView({logs, onClear}){
                           {meta.desc}
                         </div>
                       )}
-                      <div style={{marginBottom: 8}}>
-                        <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--rust)', textTransform: 'uppercase', marginBottom: 2}}>Request Body</div>
-                        <pre style={{
-                          background: '#24292e',
-                          color: '#e1e4e8',
-                          padding: 8,
-                          borderRadius: 5,
-                          fontSize: 11,
-                          overflowX: 'auto',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-all',
-                          marginBottom: 4
-                        }}>{log.requestBody ? <JsonViewer value={log.requestBody} /> : (log.method === 'GET' ? 'None (GET request does not accept a body)' : '(empty)')}</pre>
-                        {meta && meta.schema && (
-                          <div style={{marginTop: 6, background: 'var(--paper2)', border: '1px dashed var(--rule)', padding: '6px 8px', borderRadius: 4}}>
-                            <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--ink)', marginBottom: 2}}>Accepted/Required Fields:</div>
-                            <pre style={{fontSize: 10, margin: 0, fontFamily: 'monospace', color: 'var(--ink)', whiteSpace: 'pre-wrap'}}>
-                              {JSON.stringify(meta.schema, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
+                      {showRequestBody && (
+                        <div style={{marginBottom: 8}}>
+                          <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--rust)', textTransform: 'uppercase', marginBottom: 2}}>Request Body</div>
+                          <pre style={{
+                            background: '#24292e',
+                            color: '#e1e4e8',
+                            padding: 8,
+                            borderRadius: 5,
+                            fontSize: 11,
+                            overflowX: 'auto',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-all',
+                            marginBottom: 4
+                          }}>{log.requestBody ? <JsonViewer value={log.requestBody} /> : '(empty)'}</pre>
+                          {meta && meta.schema && (
+                            <div style={{marginTop: 6, background: 'var(--paper2)', border: '1px dashed var(--rule)', padding: '6px 8px', borderRadius: 4}}>
+                              <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--ink)', marginBottom: 2}}>Accepted/Required Fields:</div>
+                              <pre style={{fontSize: 10, margin: 0, fontFamily: 'monospace', color: 'var(--ink)', whiteSpace: 'pre-wrap'}}>
+                                {JSON.stringify(meta.schema, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </>
                   );
                 })()}
