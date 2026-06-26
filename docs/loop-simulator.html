@@ -2055,6 +2055,58 @@ function JsonViewer({ value, depth = 0 }) {
     </span>
   );
 }
+function getEndpointMeta(path, method) {
+  if (path.startsWith('/auth/anonymous')) {
+    return {
+      desc: 'Authenticates a user anonymously using a unique device identifier.',
+      schema: { device_id: 'string (Required)' }
+    };
+  }
+  if (path.startsWith('/users/me/memory')) {
+    return {
+      desc: 'Retrieves the user\'s vocabulary, grammar, and fluency checklists.',
+      schema: null
+    };
+  }
+  if (path.startsWith('/users/me/garden')) {
+    return {
+      desc: 'Retrieves the user\'s CEFR garden step layout, active step index, and visual theme details.',
+      schema: null
+    };
+  }
+  if (path === '/session' && method === 'POST') {
+    return {
+      desc: 'Creates and initiates a new tutoring conversation session.',
+      schema: { topic: 'string | null (Optional - if omitted, backend auto-selects)' }
+    };
+  }
+  if (path.startsWith('/session/') && path.endsWith('/turn')) {
+    return {
+      desc: 'Submits the user\'s chat turn message and receives Zoe\'s response.',
+      schema: { content: 'string (Required)' }
+    };
+  }
+  if (path.startsWith('/session/') && path.endsWith('/session-log')) {
+    return {
+      desc: 'Retrieves the compiled session log analysis, including evidenced skills, hit targets, and state changes.',
+      schema: null
+    };
+  }
+  if (path.startsWith('/llm/judge')) {
+    return {
+      desc: 'Runs the LLM Judge grading engine on a finished conversation transcript.',
+      schema: {
+        conversation_id: 'string (Required)',
+        messages: 'array of message objects (Required)',
+        topic: 'string (Required)',
+        progression_model: 'string ("unit" | "micro-skill") (Required)',
+        level: 'string (Required)',
+        level_label: 'string (Required)'
+      }
+    };
+  }
+  return null;
+}
 function ApiCallsView({logs, onClear}){
   const [openId, setOpenId] = React.useState(null);
   const [copied, setCopied] = React.useState(false);
@@ -2167,19 +2219,40 @@ function ApiCallsView({logs, onClear}){
                     wordBreak: 'break-all'
                   }}>{LLM_CONFIG.ellaApiUrl}{log.path}</div>
                 </div>
-                <div style={{marginBottom: 8}}>
-                  <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--rust)', textTransform: 'uppercase', marginBottom: 2}}>Request Body</div>
-                  <pre style={{
-                    background: '#24292e',
-                    color: '#e1e4e8',
-                    padding: 8,
-                    borderRadius: 5,
-                    fontSize: 11,
-                    overflowX: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all'
-                  }}>{log.requestBody ? <JsonViewer value={log.requestBody} /> : '(empty)'}</pre>
-                </div>
+                {(() => {
+                  const meta = getEndpointMeta(log.path, log.method);
+                  return (
+                    <>
+                      {meta && (
+                        <div style={{marginBottom: 6, fontSize: 11, color: 'var(--grey)', fontStyle: 'italic'}}>
+                          {meta.desc}
+                        </div>
+                      )}
+                      <div style={{marginBottom: 8}}>
+                        <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--rust)', textTransform: 'uppercase', marginBottom: 2}}>Request Body</div>
+                        <pre style={{
+                          background: '#24292e',
+                          color: '#e1e4e8',
+                          padding: 8,
+                          borderRadius: 5,
+                          fontSize: 11,
+                          overflowX: 'auto',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all',
+                          marginBottom: 4
+                        }}>{log.requestBody ? <JsonViewer value={log.requestBody} /> : (log.method === 'GET' ? 'None (GET request does not accept a body)' : '(empty)')}</pre>
+                        {meta && meta.schema && (
+                          <div style={{marginTop: 6, background: 'var(--paper2)', border: '1px dashed var(--rule)', padding: '6px 8px', borderRadius: 4}}>
+                            <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--ink)', marginBottom: 2}}>Accepted/Required Fields:</div>
+                            <pre style={{fontSize: 10, margin: 0, fontFamily: 'monospace', color: 'var(--ink)', whiteSpace: 'pre-wrap'}}>
+                              {JSON.stringify(meta.schema, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
                 <div>
                   <div style={{fontSize: 10, fontWeight: 'bold', color: 'var(--purple)', textTransform: 'uppercase', marginBottom: 2}}>Response Body</div>
                   <pre style={{
