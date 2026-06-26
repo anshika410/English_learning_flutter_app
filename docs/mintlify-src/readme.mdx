@@ -13,7 +13,7 @@ Ella is a voice-first English learning app for Indian students built by NavGuruk
 - **Free chat** — Open-ended conversation on anything
 - **Real-time feedback** — Grammar corrections and vocabulary suggestions woven naturally into the conversation
 - **Session summary** — After each session, students see what they did well, new words used, and what to practice next
-- **Progress tracking** — Streak, level, and session history
+- **Progress tracking** — Interactive, level-aware 4-step Garden Progress Map featuring visual plant growth stages, sightings tracking, and verbatim student speech evidence cards
 
 ## Who It's For
 
@@ -163,16 +163,17 @@ cd backend && docker compose down && docker compose up -d
 
 ## API Overview
 
-**18 endpoints total** across 6 routers.
+**26 endpoints total** across 7 routers.
 
 | Category | Endpoints | Flutter integrated |
 |----------|-----------|-------------------|
 | Auth | `POST /auth/anonymous` | ✅ |
-| Users | `GET /users/me`, `PUT /users/me`, `PUT /users/me/settings` | ✅ profile, ❌ settings |
+| Users | `GET /users/me`, `PUT /users/me`, `GET /users/me/memory`, `PUT /users/me/memory`, `GET /users/me/garden` | ✅ profile, ✅ garden |
 | Placements | `POST /placements`, `GET /placements/latest`, `GET /placements` | ✅ save + latest |
-| Conversations | `POST`, `GET`, `GET /:id`, `PUT /:id/complete`, `POST /:id/messages`, `GET /:id/messages` | ❌ not yet |
-| LLM (backend proxy) | `POST /llm/placement-turn`, `/conversation-turn`, `/conversation-starter`, `/session-analysis` | ❌ app calls DeepSeek directly |
+| Sessions / Conversations | `POST /session`, `GET /session`, `GET /session/{id}`, `POST /session/{id}/messages`, `GET /session/{id}/messages`, `GET /session/{id}/session-log`, `POST /session/{id}/turn` | ✅ turn, log, create |
+| LLM (backend proxy) | `POST /llm/conversation-starter`, `POST /llm/conversation-turn`, `POST /llm/placement-turn`, `POST /llm/judge` | ✅ starter, turn, judge |
 | Progress | `GET /progress/summary` | ❌ not yet |
+| Admin | `GET /admin/stats`, `GET /admin/conversations/{id}/transcript`, `GET /admin/placements/{id}/transcript` | ❌ dashboard only |
 
 Full endpoint reference: [`backend/README.md`](backend/README.md)
 
