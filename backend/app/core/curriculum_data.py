@@ -185,6 +185,7 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
     if "sightings" not in p: p["sightings"] = {}
     if "strength" not in p: p["strength"] = {}
     if "last_seen" not in p: p["last_seen"] = {}
+    if "evidence" not in p: p["evidence"] = {}
     if "effort" not in p: p["effort"] = {"times_spoken_total": 0}
     
     changes = []
@@ -194,6 +195,7 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
         skill_id = sc["id"]
         confidence = sc.get("confidence", 0.0)
         prompted = sc.get("prompted", False)
+        evidence_quote = sc.get("evidence") or ""
         
         prior = bucket_of(p, skill_id)
         next_state = prior
@@ -206,6 +208,13 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
                 p["sightings"][skill_id] = p["sightings"].get(skill_id, 0) + 1
             if not prompted:
                 p["strength"][skill_id] = p["strength"].get(skill_id, 0) + 1
+                
+        # Store evidence quote if confidence >= 0.7 and not empty
+        if confidence >= 0.7 and evidence_quote:
+            ev_list = p["evidence"].setdefault(skill_id, [])
+            if evidence_quote not in ev_list:
+                ev_list.append(evidence_quote)
+                p["evidence"][skill_id] = ev_list[-3:]
                 
         sightings = p["sightings"].get(skill_id, 0)
         unprompted_count = p["strength"].get(skill_id, 0)

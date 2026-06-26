@@ -42,6 +42,15 @@ The garden progress system is built on top of the existing SQLite/PostgreSQL `us
     "U1-VOC-01": "2026-06-24",
     "U1-GRA-01": "2026-06-25"
   },
+  "evidence": {
+    "U1-VOC-01": [
+      "I am happy today.",
+      "My mother is a doctor."
+    ],
+    "U1-GRA-01": [
+      "She is running now."
+    ]
+  },
   "effort": {
     "times_spoken_total": 42
   }
@@ -72,7 +81,6 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
       "name": "Describing the world",
       "focus": "Moving from naming things to describing them.",
       "progress_percentage": 50.0,
-      "growth_stage": 2,
       "is_completed": false,
       "skills": [
         {
@@ -81,7 +89,10 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
           "text": "I can describe what people look like and how they feel using simple adjectives.",
           "status": "owned",
           "sightings": 2,
-          "growth_stage": 2
+          "evidence": [
+            "I am happy today.",
+            "My mother is a doctor."
+          ]
         },
         {
           "id": "U1-GRA-01",
@@ -89,7 +100,9 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
           "text": "I can use the present continuous to describe what is happening now — She is running.",
           "status": "emerging",
           "sightings": 1,
-          "growth_stage": 1
+          "evidence": [
+            "She is running now."
+          ]
         },
         {
           "id": "U1-FLU-01",
@@ -97,7 +110,7 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
           "text": "I can describe a picture or a place using 3–4 connected sentences.",
           "status": "locked",
           "sightings": 0,
-          "growth_stage": 0
+          "evidence": []
         }
       ]
     }
@@ -117,25 +130,31 @@ For each skill ID in the active level's curriculum, the backend checks the datab
 *   **`"emerging"`**: The skill ID exists in `progress["emerging"]` but not in `owned`.
 *   **`"locked"`**: The skill ID is in neither array.
 
-### B. Plant Growth Stages
-Sightings are mapped directly to four visual growth integers:
-*   **`growth_stage = 0`** (0 sightings): Empty slot / soil.
-*   **`growth_stage = 1`** (1 sighting): Small sprout.
-*   **`growth_stage = 2`** (2 sightings): Leafy stem with closed bud.
-*   **`growth_stage = 3`** (3+ sightings): Fully open bloomed flower.
+### B. Sightings & Plant Growth Stages
+The client maps the number of `sightings` directly to the visual asset of the plant in its grid slot:
+*   **0 sightings**: Bare Soil / empty wooden grid.
+*   **1 sighting**: Tiny green sprout.
+*   **2 sightings**: Leafy stem with closed bud.
+*   **3+ sightings**: Tall stem with fully open bloomed flower.
 
-### C. Step Completion Rule (The "Grammar Matures Later" Gate)
+### C. Evidence Storage Rule
+For any skill evidenced during chat analysis:
+*   **Threshold**: If the match confidence is **`0.7` or above**, the verbatim phrase or sentence spoken by the user is recorded.
+*   **Cap**: A maximum of **3 evidence quotes** are stored per skill card (the 3 most recent).
+*   **UI Placement**: Evidence appears on the skill details popup/card only after the confidence is met.
+
+### D. Step Completion Rule (The "Grammar Matures Later" Gate)
 A step (raised bed) is complete (`is_completed = true`) only when:
 1.  All `VOC` (Vocabulary) and `FLU` (Fluency) skills in that step are **`"owned"`** (mastered).
 2.  All `GRA` (Grammar) skills in that step are **at least `"emerging"`** (or `"owned"`). 
 *(Note: Grammar skills do not block step completion as long as the student has attempted them at least once.)*
 
-### D. Active Step Selection
+### E. Active Step Selection
 The client avatar stands at the step matching `active_step_index`.
 *   **Algorithm**: The backend loops from Step 1 to Step 5. It returns the step number of the **first incomplete step** (`is_completed == false`).
 *   **Fallback**: If all 5 steps are completed, it returns `5` (allowing the avatar to stand at the end of the map).
 
-### E. Progress Percentage Weighting ($f_U$)
+### F. Progress Percentage Weighting ($f_U$)
 For a step containing $N$ skills, points are allocated based on status weights:
 *   `owned` $\rightarrow$ `2` points
 *   `emerging` $\rightarrow$ `1` point
@@ -162,7 +181,7 @@ The front-end client reads the API payload and translates it to visual layout at
         *   Slot 2: Back-Right
         *   Slot 3: Front-Left
         *   Slot 4: Front-Right
-    *   Render the corresponding plant asset based on `growth_stage` (Empty Soil $\rightarrow$ Sprout $\rightarrow$ Bud $\rightarrow$ Flower).
+    *   Render the corresponding plant asset based on `sightings` (Empty Soil $\rightarrow$ Sprout $\rightarrow$ Bud $\rightarrow$ Flower).
 *   **Strand Colors**:
     *   `VOC` $\rightarrow$ Pink Flower
     *   `GRA` $\rightarrow$ Yellow Flower
@@ -173,7 +192,7 @@ The front-end client reads the API payload and translates it to visual layout at
     *   *Visual:* The raised bed is rendered as a clean, wooden-slatted flat bed of soil with no plants.
     *   *Logic:* All skills inside these steps have `status == "locked"` and `sightings == 0`.
 *   **`"emerging"` Status $\rightarrow$ Buds and Sprouts (e.g. Step 2)**:
-    *   *Visual:* The bed contains young plants. Slots display a tiny green sprout (`growth_stage == 1` / 1 sighting) or a green stem topped with a closed, colored bud (`growth_stage == 2` / 2 sightings).
+    *   *Visual:* The bed contains young plants. Slots display a tiny green sprout (`sightings == 1`) or a green stem topped with a closed, colored bud (`sightings == 2`).
     *   *Logic:* The user is actively practicing these skills in conversation but has not yet reached mastery thresholds.
 *   **`"owned"` Status $\rightarrow$ Open Bloomed Flowers (e.g. Step 1)**:
     *   *Visual:* The slots display tall green stems with fully bloomed, open petals colored according to the strand theme.

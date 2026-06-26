@@ -79,7 +79,7 @@ class GardenSkill(BaseModel):
     text: str
     status: str  # "owned", "emerging", "locked"
     sightings: int
-    growth_stage: int
+    evidence: list[str] = []
 
 
 class GardenStep(BaseModel):
@@ -87,7 +87,6 @@ class GardenStep(BaseModel):
     name: str
     focus: str
     progress_percentage: float
-    growth_stage: int
     is_completed: bool
     skills: list[GardenSkill]
 

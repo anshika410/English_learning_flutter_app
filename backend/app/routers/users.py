@@ -113,17 +113,8 @@ async def get_user_garden(user: User = Depends(get_current_user)):
         for s in u["skills"]:
             status = bucket_of(progress, s["id"])
             sightings = progress.get("sightings", {}).get(s["id"], 0)
+            evidence_list = progress.get("evidence", {}).get(s["id"], [])
             
-            # Map sightings to growth stage
-            if sightings == 0:
-                stage = 0
-            elif sightings == 1:
-                stage = 1
-            elif sightings == 2:
-                stage = 2
-            else:
-                stage = 3
-                
             if status == "owned":
                 total_points += 2
             elif status == "emerging":
@@ -135,7 +126,7 @@ async def get_user_garden(user: User = Depends(get_current_user)):
                 "text": s["text"],
                 "status": status,
                 "sightings": sightings,
-                "growth_stage": stage
+                "evidence": evidence_list
             })
             
         max_points = len(u["skills"]) * 2
@@ -146,7 +137,6 @@ async def get_user_garden(user: User = Depends(get_current_user)):
           "name": u["name"],
           "focus": u["focus"],
           "progress_percentage": round(fraction * 100, 1),
-          "growth_stage": 3 if unit_complete(progress, u) else 2 if fraction > 0.0 else 0,
           "is_completed": unit_complete(progress, u),
           "skills": skills_data
         })
