@@ -1686,6 +1686,7 @@ function UnitsView({mem}){
   </div>);
 }
 function GardenView({mem, dbGarden}) {
+  const [selectedSkill, setSelectedSkill] = React.useState(null);
   const isApi = LLM_CONFIG.mode === 'api' && dbGarden;
   const level = isApi ? (dbGarden.level || mem.level || 'A1') : (mem.level || 'A1');
   const steps = UNITS[level] || UNITS['A1'] || [];
@@ -1719,9 +1720,19 @@ function GardenView({mem, dbGarden}) {
     
     const theme = colors[skill.strand] || colors.VOC;
 
+    const handleSelect = () => {
+      setSelectedSkill({
+        id: skill.id,
+        text: skill.text,
+        strand: skill.strand,
+        sightings: count,
+        evidence: evidenceList
+      });
+    };
+
     if (count === 0) {
       return (
-        <div className="grid-slot locked" key={skill.id} title={`${skill.id} - Locked (0 sightings)${evidenceStr}`}>
+        <div className="grid-slot locked" key={skill.id} title={`${skill.id} - Locked (0 sightings)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
           <div className="slot-soil"></div>
         </div>
       );
@@ -1729,7 +1740,7 @@ function GardenView({mem, dbGarden}) {
 
     if (count === 1) {
       return (
-        <div className="grid-slot" key={skill.id} title={`${skill.id} - Sprouting (1 sighting)${evidenceStr}`}>
+        <div className="grid-slot" key={skill.id} title={`${skill.id} - Sprouting (1 sighting)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
           <div className="slot-soil"></div>
           <div className="plant-sprout">
             <div className="leaf-left"></div>
@@ -1741,7 +1752,7 @@ function GardenView({mem, dbGarden}) {
 
     if (count === 2) {
       return (
-        <div className="grid-slot" key={skill.id} title={`${skill.id} - Budding (2 sightings)${evidenceStr}`}>
+        <div className="grid-slot" key={skill.id} title={`${skill.id} - Budding (2 sightings)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
           <div className="slot-soil"></div>
           <div className="plant-stem"></div>
           <div className="plant-bud" style={{background: theme.bud}}></div>
@@ -1751,7 +1762,7 @@ function GardenView({mem, dbGarden}) {
 
     // count >= 3
     return (
-      <div className="grid-slot" key={skill.id} title={`${skill.id} - Bloomed! (${count} sightings)${evidenceStr}`}>
+      <div className="grid-slot" key={skill.id} title={`${skill.id} - Bloomed! (${count} sightings)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
         <div className="slot-soil"></div>
         <div className="plant-stem tall"></div>
         <div className="plant-bloom">
@@ -1768,7 +1779,7 @@ function GardenView({mem, dbGarden}) {
   };
 
   return (
-    <div className="garden-map-container">
+    <div className="garden-map-container" style={{ position: 'relative' }}>
       <div className="garden-header">
         <h3>🏡 {level} Garden Map: {isApi && dbGarden.theme ? dbGarden.theme : (level === 'A1' ? 'The Clearing' : 'The Young Garden')}</h3>
         <div className="active-badge">Active Step: {activeStepNum}</div>
@@ -1818,6 +1829,73 @@ function GardenView({mem, dbGarden}) {
           );
         })}
       </div>
+
+      {selectedSkill && (
+        <div className="modal-overlay" style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 100,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#fff',
+            border: '2px solid var(--ink)',
+            borderRadius: '6px',
+            boxShadow: '4px 4px 0 var(--ink)',
+            width: '100%',
+            maxWidth: '320px',
+            padding: '20px',
+            position: 'relative',
+            color: '#212529',
+            fontFamily: 'sans-serif'
+          }}>
+            <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+              <span className={`dot d-${selectedSkill.sightings >= 2 ? 'owned' : selectedSkill.sightings > 0 ? 'emerging' : 'locked'}`} style={{ width: '10px', height: '10px', display: 'inline-block', borderRadius: '50%' }}></span>
+              {selectedSkill.id} ({selectedSkill.strand})
+            </h4>
+            <p style={{ fontSize: '12px', margin: '0 0 12px 0', lineHeight: '1.4' }}>
+              <strong>Goal:</strong> {selectedSkill.text}
+            </p>
+            <div style={{ fontSize: '12px', marginBottom: '12px' }}>
+              <strong>Sightings count:</strong> {selectedSkill.sightings}
+            </div>
+            
+            <div style={{ background: '#f8f9fa', border: '1px solid #e9ecef', borderRadius: '4px', padding: '10px', marginBottom: '15px', maxHeight: '180px', overflowY: 'auto' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '6px', color: '#495057' }}>
+                🌟 Verbatim Evidence (Confidence &ge; 0.7)
+              </div>
+              {selectedSkill.evidence.length === 0 ? (
+                <div style={{ fontSize: '11px', color: '#868e96', fontStyle: 'italic' }}>
+                  No qualifying evidence quotes yet. Use this skill during a chat conversation to unlock evidence!
+                </div>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: '#212529', lineHeight: '1.4' }}>
+                  {selectedSkill.evidence.map((ev, idx) => (
+                    <li key={idx} style={{ marginBottom: '4px' }}>
+                      &ldquo;{ev}&rdquo;
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <button 
+              className="act" 
+              style={{ width: '100%', padding: '6px', fontSize: '12px' }}
+              onClick={() => setSelectedSkill(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
