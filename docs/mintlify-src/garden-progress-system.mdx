@@ -224,11 +224,16 @@ For each skill ID in the active level's curriculum, the backend checks the datab
 *   **`"locked"`**: The skill ID is in neither array.
 
 ### B. Sightings & Plant Growth Stages
-The client maps the number of `sightings` directly to the visual asset of the plant in its grid slot:
-*   **0 sightings**: Bare Soil / empty wooden grid.
-*   **1 sighting**: Tiny green sprout.
-*   **2 sightings**: Leafy stem with closed bud.
-*   **3+ sightings**: Tall stem with fully open bloomed flower.
+
+The client maps the combination of **`status`** and **`sightings`** directly to the visual asset of the plant in its grid slot:
+
+| Status | Sightings | Visual Plant on Map | What it means |
+| :--- | :--- | :--- | :--- |
+| **`locked`** | `0` | **Bare Soil** | The student has never attempted this skill yet. |
+| **`emerging`** | `0` | **Bare Soil** | The student attempted it, but with low confidence (`0.30` - `0.69`). |
+| **`emerging`** | `1` | **Tiny Sprout 🌱** | Sprout appears! The student used it once with high confidence ($\ge 0.70$). |
+| **`owned`** | `2` | **Closed Bud 🌷** | Bud appears! The student used it twice with high confidence. |
+| **`owned`** | `3+` | **Bloomed Flower 🌸** | Full Bloom! The student used it three or more times with high confidence. |
 
 ### C. Evidence Storage Rule
 For any skill evidenced during chat analysis:
