@@ -117,6 +117,33 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
 }
 ```
 
+### Response Field Reference
+
+Here is the exact field hierarchy and data types for writing client-side models (e.g., Dart classes):
+
+#### A. Root Object (6 Fields)
+*   **`level`** (`string`): The current CEFR language level of the user (e.g., `'A1'`).
+*   **`level_label`** (`string`): Friendly display name for the current level (e.g., `'First Words'`).
+*   **`theme`** (`string`): Visual layout background identifier (e.g., `'The Clearing'`).
+*   **`active_step_index`** (`int`): 1-indexed identifier of the step where the learner is currently standing.
+*   **`recommended_topic`** (`string`): A dynamically generated prompt to start a conversation matching active targets.
+*   **`steps`** (`List<Step>`): List of Step objects representing the raised beds.
+
+#### B. Step Object (5 Fields)
+*   **`step`** (`int`): Step number (e.g., `1`, `2`).
+*   **`name`** (`string`): Title of the step.
+*   **`focus`** (`string`): A short description of the pedagogical goal for this step.
+*   **`is_completed`** (`boolean`): Set to `true` when all VOC/FLU targets are owned and GRA targets are emerging.
+*   **`skills`** (`List<Skill>`): List of Skill objects representing plant slots.
+
+#### C. Skill Object (6 Fields)
+*   **`id`** (`string`): The skill code identifier (e.g., `'U1-VOC-01'`).
+*   **`strand`** (`string`): The pedagogical category indicator (`'VOC'`, `'GRA'`, or `'FLU'`).
+*   **`text`** (`string`): The description of the skill target.
+*   **`status`** (`string`): Mastery state indicator (`'owned'`, `'emerging'`, or `'locked'`).
+*   **`sightings`** (`int`): Number of times the learner has demonstrated this skill in chats.
+*   **`evidence`** (`List<string>`): Verbatim phrases spoken by the student matching the target (capped at 3 quotes).
+
 ---
 
 ## 3. Pure Backend Progression Logic
