@@ -1707,8 +1707,12 @@ function GardenView({mem, dbGarden}) {
     });
   }
 
+  const getSightingsCount = (skillId) => {
+    return isApi ? (apiSightings[skillId] || 0) : (mem.sightings ? mem.sightings[skillId] || 0 : 0);
+  };
+
   const renderPlant = (skill) => {
-    const count = isApi ? (apiSightings[skill.id] || 0) : (mem.sightings ? mem.sightings[skill.id] || 0 : 0);
+    const count = getSightingsCount(skill.id);
     const evidenceList = isApi ? (apiEvidence[skill.id] || []) : [];
     const plainEvidence = evidenceList.map(ev => typeof ev === 'object' ? `${ev.evidence} (conf: ${ev.confidence}${ev.prompted ? ', prompted' : ''})` : ev);
     const evidenceStr = plainEvidence.length > 0 ? "\nEvidence:\n• " + plainEvidence.join("\n• ") : "";
@@ -1807,6 +1811,34 @@ function GardenView({mem, dbGarden}) {
         {steps.map((u, i) => {
           const isActive = activeStepNum === u.step;
           const sideClass = i % 2 === 0 ? 'step-left' : 'step-right';
+          const stepSightings = u.skills.reduce((sum, s) => sum + getSightingsCount(s.id), 0);
+
+          if (stepSightings === 0) {
+            return (
+              <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
+                <div className="step-label">
+                  <div className="step-num">Step {u.step}</div>
+                  <div className="step-title">{u.name}</div>
+                  <div className="step-focus" title={u.focus}>{u.focus.substring(0, 42)}...</div>
+                </div>
+
+                <div className="raised-bed-tile" style={{ cursor: 'pointer' }} onClick={() => {
+                  const skill = u.skills[0];
+                  const count = getSightingsCount(skill.id);
+                  const evidenceList = isApi ? (apiEvidence[skill.id] || []) : [];
+                  setSelectedSkill({
+                    id: skill.id,
+                    text: skill.text,
+                    strand: skill.strand,
+                    sightings: count,
+                    evidence: evidenceList
+                  });
+                }}>
+                  <img src="/docs/logo/garden.png" alt="Locked Bed" style={{ width: '100px', height: '100px', objectFit: 'contain' }} />
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
@@ -1817,7 +1849,7 @@ function GardenView({mem, dbGarden}) {
               </div>
 
               <div className="raised-bed-tile">
-                <div className="tile-surface">
+                <div className="tile-surface" style={{ background: 'transparent', border: 'none', boxShadow: 'none', transform: 'none' }}>
                   <div className="grid-2x2">
                     {renderPlant(u.skills[0])}
                     {u.skills[1] ? renderPlant(u.skills[1]) : <div className="grid-slot locked" key="s1" style={{ background: 'transparent' }}><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
