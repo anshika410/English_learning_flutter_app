@@ -51,8 +51,8 @@ class StoreMessageRequest(BaseModel):
 
 
 class SessionLogTranscriptMessage(BaseModel):
-    speaker: str
-    text: str
+    role: str
+    content: str
 
 
 class SessionLogGradedSkill(BaseModel):
@@ -77,7 +77,7 @@ class SessionLogStateChange(BaseModel):
 
 class SessionLogResponse(BaseModel):
     session_id: str
-    child_id: str
+    user_id: str
     level: str | None
     progression_model: str
     prompt_version: str

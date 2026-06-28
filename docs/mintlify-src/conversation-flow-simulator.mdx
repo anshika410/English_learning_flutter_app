@@ -52,7 +52,7 @@ Each entry in the Session tab is assembled locally after the judge grades a conv
 ```json
 {
   "session_id": "s_0001",
-  "child_id": "device_uuid",
+  "user_id": "device_uuid",
   "level": "A1",
   "progression_model": "unit",
   "prompt_version": "backend_v1",
@@ -78,8 +78,8 @@ Each entry in the Session tab is assembled locally after the judge grades a conv
     }
   ],
   "transcript": [
-    {"speaker": "zoe", "text": "Hi! What's your name?"},
-    {"speaker": "learner", "text": "I am Ravi."}
+    {"role": "zoe", "content": "Hi! What's your name?"},
+    {"role": "me", "content": "I am Ravi."}
   ]
 }
 ```

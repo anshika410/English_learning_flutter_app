@@ -287,7 +287,7 @@ async def send_placement_turn(
     try:
         json_str = _extract_json(text)
         data = json.loads(json_str)
-        if "level_code" in data:
+        if "level" in data or "level_code" in data:
             import logging
             logging.info(f"Placement JSON interests: {data.get('interests')}")
             return {
@@ -296,7 +296,7 @@ async def send_placement_turn(
                 "name": data.get("name"),
                 "age": data.get("age"),
                 "age_group": data.get("age_group"),
-                "level_code": data.get("level_code"),
+                "level": data.get("level") or data.get("level_code"),
                 "level_name": data.get("level_name"),
                 "level_description": data.get("level_description"),
                 "confidence": data.get("confidence"),

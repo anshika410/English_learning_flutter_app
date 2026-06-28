@@ -875,8 +875,8 @@ function App(){
         });
 
         const updatedMsgs = turnResponse.transcript.map(t => ({
-          role: t.speaker === 'learner' ? 'me' : 'zoe',
-          text: t.text
+          role: t.role,
+          text: t.content
         }));
         setMsgs(updatedMsgs);
         setLlmLive(true);
@@ -1061,13 +1061,13 @@ function App(){
       setHl({owned:true,emerging:true,due_next:true,effort:true}); setTimeout(()=>setHl({}),1400);
       setMem(merged);
       setSnapshots(prev=>[...prev,{chat:chatNum,model,owned:[...merged.owned],emerging:[...merged.emerging],due:flatTargets(merged)}]);
-      const sLog={session_id:'s_'+String(chatNum).padStart(4,'0'),child_id:mem.child_id,level,progression_model:model,prompt_version:'sim_v4',
+      const sLog={session_id:'s_'+String(chatNum).padStart(4,'0'),user_id:mem.child_id,level,progression_model:model,prompt_version:'sim_v4',
         timestamp:new Date().toISOString(),turns_total:turnCount,
         topic: currentTopic? currentTopic.topic : null,
         aimed_at:aimed, hit_targets:hit,
         skills_evidenced:primaryScores.map(s=>({id:s.id,name:skillText(s.id, level),confidence:s.confidence,prompted:s.prompted,evidence:s.evidence||'',reason:s.miss_reason||missReason(s, level)})),
         state_changes:chg.map(c=>({...c,name:skillText(c.id, level)})),
-        transcript:msgs.filter(m=>m.role!=='sys').map(m=>({speaker:m.role==='zoe'?'zoe':'learner',text:m.text}))};
+        transcript:msgs.filter(m=>m.role!=='sys').map(m=>({role:m.role==='zoe'?'zoe':'me',content:m.text}))};
       setSessions(p=>[...p,sLog]);
       setHistory(h=>[...h,{chat:chatNum,level,model,owned:merged.owned.length,emerging:merged.emerging.length,changes:chg.length,turns:turnCount,aimed:aimed.length,hit:hit.length}]);
       const learnerWin = learnerRecap(primaryScores, aimed, level);
@@ -2096,7 +2096,7 @@ function getEndpointMeta(path, method) {
     return {
       desc: 'Runs the LLM Judge grading engine on a finished conversation transcript.',
       schema: {
-        conversation_id: 'string (Required)',
+        session_id: 'string (Required)',
         messages: 'array of message objects (Required)',
         topic: 'string (Required)',
         progression_model: 'string ("unit" | "micro-skill") (Required)',

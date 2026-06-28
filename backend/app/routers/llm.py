@@ -54,7 +54,7 @@ async def conversation_turn(
     # Verify conversation belongs to this user
     result = await db.execute(
         select(Conversation).where(
-            Conversation.id == body.conversation_id,
+            Conversation.id == body.session_id,
             Conversation.user_id == user.id,
         )
     )
@@ -120,7 +120,7 @@ async def session_analysis(
     # Verify conversation belongs to this user
     conv_result = await db.execute(
         select(Conversation).where(
-            Conversation.id == body.conversation_id,
+            Conversation.id == body.session_id,
             Conversation.user_id == user.id,
         )
     )
@@ -146,7 +146,7 @@ async def session_analysis(
     topic = conversation.topic or body.topic
 
     analysis_out = await run_and_save_session_analysis(
-        conversation_id=body.conversation_id,
+        conversation_id=body.session_id,
         messages=messages,
         topic=topic,
         level=level,

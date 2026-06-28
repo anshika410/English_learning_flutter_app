@@ -208,7 +208,7 @@ async def get_session_log(
     )
     messages_db = msg_result.scalars().all()
     transcript = [
-        {"speaker": "zoe" if m.role in ("zoe", "assistant") else "learner", "text": m.content}
+        {"role": "zoe" if m.role in ("zoe", "assistant") else "me", "content": m.content}
         for m in messages_db
     ]
     
@@ -227,12 +227,12 @@ async def get_session_log(
         # Return a shell response if analysis is missing
         return SessionLogResponse(
             session_id=session_id,
-            child_id=user.device_id or user.id,
+            user_id=user.device_id or user.id,
             level=user.level,
             progression_model=progression_model,
             prompt_version="backend_v1",
             timestamp=conv.created_at or datetime.now(timezone.utc),
-            turns_total=len([m for m in transcript if m["speaker"] == "learner"]),
+            turns_total=len([m for m in transcript if m["role"] == "me"]),
             topic=conv.topic,
             aimed_at=[],
             hit_targets=[],
@@ -278,12 +278,12 @@ async def get_session_log(
 
     return SessionLogResponse(
         session_id=session_id,
-        child_id=user.device_id or user.id,
+        user_id=user.device_id or user.id,
         level=user.level,
         progression_model=progression_model,
         prompt_version="backend_v1",
         timestamp=conv.created_at or datetime.now(timezone.utc),
-        turns_total=len([m for m in transcript if m["speaker"] == "learner"]),
+        turns_total=len([m for m in transcript if m["role"] == "me"]),
         topic=conv.topic,
         aimed_at=analysis.aimed_at or [],
         hit_targets=analysis.hit_targets or [],
@@ -405,7 +405,7 @@ async def conversation_turn(
     )
     db_messages = transcript_result.scalars().all()
     transcript = [
-        {"speaker": "zoe" if m.role in ("zoe", "assistant") else "learner", "text": m.content}
+        {"role": "zoe" if m.role in ("zoe", "assistant") else "me", "content": m.content}
         for m in db_messages
     ]
 

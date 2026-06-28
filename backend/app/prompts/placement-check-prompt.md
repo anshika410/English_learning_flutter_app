@@ -170,7 +170,7 @@ When you finish, output ONLY this JSON (no REPLY prefix, no other text):
   "name": "{{NAME}}",
   "age": {{AGE}},
   "age_group": "10-12|13-15|16-18",
-  "level_code": "A1|A2|B1|B2|C1",
+  "level": "A1|A2|B1|B2|C1",
   "level_name": "First Words|Finding My Voice|Speaking Freely|Almost Fluent|Fluent",
   "level_description": "One friendly sentence the student will see.",
   "confidence": "low|medium|high",

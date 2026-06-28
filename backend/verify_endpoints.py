@@ -110,10 +110,10 @@ def run_tests():
         
         turn_data = turn_resp.json()
         assert len(turn_data["transcript"]) >= 2
-        assert turn_data["transcript"][-1]["speaker"] == "zoe"
-        assert turn_data["transcript"][-1]["text"] == "That is cool! Zoe loves cricket too."
-        assert turn_data["transcript"][-2]["speaker"] == "learner"
-        assert turn_data["transcript"][-2]["text"] == "I like playing cricket."
+        assert turn_data["transcript"][-1]["role"] == "zoe"
+        assert turn_data["transcript"][-1]["content"] == "That is cool! Zoe loves cricket too."
+        assert turn_data["transcript"][-2]["role"] == "me"
+        assert turn_data["transcript"][-2]["content"] == "I like playing cricket."
     print("✓ POST /session/{id}/turn memory injection successful")
 
     # 6. Session Analysis with Memory Extraction and Merging
@@ -146,7 +146,7 @@ def run_tests():
             "/llm/judge",
             headers=headers,
             json={
-                "conversation_id": conversation_id,
+                "session_id": conversation_id,
                 "messages": [
                     {"role": "user", "content": "I like playing cricket."}
                 ],

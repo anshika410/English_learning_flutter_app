@@ -100,7 +100,7 @@ def run_tests():
             "/llm/judge",
             headers=headers,
             json={
-                "conversation_id": conversation_id,
+                "session_id": conversation_id,
                 "messages": [
                     {"role": "user", "content": "I see... me in space! No pizza. Only stars."}
                 ],
@@ -222,7 +222,7 @@ def run_tests():
             "/llm/judge",
             headers=headers,
             json={
-                "conversation_id": conversation_id2,
+                "session_id": conversation_id2,
                 "messages": [
                     {"role": "user", "content": "I like watching Bollywood movies."}
                 ],
@@ -264,7 +264,7 @@ def run_tests():
     
     # Assert exact sLog schema fields
     assert "session_id" in log_data
-    assert "child_id" in log_data
+    assert "user_id" in log_data
     assert "level" in log_data
     assert "progression_model" in log_data
     assert "prompt_version" in log_data
@@ -279,8 +279,8 @@ def run_tests():
 
     assert log_data["session_id"] == conversation_id2
     assert len(log_data["transcript"]) == 2
-    assert log_data["transcript"][1]["speaker"] == "learner"
-    assert log_data["transcript"][1]["text"] == "I like watching Bollywood movies."
+    assert log_data["transcript"][1]["role"] == "me"
+    assert log_data["transcript"][1]["content"] == "I like watching Bollywood movies."
     assert len(log_data["skills_evidenced"]) == 1
     assert log_data["skills_evidenced"][0]["id"] == "U1-VOC-01"
     assert log_data["skills_evidenced"][0]["confidence"] == 0.9

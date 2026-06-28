@@ -132,7 +132,7 @@ sequenceDiagram
     participant DB as PostgreSQL DB
 
     Note over Client: User clicks "End Chat"
-    Client->>API: POST /llm/judge { conversation_id, messages, level, progression_model }
+    Client->>API: POST /llm/judge { session_id, messages, level, progression_model }
     API->>LLM: Send transcript for grading
     LLM-->>API: Return skill grading scores & confidence
     

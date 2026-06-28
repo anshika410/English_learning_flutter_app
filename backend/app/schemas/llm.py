@@ -24,7 +24,7 @@ class MessageIn(BaseModel):
 
 
 class ConversationTurnRequest(BaseModel):
-    conversation_id: str
+    session_id: str
     messages: list[MessageIn]
     topic: str | None = None
     level: str = "A2"
@@ -34,7 +34,7 @@ class ConversationTurnRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+                "session_id": "123e4567-e89b-12d3-a456-426614174000",
                 "messages": [
                     {"role": "system", "content": "You are Zoe, a friendly English tutor."},
                     {"role": "assistant", "content": "Hi there! Let's talk about sports. Do you play cricket?"},
@@ -80,7 +80,7 @@ class PlacementTurnResponse(BaseModel):
     name: str | None = None
     age: int | None = None
     age_group: str | None = None
-    level_code: str | None = None
+    level: str | None = None
     level_name: str | None = None
     level_description: str | None = None
     confidence: str | None = None
@@ -104,7 +104,7 @@ class PlacementTurnResponse(BaseModel):
 
 
 class SessionAnalysisRequest(BaseModel):
-    conversation_id: str
+    session_id: str
     messages: list[MessageIn]
     topic: str = "Free Talk"
     level: str = "A2"
@@ -116,7 +116,7 @@ class SessionAnalysisRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "conversation_id": "123e4567-e89b-12d3-a456-426614174000",
+                "session_id": "123e4567-e89b-12d3-a456-426614174000",
                 "messages": [
                     {"role": "assistant", "content": "Hi! Let's talk about food. What did you eat for breakfast?"},
                     {"role": "user", "content": "I ate dosas and drank some milk."}
