@@ -112,7 +112,21 @@ async def get_user_garden(user: User = Depends(get_current_user)):
         for s in u["skills"]:
             status = bucket_of(progress, s["id"])
             sightings = progress.get("sightings", {}).get(s["id"], 0)
-            evidence_list = progress.get("evidence", {}).get(s["id"], [])
+            raw_evidence = progress.get("evidence", {}).get(s["id"], [])
+            evidence_list = []
+            for ev in raw_evidence:
+                if isinstance(ev, dict):
+                    evidence_list.append({
+                        "evidence": ev.get("evidence", ""),
+                        "confidence": ev.get("confidence", 1.0),
+                        "prompted": ev.get("prompted", False)
+                    })
+                elif isinstance(ev, str):
+                    evidence_list.append({
+                        "evidence": ev,
+                        "confidence": 1.0,
+                        "prompted": False
+                    })
             
             skills_data.append({
                 "id": s["id"],

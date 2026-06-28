@@ -1710,7 +1710,8 @@ function GardenView({mem, dbGarden}) {
   const renderPlant = (skill) => {
     const count = isApi ? (apiSightings[skill.id] || 0) : (mem.sightings ? mem.sightings[skill.id] || 0 : 0);
     const evidenceList = isApi ? (apiEvidence[skill.id] || []) : [];
-    const evidenceStr = evidenceList.length > 0 ? "\nEvidence:\n• " + evidenceList.join("\n• ") : "";
+    const plainEvidence = evidenceList.map(ev => typeof ev === 'object' ? `${ev.evidence} (conf: ${ev.confidence}${ev.prompted ? ', prompted' : ''})` : ev);
+    const evidenceStr = plainEvidence.length > 0 ? "\nEvidence:\n• " + plainEvidence.join("\n• ") : "";
     
     const colors = {
       VOC: { bud: '#ff8da1', bloomBg: '#ffccd5', center: '#d90429' },
@@ -1877,11 +1878,15 @@ function GardenView({mem, dbGarden}) {
                 </div>
               ) : (
                 <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: '#212529', lineHeight: '1.4' }}>
-                  {selectedSkill.evidence.map((ev, idx) => (
-                    <li key={idx} style={{ marginBottom: '4px' }}>
-                      &ldquo;{ev}&rdquo;
-                    </li>
-                  ))}
+                  {selectedSkill.evidence.map((ev, idx) => {
+                    const quote = typeof ev === 'object' ? ev.evidence : ev;
+                    const meta = typeof ev === 'object' ? ` (confidence: ${ev.confidence}, prompted: ${ev.prompted ? 'yes' : 'no'})` : '';
+                    return (
+                      <li key={idx} style={{ marginBottom: '4px' }}>
+                        &ldquo;{quote}&rdquo;<span style={{ color: '#868e96', fontSize: '10px' }}>{meta}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

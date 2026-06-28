@@ -73,13 +73,19 @@ class UserMemoryResponse(BaseModel):
     persona_memory: dict = {}
 
 
+class GardenEvidence(BaseModel):
+    evidence: str
+    confidence: float
+    prompted: bool
+
+
 class GardenSkill(BaseModel):
     id: str
     strand: str
     text: str
     status: str  # "owned", "emerging", "locked"
     sightings: int
-    evidence: list[str] = []
+    evidence: list[GardenEvidence] = []
 
 
 class GardenStep(BaseModel):

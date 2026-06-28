@@ -44,11 +44,23 @@ The garden progress system is built on top of the existing SQLite/PostgreSQL `us
   },
   "evidence": {
     "U1-VOC-01": [
-      "I am happy today.",
-      "My mother is a doctor."
+      {
+        "evidence": "I am happy today.",
+        "confidence": 0.75,
+        "prompted": false
+      },
+      {
+        "evidence": "My mother is a doctor.",
+        "confidence": 0.85,
+        "prompted": true
+      }
     ],
     "U1-GRA-01": [
-      "She is running now."
+      {
+        "evidence": "She is running now.",
+        "confidence": 0.78,
+        "prompted": false
+      }
     ]
   },
   "effort": {
@@ -89,8 +101,16 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
           "status": "owned",
           "sightings": 2,
           "evidence": [
-            "I am happy today.",
-            "My mother is a doctor."
+            {
+              "evidence": "I am happy today.",
+              "confidence": 0.75,
+              "prompted": false
+            },
+            {
+              "evidence": "My mother is a doctor.",
+              "confidence": 0.85,
+              "prompted": true
+            }
           ]
         },
         {
@@ -100,7 +120,11 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
           "status": "emerging",
           "sightings": 1,
           "evidence": [
-            "She is running now."
+            {
+              "evidence": "She is running now.",
+              "confidence": 0.78,
+              "prompted": false
+            }
           ]
         },
         {
