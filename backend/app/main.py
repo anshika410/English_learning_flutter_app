@@ -15,9 +15,6 @@ from .models import user, placement, conversation, message, session_analysis  # 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables on startup (use Alembic in production)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
 
 
