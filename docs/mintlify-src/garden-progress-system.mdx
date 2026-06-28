@@ -74,7 +74,7 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
   "level_label": "First Words",
   "theme": "The Clearing",
   "active_step_index": 1,
-  "recommended_topic": "Today, I wanted to talk about cricket. Shall we?",
+  "recommended_topic": "What did you do yesterday? Tell me two things.",
   "steps": [
     {
       "step": 1,
@@ -153,7 +153,12 @@ The client avatar stands at the step matching `active_step_index`.
 *   **Algorithm**: The backend loops from Step 1 to Step 4. It returns the step number of the **first incomplete step** (`is_completed == false`).
 *   **Fallback**: If all 4 steps are completed, it returns `4` (allowing the avatar to stand at the end of the map).
 
----
+### F. Dynamic Topic Recommendation
+To keep the conversation aligned with the student's current target path, the `"recommended_topic"` is computed dynamically on the fly:
+1. **Target Identification**: The API inspects the student's active target skill (e.g., `"U2-VOC-01"` inside `user.due_next.primary`).
+2. **Elicitation Fetching**: It fetches the corresponding friendly prompt question from the curriculum database (e.g., `"What did you do yesterday? Tell me two things."`).
+3. **Fallback Default**: If no active targets are available, it defaults to the elicitation question of the first skill in the active step.
+
 
 ## 4. Visual Mapping Specifications
 
