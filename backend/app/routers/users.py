@@ -131,12 +131,30 @@ async def get_user_garden(user: User = Depends(get_current_user)):
           "skills": skills_data
         })
         
+    # Resolve dynamic recommended topic based on active target skill
+    due_next = user.due_next or {}
+    primary_skill = due_next.get("primary")
+    if not primary_skill and active_unit:
+        skills = active_unit.get("skills", [])
+        if skills:
+            primary_skill = skills[0].get("id")
+
+    recommended_topic = "Today, I wanted to talk about cricket. Shall we?"
+    if primary_skill:
+        from ..core.curriculum_data import get_elicitation_plan_for
+        try:
+            plan = get_elicitation_plan_for(primary_skill)
+            if plan and plan.get("question"):
+                recommended_topic = plan["question"]
+        except Exception:
+            pass
+
     return {
         "level": level,
         "level_label": user.level_label or "First Words",
         "theme": "The Clearing" if level.upper() == "A1" else "The Young Garden",
         "active_step_index": active_index,
-        "recommended_topic": "Today, I wanted to talk about cricket. Shall we?",
+        "recommended_topic": recommended_topic,
         "steps": steps_data
     }
 
