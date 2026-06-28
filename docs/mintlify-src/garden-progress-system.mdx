@@ -289,6 +289,8 @@ The front-end client reads the API payload and translates it to visual layout at
 ### Status UI Translation Rules
 *   **`"locked"` Status $\rightarrow$ Slatted Bare Soil Tiles (e.g. Steps 3, 4)**:
     *   *Visual:* The raised bed is rendered as a clean, wooden-slatted flat bed of soil with no plants.
+        
+        ![Bare Soil Raised Bed](/logo/garden.png)
     *   *Logic:* All skills inside these steps have `status == "locked"` and `sightings == 0`.
 *   **`"emerging"` Status $\rightarrow$ Buds and Sprouts (e.g. Step 2)**:
     *   *Visual:* The bed contains young plants. Slots display a tiny green sprout (`sightings == 1`) or a green stem topped with a closed, colored bud (`sightings == 2`).
