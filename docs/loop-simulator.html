@@ -85,7 +85,7 @@ small.note{display:block;color:var(--grey);font-size:10.5px;margin-top:6px}
 .garden-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px dashed var(--ink); padding-bottom: 8px; margin-bottom: 12px; }
 .garden-header h3 { margin: 0; color: #2e7d32; font-family: sans-serif; font-size: 16px; font-weight: 700; }
 .garden-header .active-badge { background: #c8e6c9; color: #1b5e20; border: 1px solid #81c784; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
-.garden-viewport { position: relative; height: 760px; border-radius: 8px; background: #c8e6c9; border: 1px solid #a5d6a7; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
+.garden-viewport { position: relative; height: 760px; border-radius: 8px; background: url('/docs/logo/tile-turf-grass.png') repeat; border: 1px solid #a5d6a7; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
 .path-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
 .garden-step-node { position: absolute; display: flex; align-items: center; width: 290px; height: 140px; z-index: 2; }
 .garden-step-node.step-left { left: 16px; flex-direction: row; }
@@ -1731,45 +1731,45 @@ function GardenView({mem, dbGarden}) {
       });
     };
 
-    if (count === 0) {
-      return (
-        <div className="grid-slot locked" key={skill.id} title={`${skill.id} - Locked (0 sightings)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
-          <div className="slot-soil"></div>
-        </div>
-      );
-    }
+    const getPlantImg = () => {
+      const strand = skill.id.split('-')[1] || 'GRA';
 
-    if (count === 1) {
-      return (
-        <div className="grid-slot" key={skill.id} title={`${skill.id} - Sprouting (1 sighting)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
-          <div className="slot-soil"></div>
-          <div className="plant-sprout">
-            <div className="leaf-left"></div>
-            <div className="leaf-right"></div>
-          </div>
-        </div>
-      );
-    }
+      if (count === 0) {
+        return '/docs/logo/empty-tile.png';
+      }
+      if (count === 1) {
+        return '/docs/logo/fluency-sprout.png';
+      }
+      if (count === 2) {
+        if (strand === 'FLU') return '/docs/logo/fluency-mid-grown.png';
+        if (strand === 'VOC') return '/docs/logo/vocabulary-mid.png';
+        return '/docs/logo/grammar-mid.png';
+      }
+      // count >= 3
+      if (strand === 'FLU') return '/docs/logo/fluency-fully-bloom.png';
+      if (strand === 'VOC') return '/docs/logo/vocabulary-fully-bloom.png';
+      return '/docs/logo/grammar-fully-bloom.png';
+    };
 
-    if (count === 2) {
-      return (
-        <div className="grid-slot" key={skill.id} title={`${skill.id} - Budding (2 sightings)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
-          <div className="slot-soil"></div>
-          <div className="plant-stem"></div>
-          <div className="plant-bud" style={{background: theme.bud}}></div>
-        </div>
-      );
-    }
-
-    // count >= 3
     return (
-      <div className="grid-slot" key={skill.id} title={`${skill.id} - Bloomed! (${count} sightings)${evidenceStr}`} onClick={handleSelect} style={{ cursor: 'pointer' }}>
-        <div className="slot-soil"></div>
-        <div className="plant-stem tall"></div>
-        <div className="plant-bloom">
-          <div className="petal" style={{background: theme.bloomBg}}></div>
-          <div className="petal-center" style={{background: theme.center}}></div>
-        </div>
+      <div 
+        className="grid-slot" 
+        key={skill.id} 
+        title={`${skill.id} - ${count === 0 ? 'Locked' : count === 1 ? 'Sprouting' : count === 2 ? 'Budding' : 'Bloomed!'} (${count} sightings)${evidenceStr}`} 
+        onClick={handleSelect} 
+        style={{ cursor: 'pointer', background: 'transparent' }}
+      >
+        <img 
+          src={getPlantImg()} 
+          alt={skill.id} 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'contain', 
+            pointerEvents: 'none',
+            display: 'block'
+          }} 
+        />
       </div>
     );
   };
@@ -1820,9 +1820,9 @@ function GardenView({mem, dbGarden}) {
                 <div className="tile-surface">
                   <div className="grid-2x2">
                     {renderPlant(u.skills[0])}
-                    {u.skills[1] ? renderPlant(u.skills[1]) : <div className="grid-slot locked" key="s1"></div>}
-                    {u.skills[2] ? renderPlant(u.skills[2]) : <div className="grid-slot locked" key="s2"></div>}
-                    {u.skills[3] ? renderPlant(u.skills[3]) : <div className="grid-slot locked" key="s3"></div>}
+                    {u.skills[1] ? renderPlant(u.skills[1]) : <div className="grid-slot locked" key="s1" style={{ background: 'transparent' }}><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
+                    {u.skills[2] ? renderPlant(u.skills[2]) : <div className="grid-slot locked" key="s2" style={{ background: 'transparent' }}><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
+                    {u.skills[3] ? renderPlant(u.skills[3]) : <div className="grid-slot locked" key="s3" style={{ background: 'transparent' }}><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
                   </div>
                 </div>
               </div>
