@@ -166,7 +166,7 @@ Here is the exact field hierarchy and data types for writing client-side models 
 *   **`text`** (`string`): The description of the skill target.
 *   **`status`** (`string`): Mastery state indicator (`'owned'`, `'emerging'`, or `'locked'`).
 *   **`sightings`** (`int`): Number of times the learner has demonstrated this skill in chats.
-*   **`evidence`** (`List<string>`): Verbatim phrases spoken by the student matching the target (capped at 3 quotes).
+*   **`evidence`** (`List<GardenEvidence>`): List of structured evidence objects containing the quote, confidence score, and prompted state flag (capped at 3 quotes).
 
 ---
 
@@ -189,9 +189,13 @@ The client maps the number of `sightings` directly to the visual asset of the pl
 
 ### C. Evidence Storage Rule
 For any skill evidenced during chat analysis:
-*   **Threshold**: If the match confidence is **`0.7` or above**, the verbatim phrase or sentence spoken by the user is recorded.
+*   **Threshold**: If the match confidence is **`0.3` or above** (the grading floor), the verbatim phrase or sentence spoken by the user is recorded.
+*   **Structure**: Instead of saving raw strings, the engine stores a structured object:
+    *   `evidence` (`string`): The verbatim quote spoken by the student.
+    *   `confidence` (`float`): The LLM confidence score (`0.0` to `1.0`) of the match.
+    *   `prompted` (`boolean`): `true` if Zoe set the student up to use this skill; `false` if used spontaneously.
 *   **Cap**: A maximum of **3 evidence quotes** are stored per skill card (the 3 most recent).
-*   **UI Placement**: Evidence appears on the skill details popup/card only after the confidence is met.
+*   **UI Placement**: Evidence objects are returned for the student to review their natural versus prompted speaking performance on the skill card details popup.
 
 ### D. Step Completion Rule (The "Grammar Matures Later" Gate)
 A step (raised bed) is complete (`is_completed = true`) only when:
