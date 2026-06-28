@@ -962,7 +962,7 @@ function App(){
         }));
 
         const analysis = await callEllaAPI('/llm/judge', 'POST', {
-          conversation_id: activeConvId,
+          session_id: activeConvId,
           messages: apiMsgs,
           topic: currentTopic ? currentTopic.topic : "Free conversation",
           level: level,
