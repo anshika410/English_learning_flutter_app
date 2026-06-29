@@ -63,6 +63,10 @@ async def update_profile(
         user.age = body.age
     if body.location is not None:
         user.location = body.location
+    if body.level is not None:
+        user.level = body.level
+    if body.level_label is not None:
+        user.level_label = body.level_label
     db.add(user)
     await db.flush()
     return _to_memory_response(user)

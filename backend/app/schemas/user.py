@@ -20,13 +20,17 @@ class UpdateProfileRequest(BaseModel):
     name: str | None = None
     age: str | None = None
     location: str | None = None
+    level: str | None = None
+    level_label: str | None = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "name": "Aarav",
                 "age": "12",
-                "location": "Delhi"
+                "location": "Delhi",
+                "level": "A2",
+                "level_label": "First Words"
             }
         }
     }

@@ -1138,7 +1138,15 @@ function App(){
   function changeLevel(l){
     setLevel(l);
     if (LLM_CONFIG.mode === 'api') {
-      initSession(l, model);
+      setBusy(true);
+      callEllaAPI('/users/me', 'PUT', { level: l, level_label: HEADLINES[l] || "Finding My Voice" })
+        .then(() => {
+          initSession(l, model);
+        })
+        .catch(err => {
+          console.error("Failed to update user level on backend:", err);
+          initSession(l, model);
+        });
     } else {
       const nm=freshMemory(l); nm.due_next=targetsListFor(nm,model); setMem(nm); setChatNum(1);setHistory([]);setSessions([]);setSnapshots([]);setJudgeOut(null);setJudgeDebug(null);setDualJudge(null);setChanges([]);setTurnCount(0);
       setMsgs([{role:'sys',text:'Level '+l+' (reset)'}]); setTimeout(()=>zoeOpens(1,model,nm),60);
