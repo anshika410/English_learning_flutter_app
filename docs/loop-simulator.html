@@ -1899,10 +1899,20 @@ function GardenView({mem, dbGarden}) {
                   />
 
                   <div className="grid-2x2-iso" style={{ zIndex: 1 }}>
-                    {u.skills[0] ? renderPlant(u.skills[0], 'iso-slot-left') : null}
-                    {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : null}
-                    {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : null}
-                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : null}
+                    {u.skills.length === 3 ? (
+                      <>
+                        {renderPlant(u.skills[0], 'iso-slot-left')}
+                        {renderPlant(u.skills[1], 'iso-slot-back')}
+                        {renderPlant(u.skills[2], 'iso-slot-right')}
+                      </>
+                    ) : (
+                      <>
+                        {u.skills[0] ? renderPlant(u.skills[0], 'iso-slot-left') : null}
+                        {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : null}
+                        {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : null}
+                        {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : null}
+                      </>
+                    )}
                   </div>
 
                   {/* Bush appears at the bottom-center of the grass plot only if the step has 3 skills */}
