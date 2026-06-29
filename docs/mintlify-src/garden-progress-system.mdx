@@ -219,6 +219,20 @@ For each skill ID in the active level's curriculum, the backend checks the datab
 *   **`"emerging"`**: The skill ID exists in `progress["emerging"]` but not in `owned`.
 *   **`"locked"`**: The skill ID is in neither array.
 
+#### Promotion Rules (Standard Path vs. Effort Path)
+
+A skill moves from `locked` to `emerging` as soon as the student gets their first grading check of **$\ge 0.30$** confidence.
+
+To promote a skill to **`"owned"`** (mastery), the engine evaluates two distinct paths:
+
+1. **The Standard Path (2 Sightings)**:
+   * The student achieves **$\ge 2$ sightings** (grading checks with confidence $\ge 0.70$).
+   * *Visual:* Grows from Sprout into a **Closed Bud 🌷**.
+2. **The Effort Path (1 Sighting + Spontaneous Usage)**:
+   * If the student uses the skill spontaneously (without Zoe prompting it), they accumulate `unprompted_count`.
+   * If `unprompted_count + sightings >= 3` and the current grading confidence is $\ge 0.30$, the skill instantly promotes to **`"owned"`** even if they have only **1 sighting**.
+   * *Visual:* Since they have exactly 1 sighting, the plant displays as a **Tiny Sprout 🌱** (growth is strictly tied to the sightings count).
+
 ### B. Sightings & Plant Growth Stages
 
 The client maps the combination of **`status`** and **`sightings`** directly to the visual asset of the plant in its grid slot:
