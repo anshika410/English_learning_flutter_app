@@ -1868,6 +1868,7 @@ function GardenView({mem, dbGarden}) {
         {/* Alternate Nodes along the path */}
         {steps.map((u, i) => {
           const sideClass = i % 2 === 0 ? 'step-left' : 'step-right';
+          const isStepFullyBloomed = u.skills.every(s => bucketOf(mem, s.id) === 'owned');
 
           return (
             <div className={`garden-step-node ${sideClass}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
@@ -1916,6 +1917,42 @@ function GardenView({mem, dbGarden}) {
                         zIndex: 5
                       }} 
                     />
+                  )}
+
+                  {/* Mastered/Bloomed step decorations */}
+                  {isStepFullyBloomed && (
+                    <>
+                      {/* Butterfly hovering top-left */}
+                      <img 
+                        src="/docs/logo/butterfly.png" 
+                        alt="butterfly" 
+                        style={{
+                          position: 'absolute',
+                          left: '10px',
+                          top: '12px',
+                          width: '24px',
+                          height: '24px',
+                          objectFit: 'contain',
+                          zIndex: 10,
+                          pointerEvents: 'none'
+                        }}
+                      />
+                      {/* Stepping stones bottom-left */}
+                      <img 
+                        src="/docs/logo/stepping-stones1.png" 
+                        alt="stepping stones" 
+                        style={{
+                          position: 'absolute',
+                          left: '12px',
+                          bottom: '18px',
+                          width: '32px',
+                          height: '18px',
+                          objectFit: 'contain',
+                          zIndex: 2,
+                          pointerEvents: 'none'
+                        }}
+                      />
+                    </>
                   )}
                 </div>
               </div>
