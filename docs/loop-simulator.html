@@ -1861,9 +1861,7 @@ function GardenView({mem, dbGarden}) {
             return (
               <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
                 <div className="step-label">
-                  <div className="step-num">Step {u.step}</div>
                   <div className="step-title">{u.name}</div>
-                  <div className="step-focus" title={u.focus}>{u.focus.substring(0, 42)}...</div>
                 </div>
 
                 <div className="raised-bed-tile" style={{ cursor: 'pointer' }} onClick={() => {
@@ -1887,9 +1885,7 @@ function GardenView({mem, dbGarden}) {
           return (
             <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
               <div className="step-label">
-                <div className="step-num">Step {u.step}</div>
                 <div className="step-title">{u.name}</div>
-                <div className="step-focus" title={u.focus}>{u.focus.substring(0, 42)}...</div>
               </div>
 
               <div className="raised-bed-tile">
