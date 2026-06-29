@@ -1897,21 +1897,6 @@ function GardenView({mem, dbGarden}) {
                     {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : null}
                     {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : null}
                   </div>
-
-                  {/* Cartoon Bush */}
-                  <div className="garden-bush" style={{
-                    position: 'absolute',
-                    bottom: '10px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    zIndex: 5
-                  }}>
-                    <div style={{ width: '10px', height: '10px', background: '#689f38', border: '1.5px solid #33691e', borderRadius: '50%', marginRight: '-3px' }}></div>
-                    <div style={{ width: '14px', height: '14px', background: '#689f38', border: '1.5px solid #33691e', borderRadius: '50%', zIndex: 1, marginBottom: '2px', marginRight: '-3px' }}></div>
-                    <div style={{ width: '10px', height: '10px', background: '#689f38', border: '1.5px solid #33691e', borderRadius: '50%' }}></div>
-                  </div>
                 </div>
               </div>
             </div>
