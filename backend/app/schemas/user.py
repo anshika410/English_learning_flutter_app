@@ -81,6 +81,8 @@ class GardenEvidence(BaseModel):
     evidence: str
     confidence: float
     prompted: bool
+    topic: str | None = None
+    created_at: str | None = None
 
 
 class GardenSkill(BaseModel):

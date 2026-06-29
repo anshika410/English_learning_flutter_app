@@ -58,7 +58,9 @@ async def run_and_save_session_analysis(
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
     # Apply merge & deterministic updates
-    updated_progress, changes = apply_merge(progress, scores, level)
+    import datetime
+    created_at_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    updated_progress, changes = apply_merge(progress, scores, level, topic=topic, created_at=created_at_str)
     
     # Increment times spoken
     if turns_total is not None:

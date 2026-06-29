@@ -163,7 +163,7 @@ def targets_list_for(progress: dict, model: str, level: str) -> list[str]:
         picks = due_skill(progress, level)
     return [p["id"] for p in picks]
 
-def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, list[dict]]:
+def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = None, created_at: str = None) -> tuple[dict, list[dict]]:
     # Clone progression dict to avoid side-effects
     import copy
     p = copy.deepcopy(progress)
@@ -207,7 +207,9 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
                     p["evidence"][skill_id].append({
                         "evidence": evidence_text.strip(),
                         "confidence": confidence,
-                        "prompted": prompted
+                        "prompted": prompted,
+                        "topic": topic or "General Conversation",
+                        "created_at": created_at or datetime.now(timezone.utc).isoformat()
                     })
                     if len(p["evidence"][skill_id]) > 3:
                         p["evidence"][skill_id] = p["evidence"][skill_id][-3:]

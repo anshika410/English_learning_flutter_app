@@ -134,13 +134,17 @@ async def get_user_garden(user: User = Depends(get_current_user)):
                     evidence_list.append({
                         "evidence": ev.get("evidence", ""),
                         "confidence": ev.get("confidence", 1.0),
-                        "prompted": ev.get("prompted", False)
+                        "prompted": ev.get("prompted", False),
+                        "topic": ev.get("topic", "General Conversation"),
+                        "created_at": ev.get("created_at", None)
                     })
                 elif isinstance(ev, str):
                     evidence_list.append({
                         "evidence": ev,
                         "confidence": 1.0,
-                        "prompted": False
+                        "prompted": False,
+                        "topic": "General Conversation",
+                        "created_at": None
                     })
             
             skills_data.append({
