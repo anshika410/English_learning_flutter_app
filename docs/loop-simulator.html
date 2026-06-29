@@ -1713,24 +1713,24 @@ function GardenView({mem, dbGarden}) {
     return isApi ? (apiSightings[skillId] || 0) : (mem.sightings ? mem.sightings[skillId] || 0 : 0);
   };
 
+  const getSkillStatus = (skillId) => {
+    if (isApi) {
+      return apiStatus[skillId] || 'locked';
+    } else {
+      const owned = mem.owned || [];
+      const emerging = mem.emerging || [];
+      if (owned.includes(skillId)) return 'owned';
+      if (emerging.includes(skillId)) return 'emerging';
+      return 'locked';
+    }
+  };
+
   const renderPlant = (skill) => {
     const count = getSightingsCount(skill.id);
     const evidenceList = isApi ? (apiEvidence[skill.id] || []) : [];
     const plainEvidence = evidenceList.map(ev => typeof ev === 'object' ? `${ev.evidence} (conf: ${ev.confidence}${ev.prompted ? ', prompted' : ''})` : ev);
     const evidenceStr = plainEvidence.length > 0 ? "\nEvidence:\n• " + plainEvidence.join("\n• ") : "";
     
-    const getSkillStatus = (skillId) => {
-      if (isApi) {
-        return apiStatus[skillId] || 'locked';
-      } else {
-        const owned = mem.owned || [];
-        const emerging = mem.emerging || [];
-        if (owned.includes(skillId)) return 'owned';
-        if (emerging.includes(skillId)) return 'emerging';
-        return 'locked';
-      }
-    };
-
     const status = getSkillStatus(skill.id);
 
     const colors = {
@@ -1830,9 +1830,13 @@ function GardenView({mem, dbGarden}) {
         {steps.map((u, i) => {
           const isActive = activeStepNum === u.step;
           const sideClass = i % 2 === 0 ? 'step-left' : 'step-right';
-          const stepSightings = u.skills.reduce((sum, s) => sum + getSightingsCount(s.id), 0);
+          const isStepFullyLocked = u.skills.every(s => {
+            const status = getSkillStatus(s.id);
+            const count = getSightingsCount(s.id);
+            return status === 'locked' && count === 0;
+          });
 
-          if (stepSightings === 0) {
+          if (isStepFullyLocked) {
             return (
               <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
                 <div className="step-label">
