@@ -87,10 +87,14 @@ small.note{display:block;color:var(--grey);font-size:10.5px;margin-top:6px}
 .garden-header .active-badge { background: #c8e6c9; color: #1b5e20; border: 1px solid #81c784; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
 .garden-viewport { position: relative; height: 760px; border-radius: 8px; background: #c8e6c9; border: 1px solid #a5d6a7; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
 .path-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-.garden-step-node { position: absolute; display: flex; align-items: center; width: 360px; height: 160px; z-index: 2; gap: 24px; }
-.garden-step-node.step-left { left: 24px; flex-direction: row-reverse; }
-.garden-step-node.step-right { right: 24px; flex-direction: row; }
-.step-label { background: linear-gradient(to bottom, #FFFCF7, #FFF4E2); border: 1.5px solid #E8D4B8; border-radius: 10px; padding: 10px 14px; width: 170px; box-shadow: 0 4px 10px rgba(139, 112, 80, 0.12); z-index: 3; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.garden-step-node { position: absolute; display: flex; flex-direction: column; width: 320px; height: 210px; z-index: 2; gap: 8px; }
+.garden-step-node.step-left { left: 32px; align-items: flex-start; }
+.garden-step-node.step-left .step-label { align-self: flex-end; }
+.garden-step-node.step-left .raised-bed-tile { align-self: flex-start; }
+.garden-step-node.step-right { right: 32px; align-items: flex-end; }
+.garden-step-node.step-right .step-label { align-self: flex-start; }
+.garden-step-node.step-right .raised-bed-tile { align-self: flex-end; }
+.step-label { background: linear-gradient(to bottom, #FFFCF7, #FFF4E2); border: 1.5px solid #E8D4B8; border-radius: 8px; padding: 6px 12px; width: fit-content; min-width: 120px; box-shadow: 0 4px 10px rgba(139, 112, 80, 0.12); z-index: 3; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
 .step-num { font-size: 9px; font-weight: 800; color: #8b7050; text-transform: uppercase; }
 .step-title { font-size: 13px; font-weight: 700; color: #2b1d12; margin: 1px 0; line-height: 1.3; }
 .step-focus { font-size: 9px; color: #8b7050; line-height: 1.2; }
@@ -1871,7 +1875,7 @@ function GardenView({mem, dbGarden}) {
           const isStepFullyBloomed = u.skills.every(s => bucketOf(mem, s.id) === 'owned');
 
           return (
-            <div className={`garden-step-node ${sideClass}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
+            <div className={`garden-step-node ${sideClass}`} style={{top: `${i * 240 + 30}px`}} key={u.step}>
               <div className="step-label">
                 <div className="step-title">{u.name}</div>
               </div>
