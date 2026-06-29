@@ -1804,16 +1804,21 @@ function GardenView({mem, dbGarden}) {
 
     const getPlantImgOnly = () => {
       const strand = skill.id.split('-')[1] || 'GRA';
+      let effectiveCount = count;
+      if (effectiveCount === 0) {
+        if (status === 'owned') effectiveCount = 3;
+        else if (status === 'emerging') effectiveCount = 1;
+      }
 
-      if (count === 1) {
+      if (effectiveCount === 1) {
         return '/docs/logo/fluency-sprout.png';
       }
-      if (count === 2) {
+      if (effectiveCount === 2) {
         if (strand === 'FLU') return '/docs/logo/fluency-mid-grown.png';
         if (strand === 'VOC') return '/docs/logo/vocabulary-mid.png';
         return '/docs/logo/grammar-mid.png';
       }
-      // count >= 3
+      // effectiveCount >= 3
       if (strand === 'FLU') return '/docs/logo/fluency-fully-bloom.png';
       if (strand === 'VOC') return '/docs/logo/vocabulary-fully-bloom.png';
       return '/docs/logo/grammar-fully-bloom.png';
@@ -1843,7 +1848,7 @@ function GardenView({mem, dbGarden}) {
         />
         
         {/* Plant growth overlay */}
-        {count >= 1 && (
+        {(status === 'emerging' || status === 'owned') && (
           <img 
             src={getPlantImgOnly()} 
             alt={skill.id} 
