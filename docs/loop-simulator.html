@@ -1805,9 +1805,10 @@ function GardenView({mem, dbGarden}) {
     const getPlantImgOnly = () => {
       const strand = skill.id.split('-')[1] || 'GRA';
       let effectiveCount = count;
-      if (effectiveCount === 0) {
-        if (status === 'owned') effectiveCount = 3;
-        else if (status === 'emerging') effectiveCount = 1;
+      if (status === 'owned') {
+        effectiveCount = 3;
+      } else if (effectiveCount === 0 && status === 'emerging') {
+        effectiveCount = 1;
       }
 
       if (effectiveCount === 1) {
