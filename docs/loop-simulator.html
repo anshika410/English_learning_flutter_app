@@ -1772,7 +1772,7 @@ function GardenView({mem, dbGarden}) {
     }
   };
 
-  const renderPlant = (skill, positionClass) => {
+  const renderPlant = (skill, positionClass, unitName = '') => {
     const count = getSightingsCount(skill.id);
     const evidenceList = isApi ? (apiEvidence[skill.id] || []) : [];
     const plainEvidence = evidenceList.map(ev => typeof ev === 'object' ? `${ev.evidence} (conf: ${ev.confidence}${ev.prompted ? ', prompted' : ''})` : ev);
@@ -1797,7 +1797,8 @@ function GardenView({mem, dbGarden}) {
         strand: skill.strand,
         sightings: count,
         last_tested_at: lastTestedAt,
-        evidence: evidenceList
+        evidence: evidenceList,
+        unitName: unitName
       });
     };
 
@@ -1901,16 +1902,16 @@ function GardenView({mem, dbGarden}) {
                   <div className="grid-2x2-iso" style={{ position: 'relative', top: '8px', zIndex: 1 }}>
                     {u.skills.length === 3 ? (
                       <>
-                        {renderPlant(u.skills[0], 'iso-slot-left')}
-                        {renderPlant(u.skills[1], 'iso-slot-back')}
-                        {renderPlant(u.skills[2], 'iso-slot-right')}
+                        {renderPlant(u.skills[0], 'iso-slot-left', u.name)}
+                        {renderPlant(u.skills[1], 'iso-slot-back', u.name)}
+                        {renderPlant(u.skills[2], 'iso-slot-right', u.name)}
                       </>
                     ) : (
                       <>
-                        {u.skills[0] ? renderPlant(u.skills[0], 'iso-slot-left') : null}
-                        {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : null}
-                        {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : null}
-                        {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : null}
+                        {u.skills[0] ? renderPlant(u.skills[0], 'iso-slot-left', u.name) : null}
+                        {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front', u.name) : null}
+                        {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back', u.name) : null}
+                        {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right', u.name) : null}
                       </>
                     )}
                   </div>
@@ -2001,21 +2002,135 @@ function GardenView({mem, dbGarden}) {
             color: '#212529',
             fontFamily: 'sans-serif'
           }}>
-            <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
-              <span className={`dot d-${selectedSkill.sightings >= 2 ? 'owned' : selectedSkill.sightings > 0 ? 'emerging' : 'locked'}`} style={{ width: '10px', height: '10px', display: 'inline-block', borderRadius: '50%' }}></span>
-              {selectedSkill.id} ({selectedSkill.strand})
-            </h4>
-            <p style={{ fontSize: '12px', margin: '0 0 12px 0', lineHeight: '1.4' }}>
-              <strong>Goal:</strong> {selectedSkill.text}
-            </p>
-            <div style={{ fontSize: '12px', marginBottom: '8px' }}>
-              <strong>Sightings count:</strong> {selectedSkill.sightings}
+            {/* Brown board header centered on top */}
+            <div style={{
+              position: 'absolute',
+              top: '-16px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#8d6e63',
+              color: '#fff',
+              border: '2px solid var(--ink)',
+              borderRadius: '6px',
+              padding: '4px 16px',
+              fontWeight: 'bold',
+              fontSize: '13px',
+              boxShadow: '2px 2px 0 var(--ink)',
+              whiteSpace: 'nowrap',
+              zIndex: 5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span style={{ fontSize: '10px' }}>🪵</span>
+              {selectedSkill.unitName || 'Curriculum Goal'}
+              <span style={{ fontSize: '10px' }}>🪵</span>
             </div>
-            {selectedSkill.last_tested_at && (
-              <div style={{ fontSize: '12px', marginBottom: '12px' }}>
-                <strong>Last tested:</strong> {selectedSkill.last_tested_at}
+
+            {/* Topic Illustration & Title */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', margin: '16px 0 12px 0' }}>
+              <div style={{
+                fontSize: '28px',
+                background: '#fcfcfc',
+                border: '2px solid var(--ink)',
+                borderRadius: '8px',
+                width: '48px',
+                height: '48px',
+                minWidth: '48px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                boxShadow: '2px 2px 0 var(--ink)'
+              }}>
+                {selectedSkill.strand === 'VOC' ? '💬' : selectedSkill.strand === 'GRA' ? '📝' : '🗣️'}
               </div>
-            )}
+              <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2b1d12', lineHeight: '1.3' }}>
+                {selectedSkill.text}
+              </div>
+            </div>
+
+            {/* Badges */}
+            {(() => {
+              const strandText = selectedSkill.strand === 'VOC' ? 'Vocabulary' : selectedSkill.strand === 'GRA' ? 'Grammar' : 'Fluency';
+              const strandColors = {
+                VOC: { bg: '#fce4ec', color: '#c2185b' }, // soft pink
+                GRA: { bg: '#e3f2fd', color: '#1565c0' }, // soft blue
+                FLU: { bg: '#fff3e0', color: '#e65100' }  // soft orange
+              }[selectedSkill.strand] || { bg: '#eee', color: '#333' };
+
+              const sightings = selectedSkill.sightings || 0;
+              const status = getSkillStatus(selectedSkill.id);
+              
+              let statusText = 'Locked';
+              let statusBg = '#eceff1';
+              let statusColor = '#455a64';
+              let statusIcon = '🔒';
+
+              if (status === 'owned') {
+                if (sightings >= 3) {
+                  statusText = 'Bloomed';
+                  statusBg = '#e8f5e9';
+                  statusColor = '#2e7d32';
+                  statusIcon = '🌸';
+                } else {
+                  statusText = 'Bud';
+                  statusBg = '#fffde7';
+                  statusColor = '#f57f17';
+                  statusIcon = '🌷';
+                }
+              } else if (status === 'emerging') {
+                if (sightings === 1) {
+                  statusText = 'Sprout';
+                  statusBg = '#e1f5fe';
+                  statusColor = '#0288d1';
+                  statusIcon = '🌱';
+                } else {
+                  statusText = 'Practiced';
+                  statusBg = '#e8f5e9';
+                  statusColor = '#2e7d32';
+                  statusIcon = '🌱';
+                }
+              }
+
+              return (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                  <span style={{
+                    background: strandColors.bg,
+                    color: strandColors.color,
+                    border: `1.5px solid ${strandColors.color}`,
+                    borderRadius: '20px',
+                    padding: '3px 10px',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}>
+                    {strandText}
+                  </span>
+                  <span style={{
+                    background: statusBg,
+                    color: statusColor,
+                    border: `1.5px solid ${statusColor}`,
+                    borderRadius: '20px',
+                    padding: '3px 10px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <span>{statusIcon}</span> {statusText}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Extra Info: Sightings & Testing */}
+            <div style={{ fontSize: '11px', color: '#7f8c8d', marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+              <div><strong>ID:</strong> {selectedSkill.id}</div>
+              <div><strong>Practice Count:</strong> {selectedSkill.sightings}</div>
+              {selectedSkill.last_tested_at && (
+                <div><strong>Last Tested:</strong> {selectedSkill.last_tested_at}</div>
+              )}
+            </div>
             
             {selectedSkill.evidence.length === 0 ? (
               <div style={{ padding: '16px 0', textAlign: 'center' }}>
