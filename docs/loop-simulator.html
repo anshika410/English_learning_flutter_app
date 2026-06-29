@@ -1875,8 +1875,8 @@ function GardenView({mem, dbGarden}) {
                 <div className="step-title">{u.name}</div>
               </div>
 
-              <div className="raised-bed-tile">
-                <div className="tile-surface" style={{ width: '100%', height: '100%', background: 'transparent', border: 'none', boxShadow: 'none', transform: 'none' }}>
+              <div className="raised-bed-tile" style={{ position: 'relative' }}>
+                <div className="tile-surface" style={{ width: '100%', height: '100%', position: 'relative', background: 'transparent', border: 'none', boxShadow: 'none', transform: 'none' }}>
                   {/* Grass plot base circle */}
                   <div className="grass-base-ellipse" style={{
                     position: 'absolute',
