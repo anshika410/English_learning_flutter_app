@@ -99,7 +99,6 @@ class GardenStep(BaseModel):
 class GardenResponse(BaseModel):
     level: str
     level_label: str
-    theme: str
     active_step_index: int
     recommended_topic: str
     steps: list[GardenStep]

@@ -166,7 +166,6 @@ async def get_user_garden(user: User = Depends(get_current_user)):
     return {
         "level": level,
         "level_label": user.level_label or "First Words",
-        "theme": "The Clearing" if level.upper() == "A1" else "The Young Garden",
         "active_step_index": active_index,
         "recommended_topic": recommended_topic,
         "steps": steps_data
