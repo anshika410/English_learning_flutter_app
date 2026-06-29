@@ -1877,25 +1877,48 @@ function GardenView({mem, dbGarden}) {
 
               <div className="raised-bed-tile" style={{ position: 'relative' }}>
                 <div className="tile-surface" style={{ width: '100%', height: '100%', position: 'relative', background: 'transparent', border: 'none', boxShadow: 'none', transform: 'none' }}>
-                  {/* Grass plot base circle */}
-                  <div className="grass-base-ellipse" style={{
-                    position: 'absolute',
-                    width: '150px',
-                    height: '96px',
-                    background: '#aed581',
-                    border: '1.5px solid #8ebd60',
-                    borderRadius: '50%',
-                    top: '32px',
-                    left: '5px',
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                    zIndex: 0
-                  }} />
+                  {/* Grass plot base circle image */}
+                  <img 
+                    className="grass-base-ellipse" 
+                    src="/docs/logo/ground-elipse.png" 
+                    alt="Grass Base" 
+                    style={{
+                      position: 'absolute',
+                      width: '156px',
+                      height: '75px',
+                      top: '42px',
+                      left: '2px',
+                      zIndex: 0,
+                      objectFit: 'contain'
+                    }} 
+                  />
 
                   <div className="grid-2x2-iso" style={{ zIndex: 1 }}>
                     {u.skills[0] ? renderPlant(u.skills[0], 'iso-slot-left') : null}
                     {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : null}
                     {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : null}
-                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : null}
+                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : (
+                      <div className="iso-grid-slot iso-slot-right" key="bush-slot" style={{ pointerEvents: 'none' }}>
+                        <img 
+                          src="/docs/logo/empty-tile.png" 
+                          alt="tile" 
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} 
+                        />
+                        <img 
+                          src="/docs/logo/bush.png" 
+                          alt="bush" 
+                          style={{ 
+                            width: '45%', 
+                            height: '45%', 
+                            objectFit: 'contain', 
+                            position: 'absolute',
+                            bottom: '32%', 
+                            left: '28%', 
+                            zIndex: 2
+                          }} 
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
