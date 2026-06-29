@@ -1878,10 +1878,10 @@ function GardenView({mem, dbGarden}) {
               <div className="raised-bed-tile">
                 <div className="tile-surface" style={{ width: '100%', height: '100%', background: 'transparent', border: 'none', boxShadow: 'none', transform: 'none' }}>
                   <div className="grid-2x2-iso">
-                    {renderPlant(u.skills[0], 'iso-slot-left')}
-                    {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : <div className="iso-grid-slot iso-slot-front" key="s1"><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
-                    {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : <div className="iso-grid-slot iso-slot-back" key="s2"><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
-                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : <div className="iso-grid-slot iso-slot-right" key="s3"><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
+                    {u.skills[0] ? renderPlant(u.skills[0], 'iso-slot-left') : null}
+                    {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : null}
+                    {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : null}
+                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : null}
                   </div>
                 </div>
               </div>
