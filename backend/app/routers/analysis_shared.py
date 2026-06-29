@@ -57,10 +57,23 @@ async def run_and_save_session_analysis(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
+    # Load conversation to find the actual header_title
+    actual_topic = topic
+    if conversation_id:
+        try:
+            conv_result = await db.execute(
+                select(Conversation).where(Conversation.id == conversation_id)
+            )
+            conv = conv_result.scalar_one_or_none()
+            if conv and conv.header_title:
+                actual_topic = conv.header_title
+        except Exception:
+            pass
+
     # Apply merge & deterministic updates
     import datetime
     created_at_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    updated_progress, changes = apply_merge(progress, scores, level, topic=topic, created_at=created_at_str)
+    updated_progress, changes = apply_merge(progress, scores, level, topic=actual_topic, created_at=created_at_str)
     
     # Increment times spoken
     if turns_total is not None:
