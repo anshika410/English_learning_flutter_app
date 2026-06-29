@@ -1696,12 +1696,14 @@ function GardenView({mem, dbGarden}) {
   // Create a mapping from skill.id to its API sightings count and evidence
   const apiSightings = {};
   const apiEvidence = {};
+  const apiStatus = {};
   if (isApi && dbGarden.steps) {
     dbGarden.steps.forEach(s => {
       if (s.skills) {
         s.skills.forEach(sk => {
           apiSightings[sk.id] = sk.sightings;
           apiEvidence[sk.id] = sk.evidence || [];
+          apiStatus[sk.id] = sk.status;
         });
       }
     });
@@ -1717,6 +1719,20 @@ function GardenView({mem, dbGarden}) {
     const plainEvidence = evidenceList.map(ev => typeof ev === 'object' ? `${ev.evidence} (conf: ${ev.confidence}${ev.prompted ? ', prompted' : ''})` : ev);
     const evidenceStr = plainEvidence.length > 0 ? "\nEvidence:\n• " + plainEvidence.join("\n• ") : "";
     
+    const getSkillStatus = (skillId) => {
+      if (isApi) {
+        return apiStatus[skillId] || 'locked';
+      } else {
+        const owned = mem.owned || [];
+        const emerging = mem.emerging || [];
+        if (owned.includes(skillId)) return 'owned';
+        if (emerging.includes(skillId)) return 'emerging';
+        return 'locked';
+      }
+    };
+
+    const status = getSkillStatus(skill.id);
+
     const colors = {
       VOC: { bud: '#ff8da1', bloomBg: '#ffccd5', center: '#d90429' },
       GRA: { bud: '#ffc107', bloomBg: '#fff3cd', center: '#b89500' },
@@ -1739,6 +1755,9 @@ function GardenView({mem, dbGarden}) {
       const strand = skill.id.split('-')[1] || 'GRA';
 
       if (count === 0) {
+        if (status === 'emerging') {
+          return '/docs/logo/tile-turf-grass.png';
+        }
         return '/docs/logo/empty-tile.png';
       }
       if (count === 1) {
@@ -1759,7 +1778,7 @@ function GardenView({mem, dbGarden}) {
       <div 
         className="grid-slot" 
         key={skill.id} 
-        title={`${skill.id} - ${count === 0 ? 'Locked' : count === 1 ? 'Sprouting' : count === 2 ? 'Budding' : 'Bloomed!'} (${count} sightings)${evidenceStr}`} 
+        title={`${skill.id} - ${status.toUpperCase()} (${count} sightings)${evidenceStr}`} 
         onClick={handleSelect} 
         style={{ cursor: 'pointer', background: 'transparent' }}
       >
