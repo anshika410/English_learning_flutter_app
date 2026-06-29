@@ -99,6 +99,12 @@ small.note{display:block;color:var(--grey);font-size:10.5px;margin-top:6px}
 .tile-surface { width: 90px; height: 90px; background: #8d6e63; border: 2px solid #5d4037; border-radius: 12px; box-shadow: 0 6px 0 #3e2723, inset 0 2px 4px rgba(0,0,0,0.15); display: flex; justify-content: center; align-items: center; transform: rotateX(25deg); }
 .grid-2x2 { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); width: 100%; height: 100%; padding: 4px; gap: 4px; }
 .grid-slot { position: relative; border-radius: 4px; display: flex; justify-content: center; align-items: center; overflow: visible; background: #795548; width: 34px; height: 34px; }
+.grid-2x2-iso { position: relative; width: 104px; height: 80px; margin: 0 auto; }
+.iso-grid-slot { position: absolute; width: 52px; height: 52px; background: transparent; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+.iso-slot-back { top: 0px; left: 26px; z-index: 1; }
+.iso-slot-left { top: 13px; left: 0px; z-index: 2; }
+.iso-slot-right { top: 13px; left: 52px; z-index: 3; }
+.iso-slot-front { top: 26px; left: 26px; z-index: 4; }
 .grid-slot.locked { background: #4e342e; opacity: 0.5; }
 .slot-soil { position: absolute; width: 80%; height: 80%; background: #3e2723; border-radius: 50%; bottom: 2px; }
 .garden-avatar { position: absolute; width: 32px; height: 32px; background: #ff5722; color: #fff; border: 2px solid var(--ink); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 15px; box-shadow: 2px 2px 0 var(--ink); z-index: 10; animation: bounce-avatar 2s infinite; }
@@ -1725,7 +1731,7 @@ function GardenView({mem, dbGarden}) {
     }
   };
 
-  const renderPlant = (skill) => {
+  const renderPlant = (skill, positionClass) => {
     const count = getSightingsCount(skill.id);
     const evidenceList = isApi ? (apiEvidence[skill.id] || []) : [];
     const plainEvidence = evidenceList.map(ev => typeof ev === 'object' ? `${ev.evidence} (conf: ${ev.confidence}${ev.prompted ? ', prompted' : ''})` : ev);
@@ -1776,11 +1782,10 @@ function GardenView({mem, dbGarden}) {
 
     return (
       <div 
-        className="grid-slot" 
+        className={`iso-grid-slot ${positionClass}`} 
         key={skill.id} 
         title={`${skill.id} - ${status.toUpperCase()} (${count} sightings)${evidenceStr}`} 
         onClick={handleSelect} 
-        style={{ cursor: 'pointer', background: 'transparent' }}
       >
         <img 
           src={getPlantImg()} 
@@ -1873,11 +1878,11 @@ function GardenView({mem, dbGarden}) {
 
               <div className="raised-bed-tile">
                 <div className="tile-surface" style={{ background: 'transparent', border: 'none', boxShadow: 'none', transform: 'none' }}>
-                  <div className="grid-2x2">
-                    {renderPlant(u.skills[0])}
-                    {u.skills[1] ? renderPlant(u.skills[1]) : <div className="grid-slot locked" key="s1" style={{ background: 'transparent' }}><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
-                    {u.skills[2] ? renderPlant(u.skills[2]) : <div className="grid-slot locked" key="s2" style={{ background: 'transparent' }}><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
-                    {u.skills[3] ? renderPlant(u.skills[3]) : <div className="grid-slot locked" key="s3" style={{ background: 'transparent' }}><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
+                  <div className="grid-2x2-iso">
+                    {renderPlant(u.skills[0], 'iso-slot-left')}
+                    {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : <div className="iso-grid-slot iso-slot-front" key="s1"><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
+                    {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : <div className="iso-grid-slot iso-slot-back" key="s2"><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
+                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : <div className="iso-grid-slot iso-slot-right" key="s3"><img src="/docs/logo/empty-tile.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>}
                   </div>
                 </div>
               </div>
