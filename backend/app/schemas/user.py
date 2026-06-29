@@ -89,6 +89,7 @@ class GardenSkill(BaseModel):
     text: str
     status: str  # "owned", "emerging", "locked"
     sightings: int
+    last_tested_at: str | None = None
     evidence: list[GardenEvidence] = []
 
 

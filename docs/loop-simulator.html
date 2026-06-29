@@ -1763,12 +1763,15 @@ function GardenView({mem, dbGarden}) {
     
     const theme = colors[skill.strand] || colors.VOC;
 
+    const lastTestedAt = isApi ? (skill.last_tested_at || null) : (mem.last_seen[skill.id] || null);
+
     const handleSelect = () => {
       setSelectedSkill({
         id: skill.id,
         text: skill.text,
         strand: skill.strand,
         sightings: count,
+        last_tested_at: lastTestedAt,
         evidence: evidenceList
       });
     };
@@ -1899,9 +1902,14 @@ function GardenView({mem, dbGarden}) {
             <p style={{ fontSize: '12px', margin: '0 0 12px 0', lineHeight: '1.4' }}>
               <strong>Goal:</strong> {selectedSkill.text}
             </p>
-            <div style={{ fontSize: '12px', marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', marginBottom: '8px' }}>
               <strong>Sightings count:</strong> {selectedSkill.sightings}
             </div>
+            {selectedSkill.last_tested_at && (
+              <div style={{ fontSize: '12px', marginBottom: '12px' }}>
+                <strong>Last tested:</strong> {selectedSkill.last_tested_at}
+              </div>
+            )}
             
             <div style={{ background: '#f8f9fa', border: '1px solid #e9ecef', borderRadius: '4px', padding: '10px', marginBottom: '15px', maxHeight: '180px', overflowY: 'auto' }}>
               <div style={{ fontWeight: 'bold', fontSize: '11px', marginBottom: '6px', color: '#495057' }}>
