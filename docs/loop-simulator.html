@@ -1138,8 +1138,16 @@ function App(){
   function changeLevel(l){
     setLevel(l);
     if (LLM_CONFIG.mode === 'api') {
+      const levelLabels = {
+        "A1": "First Words",
+        "A2": "Everyday Phrases",
+        "B1": "Speaking Freely",
+        "B2": "Expressing Complex Ideas",
+        "C1": "Near Native Fluency",
+        "C2": "Mastery"
+      };
       setBusy(true);
-      callEllaAPI('/users/me', 'PUT', { level: l, level_label: HEADLINES[l] || "Finding My Voice" })
+      callEllaAPI('/users/me', 'PUT', { level: l, level_label: levelLabels[l] || "Finding My Voice" })
         .then(() => {
           initSession(l, model);
         })
