@@ -1757,15 +1757,9 @@ function GardenView({mem, dbGarden}) {
       });
     };
 
-    const getPlantImg = () => {
+    const getPlantImgOnly = () => {
       const strand = skill.id.split('-')[1] || 'GRA';
 
-      if (count === 0) {
-        if (status === 'emerging') {
-          return '/docs/logo/tile-turf-grass.png';
-        }
-        return '/docs/logo/empty-tile.png';
-      }
       if (count === 1) {
         return '/docs/logo/fluency-sprout.png';
       }
@@ -1787,17 +1781,39 @@ function GardenView({mem, dbGarden}) {
         title={`${skill.id} - ${status.toUpperCase()} (${count} sightings)${evidenceStr}`} 
         onClick={handleSelect} 
       >
+        {/* Base underlay block: grass or dry soil */}
         <img 
-          src={getPlantImg()} 
-          alt={skill.id} 
+          src={status === 'locked' ? '/docs/logo/empty-tile.png' : '/docs/logo/tile-turf-grass.png'} 
+          alt="Tile Base" 
           style={{ 
             width: '100%', 
             height: '100%', 
             objectFit: 'contain', 
             pointerEvents: 'none',
-            display: 'block'
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 1
           }} 
         />
+        
+        {/* Plant growth overlay */}
+        {count >= 1 && (
+          <img 
+            src={getPlantImgOnly()} 
+            alt={skill.id} 
+            style={{ 
+              width: '45%', 
+              height: '80%', 
+              objectFit: 'contain', 
+              pointerEvents: 'none',
+              position: 'absolute',
+              bottom: '22%', 
+              left: '27.5%', 
+              zIndex: 2
+            }} 
+          />
+        )}
       </div>
     );
   };
