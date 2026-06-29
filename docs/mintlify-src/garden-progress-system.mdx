@@ -256,28 +256,28 @@ The client maps the combination of **`status`** and **`sightings`** directly to 
 For any skill evidenced during chat analysis:
 *   **Threshold**: If the match confidence is **`0.3` or above** (the grading floor), the verbatim phrase or sentence spoken by the user is recorded.
 *   **Structure**: Instead of saving raw strings, the engine stores a structured object:
+*   **Structure**: Instead of saving raw strings, the engine stores a structured object:
     *   `evidence` (`string`): The verbatim quote spoken by the student.
     *   `confidence` (`float`): The LLM confidence score (`0.0` to `1.0`) of the match.
     *   `prompted` (`boolean`): `true` if Zoe set the student up to use this skill; `false` if used spontaneously.
+    *   `topic` (`string`): The topic of the conversation session where the match happened.
+    *   `created_at` (`string`): The full ISO UTC timestamp of the session grading.
 *   **Cap**: A maximum of **3 evidence quotes** are stored per skill card (the 3 most recent).
 *   **UI Placement**: Evidence objects are returned for the student to review their natural versus prompted speaking performance on the skill card details popup.
 
-### D. Step Completion Rule (The "Grammar Matures Later" Gate)
-A step (raised bed) is complete (`is_completed = true`) only when:
-1.  All `VOC` (Vocabulary) and `FLU` (Fluency) skills in that step are **`"owned"`** (mastered).
-2.  All `GRA` (Grammar) skills in that step are **at least `"emerging"`** (or `"owned"`). 
-*(Note: Grammar skills do not block step completion as long as the student has attempted them at least once.)*
+### D. Dynamic Isometric Grid Sizing (Free-Form Farm)
 
-### E. Active Step Selection
-The client avatar stands at the step matching `active_step_index`.
-*   **Algorithm**: The backend loops from Step 1 to Step 4. It returns the step number of the **first incomplete step** (`is_completed == false`).
-*   **Fallback**: If all 4 steps are completed, it returns `4` (allowing the avatar to stand at the end of the map).
+The garden map operates as a **non-linear, free-form farm** where all step grids are open from day one.
+*   **No linear locks**: Students can talk about anything, and plants grow dynamically in the corresponding step plots.
+*   **Dynamic Grid Sizing**: The isometric layout adjusts dynamically to match the exact number of skills defined for that unit:
+    *   If a step has **3 skills** (e.g. *Step 1: Describing the world*), only **3 slots** are rendered in the grid (leaving the 4th corner empty).
+    *   If a step has **4 skills** (e.g. *Step 4: Talking about plans*), all **4 slots** are rendered in the grid.
 
-### F. Dynamic Topic Recommendation
+### E. Dynamic Topic Recommendation
 To keep the conversation aligned with the student's current target path, the `"recommended_topic"` is computed dynamically on the fly:
 1. **Target Identification**: The API inspects the student's active target skill (e.g., `"U2-VOC-01"` inside `user.due_next.primary`).
 2. **Elicitation Fetching**: It fetches the corresponding friendly prompt question from the curriculum database (e.g., `"What did you do yesterday? Tell me two things."`).
-3. **Fallback Default**: If no active targets are available, it defaults to the elicitation question of the first skill in the active step.
+3. **Fallback Default**: If no active targets are available, it defaults to the elicitation question of the first unowned skill in the curriculum levels.
 
 
 ## 4. Visual Mapping Specifications
