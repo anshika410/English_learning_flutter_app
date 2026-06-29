@@ -1897,29 +1897,26 @@ function GardenView({mem, dbGarden}) {
                     {u.skills[0] ? renderPlant(u.skills[0], 'iso-slot-left') : null}
                     {u.skills[1] ? renderPlant(u.skills[1], 'iso-slot-front') : null}
                     {u.skills[2] ? renderPlant(u.skills[2], 'iso-slot-back') : null}
-                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : (
-                      <div className="iso-grid-slot iso-slot-right" key="bush-slot" style={{ pointerEvents: 'none' }}>
-                        <img 
-                          src="/docs/logo/empty-tile.png" 
-                          alt="tile" 
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} 
-                        />
-                        <img 
-                          src="/docs/logo/bush.png" 
-                          alt="bush" 
-                          style={{ 
-                            width: '45%', 
-                            height: '45%', 
-                            objectFit: 'contain', 
-                            position: 'absolute',
-                            bottom: '32%', 
-                            left: '28%', 
-                            zIndex: 2
-                          }} 
-                        />
-                      </div>
-                    )}
+                    {u.skills[3] ? renderPlant(u.skills[3], 'iso-slot-right') : null}
                   </div>
+
+                  {/* Bush appears at the bottom-center of the grass plot only if the step has 3 skills */}
+                  {u.skills.length === 3 && (
+                    <img 
+                      src="/docs/logo/bush.png" 
+                      alt="bush" 
+                      style={{ 
+                        position: 'absolute', 
+                        bottom: '6px', 
+                        left: '50%', 
+                        transform: 'translateX(-50%)', 
+                        width: '32px', 
+                        height: '24px', 
+                        objectFit: 'contain',
+                        zIndex: 5
+                      }} 
+                    />
+                  )}
                 </div>
               </div>
             </div>
