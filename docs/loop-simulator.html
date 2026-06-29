@@ -1818,72 +1818,19 @@ function GardenView({mem, dbGarden}) {
     );
   };
 
-  const avatarStyle = {
-    top: `${(activeStepNum - 1) * 180 + 90}px`,
-    left: (activeStepNum - 1) % 2 === 0 ? '160px' : '210px'
-  };
-
   return (
     <div className="garden-map-container" style={{ position: 'relative' }}>
       <div className="garden-header">
         <h3>🏡 {level} Garden Map</h3>
-        <div className="active-badge">Active Step: {activeStepNum}</div>
       </div>
       
       <div className="garden-viewport">
-        {/* Winding Path SVG */}
-        <svg className="path-svg" viewBox="0 0 400 760" preserveAspectRatio="none">
-          <path 
-            d="M 200,0 C 250,150 150,250 200,400 C 250,550 150,650 200,740" 
-            fill="none" 
-            stroke="#e2f0d9" 
-            strokeWidth="16"
-            strokeLinecap="round"
-          />
-        </svg>
-
-        {/* Floating Avatar */}
-        <div className="garden-avatar" style={avatarStyle} title="You are here!">
-          🧑‍🌾
-        </div>
-
         {/* Alternate Nodes along the path */}
         {steps.map((u, i) => {
-          const isActive = activeStepNum === u.step;
           const sideClass = i % 2 === 0 ? 'step-left' : 'step-right';
-          const isStepFullyLocked = u.skills.every(s => {
-            const status = getSkillStatus(s.id);
-            const count = getSightingsCount(s.id);
-            return status === 'locked' && count === 0;
-          });
-
-          if (isStepFullyLocked) {
-            return (
-              <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
-                <div className="step-label">
-                  <div className="step-title">{u.name}</div>
-                </div>
-
-                <div className="raised-bed-tile" style={{ cursor: 'pointer' }} onClick={() => {
-                  const skill = u.skills[0];
-                  const count = getSightingsCount(skill.id);
-                  const evidenceList = isApi ? (apiEvidence[skill.id] || []) : [];
-                  setSelectedSkill({
-                    id: skill.id,
-                    text: skill.text,
-                    strand: skill.strand,
-                    sightings: count,
-                    evidence: evidenceList
-                  });
-                }}>
-                  <img src="/docs/logo/garden.png" alt="Locked Bed" style={{ width: '132px', height: '132px', objectFit: 'contain' }} />
-                </div>
-              </div>
-            );
-          }
 
           return (
-            <div className={`garden-step-node ${sideClass} ${isActive ? 'active' : ''}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
+            <div className={`garden-step-node ${sideClass}`} style={{top: `${i * 180 + 40}px`}} key={u.step}>
               <div className="step-label">
                 <div className="step-title">{u.name}</div>
               </div>

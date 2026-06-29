@@ -92,14 +92,12 @@ class GardenStep(BaseModel):
     step: int
     name: str
     focus: str
-    is_completed: bool
     skills: list[GardenSkill]
 
 
 class GardenResponse(BaseModel):
     level: str
     level_label: str
-    active_step_index: int
     recommended_topic: str
     steps: list[GardenStep]
 

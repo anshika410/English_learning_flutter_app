@@ -102,8 +102,18 @@ async def get_user_garden(user: User = Depends(get_current_user)):
     progress = user.skills_progress or {}
     
     units_list = UNITS.get(level.upper(), [])
-    active_unit = active_step(progress, level)
-    active_index = int(active_unit["step"]) if active_unit else len(units_list)
+    
+    # Find the first unowned skill across all steps to use as a recommended fallback target
+    first_unowned_skill = None
+    for u in units_list:
+        for s in u["skills"]:
+            if bucket_of(progress, s["id"]) != "owned":
+                first_unowned_skill = s["id"]
+                break
+        if first_unowned_skill:
+            break
+    if not first_unowned_skill and units_list and units_list[0]["skills"]:
+        first_unowned_skill = units_list[0]["skills"][0]["id"]
     
     steps_data = []
     for u in units_list:
@@ -141,18 +151,13 @@ async def get_user_garden(user: User = Depends(get_current_user)):
           "step": int(u["step"]),
           "name": u["name"],
           "focus": u["focus"],
-          "is_completed": unit_complete(progress, u),
           "skills": skills_data
         })
         
     # Resolve dynamic recommended topic based on active target skill
     due_next = user.due_next or {}
-    primary_skill = due_next.get("primary")
-    if not primary_skill and active_unit:
-        skills = active_unit.get("skills", [])
-        if skills:
-            primary_skill = skills[0].get("id")
-
+    primary_skill = due_next.get("primary") or first_unowned_skill
+ 
     recommended_topic = "Today, I wanted to talk about cricket. Shall we?"
     if primary_skill:
         from ..core.curriculum_data import get_elicitation_plan_for
@@ -162,11 +167,10 @@ async def get_user_garden(user: User = Depends(get_current_user)):
                 recommended_topic = plan["question"]
         except Exception:
             pass
-
+ 
     return {
         "level": level,
         "level_label": user.level_label or "First Words",
-        "active_step_index": active_index,
         "recommended_topic": recommended_topic,
         "steps": steps_data
     }
