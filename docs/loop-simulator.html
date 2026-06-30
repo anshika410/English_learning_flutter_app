@@ -1827,6 +1827,26 @@ function GardenView({mem, dbGarden}) {
 
     const plantImg = getPlantImgOnly();
 
+    // Calculate dynamic overlay dimensions to show growth progress
+    let overlayWidth = '40%';
+    let overlayHeight = '80%';
+    let overlayLeft = '30%';
+
+    let effectiveCountForSize = count;
+    if (status === 'owned' && effectiveCountForSize < 2) {
+      effectiveCountForSize = 3;
+    }
+
+    if (effectiveCountForSize === 1) {
+      overlayWidth = '30%';
+      overlayHeight = '60%';
+      overlayLeft = '35%';
+    } else if (effectiveCountForSize === 2) {
+      overlayWidth = '35%';
+      overlayHeight = '70%';
+      overlayLeft = '32.5%';
+    }
+
     return (
       <div 
         className={`iso-grid-slot ${positionClass}`} 
@@ -1856,13 +1876,13 @@ function GardenView({mem, dbGarden}) {
             src={plantImg} 
             alt={skill.id} 
             style={{ 
-              width: '40%', 
-              height: '80%', 
+              width: overlayWidth, 
+              height: overlayHeight, 
               objectFit: 'contain', 
               pointerEvents: 'none',
               position: 'absolute',
               bottom: '46%', 
-              left: '30%', 
+              left: overlayLeft, 
               zIndex: 2
             }} 
           />
