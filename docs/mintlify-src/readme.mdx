@@ -149,6 +149,16 @@ The backend is hosted on AWS EC2 (ap-south-1, t3.micro, Ubuntu 24.04), running v
 
 > Live at **https://ella.navgurukul.org** — HTTPS via Let's Encrypt on nginx.
 
+### Production Server Directory Layout
+
+All web routing paths are served by Nginx from the `/var/www/ella/` root folder on the host machine:
+
+*   📂 **`/var/www/ella/v2/conversation-flow/`** $\rightarrow$ served at `https://ella.navgurukul.org/v2/conversation-flow/` (Active Loop Simulator/Conversation Flow v2).
+*   📂 **`/var/www/ella/admin/`** $\rightarrow$ served at `https://ella.navgurukul.org/admin/` (Pilot Dashboard / Screening Results).
+*   📂 **`/var/www/ella/design/`** $\rightarrow$ served at `https://ella.navgurukul.org/design/` (Static UI flows & Design system).
+*   📂 **`/var/www/ella/v1/`** $\rightarrow$ served at `https://ella.navgurukul.org/v1/` (Legacy web client build).
+*   📂 **`/var/www/ella/docs/`** $\rightarrow$ served at `https://ella.navgurukul.org/docs/` (Static Mintlify documentation site build).
+
 ### Deploying updates to EC2
 
 SSH into the server using the team's shared key (ask a team member), then:
