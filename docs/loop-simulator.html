@@ -131,6 +131,40 @@ small.note{display:block;color:var(--grey);font-size:10.5px;margin-top:6px}
 .garden-avatar { position: absolute; width: 32px; height: 32px; background: #ff5722; color: #fff; border: 2px solid var(--ink); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 15px; box-shadow: 2px 2px 0 var(--ink); z-index: 10; animation: bounce-avatar 2s infinite; }
 @keyframes bounce-avatar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 /* Plants & Sprout CSS */
+.plant-overlay {
+  transform-origin: bottom center;
+  animation: windSway 4s ease-in-out infinite;
+}
+.iso-slot-left .plant-overlay { animation-delay: -1s; }
+.iso-slot-right .plant-overlay { animation-delay: -2s; }
+.iso-slot-back .plant-overlay { animation-delay: -3s; }
+
+.iso-grid-slot:active .plant-overlay {
+  transform: scaleY(0.78) scaleX(1.15) !important;
+  transform-origin: bottom center !important;
+  transition: transform 0.05s ease !important;
+  animation: none !important;
+}
+
+.butterfly-fly {
+  animation: butterflyFloat 3.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes windSway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(2.5deg) skewX(1deg); }
+}
+
+@keyframes butterflyFloat {
+  0%, 100% { transform: translateY(0) scaleX(1); }
+  15% { transform: translateY(-3px) scaleX(0.2); }
+  30% { transform: translateY(-7px) scaleX(1); }
+  45% { transform: translateY(-10px) scaleX(0.2); }
+  60% { transform: translateY(-12px) scaleX(1); }
+  75% { transform: translateY(-8px) scaleX(0.2); }
+  90% { transform: translateY(-4px) scaleX(1); }
+}
 .plant-sprout { display: flex; position: absolute; bottom: 8px; align-items: flex-end; }
 .leaf-left, .leaf-right { width: 8px; height: 12px; background: #4caf50; border-radius: 0 8px; transform: rotate(-35deg); transform-origin: bottom right; }
 .leaf-right { border-radius: 8px 0; transform: rotate(35deg); transform-origin: bottom left; margin-left: -2px; }
@@ -1890,6 +1924,7 @@ function GardenView({mem, dbGarden}) {
         {/* Plant growth overlay */}
         {plantImg && (
           <img 
+            className="plant-overlay"
             src={plantImg} 
             alt={skill.id} 
             style={{ 
@@ -1984,6 +2019,7 @@ function GardenView({mem, dbGarden}) {
                     <>
                       {/* Butterfly hovering top-left */}
                       <img 
+                        className="butterfly-fly"
                         src="/docs/logo/butterfly.png" 
                         alt="butterfly" 
                         style={{
