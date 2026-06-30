@@ -40,6 +40,7 @@ dependencies:
   http: ^1.4.0
   flutter_svg: ^2.0.10+1
   shared_preferences: ^2.3.3
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -65,6 +66,24 @@ flutter:
 
   assets:
     - .env
+    - assets/mascot-animations/
+    - assets/chillax/
+    - assets/bottom_tab/
+    - assets/homescreen/
+
+  fonts:
+    - family: Chillax
+      fonts:
+        - asset: assets/chillax/Chillax-Light.otf
+          weight: 300
+        - asset: assets/chillax/Chillax-Regular.otf
+          weight: 400
+        - asset: assets/chillax/Chillax-Medium.otf
+          weight: 500
+        - asset: assets/chillax/Chillax-Semibold.otf
+          weight: 600
+        - asset: assets/chillax/Chillax-Bold.otf
+          weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

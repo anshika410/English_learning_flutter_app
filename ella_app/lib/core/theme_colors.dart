@@ -45,4 +45,15 @@ abstract final class EllaColors {
   static const secondary = Color(0xFF6B5740);
   static const primary = Color(0xFF2C1E0F);
   static const ink = Color(0xFF1A1220);
+
+  // Room — warm "lamp-lit room" backdrop for Home + Session screens.
+  // Estimated from the Figma screenshot; tweak to taste for an exact match.
+  static const roomWallTop = Color(0xFFC8A87C); // light tan upper wall
+  static const roomWallBottom = Color(0xFF5C3D26); // dark brown lower wall/floor
+  static const avatarRing = Color(0xFF4A3322); // thick deep-brown mascot ring
+  static const bubbleSurface = Color(0xFFFBF6EE); // cream speech bubble
+  static const lampGlow = Color(0x66FFB020); // warm glow behind the bulb
+  static const bubbleText = Color(0xFF333333); // greeting / caption body text
+  static const navBorder = Color(0xFFA7D4F5); // light-blue bottom-nav outline
+  static const navSelected = Color(0xFFEBDFC9); // tan highlight behind active tab
 }
