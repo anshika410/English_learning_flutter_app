@@ -33,6 +33,11 @@ abstract final class EllaColors {
   static const roseMain = Color(0xFFFF4878);
   static const roseDark = Color(0xFFC82050);
 
+  // Grape — Grammar strand
+  static const grapeLightest = Color(0xFFF5F0FF);
+  static const grapeMain = Color(0xFF8B5CF6);
+  static const grapeDark = Color(0xFF6030C8);
+
   // Zoe mint
   static const zoeMint = Color(0xFF4CAF82);
   static const zoeMintLight = Color(0xFFD4F0E4);

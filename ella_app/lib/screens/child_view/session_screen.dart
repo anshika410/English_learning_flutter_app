@@ -16,7 +16,10 @@ import 'widgets/speech_bubble.dart';
 import 'widgets/zoe_mascot.dart';
 
 class SessionScreen extends ConsumerStatefulWidget {
-  const SessionScreen({super.key});
+  final String? introText;
+  final VoidCallback? onEnded;
+
+  const SessionScreen({super.key, this.introText, this.onEnded});
 
   @override
   ConsumerState<SessionScreen> createState() => _SessionScreenState();
@@ -30,6 +33,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   @override
   void dispose() {
+    ref.read(chatProvider.notifier).stopListening();
     _textController.dispose();
     _textFocus.dispose();
     super.dispose();
@@ -44,6 +48,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       _sessionStarted = true;
       ref.read(chatProvider.notifier).startSession();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Allow fresh session if returning to this screen after chat end
   }
 
   // ── Mood + latest line ──────────────────────────────────────────────────────
@@ -64,7 +74,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     for (final m in s.messages.reversed) {
       if (m.sender == MessageSender.zoe) return m.text;
     }
-    return s.status == ChatStatus.zoeThinking ? '…' : 'Tap the mic and say hello!';
+    if (s.status == ChatStatus.zoeThinking) return '…';
+    return widget.introText ?? 'Ready when you are. Shall we?';
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -73,7 +84,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final notifier = ref.read(chatProvider.notifier);
     if (s.status == ChatStatus.userSpeaking) {
       notifier.stopListening();
-    } else if (s.status == ChatStatus.idle) {
+    } else if (s.status == ChatStatus.idle && !s.sessionEnded) {
       notifier.startListening().catchError(_snack);
     }
   }
@@ -132,7 +143,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
     if (confirm == true && mounted) {
       await ref.read(chatProvider.notifier).endChat().catchError(_snack);
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onEnded?.call();
+      }
     }
   }
 
@@ -159,29 +173,37 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             data: (s) {
               final showPartial = s.status == ChatStatus.userSpeaking &&
                   (s.partialStt?.isNotEmpty ?? false);
-              return Column(
-                children: [
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final mascotSize =
+                      (constraints.maxWidth * 0.64).clamp(230.0, 275.0);
+                  return Column(
+                    children: [
                   // END button, top-right
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 14, 22, 0),
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: _EndButton(onTap: _confirmEnd),
                     ),
                   ),
-                  const Spacer(flex: 2),
-                  ZoeMascot(mood: _moodFor(s.status), size: 168),
-                  const Spacer(),
+                  SizedBox(height: constraints.maxHeight * 0.07),
+                  // Zoe mascot (Figma proportions)
+                  ZoeMascot(mood: _moodFor(s.status), size: mascotSize),
+                  SizedBox(height: constraints.maxHeight * 0.05),
+                  // Speech bubble with pointer to Zoe (Figma design)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: SpeechBubble(
                       text: showPartial ? s.partialStt! : _latestZoeLine(s),
                       italic: showPartial,
+                      showTail: true,
                     ),
                   ),
-                  const Spacer(flex: 2),
+                  const Spacer(),
+                  // Keyboard or Mic row at bottom
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(40, 0, 40, 22),
                     child: _keyboardMode
                         ? _KeyboardRow(
                             controller: _textController,
@@ -195,7 +217,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                             onMic: () => _onMicTap(s),
                           ),
                   ),
-                ],
+                    ],
+                  );
+                },
               );
             },
           ),

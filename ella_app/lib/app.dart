@@ -33,7 +33,7 @@ class _NavItem {
   final String? svgAsset;
   final IconData? icon;
   final Widget screen;
-  const _NavItem({
+  _NavItem({
     required this.label,
     this.svgAsset,
     this.icon,
@@ -51,27 +51,29 @@ class _EllaHome extends StatefulWidget {
 class _EllaHomeState extends State<_EllaHome> {
   int _index = 0;
 
-  static const _items = <_NavItem>[
+  void _openGarden() => setState(() => _index = 1);
+
+  late final List<_NavItem> _items = [
     _NavItem(
       label: 'Talk',
       svgAsset: 'assets/bottom_tab/to-chat-with-svgrepo-com.svg',
-      screen: HomeScreen(),
+      screen: HomeScreen(onConversationEnded: _openGarden),
     ),
     _NavItem(
       label: 'My Garden',
       svgAsset: 'assets/bottom_tab/tree-svgrepo-com.svg',
-      screen: GardenScreen(),
+      screen: GardenScreen(onConversationEnded: _openGarden),
     ),
     _NavItem(
       label: 'Profile',
       svgAsset: 'assets/bottom_tab/profile-svgrepo-com.svg',
-      screen: ProfileScreen(),
+      screen: const ProfileScreen(),
     ),
     if (kShowGlassBox)
       _NavItem(
         label: 'Glass Box',
         icon: Icons.science_outlined,
-        screen: GlassBoxScreen(),
+        screen: const GlassBoxScreen(),
       ),
   ];
 
@@ -108,17 +110,16 @@ class _EllaBottomNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        height: 88,
+        padding: const EdgeInsets.fromLTRB(22, 10, 22, 8),
         decoration: BoxDecoration(
           color: EllaColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: EllaColors.navBorder, width: 2),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              offset: const Offset(0, 2),
-              blurRadius: 8,
+              color: Colors.black.withValues(alpha: 0.08),
+              offset: const Offset(0, -2),
+              blurRadius: 10,
             ),
           ],
         ),
@@ -152,8 +153,7 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Icons keep their own SVG colours (chat = yellow/purple, tree = green,
-    // profile = dark); selection is shown by the tan highlight + label weight.
+    final selectedWidth = item.label.length > 6 ? 104.0 : 56.0;
     final iconWidget = item.svgAsset != null
         ? SvgPicture.asset(item.svgAsset!, width: 26, height: 26)
         : Icon(item.icon,
@@ -163,26 +163,35 @@ class _NavButton extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              width: selected ? selectedWidth : 64,
+              height: selected ? 56 : 58,
+              padding: const EdgeInsets.symmetric(vertical: 5),
               decoration: BoxDecoration(
                 color: selected ? EllaColors.navSelected : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(7),
               ),
-              child: iconWidget,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? EllaColors.primary : EllaColors.secondary,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  iconWidget,
+                  const SizedBox(height: 4),
+                  Text(
+                    item.label,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: selected ? 11 : 10.5,
+                      fontWeight:
+                          selected ? FontWeight.w800 : FontWeight.w700,
+                      color: selected ? Colors.white : EllaColors.primary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

@@ -19,8 +19,15 @@ class RoomBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [EllaColors.roomWallTop, EllaColors.roomWallBottom],
-          stops: [0.0, 0.72],
+          // Hold the tan wall through the upper half, then transition to the
+          // brown floor low down so the two tones read as distinct bands.
+          colors: [
+            EllaColors.roomWallTop,
+            EllaColors.roomWallTop,
+            EllaColors.roomWallBottom,
+            EllaColors.roomWallBottom,
+          ],
+          stops: [0.0, 0.52, 0.82, 1.0],
         ),
       ),
       child: Stack(

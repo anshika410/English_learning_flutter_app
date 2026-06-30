@@ -16,14 +16,22 @@ import 'widgets/speech_bubble.dart';
 import 'widgets/zoe_mascot.dart';
 
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onConversationEnded;
+
+  const HomeScreen({super.key, this.onConversationEnded});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatAsync = ref.watch(chatProvider);
     return chatAsync.when(
-      data: (s) => _HomeBody(memory: s.memory),
-      loading: () => const _HomeBody(memory: null),
+      data: (s) => _HomeBody(
+        memory: s.memory,
+        onConversationEnded: onConversationEnded,
+      ),
+      loading: () => _HomeBody(
+        memory: null,
+        onConversationEnded: onConversationEnded,
+      ),
       error: (e, _) => RoomBackground(
         child: Center(
           child: Text('Home error: $e',
@@ -34,9 +42,13 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _HomeBody extends StatelessWidget {
+class _HomeBody extends ConsumerWidget {
   final MemoryState? memory;
-  const _HomeBody({required this.memory});
+  final VoidCallback? onConversationEnded;
+  const _HomeBody({
+    required this.memory,
+    required this.onConversationEnded,
+  });
 
   // "Yesterday, we talked about X. Today, I wanted to talk about Y. Shall we?"
   String _greeting(MemoryState? mem) {
@@ -57,34 +69,51 @@ class _HomeBody extends StatelessWidget {
     return parts.join(' ');
   }
 
-  void _startTalking(BuildContext context) {
+  Future<void> _startTalking(BuildContext context, WidgetRef ref) async {
+    final chatState = ref.read(chatProvider);
+    if (chatState.hasValue && chatState.requireValue.sessionEnded) {
+      await ref.read(chatProvider.notifier).nextChat();
+    }
+    if (!context.mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SessionScreen()),
+      MaterialPageRoute(
+        builder: (_) => SessionScreen(onEnded: onConversationEnded),
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return RoomBackground(
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              const ZoeMascot(mood: MascotMood.greeting, size: 188),
-              const Spacer(),
-              SpeechBubble(
-                text: _greeting(memory),
-                showTail: true,
-                footer: EllaPrimaryButton(
-                  label: 'Start Talking',
-                  onTap: memory == null ? null : () => _startTalking(context),
-                ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final mascotSize = (constraints.maxWidth * 0.74).clamp(240.0, 330.0);
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: Column(
+                children: [
+                  const Spacer(flex: 9),
+                  ZoeMascot(
+                    mood: MascotMood.greeting,
+                    size: mascotSize,
+                  ),
+                  const Spacer(flex: 2),
+                  SpeechBubble(
+                    text: _greeting(memory),
+                    showTail: true,
+                    footer: EllaPrimaryButton(
+                      label: 'Start Talking',
+                      onTap: memory == null
+                          ? null
+                          : () => _startTalking(context, ref),
+                    ),
+                  ),
+                  const Spacer(flex: 1),
+                ],
               ),
-              const Spacer(flex: 1),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

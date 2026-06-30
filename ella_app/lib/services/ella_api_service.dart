@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/child_memory.dart';
+import '../models/garden.dart';
 import '../models/session.dart';
 
 class EllaApiException implements Exception {
@@ -98,6 +99,28 @@ class EllaApiService {
     return _memoryFromApi(data);
   }
 
+  /// Garden layout for the signed-in user — GET /users/me/garden.
+  Future<GardenData> getGarden() async {
+    final data = await _request('GET', '/users/me/garden');
+    final garden = GardenData.fromJson(data);
+    if (kDebugMode) {
+      debugPrint('┌─[Garden] parsed level=${garden.level} '
+          'label=${garden.levelLabel} theme=${garden.theme} '
+          'steps=${garden.steps.length} topic=${garden.recommendedTopic}');
+      for (final step in garden.steps) {
+        debugPrint('│ step ${step.step} "${step.name}" '
+            'completed=${step.isCompleted} skills=${step.skills.length}');
+        for (final s in step.skills) {
+          debugPrint('│   • ${s.id} ${s.strand.name} ${s.status.name} '
+              'sightings=${s.sightings} evidence=${s.evidence.length}'
+              '${s.evidence.isNotEmpty ? ' → "${s.evidence.first.quote}"' : ''}');
+        }
+      }
+      debugPrint('└────────────────────────────────────────');
+    }
+    return garden;
+  }
+
   Future<void> updatePersonaMemory(Map<String, dynamic> personaMemory) async {
     await _request(
       'PUT',
@@ -182,19 +205,25 @@ class EllaApiService {
     return data['starter'] as String?;
   }
 
-  Future<SessionAnalysisApiResult> sessionAnalysis({
-    required String conversationId,
+  /// Session log snapshot — GET /session/{session_id}/session-log.
+  /// The server's canonical record of a finished session (scores, state
+  /// changes, transcript). Called after the judge persists the analysis.
+  Future<Map<String, dynamic>> getSessionLog(String sessionId) {
+    return _request('GET', '/session/$sessionId/session-log');
+  }
+
+  // The judge/session-analysis request shape (SessionAnalysisRequest):
+  //   { session_id, messages[], topic, level, level_label, progression_model }
+  Map<String, dynamic> _analysisRequestBody({
+    required String sessionId,
     required List<ConvMessage> history,
     required String topic,
     required String level,
+    required String levelLabel,
     required String progressionModel,
-    required int turnsTotal,
-  }) async {
-    final data = await _request(
-      'POST',
-      '/llm/session-analysis',
-      body: {
-        'conversation_id': conversationId,
+  }) =>
+      {
+        'session_id': sessionId,
         'messages': [
           for (final m in history)
             {
@@ -204,38 +233,52 @@ class EllaApiService {
         ],
         'topic': topic,
         'level': level,
+        'level_label': levelLabel,
         'progression_model': _serverProgressionModel(progressionModel),
-        'turns_total': turnsTotal,
-      },
+      };
+
+  Future<SessionAnalysisApiResult> sessionAnalysis({
+    required String sessionId,
+    required List<ConvMessage> history,
+    required String topic,
+    required String level,
+    String levelLabel = '',
+    required String progressionModel,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/llm/session-analysis',
+      body: _analysisRequestBody(
+        sessionId: sessionId,
+        history: history,
+        topic: topic,
+        level: level,
+        levelLabel: levelLabel,
+        progressionModel: progressionModel,
+      ),
     );
     return _analysisFromApi(data);
   }
 
   Future<SessionAnalysisApiResult> judge({
-    required String conversationId,
+    required String sessionId,
     required List<ConvMessage> history,
     required String topic,
     required String level,
+    String levelLabel = '',
     required String progressionModel,
-    required int turnsTotal,
   }) async {
     final data = await _request(
       'POST',
       '/llm/judge',
-      body: {
-        'conversation_id': conversationId,
-        'messages': [
-          for (final m in history)
-            {
-              'role': m.role == 'zoe' ? 'assistant' : 'user',
-              'content': m.text,
-            },
-        ],
-        'topic': topic,
-        'level': level,
-        'progression_model': _serverProgressionModel(progressionModel),
-        'turns_total': turnsTotal,
-      },
+      body: _analysisRequestBody(
+        sessionId: sessionId,
+        history: history,
+        topic: topic,
+        level: level,
+        levelLabel: levelLabel,
+        progressionModel: progressionModel,
+      ),
     );
     return _analysisFromApi(data);
   }

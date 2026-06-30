@@ -17,6 +17,7 @@ import '../models/history_entry.dart';
 import '../models/memory_snapshot.dart';
 import '../models/message.dart';
 import '../models/session.dart';
+import 'garden_provider.dart';
 import 'prompts_provider.dart';
 import 'service_providers.dart';
 
@@ -202,15 +203,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       // Make sure a `children` row exists for this uid (FK source).
       // User creation is handled by POST /auth/anonymous.
 
+      // Canonical load order: auth → memory → garden (mirrors the server flow).
       // Resume memory from persisted state if any, else fresh.
       mem = await api.getUserMemory();
-      final latestPlacement = await api.latestPlacement().catchError((_) => null);
-      final placedLevel = latestPlacement?['level'] as String?;
-      if (placedLevel != null &&
-          placedLevel.isNotEmpty &&
-          placedLevel != mem.level) {
-        mem = mem.copyWith(level: placedLevel);
-      }
       // The server returns its own due_next, but the engine's due_next-stage
       // rules (engine.dart) are authoritative on the frontend. Recompute over
       // the server's owned/emerging so those rules drive the due_next display
@@ -221,35 +216,13 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       nextChatNumber = mem.chatCount > 0 ? mem.chatCount + 1 : 1;
       _online = true;
 
-      // Restore Session/History tabs from the last 20 chats. Best-effort:
-      // a failure here doesn't break memory restoration.
+      // Warm the garden right after memory so the Garden tab is ready and the
+      // call sequence matches the server contract. Best-effort: a failure here
+      // must not block the chat. The Garden tab reads gardenProvider, which is
+      // invalidated after every endChat to pull fresh growth.
       try {
-        final fetched = await api.listSessions(limit: 20);
-        // Order ascending by chat_number for the UI lists (oldest first).
-        sessions =
-            [...fetched]..sort((a, b) => a.chatNumber.compareTo(b.chatNumber));
-        history = sessions
-            .map((s) => HistoryEntry(
-                  chat: s.chatNumber,
-                  level: s.level,
-                  model: s.progressionModel,
-                  owned: 0, // not stored per-chat
-                  emerging: 0, // not stored per-chat
-                  changes: s.stateChanges.length,
-                  turns: s.turnsTotal,
-                  aimed: s.aimedAt.length,
-                  hit: s.hitTargets.length,
-                ))
-            .toList();
-        if (sessions.isNotEmpty) {
-          final maxChat = sessions
-              .map((s) => s.chatNumber)
-              .fold<int>(0, (a, b) => a > b ? a : b);
-          if (maxChat + 1 > nextChatNumber) nextChatNumber = maxChat + 1;
-        }
-      } catch (e) {
-        syncError = 'Session history restore failed: $e';
-      }
+        await api.getGarden();
+      } catch (_) {}
     } catch (e) {
       // Offline-only mode. App still works in memory; Glass Box shows the error.
       // No Supabase writes will be attempted while _online is false.
@@ -272,6 +245,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   Future<void> startSession() async {
     final cur = state.requireValue;
+    // If returning to a new session, clear old topic and reset state
+    if (cur.messages.isEmpty && cur.currentTopic != null) {
+      state = AsyncValue.data(cur.copyWith(clearTopic: true));
+    }
     if (cur.sessionEnded || cur.messages.isNotEmpty) return;
 
     final topic = pickTopic(cur.memory);
@@ -417,13 +394,14 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       // deterministic merge, then persists the transcript + new memory. ───────
       try {
         final api = ref.read(ellaApiServiceProvider);
-        final analysis = await api.sessionAnalysis(
-          conversationId: cur.activeSessionId!,
+        // End-chat flow (matches the server contract / network log order):
+        //   judge → memory → garden → session-log.
+        final analysis = await api.judge(
+          sessionId: cur.activeSessionId!,
           history: cur.convHistory,
           topic: cur.currentTopic?.topic ?? 'Free Talk',
           level: mem.level,
           progressionModel: mode,
-          turnsTotal: cur.turnCount,
         );
         primaryScores = analysis.scores;
         effectiveChanges = analysis.changes;
@@ -435,21 +413,6 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         hitTargets = analysis.hitTargets;
         liveLlm = true;
 
-        // Secondary judge pass for the Glass Box — uses the SAME framing as
-        // the primary analysis (the dual opposite-framing comparison is
-        // retired now that the server is the single source of truth).
-        try {
-          final other = await api.judge(
-            conversationId: cur.activeSessionId!,
-            history: cur.convHistory,
-            topic: cur.currentTopic?.topic ?? 'Free Talk',
-            level: mem.level,
-            progressionModel: mode,
-            turnsTotal: cur.turnCount,
-          );
-          otherScores = other.scores;
-        } catch (_) {}
-
         // The server already merged state — re-fetch owned/emerging as the
         // source of truth, but recompute due_next locally so the engine's
         // due_next-stage rules (engine.dart) drive the next stage.
@@ -460,6 +423,18 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         newMem = serverMem.copyWith(
           dueNext: targetsListFor(serverMem, mode, serverMem.level),
         );
+
+        // Refresh the garden, then pull the canonical session log. Best-effort —
+        // neither should block ending the chat.
+        try {
+          await api.getGarden();
+        } catch (_) {}
+        try {
+          await api.getSessionLog(cur.activeSessionId!);
+        } catch (_) {}
+        // The Garden tab reads gardenProvider; invalidate so it refetches the
+        // updated growth the next time it's shown.
+        ref.invalidate(gardenProvider);
       } catch (e) {
         syncError = 'Session analysis API failed: $e';
         // Degraded fallback — merge whatever scores we have locally so the
