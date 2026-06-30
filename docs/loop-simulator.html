@@ -104,7 +104,27 @@ small.note{display:block;color:var(--grey);font-size:10.5px;margin-top:6px}
 .grid-2x2 { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); width: 100%; height: 100%; padding: 4px; gap: 4px; }
 .grid-slot { position: relative; border-radius: 4px; display: flex; justify-content: center; align-items: center; overflow: visible; background: #795548; width: 44px; height: 44px; }
 .grid-2x2-iso { position: relative; width: 192px; height: 156px; margin: 0 auto; }
-.iso-grid-slot { position: absolute; width: 104px; height: 104px; background: transparent; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+.iso-grid-slot { 
+  position: absolute; 
+  width: 104px; 
+  height: 104px; 
+  background: transparent; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  cursor: pointer; 
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s ease;
+  will-change: transform;
+}
+.iso-grid-slot:hover {
+  transform: translateY(-5px);
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.16));
+}
+.iso-grid-slot:active {
+  transform: translateY(2px);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+  transition: transform 0.05s ease, filter 0.05s ease;
+}
 .iso-slot-back { top: 0px; left: 44px; z-index: 1; }
 .iso-slot-left { top: 22px; left: 0px; z-index: 2; }
 .iso-slot-right { top: 22px; left: 88px; z-index: 3; }
