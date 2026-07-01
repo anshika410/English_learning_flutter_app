@@ -1799,8 +1799,8 @@ function GardenView({mem, dbGarden}) {
   const apiSightings = {};
   const apiEvidence = {};
   const apiStatus = {};
-  if (isApi && dbGarden.steps) {
-    dbGarden.steps.forEach(s => {
+  if (isApi && dbGarden.units) {
+    dbGarden.units.forEach(s => {
       if (s.skills) {
         s.skills.forEach(sk => {
           apiSightings[sk.id] = sk.sightings;

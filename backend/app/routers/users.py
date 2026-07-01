@@ -119,7 +119,7 @@ async def get_user_garden(user: User = Depends(get_current_user)):
     if not first_unowned_skill and units_list and units_list[0]["skills"]:
         first_unowned_skill = units_list[0]["skills"][0]["id"]
     
-    steps_data = []
+    units_data = []
     for u in units_list:
         skills_data = []
         
@@ -157,8 +157,8 @@ async def get_user_garden(user: User = Depends(get_current_user)):
                 "evidence": evidence_list
             })
             
-        steps_data.append({
-          "step": int(u["step"]),
+        units_data.append({
+          "unit": int(u["step"]),
           "name": u["name"],
           "focus": u["focus"],
           "skills": skills_data
@@ -182,7 +182,7 @@ async def get_user_garden(user: User = Depends(get_current_user)):
         "level": level,
         "level_label": user.level_label or "First Words",
         "recommended_topic": recommended_topic,
-        "steps": steps_data
+        "units": units_data
     }
 
 

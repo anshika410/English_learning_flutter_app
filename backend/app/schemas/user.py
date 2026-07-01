@@ -95,8 +95,8 @@ class GardenSkill(BaseModel):
     evidence: list[GardenEvidence] = []
 
 
-class GardenStep(BaseModel):
-    step: int
+class GardenUnit(BaseModel):
+    unit: int
     name: str
     focus: str
     skills: list[GardenSkill]
@@ -106,7 +106,7 @@ class GardenResponse(BaseModel):
     level: str
     level_label: str
     recommended_topic: str
-    steps: list[GardenStep]
+    units: list[GardenUnit]
 
 
 
