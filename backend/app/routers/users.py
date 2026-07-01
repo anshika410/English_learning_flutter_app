@@ -14,6 +14,9 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
     persona = user.persona_memory or {}
     progress = user.skills_progress or {}
     due = user.due_next or {}
+    units_list = persona.get("units") or persona.get("last_topics", [])
+    if not isinstance(units_list, list):
+        units_list = []
 
     # Cast age to integer if it is a numeric string
     age_val = None
@@ -41,8 +44,9 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         sightings=progress.get("sightings", {}),
         strength=progress.get("strength", {}),
         updated_after_chat=progress.get("updated_after_chat", 0),
-        last_topics=persona.get("last_topics", []),
-        persona_memory={k: v for k, v in (user.persona_memory or {}).items() if k != "last_topics"},
+        units=units_list,
+        last_topics=units_list,
+        persona_memory={k: v for k, v in (user.persona_memory or {}).items() if k not in ("last_topics", "units")},
     )
 
 

@@ -209,17 +209,19 @@ async def run_and_save_session_analysis(
         conversation.quality = analysis.get("overall")
         db.add(conversation)
 
-    # Update last_topics (track which topics have been used to avoid repeats)
+    # Update units (track which units have been used to avoid repeats)
     persona = user.persona_memory or {}
-    last_topics = persona.get("last_topics", [])
-    if not isinstance(last_topics, list):
-        last_topics = []
-    if topic and topic not in last_topics:
-        last_topics.append(topic)
-        # Keep only last 20 topics
-        if len(last_topics) > 20:
-            last_topics = last_topics[-20:]
-        persona["last_topics"] = last_topics
+    units_list = persona.get("units") or persona.get("last_topics", [])
+    if not isinstance(units_list, list):
+        units_list = []
+    if topic and topic not in units_list:
+        units_list.append(topic)
+        # Keep only last 20 units
+        if len(units_list) > 20:
+            units_list = units_list[-20:]
+        persona["units"] = units_list
+        if "last_topics" in persona:
+            del persona["last_topics"]
         user.persona_memory = dict(persona)
         flag_modified(user, "persona_memory")
 

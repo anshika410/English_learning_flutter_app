@@ -581,7 +581,7 @@ function skillFunction(skillId, level = null){
 function pickTopic(mem, targetSkill, apiTopics = []){
   if (LLM_CONFIG.mode === 'api' && apiTopics && apiTopics.length > 0) {
     const bank = apiTopics;
-    const recent = mem.last_topics || [];
+    const recent = mem.units || mem.last_topics || [];
     const fresh = bank.filter(t => !recent.includes(t.name));
     const pool = fresh.length ? fresh : bank;
     let pick = pool[Math.floor(Math.random() * pool.length)];
@@ -594,7 +594,7 @@ function pickTopic(mem, targetSkill, apiTopics = []){
 
   const bank=TOPICS[mem.level]||TOPICS['A1']||[];
   if(!bank.length) return null;
-  const recent=mem.last_topics||[];
+  const recent=mem.units||mem.last_topics||[];
   let pool=bank.filter(t=>!recent.includes(t.topic));
   if(!pool.length) pool=bank; // all used recently → allow reuse
   // 1) prefer topics that ELICIT the target skill's function (skill-aware)
@@ -618,7 +618,7 @@ function freshMemory(level){ return {
   child_id:'demo_child', name:'', age:null, city:null, grade:null,
   level, active_unit:null, owned:[], emerging:[],
   due_next:{primary:null,watching:[]},
-  last_topics:[], interests:'',
+  units:[], last_topics:[], interests:'',
   effort:{times_spoken_total:0}, sightings:{}, strength:{}, last_seen:{}, updated_after_chat:0 }; }
 
 // ---------- LLM routing (Option B) ----------
@@ -832,6 +832,7 @@ function App(){
         nm.sightings = memoryData.sightings || {};
         nm.strength = memoryData.strength || {};
         nm.effort = memoryData.effort || { times_spoken_total: 0 };
+        nm.units = memoryData.units || memoryData.last_topics || [];
         nm.last_topics = memoryData.last_topics || [];
 
         if (memoryData.due_next && memoryData.due_next.primary) {
@@ -887,7 +888,7 @@ function App(){
     const goal=chatGoalFor(primary, topic, mctx.level);
     const arc=`\nSESSION ARC: This is a 5-7 minute mini-lesson, not random chat. Current phase: ${phase}. Aim: ${goal.aim||primaryLine}. Success evidence: ${goal.success||'meaningful answer'}. If the learner asks for help or is stuck, respond to that first, then give one easier frame. By turn 5+, celebrate one thing and ask one closing/recap question.`;
     const support=intent?`\nLEARNER SUPPORT SIGNAL: ${intent}. First handle this: ${intent==='example'?'give one simple example, then ask them to try':intent==='easier'?'make the question smaller and offer a sentence frame':intent==='repeat'?'repeat in simpler words':intent==='affect'?'validate the feeling briefly and switch to an easier/fun choice question':'support'}.`:'';
-    return `${prompts.base}\n\n${profileFor(level)}\n\n${frame}${topicLine}${arc}${support}\n${mctx.interests?('\nLEARNER INTERESTS: '+mctx.interests):''}${(mctx.last_topics&&mctx.last_topics.length)?('\nRECENT TOPICS (avoid repeating): '+mctx.last_topics.join(', ')):''}\n\nCONVERSATION SO FAR:\n${convo||'(none — you open)'}\n\nReply with ONLY Zoe's next short spoken turn.`;
+    return `${prompts.base}\n\n${profileFor(level)}\n\n${frame}${topicLine}${arc}${support}\n${mctx.interests?('\nLEARNER INTERESTS: '+mctx.interests):''}${(mctx.units&&mctx.units.length)?('\nRECENT TOPICS (avoid repeating): '+mctx.units.join(', ')):''}\n\nCONVERSATION SO FAR:\n${convo||'(none — you open)'}\n\nReply with ONLY Zoe's next short spoken turn.`;
   }
   async function zoeOpens(chatOverride, modelOverride, memOverride, topicsDataArg){
     setBusy(true);
@@ -1080,6 +1081,7 @@ function App(){
         merged.sightings = memoryData.sightings || {};
         merged.strength = memoryData.strength || {};
         merged.effort = memoryData.effort || { times_spoken_total: 0 };
+        merged.units = memoryData.units || memoryData.last_topics || [];
         merged.last_topics = memoryData.last_topics || [];
 
         if (memoryData.due_next && memoryData.due_next.primary) {
@@ -1141,7 +1143,10 @@ function App(){
       let {mem:merged,changes:chg}=applyMerge(mem,primaryScores,level);
       merged=extractProfileSignals(merged,msgs);
       merged.effort.times_spoken_total+=turnCount; merged.updated_after_chat=chatNum;
-      if(currentTopic){ merged.last_topics=[currentTopic.topic, ...(merged.last_topics||[])].slice(0,5); }
+      if(currentTopic){
+        merged.units=[currentTopic.topic, ...(merged.units||[])].slice(0,5);
+        merged.last_topics=[currentTopic.topic, ...(merged.last_topics||[])].slice(0,5);
+      }
       merged.due_next=targetsListFor(merged);
       setChanges(chg);
       setHl({owned:true,emerging:true,due_next:true,effort:true}); setTimeout(()=>setHl({}),1400);
@@ -1186,6 +1191,7 @@ function App(){
         nm.sightings = memoryData.sightings || {};
         nm.strength = memoryData.strength || {};
         nm.effort = memoryData.effort || { times_spoken_total: 0 };
+        nm.units = memoryData.units || memoryData.last_topics || [];
         nm.last_topics = memoryData.last_topics || [];
         nm.due_next = (memoryData.due_next && memoryData.due_next.primary) ? memoryData.due_next : targetsListFor(nm, model);
         setMem(nm);
@@ -1364,7 +1370,7 @@ function ReadmeView(){
         <li style={li}><span style={code}>owned</span> — skills demonstrated enough to count as learned.</li>
         <li style={li}><span style={code}>emerging</span> — skills seen at least once but not yet owned ("started, not finished").</li>
         <li style={li}><span style={code}>due_next</span> — <b>{'{primary, watching[]}'}</b>. <i>primary</i> = the one skill Zoe actively steers toward; <i>watching</i> = a couple the judge also looks for if they come up.</li>
-        <li style={li}><span style={code}>last_topics</span> — recent conversation topics. <b>Load-bearing:</b> the topic-picker avoids these so chats don't repeat.</li>
+        <li style={li}><span style={code}>units</span> — recent units/topics practiced. <b>Load-bearing:</b> the topic-picker avoids these so chats don't repeat.</li>
         <li style={li}><span style={code}>interests</span> — what the learner likes; feeds topic selection. Grows by listening to them over time.</li>
         <li style={li}><span style={code}>effort.times_spoken_total</span> — lifetime count of turns. The one number a learner sees. Only ever goes up; no streaks.</li>
         <li style={li}><span style={code}>sightings</span> — how many <i>qualifying</i> times each skill has been shown. Ownership needs ≥{`${''}`}2 (corroboration), so one lucky chat doesn't own a skill.</li>
@@ -1389,7 +1395,7 @@ function ReadmeView(){
     </RM>
 
     <RM t="How topics work (why chats stay fresh)">
-      <p style={p}>The <i>skill</i> being targeted may repeat for several chats (a skill takes ≥2 sightings to own). To stop chats feeling samey, the <b>topic</b> changes: a topic bank (from the framework — themes like family, sports, festivals) supplies a fresh topic each chat, chosen to match the learner's interests and avoid <span style={code}>last_topics</span>. Same skill, new context each time. <b>Updated:</b> topics are now lightly tagged to skill functions, and each due skill also carries a Teacher Invisible Plan: strong question, fallback, and judgeable evidence.</p>
+      <p style={p}>The <i>skill</i> being targeted may repeat for several chats (a skill takes ≥2 sightings to own). To stop chats feeling samey, the <b>topic</b> changes: a topic bank (from the framework — themes like family, sports, festivals) supplies a fresh topic each chat, chosen to match the learner's interests and avoid <span style={code}>units</span>. Same skill, new context each time. <b>Updated:</b> topics are now lightly tagged to skill functions, and each due skill also carries a Teacher Invisible Plan: strong question, fallback, and judgeable evidence.</p>
     </RM>
 
     <RM t="What changed in the 9/10 pass — for reviewers">
@@ -1489,6 +1495,7 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
       { col: 'owned', type: 'JSON', val: dbMemory.owned || [] },
       { col: 'emerging', type: 'JSON', val: dbMemory.emerging || [] },
       { col: 'due_next', type: 'JSON', val: dbMemory.due_next || {} },
+      { col: 'units', type: 'JSON', val: dbMemory.units || dbMemory.last_topics || [] },
       { col: 'last_topics', type: 'JSON', val: dbMemory.last_topics || [] },
       { col: 'interests', type: 'VARCHAR(200)', val: dbMemory.interests && dbMemory.interests.length > 0 ? dbMemory.interests.join(',') : '' },
       { col: 'effort', type: 'JSON', val: dbMemory.effort || { times_spoken_total: 0 } },
@@ -1506,7 +1513,7 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
           </pre>
         );
       }
-      if (col === 'owned' || col === 'emerging' || col === 'last_topics') {
+      if (col === 'owned' || col === 'emerging' || col === 'units' || col === 'last_topics') {
         const arr = val || [];
         if (arr.length === 0) {
           return <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>[]</span>;
@@ -1624,7 +1631,7 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
     {changes.length>0&&<div><div className="lbl">state changes this chat</div>
       {changes.map((c,i)=><div className="chg" key={i}><b>{c.id}</b> — {c.name || skillText(c.id)}<br/>{c.from} → <b>{c.to}</b> {c.to==='owned'?'🌸':'🌱'}</div>)}</div>}
     {(!isApiMode || showClientSide) && <><div className="lbl">Local memory (client-side) {mem.updated_after_chat>0?('· updated after chat '+mem.updated_after_chat):'· (fresh)'}</div>
-    <div className="mono" style={{whiteSpace:"pre-wrap",fontSize:"11px",lineHeight:"1.5",maxHeight:"400px",overflowY:"auto"}}>{JSON.stringify({profile:{name:mem.name||"—",age:mem.age||null,city:mem.city||"—"},level:mem.level,owned:mem.owned,emerging:mem.emerging,due_next:mem.due_next,last_topics:(mem.last_topics||[]).slice(-5),interests:(mem.interests||"").slice(0,100),effort:mem.effort,sightings:mem.sightings,strength:mem.strength},null,2)}</div></>}
+    <div className="mono" style={{whiteSpace:"pre-wrap",fontSize:"11px",lineHeight:"1.5",maxHeight:"400px",overflowY:"auto"}}>{JSON.stringify({profile:{name:mem.name||"—",age:mem.age||null,city:mem.city||"—"},level:mem.level,owned:mem.owned,emerging:mem.emerging,due_next:mem.due_next,units:(mem.units||mem.last_topics||[]).slice(-5),interests:(mem.interests||"").slice(0,100),effort:mem.effort,sightings:mem.sightings,strength:mem.strength},null,2)}</div></>}
       <div style={{marginTop:14}}>
         <div className="lbl">{isApiMode ? 'Memory (from GET /users/me/memory)' : 'Database Record (PostgreSQL users table)'}</div>
         {renderDbMemoryTable()}

@@ -73,6 +73,7 @@ class UserMemoryResponse(BaseModel):
     sightings: dict = {}
     strength: dict = {}
     updated_after_chat: int = 0
+    units: list[str] = []
     last_topics: list[str] = []
     persona_memory: dict = {}
 

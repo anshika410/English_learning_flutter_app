@@ -97,7 +97,7 @@ The entire state carried between conversations. ~9 fields, kept small on purpose
   "owned":       ["VOC-01","VOC-02","VOC-03","GRA-01","GRA-02","FLU-01","FLU-02","FLU-03"],
   "emerging":    ["VOC-04","GRA-04"],
   "due_next":    ["GRA-04","FLU-04","VOC-04"],
-  "last_topics": ["family","cricket"],
+  "units":       ["family","cricket"],
   "interests":   "cricket, younger sister Anjali",
   "effort":      { "times_spoken_total": 240 },   // the one lifetime number
   "strength":    { "FLU-03": 2, "VOC-04": 1 },     // write-only in MVP
@@ -111,7 +111,7 @@ The entire state carried between conversations. ~9 fields, kept small on purpose
 | owned | ACTIVE | Skills demonstrated to threshold. |
 | emerging | ACTIVE | Seen once, not yet owned. |
 | due_next | ACTIVE | Ranked targets for next chat (§06). |
-| last_topics | ACTIVE | For continuity in the next opening. |
+| units | ACTIVE | Practised units (recent topics/units for continuity). |
 | interests | ACTIVE | Free text; personalises topics. |
 | effort | ACTIVE | One lifetime number: times_spoken_total (§05). |
 | strength | WRITE-ONLY | Corroborated sightings per skill. Decay reads this later. |
