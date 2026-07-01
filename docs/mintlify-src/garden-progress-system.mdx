@@ -219,19 +219,11 @@ For each skill ID in the active level's curriculum, the backend checks the datab
 *   **`"emerging"`**: The skill ID exists in `progress["emerging"]` but not in `owned`.
 *   **`"locked"`**: The skill ID is in neither array.
 
-#### Promotion Rules (Standard Path vs. Effort Path)
+#### Promotion Rules (Simplified Sighting-Based Path)
 
-A skill moves from `locked` to `emerging` as soon as the student gets their first grading check of **$\ge 0.30$** confidence.
-
-To promote a skill to **`"owned"`** (mastery), the engine evaluates two distinct paths:
-
-1. **The Standard Path (2 Sightings)**:
-   * The student achieves **$\ge 2$ sightings** (grading checks with confidence $\ge 0.70$).
-   * *Visual:* Grows from Sprout into a **Closed Bud 🌷**.
-2. **The Effort Path (1 Sighting + Spontaneous Usage)**:
-   * If the student uses the skill spontaneously (without Zoe prompting it), they accumulate `unprompted_count`.
-   * If `unprompted_count + sightings >= 3` and the current grading confidence is $\ge 0.30$, the skill instantly promotes to **`"owned"`** even if they have only **1 sighting**.
-   * *Visual:* Since they have exactly 1 sighting, the plant displays as a **Tiny Sprout 🌱** (growth is strictly tied to the sightings count).
+*   **Floor Threshold**: All progression, evidence logging, and state transitions require a confidence grading of **$\ge 0.70$**. Any attempts below `0.70` are ignored.
+*   **Locked $\rightarrow$ Emerging**: A skill transitions to `emerging` on its **1st confident sighting** ($\ge 0.70$).
+*   **Emerging $\rightarrow$ Owned (Mastery)**: A skill transitions to `owned` on its **3rd confident sighting** ($\ge 0.70$).
 
 ### B. Sightings & Plant Growth Stages
 
@@ -239,11 +231,10 @@ The client maps the combination of **`status`** and **`sightings`** directly to 
 
 | Status | Sightings | Visual Plant on Map | What it means |
 | :--- | :--- | :--- | :--- |
-| **`locked`** | `0` | **Bare Soil** | The student has never attempted this skill yet. |
-| **`emerging`** | `0` | **Soil with Grass** | The student attempted it, but with low confidence (`0.30` - `0.69`). Grass patches cover the soil tile! |
-| **`emerging`** | `1` | **Tiny Sprout 🌱** | Sprout appears! The student used it once with high confidence ($\ge 0.70$). |
-| **`owned`** | `2` | **Closed Bud 🌷** | Bud appears! The student used it twice with high confidence. |
-| **`owned`** | `3+` | **Bloomed Flower 🌸** | Full Bloom! The student used it three or more times with high confidence. |
+| **`locked`** | `0` | **Bare Soil** | Locked state. No attempts or only low-confidence attempts. |
+| **`emerging`** | `1` | **Tiny Sprout 🌱** | Sprout appears on Grass! The student used the skill once with confidence $\ge 0.70$. |
+| **`emerging`** | `2` | **Closed Bud 🌷** | Closed Bud appears on Grass! The student used the skill twice with confidence $\ge 0.70$. |
+| **`owned`** | `3+` | **Bloomed Flower 🌸** | Fully Bloomed Flower! The student achieved three or more confident sightings. |
 
 | Strand / Stage | Sprout (1 Sighting) | Mid-Grown Bud (2 Sightings) | Fully Bloomed (3+ Sightings) |
 | :--- | :---: | :---: | :---: |
