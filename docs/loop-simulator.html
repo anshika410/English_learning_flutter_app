@@ -773,6 +773,10 @@ function App(){
       }));
 
       if (!res.ok) {
+        if (res.status === 401 && token) {
+          localStorage.removeItem('ella_access_token');
+          window.location.reload();
+        }
         throw new Error(`API Error ${res.status}: ${text}`);
       }
       return resJson;
