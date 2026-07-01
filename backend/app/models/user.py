@@ -25,7 +25,7 @@ class User(Base):
 
     # CEFR level from placement
     level: Mapped[str | None] = mapped_column(String(5), nullable=True)
-    level_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    level_label: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
     # Interests detected during placement (comma-separated, e.g. "cricket,music,food")
     interests: Mapped[str | None] = mapped_column(Text, nullable=True)
