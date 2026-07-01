@@ -105,7 +105,6 @@ class GardenUnit(BaseModel):
 
 class GardenResponse(BaseModel):
     level: str
-    level_label: str
     recommended_topic: str
     units: list[GardenUnit]
 

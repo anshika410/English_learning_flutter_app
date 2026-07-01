@@ -184,7 +184,6 @@ async def get_user_garden(user: User = Depends(get_current_user)):
  
     return {
         "level": level,
-        "level_label": user.level_label or "First Words",
         "recommended_topic": recommended_topic,
         "units": units_data
     }
