@@ -211,7 +211,7 @@ class GardenEvidence {
 
 ## 3. Pure Backend Progression Logic
 
-The backend calculates all user states and step transitions dynamically using three rules:
+The backend calculates all user states and unit transitions dynamically using three rules:
 
 ### A. Skill Mastery Status
 For each skill ID in the active level's curriculum, the backend checks the database arrays:
@@ -258,11 +258,11 @@ For any skill evidenced during chat analysis:
 
 ### D. Dynamic Isometric Grid Sizing (Free-Form Farm)
 
-The garden map operates as a **non-linear, free-form farm** where all step grids are open from day one.
-*   **No linear locks**: Students can talk about anything, and plants grow dynamically in the corresponding step plots.
+The garden map operates as a **non-linear, free-form farm** where all unit grids are open from day one.
+*   **No linear locks**: Students can talk about anything, and plants grow dynamically in the corresponding unit plots.
 *   **Dynamic Grid Sizing**: The isometric layout adjusts dynamically to match the exact number of skills defined for that unit:
-    *   If a step has **3 skills** (e.g. *Step 1: Describing the world*), only **3 slots** are rendered in the grid (leaving the 4th corner empty).
-    *   If a step has **4 skills** (e.g. *Step 4: Talking about plans*), all **4 slots** are rendered in the grid.
+    *   If a unit has **3 skills** (e.g. *Unit 1: Describing the world*), only **3 slots** are rendered in the grid (leaving the 4th corner empty).
+    *   If a unit has **4 skills** (e.g. *Unit 4: Talking about plans*), all **4 slots** are rendered in the grid.
 
 ### E. Dynamic Topic Recommendation
 To keep the conversation aligned with the student's current target path, the `"recommended_topic"` is computed dynamically on the fly:
@@ -281,7 +281,7 @@ The front-end client reads the API payload and translates it to visual layout at
         ![Meadow Grass Tile](/logo/tile-turf-grass.png)
     *   If `level != "A1"`, load `"The Young Garden"` layout (densely forested garden theme).
 *   **Alternating Path**:
-    *   For step index $i$ ($0$ to $3$):
+    *   For unit index $i$ ($0$ to $3$):
         *   If $i$ is even $\rightarrow$ Render raised bed on the **left** side of the winding path.
         *   If $i$ is odd $\rightarrow$ Render raised bed on the **right** side of the winding path.
 *   **2x2 Slot Layout**:
@@ -299,15 +299,15 @@ The front-end client reads the API payload and translates it to visual layout at
     *   `GRA` $\rightarrow$ Purple Flower
 
 ### Status UI Translation Rules
-*   **`"locked"` Status $\rightarrow$ Slatted Bare Soil Tiles (e.g. Steps 3, 4)**:
+*   **`"locked"` Status $\rightarrow$ Slatted Bare Soil Tiles (e.g. Units 3, 4)**:
     *   *Visual:* The raised bed is rendered as a clean, wooden-slatted flat bed of soil with no plants.
         
         ![Bare Soil Raised Bed](/logo/garden.png)
-    *   *Logic:* All skills inside these steps have `status == "locked"` and `sightings == 0`.
-*   **`"emerging"` Status $\rightarrow$ Buds and Sprouts (e.g. Step 2)**:
+    *   *Logic:* All skills inside these units have `status == "locked"` and `sightings == 0`.
+*   **`"emerging"` Status $\rightarrow$ Buds and Sprouts (e.g. Unit 2)**:
     *   *Visual:* The bed contains young plants. Slots display a tiny green sprout (`sightings == 1`) or a green stem topped with a closed, colored bud (`sightings == 2`).
     *   *Logic:* The user is actively practicing these skills in conversation but has not yet reached mastery thresholds.
-*   **`"owned"` Status $\rightarrow$ Open Bloomed Flowers (e.g. Step 1)**:
+*   **`"owned"` Status $\rightarrow$ Open Bloomed Flowers (e.g. Unit 1)**:
     *   *Visual:* The slots display tall green stems with fully bloomed, open petals colored according to the strand theme.
         
         ![Bloomed Raised Bed](/logo/garden_bloomed.png)
