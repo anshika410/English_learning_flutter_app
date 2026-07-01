@@ -80,7 +80,7 @@
         ]
       },
       {
-        "group": "API: Sessions",
+        "group": "API: Conversation",
         "pages": [
           "api/session/list-sessions",
           "api/session/create-session",
@@ -92,8 +92,9 @@
         ]
       },
       {
-        "group": "API: Progress & Learning",
+        "group": "API: Gamification",
         "pages": [
+          "api/users/get-user-garden",
           "api/progress/get-progress-summary"
         ]
       },
