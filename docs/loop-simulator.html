@@ -1907,7 +1907,7 @@ function GardenView({mem, dbGarden}) {
       >
         {/* Base underlay block: grass or dry soil */}
         <img 
-          src={status === 'locked' ? '/docs/logo/empty-tile.png' : '/docs/logo/tile-turf-grass.png'} 
+          src={effectiveCount === 0 ? '/docs/logo/empty-tile.png' : '/docs/logo/tile-turf-grass.png'} 
           alt="Tile Base" 
           style={{ 
             width: '100%', 
@@ -2150,30 +2150,21 @@ function GardenView({mem, dbGarden}) {
               let statusColor = '#455a64';
               let statusIcon = '🔒';
 
-              if (status === 'owned') {
-                if (effectiveCount >= 3) {
-                  statusText = 'Bloomed';
-                  statusBg = '#e8f5e9';
-                  statusColor = '#2e7d32';
-                  statusIcon = '🌸';
-                } else {
-                  statusText = 'Bud';
-                  statusBg = '#fffde7';
-                  statusColor = '#f57f17';
-                  statusIcon = '🌷';
-                }
-              } else if (status === 'emerging') {
-                if (effectiveCount === 1) {
-                  statusText = 'Sprout';
-                  statusBg = '#e1f5fe';
-                  statusColor = '#0288d1';
-                  statusIcon = '🌱';
-                } else {
-                  statusText = 'Practiced';
-                  statusBg = '#e8f5e9';
-                  statusColor = '#2e7d32';
-                  statusIcon = '🌱';
-                }
+              if (effectiveCount === 1) {
+                statusText = 'Sprout';
+                statusBg = '#e1f5fe';
+                statusColor = '#0288d1';
+                statusIcon = '🌱';
+              } else if (effectiveCount === 2) {
+                statusText = 'Bud';
+                statusBg = '#fffde7';
+                statusColor = '#f57f17';
+                statusIcon = '🌷';
+              } else if (effectiveCount >= 3) {
+                statusText = 'Bloomed';
+                statusBg = '#e8f5e9';
+                statusColor = '#2e7d32';
+                statusIcon = '🌸';
               }
 
               return (

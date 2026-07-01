@@ -53,8 +53,8 @@ OWN_BAR = {
     "C2": 0.70
 }
 
-FLOOR = 0.3
-SIGHTINGS_TO_OWN = 2
+FLOOR = 0.70
+SIGHTINGS_TO_OWN = 3
 
 def get_skill_text(skill_id: str, level = None) -> str:
     if skill_id in SKILLS:
@@ -217,8 +217,8 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
         sightings = p["sightings"].get(skill_id, 0)
         unprompted_count = p["strength"].get(skill_id, 0)
         
-        # Effort path for A1/A2
-        effort_path = (level.upper() in ("A1", "A2")) and (unprompted_count + sightings >= 3) and (confidence >= FLOOR)
+        # Effort path disabled in 4-state progression
+        effort_path = False
         
         if confidence < FLOOR:
             next_state = prior
