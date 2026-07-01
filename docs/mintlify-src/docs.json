@@ -52,6 +52,15 @@
         ]
       },
       {
+        "group": "API: Placement Loop",
+        "pages": [
+          "api/llm/placement-turn",
+          "api/placements/list-placements",
+          "api/placements/create-placement",
+          "api/placements/get-latest-placement"
+        ]
+      },
+      {
         "group": "API: Authentication",
         "pages": [
           "api/auth/anonymous-auth"
@@ -77,15 +86,6 @@
           "api/session/store-message",
           "api/session/session-turn",
           "api/session/get-session-log"
-        ]
-      },
-      {
-        "group": "API: Placement Loop",
-        "pages": [
-          "api/llm/placement-turn",
-          "api/placements/list-placements",
-          "api/placements/create-placement",
-          "api/placements/get-latest-placement"
         ]
       },
       {
