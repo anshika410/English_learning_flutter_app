@@ -3,6 +3,9 @@
   "theme": "mint",
   "name": "Ella Docs",
   "basePath": "/docs",
+  "metadata": {
+    "timestamp": true
+  },
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
