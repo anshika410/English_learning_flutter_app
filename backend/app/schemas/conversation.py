@@ -3,12 +3,14 @@ from datetime import datetime
 
 
 class CreateConversationRequest(BaseModel):
+    unit: str | None = None
     topic: str | None = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "topic": "My Favorite Animal"
+                "unit": "Describing the world",
+                "topic": "Describing the world"
             }
         }
     }
@@ -16,6 +18,7 @@ class CreateConversationRequest(BaseModel):
 
 class ConversationOut(BaseModel):
     session_id: str
+    unit: str | None = None
     topic: str | None = None
     starter: str | None = None
     level: str | None = None

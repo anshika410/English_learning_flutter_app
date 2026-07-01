@@ -27,8 +27,8 @@ async def create_conversation(
     from ..services import llm_service
     from ..core.curriculum_data import UNITS, LEVEL_TOPICS
 
-    # Determine topic from due_next skills or fallback to body.topic
-    topic = body.topic
+    # Determine topic/unit from due_next skills or fallback to body.unit or body.topic
+    topic = body.unit or body.topic
     level = (user.level or "A1").upper()
     aimed_skills = []
 
@@ -432,6 +432,7 @@ async def _get_owned(conv_id: str, user_id: str, db: AsyncSession) -> Conversati
 def _conv_out(c: Conversation, starter: str | None = None, level: str | None = None, aimed_at: list | None = None) -> ConversationOut:
     return ConversationOut(
         session_id=c.id,
+        unit=c.topic,
         topic=c.topic,
         starter=starter,
         level=level,

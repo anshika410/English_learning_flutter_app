@@ -908,7 +908,7 @@ function App(){
         setActiveConvId(conv.session_id);
 
         // Update currentTopic from API response (backend derives from due_next)
-        const apiTopic = conv.topic ? {topic: conv.topic} : topic;
+        const apiTopic = (conv.unit || conv.topic) ? {topic: conv.unit || conv.topic} : topic;
         setCurrentTopic(apiTopic);
 
         const text = conv.starter || "Hi! Let's talk!";
@@ -2457,7 +2457,7 @@ function getEndpointMeta(path, method) {
   if (path === '/session' && method === 'POST') {
     return {
       desc: 'Creates and initiates a new tutoring conversation session.',
-      schema: { topic: 'string | null (Optional - if omitted, backend auto-selects)' }
+      schema: { unit: 'string | null (Optional)', topic: 'string | null (Optional - Deprecated)' }
     };
   }
   if (path.startsWith('/session/') && path.endsWith('/turn')) {
