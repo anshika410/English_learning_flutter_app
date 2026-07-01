@@ -4,13 +4,11 @@ from datetime import datetime
 
 class CreateConversationRequest(BaseModel):
     unit: str | None = None
-    topic: str | None = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "unit": "Describing the world",
-                "topic": "Describing the world"
+                "unit": "Describing the world"
             }
         }
     }
@@ -19,7 +17,6 @@ class CreateConversationRequest(BaseModel):
 class ConversationOut(BaseModel):
     session_id: str
     unit: str | None = None
-    topic: str | None = None
     starter: str | None = None
     level: str | None = None
     aimed_at: list[str] | None = None
@@ -86,7 +83,7 @@ class SessionLogResponse(BaseModel):
     prompt_version: str
     timestamp: datetime
     turns_total: int
-    topic: str | None
+    unit: str | None
     aimed_at: list[str]
     hit_targets: list[str]
     skills_evidenced: list[SessionLogGradedSkill]

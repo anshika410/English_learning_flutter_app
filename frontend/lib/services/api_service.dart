@@ -202,7 +202,7 @@ class ApiService {
     try {
       debugPrint('📡 Creating conversation on backend...');
       final response = await _post('/conversations', {
-        if (topic != null) 'topic': topic,
+        if (topic != null) 'unit': topic,
       });
       debugPrint('📡 Create conversation response: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -299,7 +299,7 @@ class ApiService {
     try {
       final response = await _post(
         '/llm/conversation-starter',
-        {if (topic != null) 'topic': topic},
+        {if (topic != null) 'unit': topic},
         timeout: const Duration(seconds: 30),
       );
       if (response.statusCode == 200) {
@@ -326,7 +326,7 @@ class ApiService {
         {
           'conversation_id': conversationId,
           'messages': messages,
-          if (topic != null) 'topic': topic,
+          if (topic != null) 'unit': topic,
           'level': level,
           'level_label': levelLabel,
           'current_turn': currentTurn,
@@ -385,7 +385,7 @@ class ApiService {
         {
           'conversation_id': conversationId,
           'messages': messages,
-          'topic': topic,
+          'unit': topic,
           'level': level,
           'level_label': levelLabel,
         },

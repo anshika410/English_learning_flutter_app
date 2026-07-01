@@ -3,12 +3,11 @@ from pydantic import BaseModel, field_validator, Field
 
 class StarterRequest(BaseModel):
     unit: str | None = None
-    topic: str | None = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "topic": "School and Friends"
+                "unit": "School and Friends"
             }
         }
     }
@@ -28,7 +27,6 @@ class ConversationTurnRequest(BaseModel):
     session_id: str
     messages: list[MessageIn]
     unit: str | None = None
-    topic: str | None = None
     level: str = "A2"
     level_label: str = "Finding My Voice"
     current_turn: int = 1
@@ -109,7 +107,6 @@ class SessionAnalysisRequest(BaseModel):
     session_id: str
     messages: list[MessageIn]
     unit: str | None = None
-    topic: str = "Free Talk"
     level: str = "A2"
     level_label: str = "Finding My Voice"
     progression_model: str = "unit"
@@ -124,7 +121,7 @@ class SessionAnalysisRequest(BaseModel):
                     {"role": "assistant", "content": "Hi! Let's talk about food. What did you eat for breakfast?"},
                     {"role": "user", "content": "I ate dosas and drank some milk."}
                 ],
-                "topic": "Food",
+                "unit": "Food",
                 "level": "A2",
                 "level_label": "Finding My Voice",
                 "progression_model": "unit",
