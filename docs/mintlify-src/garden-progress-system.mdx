@@ -83,9 +83,9 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
   "theme": "The Clearing",
   "active_step_index": 1,
   "recommended_topic": "What did you do yesterday? Tell me two things.",
-  "steps": [
+  "units": [
     {
-      "step": 1,
+      "unit": 1,
       "name": "Describing the world",
       "focus": "Moving from naming things to describing them.",
       "is_completed": false,
@@ -148,7 +148,7 @@ class GardenResponse {
   final String theme;
   final int activeStepIndex;
   final String recommendedTopic;
-  final List<GardenStep> steps;
+  final List<GardenUnit> units;
 
   GardenResponse({
     required this.level,
@@ -156,19 +156,19 @@ class GardenResponse {
     required this.theme,
     required this.activeStepIndex,
     required this.recommendedTopic,
-    required this.steps,
+    required this.units,
   });
 }
 
-class GardenStep {
-  final int step;
+class GardenUnit {
+  final int unit;
   final String name;
   final String focus;
   final bool isCompleted;
   final List<GardenSkill> skills;
 
-  GardenStep({
-    required this.step,
+  GardenUnit({
+    required this.unit,
     required this.name,
     required this.focus,
     required this.isCompleted,

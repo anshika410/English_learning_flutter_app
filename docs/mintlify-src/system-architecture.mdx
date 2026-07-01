@@ -82,7 +82,7 @@ sequenceDiagram
         Client->>API: GET /users/me/garden
         API->>DB: Fetch curriculum units for level
         DB-->>API: Step definitions & user progress
-        API-->>Client: Response: { active_step_index: 1, theme: "The Clearing", steps: [...] }
+        API-->>Client: Response: { active_step_index: 1, theme: "The Clearing", units: [...] }
     end
 
     Note over Client: UI Renders: Floating farmer avatar placed at Step 1.<br/>Soil grids render 3 locked wooden plots and 1 active grid.
@@ -91,7 +91,7 @@ sequenceDiagram
 #### Client State Updates
 * **`level`** state is updated to the user's current level (e.g. `"A1"`).
 * **`dbMemory`** state is filled with the user's vocabulary and grammar checklists.
-* **`dbGarden`** state is updated to populate the 4 steps of the garden (sightings, plant statuses, evidence tooltips).
+* **`dbGarden`** state is updated to populate the 4 units of the garden (sightings, plant statuses, evidence tooltips).
 
 ### 2. Active Chat Session
 
@@ -149,7 +149,7 @@ sequenceDiagram
     Client->>API: GET /users/me/memory (Fetch updated memory)
     API-->>Client: Response: { level: "A2", ... }
     Client->>API: GET /users/me/garden (Fetch new level garden)
-    API-->>Client: Response: { level: "A2", active_step_index: 1, theme: "The Young Garden", steps: [...] }
+    API-->>Client: Response: { level: "A2", active_step_index: 1, theme: "The Young Garden", units: [...] }
 
     Note over Client: UI Updates: Dynamic switch to "The Young Garden" theme.<br/>Farmer avatar transitions to A2 Step 1 raised bed.<br/>Hovering over plant slots shows graded evidence sentences.
 ```
