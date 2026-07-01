@@ -95,6 +95,7 @@
         "group": "API: Gamification",
         "pages": [
           "api/users/get-user-garden",
+          "api/users/get-primary-target",
           "api/progress/get-progress-summary"
         ]
       },
