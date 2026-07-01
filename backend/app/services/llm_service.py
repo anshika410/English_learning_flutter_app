@@ -334,7 +334,7 @@ async def analyze_and_grade_session(
     
     # Format target skills list
     if target_skill_ids:
-        id_list = "\n".join(f"- {sid}: {get_skill_text(sid)}" for sid in target_skill_ids)
+        id_list = "\n".join(f"- {sid}: {get_skill_text(sid, level)}" for sid in target_skill_ids)
     else:
         id_list = "None"
 

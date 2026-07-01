@@ -59,6 +59,13 @@ SIGHTINGS_TO_OWN = 3
 def get_skill_text(skill_id: str, level = None) -> str:
     if skill_id in SKILLS:
         return SKILLS[skill_id]["text"]
+    if level:
+        level_upper = str(level).upper()
+        if level_upper in UNITS:
+            for unit in UNITS[level_upper]:
+                for s in unit["skills"]:
+                    if s["id"] == skill_id:
+                        return s["text"]
     if skill_id in UNIT_SKILLS:
         return UNIT_SKILLS[skill_id]["text"]
     return skill_id
@@ -228,7 +235,7 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
             next_state = "owned"
             
         if next_state != prior:
-            changes.append({"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id)})
+            changes.append({"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id, level)})
             if prior == "locked":
                 p["emerging"].append(skill_id)
             if prior == "emerging" and next_state == "owned":
