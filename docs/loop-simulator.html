@@ -817,6 +817,12 @@ function App(){
         } catch (ge) {
           console.error("Failed to fetch garden data:", ge);
         }
+        try {
+          const topicsData = await callEllaAPI('/users/me/topics');
+          setApiTopics(topicsData || []);
+        } catch (te) {
+          console.error("Failed to fetch topics:", te);
+        }
 
         let targetLvl = lvl || memoryData.level || 'A1';
         setLevel(targetLvl);
@@ -890,6 +896,52 @@ function App(){
     const support=intent?`\nLEARNER SUPPORT SIGNAL: ${intent}. First handle this: ${intent==='example'?'give one simple example, then ask them to try':intent==='easier'?'make the question smaller and offer a sentence frame':intent==='repeat'?'repeat in simpler words':intent==='affect'?'validate the feeling briefly and switch to an easier/fun choice question':'support'}.`:'';
     return `${prompts.base}\n\n${profileFor(level)}\n\n${frame}${topicLine}${arc}${support}\n${mctx.interests?('\nLEARNER INTERESTS: '+mctx.interests):''}${(mctx.units&&mctx.units.length)?('\nRECENT TOPICS (avoid repeating): '+mctx.units.join(', ')):''}\n\nCONVERSATION SO FAR:\n${convo||'(none — you open)'}\n\nReply with ONLY Zoe's next short spoken turn.`;
   }
+  async function startConversation(customTopic = null) {
+    setMsgs([]);
+    setJudgeOut(null);
+    setDualJudge(null);
+    setJudgeDebug(null);
+    setChanges([]);
+    setBusy(true);
+
+    const mctx=mem;
+    const activeModel=model;
+    const primary=flatTargets(mctx, activeModel)[0];
+    const topic=customTopic || pickTopic(mctx, primary, apiTopics);
+    setCurrentTopic(topic);
+    setChatGoal(chatGoalFor(primary, topic, mctx.level));
+    setLlmLive(null);
+    const activeChatNum = chatNum;
+
+    if (LLM_CONFIG.mode === 'api') {
+      try {
+        const topicName = topic ? (topic.topic || topic.name) : "Free conversation";
+        const conv = await callEllaAPI('/session', 'POST', customTopic ? { unit: topicName } : {});
+        setActiveConvId(conv.session_id);
+
+        // Update currentTopic from API response (backend derives from due_next)
+        const apiTopic = (conv.unit || conv.topic) ? {topic: conv.unit || conv.topic} : topic;
+        setCurrentTopic(apiTopic);
+
+        const text = conv.starter || "Hi! Let's talk!";
+
+        setMsgs([
+          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(apiTopic?(' — topic: '+apiTopic.topic):'')},
+          {role:'zoe',text:text}
+        ]);
+        setLlmLive(true);
+      } catch (err) {
+        console.error("Failed to start API conversation:", err);
+        fallbackZoeOpens(activeChatNum, activeModel, primary, topic, mctx.level);
+      } finally {
+        setBusy(false);
+      }
+    } else {
+      fallbackZoeOpens(activeChatNum, activeModel, primary, topic, mctx.level);
+      setBusy(false);
+    }
+  }
+
   async function zoeOpens(chatOverride, modelOverride, memOverride, topicsDataArg){
     setBusy(true);
     const mctx=memOverride||mem;
@@ -1313,12 +1365,13 @@ function App(){
         </select>
       </div>
       <div className="tabs">
-        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
+        {[['readme','📖 Read me'],['garden','🏡 Garden'],['topics','💬 Topics'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
           <div key={k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{lab}</div>))}
       </div>
       <div className="panel">
         {tab==='readme'&&<ReadmeView/>}
         {tab==='garden'&&<GardenView mem={mem} dbGarden={dbGarden}/>}
+        {tab==='topics'&&<TopicsView mem={mem} onStartTopic={(t)=>startConversation(t)} apiTopics={apiTopics}/>}
         {tab==='memory'&&<MemoryView mem={mem} hl={hl} changes={changes} snapshots={snapshots} dbMemory={dbMemory} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='judge'&&<JudgeView scores={judgeOut} debug={judgeDebug} backendAnalysis={backendAnalysis} isApiMode={LLM_CONFIG.mode==='api'} level={level}/>}
         {tab==='apicalls'&&<ApiCallsView logs={apiLogs} onClear={()=>setApiLogs([])}/>}
@@ -1793,7 +1846,7 @@ function SkillsView({mem,skills}){
 }
 function UnitsView({mem}){
   const active=activeStep(mem);
-  return(<div><div className="lbl">units — the A1→A2 journey (your colleague's 5 steps)</div>
+  return(<div><div className="lbl">units — the CEFR transition journey (your colleague's 5 steps)</div>
     {(UNITS[mem.level] || UNITS["A1"] || []).map(u=>{const p=stepProgress(mem,u); const done=p.owned===p.total; const isActive=active&&active.step===u.step;
       const cls=done?'done':isActive?'active':'locked';
       return(<div className={'unit '+cls} key={u.step}>
@@ -1805,6 +1858,83 @@ function UnitsView({mem}){
         </div></div>);})}
     <small className="note">A level-up = all 5 steps complete. The active step drives due_next. This is the units answer to the "level-up rule" hole.</small>
   </div>);
+}
+function TopicsView({ mem, onStartTopic, apiTopics }) {
+  const isApi = LLM_CONFIG.mode === 'api';
+  const topicsList = isApi ? apiTopics : (TOPICS[mem.level] || []);
+
+  return (
+    <div style={{ padding: '8px' }}>
+      <div className="lbl" style={{ marginBottom: '12px' }}>
+        Practice by Topic — Choose a topic to start a focused practice session
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+        {topicsList.map((t, idx) => {
+          const name = t.name || t.topic;
+          if (!name) return null;
+          
+          const theme = t.theme || "General";
+          const desc = t.description || "Practice conversing on this topic.";
+          const icon = t.icon || "💬";
+          const bg = t.panel_bg || "linear-gradient(135deg, #F0E6FF, #E0D0FF)";
+          
+          return (
+            <div 
+              key={idx} 
+              style={{
+                background: bg,
+                border: '1.5px solid rgba(0,0,0,0.08)',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>{icon}</span>
+                  <span style={{ 
+                    fontSize: '10px', 
+                    fontWeight: 'bold', 
+                    background: 'rgba(0,0,0,0.06)', 
+                    padding: '2px 8px', 
+                    borderRadius: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {theme}
+                  </span>
+                </div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '15px', fontWeight: 'bold', color: '#1A1220' }}>{name}</h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#555', lineHeight: '1.4' }}>{desc}</p>
+              </div>
+              <button 
+                className="btn" 
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  borderRadius: '8px', 
+                  fontSize: '12px', 
+                  fontWeight: 'bold',
+                  background: '#1A1220',
+                  color: '#FFF',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => onStartTopic({ topic: name, name: name, starters: t.starters })}
+              >
+                Start Session
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 function GardenView({mem, dbGarden}) {
   const [selectedSkill, setSelectedSkill] = React.useState(null);

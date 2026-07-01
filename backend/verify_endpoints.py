@@ -75,6 +75,16 @@ def run_tests():
     assert db_mem.get("facts") == ["Likes playing cricket", "Has a pet dog named Max"]
     print("✓ GET /users/me/memory (after PUT) successful")
 
+    # Test GET /users/me/topics
+    print("Testing GET /users/me/topics...")
+    topics_resp = client.get("/users/me/topics", headers=headers)
+    assert topics_resp.status_code == 200, f"Topics query failed: {topics_resp.text}"
+    topics_data = topics_resp.json()
+    assert isinstance(topics_data, list)
+    topic_names = [t["name"] for t in topics_data]
+    assert "My family" in topic_names
+    print("✓ GET /users/me/topics successful")
+
 
     # Create a test conversation to associate analysis and turns
     print("Creating a test conversation...")

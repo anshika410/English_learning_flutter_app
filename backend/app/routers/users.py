@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
-from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse
+from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse
 from ..core.curriculum_data import UNITS, active_step, unit_complete, bucket_of
 
 
@@ -187,6 +187,13 @@ async def get_user_garden(user: User = Depends(get_current_user)):
         "recommended_topic": recommended_topic,
         "units": units_data
     }
+
+
+@router.get("/me/topics", response_model=list[TopicResponse])
+async def get_user_topics(user: User = Depends(get_current_user)):
+    level = (user.level or "A1").upper()
+    from ..core.curriculum_data import LEVEL_TOPICS
+    return LEVEL_TOPICS.get(level, [])
 
 
 
