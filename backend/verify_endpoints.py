@@ -197,6 +197,16 @@ def run_tests():
     assert ret_data["try_next_time"]["skill"] == "use complex sentences"
     print("✓ GET /session/{id}/analysis successful")
 
+    # 8. GET /users/me/primary-target (New Endpoint)
+    print("Testing GET /users/me/primary-target...")
+    pt_resp = client.get("/users/me/primary-target", headers=headers)
+    assert pt_resp.status_code == 200, f"Primary target failed: {pt_resp.text}"
+    pt_data = pt_resp.json()
+    print("Primary target response JSON:", pt_data)
+    assert "id" in pt_data
+    assert "text" in pt_data
+    print("✓ GET /users/me/primary-target successful")
+
     print("\n=================================")
     print("ALL API INTEGRATION TESTS PASSED!")
     print("=================================")

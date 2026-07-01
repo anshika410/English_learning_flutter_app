@@ -196,4 +196,27 @@ async def get_user_topics(user: User = Depends(get_current_user)):
     return LEVEL_TOPICS.get(level, [])
 
 
+from pydantic import BaseModel
+
+class PrimaryTargetResponse(BaseModel):
+    id: str | None = None
+    text: str | None = None
+
+@router.get("/me/primary-target", response_model=PrimaryTargetResponse)
+async def get_primary_target(user: User = Depends(get_current_user)):
+    """
+    Returns the student's current primary target ID and its text description.
+    """
+    due = user.due_next or {}
+    primary_id = due.get("primary")
+    
+    if not primary_id:
+        return PrimaryTargetResponse(id=None, text=None)
+        
+    from ..core.curriculum_data import get_skill_text
+    skill_text = get_skill_text(primary_id, user.level)
+    
+    return PrimaryTargetResponse(id=primary_id, text=skill_text)
+
+
 
