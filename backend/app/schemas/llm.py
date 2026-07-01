@@ -2,6 +2,7 @@ from pydantic import BaseModel, field_validator, Field
 
 
 class StarterRequest(BaseModel):
+    unit: str | None = None
     topic: str | None = None
 
     model_config = {
@@ -26,6 +27,7 @@ class MessageIn(BaseModel):
 class ConversationTurnRequest(BaseModel):
     session_id: str
     messages: list[MessageIn]
+    unit: str | None = None
     topic: str | None = None
     level: str = "A2"
     level_label: str = "Finding My Voice"
@@ -106,6 +108,7 @@ class PlacementTurnResponse(BaseModel):
 class SessionAnalysisRequest(BaseModel):
     session_id: str
     messages: list[MessageIn]
+    unit: str | None = None
     topic: str = "Free Talk"
     level: str = "A2"
     level_label: str = "Finding My Voice"

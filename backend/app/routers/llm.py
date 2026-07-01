@@ -31,7 +31,7 @@ async def conversation_starter(
     Acts as a proxy call to the LLM (DeepSeek) using prompt rendering configured server-side.
     """
     try:
-        result = await llm_service.generate_conversation_starter(body.topic)
+        result = await llm_service.generate_conversation_starter(body.unit or body.topic)
         return StarterResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
@@ -65,7 +65,7 @@ async def conversation_turn(
         messages = [m.model_dump() for m in body.messages]
         result = await llm_service.send_conversation_turn(
             messages=messages,
-            topic=body.topic or "Free conversation",
+            topic=body.unit or body.topic or "Free conversation",
             level=body.level,
             level_label=body.level_label,
             current_turn=body.current_turn,
@@ -143,7 +143,7 @@ async def session_analysis(
     
     # Use the conversation's stored topic (set from due_next at creation time)
     # rather than trusting the client-sent topic which may be stale
-    topic = conversation.topic or body.topic
+    topic = conversation.topic or body.unit or body.topic
 
     analysis_out = await run_and_save_session_analysis(
         conversation_id=body.session_id,

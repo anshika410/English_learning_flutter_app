@@ -1051,6 +1051,7 @@ function App(){
         const analysis = await callEllaAPI('/llm/judge', 'POST', {
           session_id: activeConvId,
           messages: apiMsgs,
+          unit: currentTopic ? currentTopic.topic : "Free conversation",
           topic: currentTopic ? currentTopic.topic : "Free conversation",
           level: level,
           level_label: HEADLINES[level] || "Finding My Voice",
@@ -2478,7 +2479,8 @@ function getEndpointMeta(path, method) {
       schema: {
         session_id: 'string (Required)',
         messages: 'array of message objects (Required)',
-        topic: 'string (Required)',
+        unit: 'string (Optional)',
+        topic: 'string (Required/Deprecated)',
         progression_model: 'string ("unit" | "micro-skill") (Required)',
         level: 'string (Required)',
         level_label: 'string (Required)'
