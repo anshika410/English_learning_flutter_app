@@ -220,7 +220,7 @@ async def send_conversation_turn(
         targets_str = "- General conversation practice"
 
     # Build elicitation plan (using plan_text(target_ids))
-    elicitation_str = plan_text(target_ids)
+    elicitation_str = plan_text(target_ids, level_upper)
 
     # Get level block
     level_block = _LEVEL_BLOCKS.get(level_upper, _LEVEL_BLOCKS["A2"])

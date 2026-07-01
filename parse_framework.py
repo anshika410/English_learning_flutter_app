@@ -123,15 +123,28 @@ def main():
     print("Parsing transition units...")
     UNITS = {}
     transitions = [
-        ('A1', 'A1→A2'),
-        ('A2', 'A2→B1'),
-        ('B1', 'B1→B2'),
-        ('B2', 'B2→C1'),
-        ('C1', 'C1→C2')
+        ('A1', 'AO-A1'),
+        ('A2', 'A1→A2'),
+        ('B1', 'A2→B1'),
+        ('B2', 'B1→B2'),
+        ('C1', 'B2→C1'),
+        ('C2', 'C1→C2')
     ]
     
     for level, sheetname in transitions:
-        sheet = wb[sheetname]
+        actual_sheetname = sheetname
+        if sheetname == 'AO-A1':
+            for name in ['AO-A1', 'A0-A1', 'A0→A1']:
+                if name in wb.sheetnames:
+                    actual_sheetname = name
+                    break
+        
+        if actual_sheetname not in wb.sheetnames:
+            print(f"Warning: Sheet '{actual_sheetname}' not found in workbook, skipping transition mapping for {level}")
+            UNITS[level] = []
+            continue
+            
+        sheet = wb[actual_sheetname]
         units_list = []
         current_unit = None
         
@@ -142,7 +155,7 @@ def main():
             
             if col0 and str(col0).startswith('Step '):
                 step_num = str(col0).replace('Step ', '').strip()
-                if step_num in ('1', '2', '3', '4'):
+                if step_num in ('1', '2', '3', '4', '5'):
                     current_unit = {
                         'step': step_num,
                         'name': col1.strip() if col1 else '',
@@ -167,8 +180,8 @@ def main():
                         'text': col3.strip()
                     })
         UNITS[level] = units_list
-    # Add empty list for C2
-    UNITS['C2'] = []
+    if 'C2' not in UNITS:
+        UNITS['C2'] = []
     
     total_steps = sum(len(ulist) for ulist in UNITS.values())
     print(f"✓ Parsed {total_steps} unit steps across levels.")
@@ -238,7 +251,7 @@ def main():
     py_code = f"""# Auto-generated from Ella_Framework_Complete.xlsx
 # Do not modify manually. Regenerate using parse_framework.py
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Level headlines
 HEADLINES = {{
@@ -282,20 +295,27 @@ STRANDS = {{
 }}
 
 OWN_BAR = {{
-    "A1": 0.55,
-    "A2": 0.60,
-    "B1": 0.68,
-    "B2": 0.72,
-    "C1": 0.75,
-    "C2": 0.78
+    "A1": 0.70,
+    "A2": 0.70,
+    "B1": 0.70,
+    "B2": 0.70,
+    "C1": 0.70,
+    "C2": 0.70
 }}
 
-FLOOR = 0.3
-SIGHTINGS_TO_OWN = 2
+FLOOR = 0.70
+SIGHTINGS_TO_OWN = 3
 
 def get_skill_text(skill_id: str, level = None) -> str:
     if skill_id in SKILLS:
         return SKILLS[skill_id]["text"]
+    if level:
+        level_upper = str(level).upper()
+        if level_upper in UNITS:
+            for unit in UNITS[level_upper]:
+                for s in unit["skills"]:
+                    if s["id"] == skill_id:
+                        return s["text"]
     if skill_id in UNIT_SKILLS:
         return UNIT_SKILLS[skill_id]["text"]
     return skill_id
@@ -400,7 +420,7 @@ def targets_list_for(progress: dict, model: str, level: str) -> list[str]:
         picks = due_skill(progress, level)
     return [p["id"] for p in picks]
 
-def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, list[dict]]:
+def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = None, created_at: str = None) -> tuple[dict, list[dict]]:
     # Clone progression dict to avoid side-effects
     import copy
     p = copy.deepcopy(progress)
@@ -411,6 +431,7 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
     if "sightings" not in p: p["sightings"] = {{}}
     if "strength" not in p: p["strength"] = {{}}
     if "last_seen" not in p: p["last_seen"] = {{}}
+    if "evidence" not in p: p["evidence"] = {{}}
     if "effort" not in p: p["effort"] = {{"times_spoken_total": 0}}
     
     changes = []
@@ -433,11 +454,28 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
             if not prompted:
                 p["strength"][skill_id] = p["strength"].get(skill_id, 0) + 1
                 
+            evidence_text = sc.get("evidence")
+            if evidence_text and evidence_text.strip():
+                if skill_id not in p["evidence"]:
+                    p["evidence"][skill_id] = []
+                existing = p["evidence"][skill_id]
+                existing_quotes = [e.get("evidence") if isinstance(e, dict) else e for e in existing]
+                if evidence_text.strip() not in existing_quotes:
+                    p["evidence"][skill_id].append({{
+                        "evidence": evidence_text.strip(),
+                        "confidence": confidence,
+                        "prompted": prompted,
+                        "topic": topic or "General Conversation",
+                        "created_at": created_at or datetime.now(timezone.utc).isoformat()
+                    }})
+                    if len(p["evidence"][skill_id]) > 3:
+                        p["evidence"][skill_id] = p["evidence"][skill_id][-3:]
+                
         sightings = p["sightings"].get(skill_id, 0)
         unprompted_count = p["strength"].get(skill_id, 0)
         
-        # Effort path for A1/A2
-        effort_path = (level.upper() in ("A1", "A2")) and (unprompted_count + sightings >= 3) and (confidence >= FLOOR)
+        # Effort path disabled in 4-state progression
+        effort_path = False
         
         if confidence < FLOOR:
             next_state = prior
@@ -447,7 +485,7 @@ def apply_merge(progress: dict, scores: list[dict], level: str) -> tuple[dict, l
             next_state = "owned"
             
         if next_state != prior:
-            changes.append({{"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id)}})
+            changes.append({{"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id, level)}})
             if prior == "locked":
                 p["emerging"].append(skill_id)
             if prior == "emerging" and next_state == "owned":
@@ -542,22 +580,22 @@ def elicitation_function(skill_id: str) -> str:
         return 'describe'
     return 'everyday'
 
-def get_elicitation_plan_for(skill_id: str) -> dict:
+def get_elicitation_plan_for(skill_id: str, level: str = None) -> dict:
     fn = elicitation_function(skill_id)
     plan = ELICITATION_BY_FUNCTION.get(fn, ELICITATION_BY_FUNCTION["everyday"])
     return {{
         "id": skill_id,
         "fn": fn,
-        "skill": get_skill_text(skill_id),
+        "skill": get_skill_text(skill_id, level),
         **plan
     }}
 
-def plan_text(ids: list[str]) -> str:
+def plan_text(ids: list[str], level: str = None) -> str:
     if not ids:
         return "No specific target. Keep the learner talking and listen for interests."
     lines = []
     for i, skill_id in enumerate(ids):
-        p = get_elicitation_plan_for(skill_id)
+        p = get_elicitation_plan_for(skill_id, level)
         role = "PRIMARY" if i == 0 else "WATCH"
         lines.append(
             f"{{role}} {{skill_id}} ({{p['fn']}})\\n"
@@ -574,8 +612,34 @@ def plan_text(ids: list[str]) -> str:
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write(py_code)
-    
     print("Success: Generated curriculum_data.py successfully!")
+
+    # 5. Also update loop-simulator.html
+    sim_path = './docs/loop-simulator.html'
+    if os.path.exists(sim_path):
+        import json
+        print("Updating loop-simulator.html...")
+        with open(sim_path, 'r', encoding='utf-8') as f:
+            sim_content = f.read()
+        
+        lines = sim_content.split('\n')
+        updated_units = False
+        updated_cat = False
+        
+        for i, line in enumerate(lines):
+            if line.strip().startswith('const UNITS='):
+                lines[i] = f'const UNITS={json.dumps(UNITS)};'
+                updated_units = True
+            elif line.strip().startswith('const CAT='):
+                lines[i] = f'const CAT={json.dumps(CAT)};'
+                updated_cat = True
+                
+        if updated_units or updated_cat:
+            with open(sim_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(lines))
+            print(f"Success: Updated loop-simulator.html (UNITS: {updated_units}, CAT: {updated_cat}) successfully!")
+        else:
+            print("Warning: Could not find const UNITS or const CAT in loop-simulator.html")
 
 if __name__ == '__main__':
     main()

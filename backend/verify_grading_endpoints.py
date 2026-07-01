@@ -79,7 +79,7 @@ def run_tests():
             },
             {
                 "id": "U1-GRA-01",
-                "confidence": 0.4,
+                "confidence": 0.75,
                 "prompted": False,
                 "evidence": "I see... me in space."
             },
@@ -122,7 +122,7 @@ def run_tests():
         assert "state_changes" in data
         
         assert "U1-VOC-01" in data["aimed_at"]
-        assert "U1-VOC-01" in data["hit_targets"] # because confidence 0.8 >= 0.3
+        assert "U1-VOC-01" in data["hit_targets"] # because confidence 0.8 >= 0.70
         
         # Verify that U1-VOC-01 moved from locked to emerging/owned
         changes = data["state_changes"]
@@ -270,7 +270,7 @@ def run_tests():
     assert "prompt_version" in log_data
     assert "timestamp" in log_data
     assert "turns_total" in log_data
-    assert "topic" in log_data
+    assert "unit" in log_data
     assert "aimed_at" in log_data
     assert "hit_targets" in log_data
     assert "skills_evidenced" in log_data
@@ -285,7 +285,7 @@ def run_tests():
     assert log_data["skills_evidenced"][0]["id"] == "U1-VOC-01"
     assert log_data["skills_evidenced"][0]["confidence"] == 0.9
     # check mapped reason & name
-    assert "writer" in log_data["skills_evidenced"][0]["name"]
+    assert "colours" in log_data["skills_evidenced"][0]["name"]
     assert log_data["skills_evidenced"][0]["reason"] == ""
     print("✓ GET /conversations/{id}/session-log returned compiled session log successfully")
 
