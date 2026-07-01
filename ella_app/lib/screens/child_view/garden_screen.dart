@@ -27,13 +27,17 @@ const Color _skyBottom = Color(0xFFE4D8E8);
 const Color _hillBack = Color(0xFFC4E0BB);
 const Color _meadowTop = Color(0xFFA8CCA0);
 const Color _meadowBottom = Color(0xFF8EBE82);
-const Color _badge = Color(0xFFF09820);
 
 const double _skyHeight = 188;
 const double _plotW = 220;
 const double _plotH = 190;
 const double _tileW = 82;
 const double _tileH = _tileW / 105 * 80;
+// Half-extents of a tile's isometric top-face diamond (the tiles.svg top face
+// runs x:7.5→97.5, y:7.5→52.5 in its 105-wide viewBox). Tiles must step by
+// exactly these amounts to tessellate edge-to-edge without overlapping.
+const double _isoHalfW = _tileW / 105 * 45;
+const double _isoHalfH = _tileW / 105 * 22.5;
 const double _ellipseW = 204;
 const double _ellipseH = _ellipseW / 252 * 119;
 
@@ -165,7 +169,8 @@ class _GardenView extends ConsumerWidget {
             right: 0,
             bottom: 0,
             child: _LetsTalkBar(
-              topic: data.recommendedTopic,
+              // Same greeting as the Home screen, derived from memory.
+              text: buildHomeGreeting(ref.watch(chatProvider).valueOrNull?.memory),
               onTalk: () => _letsTalk(context, ref),
             ),
           ),
@@ -200,23 +205,25 @@ class _SkyHills extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: 18,
+            top: 22,
             right: 26,
             child: Container(
-              width: 48,
-              height: 48,
+              width: 58,
+              height: 58,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0xFFFFE08A),
+                color: Color(0xFFFFD23F),
                 boxShadow: [
                   BoxShadow(
-                      color: Color(0x66FFE08A), blurRadius: 28, spreadRadius: 10),
+                      color: Color(0x80FFD23F),
+                      blurRadius: 34,
+                      spreadRadius: 12),
                 ],
               ),
             ),
           ),
-          const Positioned(top: 84, left: 28, child: _Cloud(scale: 1.0)),
-          const Positioned(top: 56, right: 96, child: _Cloud(scale: 0.7)),
+          const Positioned(top: 92, left: 24, child: _Cloud(scale: 1.0)),
+          const Positioned(top: 58, right: 104, child: _Cloud(scale: 0.72)),
           // Rolling hills filling the bottom of the sky, blending into meadow.
           const Positioned(
             left: 0,
@@ -230,15 +237,19 @@ class _SkyHills extends StatelessWidget {
             top: 16,
             left: 20,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               decoration: BoxDecoration(
-                color: _badge,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [EllaColors.mangoTop, EllaColors.mangoMain],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
+                    color: EllaColors.mangoDark,
+                    offset: Offset(0, 3),
+                    blurRadius: 0,
                   ),
                 ],
               ),
@@ -322,8 +333,15 @@ class _Cloud extends StatelessWidget {
         width: 72,
         height: 24,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.5),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
         ),
       ),
     );
@@ -422,6 +440,11 @@ class _Plot extends StatelessWidget {
     final tileSpots = _tileSpotsFor(skills.length);
     final hasBloom = step.skills.any((s) => s.stage == PlantStage.bloom);
 
+    // Paint back-to-front (higher = further back) so front tiles/plants overlap
+    // the ones behind them correctly on the isometric lattice.
+    final order = List<int>.generate(skills.length, (i) => i)
+      ..sort((a, b) => tileSpots[b].bottom.compareTo(tileSpots[a].bottom));
+
     return SizedBox(
       width: _plotW,
       height: _plotH,
@@ -437,17 +460,17 @@ class _Plot extends StatelessWidget {
           ),
           // Bush at the base.
           Positioned(
-            bottom: 22,
-            left: 22,
-            child: SvgPicture.asset('assets/gardent-view/bush.svg', width: 38),
+            bottom: 20,
+            left: 24,
+            child: SvgPicture.asset('assets/gardent-view/bush.svg', width: 26),
           ),
-          for (var i = 0; i < skills.length; i++)
+          for (final i in order)
             _SkillTile(
               skill: skills[i],
               spot: tileSpots[i],
               onTap: () => showSkillSheet(context, step, skills[i]),
             ),
-          for (var i = 0; i < skills.length; i++)
+          for (final i in order)
             if (skills[i].stage != PlantStage.bare)
               _SkillPlant(
                 skill: skills[i],
@@ -473,53 +496,29 @@ class _TileSpot {
 }
 
 List<_TileSpot> _tileSpotsFor(int count) {
-  final centerLeft = (_plotW - _tileW) / 2;
-  const baseBottom = 34.0;
   if (count <= 0) return const [];
+  final centerLeft = (_plotW - _tileW) / 2;
+  const baseBottom = 40.0;
 
-  final templates = <int, List<Offset>>{
-    1: const [Offset(0, 0)],
-    2: const [Offset(-22, 0), Offset(22, 20)],
-    3: const [Offset(-40, 0), Offset(0, 20), Offset(40, 0)],
-    4: const [
-      Offset(-40, 0),
-      Offset(0, 20),
-      Offset(0, -20),
-      Offset(40, 0),
-    ],
-    5: const [
-      Offset(-40, 0),
-      Offset(0, 20),
-      Offset(40, 0),
-      Offset(-20, -20),
-      Offset(20, -20),
-    ],
-  };
-
-  final offsets = templates[count] ?? _overflowTileOffsets(count);
+  // Place tiles on a true isometric lattice: a compact, near-square block of
+  // grid cells centred on the plot. Stepping by the diamond half-extents makes
+  // neighbouring top faces share an edge, so the plot reads as one solid patch
+  // instead of overlapping tiles.
+  final cols = math.max(1, math.sqrt(count).ceil());
+  final rows = (count / cols).ceil();
   return [
-    for (final offset in offsets)
-      _TileSpot(
-        left: centerLeft + offset.dx,
-        bottom: baseBottom + offset.dy,
-      ),
+    for (var k = 0; k < count; k++)
+      () {
+        final gi = k % cols;
+        final gj = k ~/ cols;
+        final ci = gi - (cols - 1) / 2;
+        final cj = gj - (rows - 1) / 2;
+        return _TileSpot(
+          left: centerLeft + (ci - cj) * _isoHalfW,
+          bottom: baseBottom - (ci + cj) * _isoHalfH,
+        );
+      }(),
   ];
-}
-
-List<Offset> _overflowTileOffsets(int count) {
-  final offsets = <Offset>[];
-  const columns = 3;
-  const xGap = 45.0;
-  const yGap = 24.0;
-  for (var i = 0; i < count; i++) {
-    final row = i ~/ columns;
-    final col = i % columns;
-    final rowCount = math.min(columns, count - row * columns);
-    final x = (col - (rowCount - 1) / 2) * xGap;
-    final y = row.isEven ? -row * yGap : 14 - row * yGap;
-    offsets.add(Offset(x, y));
-  }
-  return offsets;
 }
 
 class _SkillTile extends StatelessWidget {
@@ -635,15 +634,13 @@ class _ButterflyState extends State<_Butterfly>
 // ── Bottom "Let's Talk" bar ────────────────────────────────────────────────────
 
 class _LetsTalkBar extends StatelessWidget {
-  final String topic;
+  final String text;
   final VoidCallback onTalk;
-  const _LetsTalkBar({required this.topic, required this.onTalk});
+  const _LetsTalkBar({required this.text, required this.onTalk});
 
   @override
   Widget build(BuildContext context) {
-    final line = topic.isEmpty
-        ? 'Ready when you are. Shall we?'
-        : 'Today, I wanted to talk about $topic. Shall we?';
+    final line = text;
     return Container(
       decoration: BoxDecoration(
         color: EllaColors.bubbleSurface,

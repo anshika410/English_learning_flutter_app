@@ -6,9 +6,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/engine.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import 'session_intro.dart';
 import 'session_screen.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/room_background.dart';
@@ -50,25 +50,6 @@ class _HomeBody extends ConsumerWidget {
     required this.onConversationEnded,
   });
 
-  // "Yesterday, we talked about X. Today, I wanted to talk about Y. Shall we?"
-  String _greeting(MemoryState? mem) {
-    if (mem == null) return 'Getting things ready…';
-    final proposal = pickTopic(mem)?.topic;
-    final callback = mem.lastTopics.isNotEmpty ? mem.lastTopics.first : null;
-    final parts = <String>[];
-    if (callback != null) {
-      parts.add('Yesterday, we talked about $callback.');
-    }
-    if (proposal != null) {
-      parts.add('Today, I wanted to talk about $proposal. Shall we?');
-    } else if (callback != null) {
-      parts.add('Want to keep going?');
-    } else {
-      parts.add("Let's talk about something fun today. Shall we?");
-    }
-    return parts.join(' ');
-  }
-
   Future<void> _startTalking(BuildContext context, WidgetRef ref) async {
     final chatState = ref.read(chatProvider);
     if (chatState.hasValue && chatState.requireValue.sessionEnded) {
@@ -85,6 +66,9 @@ class _HomeBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return RoomBackground(
+      // Push the tan/brown divider down so the greeting bubble sits across it
+      // (its top edge on tan, the rest on brown) as in the Figma home screen.
+      splitAt: 0.73,
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -100,7 +84,7 @@ class _HomeBody extends ConsumerWidget {
                   ),
                   const Spacer(flex: 2),
                   SpeechBubble(
-                    text: _greeting(memory),
+                    text: buildHomeGreeting(memory),
                     showTail: true,
                     footer: EllaPrimaryButton(
                       label: 'Start Talking',

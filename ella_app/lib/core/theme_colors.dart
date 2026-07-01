@@ -54,7 +54,7 @@ abstract final class EllaColors {
   // Room — warm "lamp-lit room" backdrop for Home + Session screens.
   // Estimated from the Figma screenshot; tweak to taste for an exact match.
   static const roomWallTop = Color(0xFFC8A87C); // light tan upper wall
-  static const roomWallBottom = Color(0xFF5C3D26); // dark brown lower wall/floor
+  static const roomWallBottom = Color(0xFF5E3B1E); // dark brown lower wall/floor
   static const avatarRing = Color(0xFF4A3322); // thick deep-brown mascot ring
   static const bubbleSurface = Color(0xFFFBF6EE); // cream speech bubble
   static const lampGlow = Color(0x66FFB020); // warm glow behind the bulb

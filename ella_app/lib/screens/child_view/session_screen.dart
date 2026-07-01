@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import 'widgets/ella_primary_button.dart';
 import 'widgets/room_background.dart';
 import 'widgets/speech_bubble.dart';
 import 'widgets/zoe_mascot.dart';
@@ -127,18 +128,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('End the chat?'),
-        content: const Text(
-            "Zoe will score this conversation and update your garden."),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Keep talking')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('End')),
-        ],
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (ctx) => _EndChatDialog(
+        onEnd: () => Navigator.pop(ctx, true),
+        onKeep: () => Navigator.pop(ctx, false),
       ),
     );
     if (confirm == true && mounted) {
@@ -229,6 +222,99 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 }
 
+// ── End-chat confirmation (themed, replaces the default AlertDialog) ──────────
+
+class _EndChatDialog extends StatelessWidget {
+  final VoidCallback onEnd;
+  final VoidCallback onKeep;
+  const _EndChatDialog({required this.onEnd, required this.onKeep});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 36),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        decoration: BoxDecoration(
+          color: EllaColors.bubbleSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: EllaColors.border, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Warm circular badge with a "wave goodbye" mark.
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: EllaColors.mangoLightest,
+              ),
+              child: const Icon(Icons.waving_hand_rounded,
+                  color: EllaColors.mangoMain, size: 28),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'End the chat?',
+              style: GoogleFonts.baloo2(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: EllaColors.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Zoe will score this conversation and grow your garden.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.baloo2(
+                fontSize: 14,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
+                color: EllaColors.secondary,
+              ),
+            ),
+            const SizedBox(height: 22),
+            EllaPrimaryButton(label: 'End chat', height: 50, onTap: onEnd),
+            const SizedBox(height: 10),
+            // Secondary "keep talking" — cream pill, brown ink.
+            GestureDetector(
+              onTap: onKeep,
+              child: Container(
+                width: double.infinity,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: EllaColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: EllaColors.border, width: 1.5),
+                ),
+                child: Text(
+                  'Keep talking',
+                  style: GoogleFonts.baloo2(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: EllaColors.secondary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── END button (cream pill, Figma style) ──────────────────────────────────────
 
 class _EndButton extends StatelessWidget {
@@ -240,16 +326,19 @@ class _EndButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
         decoration: BoxDecoration(
           color: EllaColors.bubbleSurface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(6),
-            topRight: Radius.circular(18),
-            bottomRight: Radius.circular(6),
-            bottomLeft: Radius.circular(18),
-          ),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: EllaColors.mangoLight, width: 1.5),
+          // Soft 3D "raised pill" edge (Figma END button).
+          boxShadow: const [
+            BoxShadow(
+              color: EllaColors.mangoLight,
+              offset: Offset(0, 3),
+              blurRadius: 0,
+            ),
+          ],
         ),
         child: Text(
           'END',

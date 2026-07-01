@@ -104,16 +104,22 @@ class GardenEvidence {
   final double confidence;
   final bool prompted;
 
+  /// The conversation topic this evidence was collected under (from the API,
+  /// shown as the caption under the quote in the Skill Sheet).
+  final String topic;
+
   const GardenEvidence({
     required this.quote,
     required this.confidence,
     required this.prompted,
+    this.topic = '',
   });
 
   factory GardenEvidence.fromJson(Map<String, dynamic> j) => GardenEvidence(
         quote: (j['evidence'] ?? j['quote'] ?? '').toString(),
         confidence: (j['confidence'] as num?)?.toDouble() ?? 0,
         prompted: j['prompted'] as bool? ?? false,
+        topic: (j['topic'] ?? j['conversation_topic'] ?? '').toString(),
       );
 }
 

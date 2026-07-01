@@ -12,7 +12,6 @@ import '../../../models/garden.dart';
 
 const Color _parchment = Color(0xFFFBF4E4);
 const Color _parchmentLine = Color(0xFFE7D7B6);
-const Color _badgeBrown = Color(0xFF8A5A2B);
 const Color _ink = Color(0xFF4A3621);
 
 void showSkillSheet(BuildContext context, GardenStep step, GardenSkill skill) {
@@ -67,28 +66,33 @@ void _showParchment(
                 ),
                 child: SingleChildScrollView(child: child),
               ),
-              // Brown step badge straddling the top border.
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                decoration: BoxDecoration(
-                  color: _badgeBrown,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+              // Step badge straddling the top border — Figma "info-top" bar.
+              // The bar art is text-free; the unit/skill name is overlaid live
+              // so each card shows its own title (no baked-in label underneath).
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    child: SvgPicture.asset(
+                      'assets/information-box/info-top-blank.svg',
+                      fit: BoxFit.fill,
                     ),
-                  ],
-                ),
-                child: Text(
-                  badge,
-                  style: GoogleFonts.baloo2(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
                   ),
-                ),
+                  Padding(
+                    // Top-heavy padding keeps text within the bar (the SVG has
+                    // 5px of drop-shadow headroom below its 48px-tall plate).
+                    padding: const EdgeInsets.fromLTRB(30, 8, 30, 13),
+                    child: Text(
+                      badge,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.baloo2(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -139,6 +143,10 @@ class _SkillSheetBody extends StatelessWidget {
               label: skill.status.tag,
               bg: EllaColors.mangoLightest,
               fg: EllaColors.mangoDark,
+              // "Bloomed" gets the flower asset (Figma).
+              leadingAsset: skill.status == SkillStatus.owned
+                  ? 'assets/information-box/flower.svg'
+                  : null,
             ),
           ],
         ),
@@ -180,8 +188,11 @@ class _EvidenceBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = (evidence.confidence * 100).round();
-    final sub = evidence.prompted ? 'Zoe asked' : 'You said it on your own';
+    // Caption is the conversation topic this evidence came from (API), not a
+    // prompted/own label, and we no longer surface the raw % match.
+    final sub = evidence.topic.isNotEmpty
+        ? evidence.topic
+        : (evidence.prompted ? 'Zoe asked' : 'On your own');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -204,7 +215,7 @@ class _EvidenceBox extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            '$sub  •  $pct% match',
+            sub,
             style: GoogleFonts.baloo2(
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -368,20 +379,35 @@ class _SkillRow extends StatelessWidget {
 class _Tag extends StatelessWidget {
   final String label;
   final Color bg, fg;
-  const _Tag({required this.label, required this.bg, required this.fg});
+  final String? leadingAsset;
+  const _Tag({
+    required this.label,
+    required this.bg,
+    required this.fg,
+    this.leadingAsset,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
-      child: Text(
-        label,
-        style: GoogleFonts.baloo2(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (leadingAsset != null) ...[
+            SvgPicture.asset(leadingAsset!, width: 14, height: 14),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: GoogleFonts.baloo2(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
   }
