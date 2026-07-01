@@ -27,8 +27,8 @@ async def create_conversation(
     from ..services import llm_service
     from ..core.curriculum_data import UNITS, LEVEL_TOPICS
 
-    # Determine topic/unit from due_next skills or fallback to body.unit or body.topic
-    topic = body.unit or body.topic
+    # Determine topic/unit from due_next skills or fallback to body.unit
+    topic = body.unit
     level = (user.level or "A1").upper()
     aimed_skills = []
 
