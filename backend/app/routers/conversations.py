@@ -27,38 +27,70 @@ async def create_conversation(
     from ..services import llm_service
     from ..core.curriculum_data import UNITS, LEVEL_TOPICS
 
-    # Determine topic/unit from due_next skills or fallback to body.unit
-    topic = body.unit
-    level = (user.level or "A0").upper()
+    # Determine aimed_at skills based on active unit step
     aimed_skills = []
+    level = (user.level or "A0").upper()
+    units = UNITS.get(level, UNITS.get("A0", []))
+    active_unit_obj = None
 
-    if not topic:
-        # Use due_next to find the current unit and derive topic
+    if body.unit:
+        for u in units:
+            if u.get("name") == body.unit or str(u.get("unit")) == str(body.unit):
+                active_unit_obj = u
+                break
+
+    if not active_unit_obj:
         due = user.due_next or {}
         primary_skill_id = due.get("primary")
-
         if primary_skill_id:
-            # Find which unit step this skill belongs to
-            units = UNITS.get(level, UNITS.get("A0", []))
-            for unit in units:
-                skill_ids = [s["id"] for s in unit.get("skills", [])]
+            for u in units:
+                skill_ids = [s["id"] for s in u.get("skills", [])]
                 if primary_skill_id in skill_ids:
-                    topic = unit.get("name", "Free Talk")
-                    aimed_skills = skill_ids
+                    active_unit_obj = u
                     break
 
-        # Fallback: pick first unit name for this level (not level topics)
-        if not topic:
-            units = UNITS.get(level, UNITS.get("A1", []))
-            if units:
-                topic = units[0].get("name", "Free Talk")
-                aimed_skills = [s["id"] for s in units[0].get("skills", [])]
-            else:
-                topic = "Free Talk"
+    if not active_unit_obj and units:
+        active_unit_obj = units[0]
+
+    if active_unit_obj:
+        aimed_skills = [s["id"] for s in active_unit_obj.get("skills", [])]
+
+    # Select a conversational topic from LEVEL_TOPICS instead of using the Unit name
+    topic = None
+    starters = None
+
+    # Check if body.unit is actually a topic name or topic ID
+    if body.unit:
+        level_topics = LEVEL_TOPICS.get(level, [])
+        for t in level_topics:
+            if t.get("name") == body.unit or t.get("id") == body.unit:
+                topic = t["name"]
+                starters = t.get("starters")
+                break
+
+    if not topic:
+        import random
+        level_topics = LEVEL_TOPICS.get(level, [])
+        valid_topics = [t for t in level_topics if t.get("name")]
+        
+        persona = user.persona_memory or {}
+        used_topics = persona.get("units") or persona.get("last_topics", [])
+        if not isinstance(used_topics, list):
+            used_topics = []
+            
+        fresh_topics = [t for t in valid_topics if t["name"] not in used_topics]
+        pool = fresh_topics if fresh_topics else valid_topics
+        
+        if pool:
+            selected_topic = random.choice(pool)
+            topic = selected_topic["name"]
+            starters = selected_topic.get("starters")
+        else:
+            topic = "Free Talk"
 
     # Generate starter using LLM
     try:
-        starter_data = await llm_service.generate_conversation_starter(topic)
+        starter_data = await llm_service.generate_conversation_starter(topic=topic, starters=starters)
         starter_text = starter_data["starter"]
         header_title = starter_data.get("header_title", topic)
     except Exception as e:

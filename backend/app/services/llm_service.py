@@ -94,12 +94,18 @@ async def _chat_completion(
 
 # ── Conversation Starter ──────────────────────────────────────────────────────
 
-async def generate_conversation_starter(topic: str | None = None) -> dict:
+async def generate_conversation_starter(
+    topic: str | None = None, starters: list[str] | None = None
+) -> dict:
     topic_line = (
         "Topic: free conversation."
         if not topic or not topic.strip()
         else f"Topic: {topic}. Start specifically with this topic."
     )
+    if starters:
+        starters_str = ", ".join([f'"{s}"' for s in starters])
+        topic_line += f"\nHere are some sample questions you can use to start the conversation: {starters_str}. Try to ask one of them naturally."
+
     text = await _chat_completion(
         messages=[
             {"role": "system", "content": _STARTER_PROMPT},
