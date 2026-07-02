@@ -1967,7 +1967,7 @@ function DueView({model,mem,level,isApiMode,showClientSide}){
   </div>);
 }
 function PromptView({text}){
-  return(<div><div className="lbl">assembled conversation prompt (live)</div>
+  return(<div><div className="lbl">assembled conversation prompt (client-assembled / diagnostic)</div>
     <div className="mono" style={{background:'#1f1b16',color:'#efe9d8',padding:12,borderRadius:8}}>{text}</div>
     <small className="note">Base + level profile + the due_next/unit steering block + transcript. The target skills here ARE due_next.</small>
   </div>);
@@ -2017,8 +2017,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
       </>
     ) : (
       <>
-        <div className="warn" style={{ background: '#f4f1ea', color: '#5a554a', borderColor: '#dcd7cd' }}>
-          These are the active prompt templates loaded from the production server. These are read-only.
+        <div className="warn" style={{ background: '#eaf5ea', color: '#1e4620', borderColor: '#c3e6c5' }}>
+          🟢 <b>Live Production Prompts</b> — These are the active prompt templates loaded from the production server. They are read-only.
         </div>
         {loading && <div style={{ color: '#8a8678', fontStyle: 'italic', padding: 20 }}>Loading production prompts from server...</div>}
         {error && <div style={{ color: 'var(--rust)', padding: 20 }}>Error: {error}</div>}
