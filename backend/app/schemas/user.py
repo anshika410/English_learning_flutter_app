@@ -21,6 +21,7 @@ class UpdateProfileRequest(BaseModel):
     age: str | None = None
     location: str | None = None
     level: str | None = None
+    unit: str | None = None
     level_label: str | None = None
 
     model_config = {
