@@ -1527,7 +1527,7 @@ function App(){
         {tab==='session'&&<SessionView sessions={sessions}/>}
         {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)}/>}
-        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model}/>}
+        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI}/>}
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
         {tab==='units'&&<UnitsView mem={mem}/>}
         {tab==='hist'&&<HistView history={history}/>}
@@ -1972,14 +1972,86 @@ function PromptView({text}){
     <small className="note">Base + level profile + the due_next/unit steering block + transcript. The target skills here ARE due_next.</small>
   </div>);
 }
-function EditView({prompts,setPrompts,model}){
+function EditView({prompts,setPrompts,model,callEllaAPI}){
+  const [activeSource, setActiveSource] = React.useState('client'); // 'client' | 'server'
+  const [serverPrompts, setServerPrompts] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (activeSource === 'server' && !serverPrompts && !loading) {
+      setLoading(true);
+      callEllaAPI('/admin/prompts')
+        .then(data => {
+          setServerPrompts(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Failed to fetch server prompts:", err);
+          setError(err.message || String(err));
+          setLoading(false);
+        });
+    }
+  }, [activeSource]);
+
   const fields=[['base','Base prompt (shared)'],['profileA1','Profile · A1/A2'],['profileB1','Profile · B1+'],
     [model==='unit'?'convUnit':'convSkill', model==='unit'?'Conversation framing · UNITS (theme-led)':'Conversation framing · MICRO-SKILL (list-led)'],
     ['judge','Judge (shared)']];
-  return(<div><div className="warn">Edit any prompt, run a chat, see the effect. Conversation framing differs by model; judge & base are shared. {'{{TARGETS}}'}, {'{{UNITNAME}}'}, {'{{UNITFOCUS}}'} are filled in automatically.</div>
-    {fields.map(([k,lab])=>(<div key={k} style={{marginBottom:14}}><div className="lbl">{lab}</div>
-      <textarea value={prompts[k]} onChange={e=>setPrompts(p=>({...p,[k]:e.target.value}))}/></div>))}
-    <button className="ghost" onClick={()=>setPrompts(DEFAULT_PROMPTS)}>↺ Reset prompts</button>
+
+  const isApi = LLM_CONFIG.mode === 'api';
+
+  return(<div>
+    {isApi && (
+      <div className="modeToggle" style={{ marginBottom: 16 }}>
+        <button className={activeSource==='client'?'on':''} onClick={()=>setActiveSource('client')}>Client (Mock/Local)</button>
+        <button className={activeSource==='server'?'on':''} onClick={()=>setActiveSource('server')}>Server (Active Production)</button>
+      </div>
+    )}
+
+    {activeSource === 'client' ? (
+      <>
+        <div className="warn">Edit any prompt, run a chat, see the effect. Conversation framing differs by model; judge & base are shared. {'{{TARGETS}}'}, {'{{UNITNAME}}'}, {'{{UNITFOCUS}}'} are filled in automatically.</div>
+        {fields.map(([k,lab])=>(<div key={k} style={{marginBottom:14}}><div className="lbl">{lab}</div>
+          <textarea value={prompts[k]} onChange={e=>setPrompts(p=>({...p,[k]:e.target.value}))}/></div>))}
+        <button className="ghost" onClick={()=>setPrompts(DEFAULT_PROMPTS)}>↺ Reset prompts</button>
+      </>
+    ) : (
+      <>
+        <div className="warn" style={{ background: '#f4f1ea', color: '#5a554a', borderColor: '#dcd7cd' }}>
+          These are the active prompt templates loaded from the production server. These are read-only.
+        </div>
+        {loading && <div style={{ color: '#8a8678', fontStyle: 'italic', padding: 20 }}>Loading production prompts from server...</div>}
+        {error && <div style={{ color: 'var(--rust)', padding: 20 }}>Error: {error}</div>}
+        {serverPrompts && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl">Zoe Conversation Prompt (conversation-prompt.md)</div>
+              <textarea 
+                value={serverPrompts.conversation} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
+              />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl">LLM Judge Prompt (end-result-prompt.md)</div>
+              <textarea 
+                value={serverPrompts.judge} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
+              />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl">Placement Diagnostic Prompt (placement-check-prompt.md)</div>
+              <textarea 
+                value={serverPrompts.placement} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
+              />
+            </div>
+          </>
+        )}
+      </>
+    )}
   </div>);
 }
 function SkillsView({mem,skills}){
