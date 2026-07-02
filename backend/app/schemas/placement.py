@@ -5,7 +5,7 @@ from typing import Any
 
 class CreatePlacementRequest(BaseModel):
     level: str
-    level_label: str | None = None
+    unit_label: str | None = None
     confidence: str | None = None  # e.g. "high", "medium", "low"
     highlight: str | None = None
     transcript_json: Any | None = None  # accepts list or string
@@ -15,7 +15,7 @@ class CreatePlacementRequest(BaseModel):
         "json_schema_extra": {
             "example": {
                 "level": "A2",
-                "level_label": "Finding My Voice",
+                "unit_label": "Finding My Voice",
                 "confidence": "high",
                 "highlight": "Raj spoke confidently about his favorite books and showed good grammar.",
                 "transcript_json": [
@@ -31,7 +31,7 @@ class CreatePlacementRequest(BaseModel):
 class PlacementOut(BaseModel):
     id: str
     level: str
-    level_label: str | None = None
+    unit_label: str | None = None
     confidence: str | None = None
     highlight: str | None = None
     created_at: datetime

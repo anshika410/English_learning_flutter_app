@@ -107,7 +107,7 @@ def run_tests():
                 "topic": "Cricket",
                 "progression_model": "unit",
                 "level": "A1",
-                "level_label": "First Words"
+                "unit_label": "First Words"
             }
         )
         assert analysis_resp.status_code == 200, f"Analysis failed: {analysis_resp.text}"
@@ -230,7 +230,7 @@ def run_tests():
                 "session_type": "free_chat",
                 "progression_model": "unit",
                 "level": "A1",
-                "level_label": "First Words"
+                "unit_label": "First Words"
             }
         )
         assert comp_resp.status_code == 200, f"Judge / Completion failed: {comp_resp.text}"

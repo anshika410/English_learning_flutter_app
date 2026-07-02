@@ -28,7 +28,7 @@ class AdminUserOut(BaseModel):
     age: str | None
     location: str | None
     level: str | None
-    level_label: str | None
+    unit_label: str | None
     total_sessions: int
     completed_sessions: int
     total_speaking_seconds: int
@@ -116,7 +116,7 @@ async def admin_stats(
             age=u.age,
             location=u.location,
             level=u.level,
-            level_label=u.level_label,
+            unit_label=u.unit_label,
             total_sessions=stats["total"],
             completed_sessions=completed,
             total_speaking_seconds=stats["speaking_secs"],

@@ -52,7 +52,7 @@ def test_garden_evidence():
             "topic": "My Yesterday",
             "progression_model": "unit",
             "level": "A1",
-            "level_label": "First Words"
+            "unit_label": "First Words"
         },
         timeout=60.0
     )

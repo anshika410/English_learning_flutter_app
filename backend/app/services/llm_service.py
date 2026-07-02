@@ -177,7 +177,7 @@ async def send_conversation_turn(
     messages: list[dict],
     topic: str = "Free conversation",
     level: str = "A1",
-    level_label: str = "Finding My Voice",
+    unit_label: str = "Finding My Voice",
     current_turn: int = 1,
     persona_memory: dict | None = None,
     due_next: dict | None = None,
@@ -337,7 +337,7 @@ async def analyze_and_grade_session(
     messages: list[dict],
     topic: str = "Free Talk",
     level: str = "A2",
-    level_label: str = "Finding My Voice",
+    unit_label: str = "Finding My Voice",
     target_skill_ids: list[str] = [],
 ) -> dict:
     from ..core.curriculum_data import get_skill_text
@@ -357,7 +357,7 @@ async def analyze_and_grade_session(
     system_prompt = (
         template
         .replace("{{LEVEL}}", level)
-        .replace("{{LEVEL_LABEL}}", level_label)
+        .replace("{{UNIT_LABEL}}", unit_label)
         .replace("{{TOPIC}}", topic)
         .replace("{{TARGET_SKILLS}}", id_list)
         .replace("{{FULL_TRANSCRIPT}}", transcript)
@@ -403,10 +403,10 @@ async def analyze_session(
     messages: list[dict],
     topic: str = "Free Talk",
     level: str = "A2",
-    level_label: str = "Finding My Voice",
+    unit_label: str = "Finding My Voice",
 ) -> dict | None:
     # Legacy wrapper
-    res = await analyze_and_grade_session(messages, topic, level, level_label, [])
+    res = await analyze_and_grade_session(messages, topic, level, unit_label, [])
     return res
 
 

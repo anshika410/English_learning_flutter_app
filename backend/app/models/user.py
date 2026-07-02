@@ -27,6 +27,14 @@ class User(Base):
     level: Mapped[str | None] = mapped_column(String(5), nullable=True)
     level_label: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
+    @property
+    def unit_label(self) -> str | None:
+        return self.level_label
+
+    @unit_label.setter
+    def unit_label(self, value: str | None) -> None:
+        self.level_label = value
+
     # Interests detected during placement (comma-separated, e.g. "cricket,music,food")
     interests: Mapped[str | None] = mapped_column(Text, nullable=True)
 

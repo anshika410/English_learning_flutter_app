@@ -67,7 +67,7 @@ async def conversation_turn(
             messages=messages,
             topic=body.unit or "Free conversation",
             level=body.level,
-            level_label=body.level_label,
+            unit_label=body.unit_label,
             current_turn=body.current_turn,
             persona_memory=user.persona_memory,
         )
@@ -150,7 +150,7 @@ async def session_analysis(
         messages=messages,
         topic=topic,
         level=level,
-        level_label=body.level_label,
+        unit_label=body.unit_label,
         progression_model=body.progression_model,
         user=user,
         db=db,

@@ -27,7 +27,7 @@ async def create_placement(
     placement = Placement(
         user_id=user.id,
         level=body.level,
-        level_label=body.level_label,
+        unit_label=body.unit_label,
         confidence=body.confidence,
         highlight=body.highlight,
         transcript_json=json.dumps(body.transcript_json) if body.transcript_json is not None else None,
@@ -36,7 +36,7 @@ async def create_placement(
 
     # Also update user's current level and interests
     user.level = body.level
-    user.level_label = body.level_label
+    user.unit_label = body.unit_label
     if body.interests:
         user.interests = ",".join(body.interests)
     db.add(user)
@@ -89,7 +89,7 @@ def _out(p: Placement) -> PlacementOut:
     return PlacementOut(
         id=p.id,
         level=p.level,
-        level_label=p.level_label,
+        unit_label=p.unit_label,
         confidence=p.confidence,
         highlight=p.highlight,
         created_at=p.created_at,

@@ -28,7 +28,7 @@ class ConversationTurnRequest(BaseModel):
     messages: list[MessageIn]
     unit: str | None = None
     level: str = "A2"
-    level_label: str = "Finding My Voice"
+    unit_label: str = "Finding My Voice"
     current_turn: int = 1
 
     model_config = {
@@ -42,7 +42,7 @@ class ConversationTurnRequest(BaseModel):
                 ],
                 "topic": "Sports",
                 "level": "A2",
-                "level_label": "Finding My Voice",
+                "unit_label": "Finding My Voice",
                 "current_turn": 3
             }
         }
@@ -108,7 +108,7 @@ class SessionAnalysisRequest(BaseModel):
     messages: list[MessageIn]
     unit: str | None = None
     level: str = "A2"
-    level_label: str = "Finding My Voice"
+    unit_label: str = "Finding My Voice"
     progression_model: str = "unit"
     session_type: str | None = None
     turns_total: int | None = Field(default=None, description="Total turns taken in the session")
@@ -123,7 +123,7 @@ class SessionAnalysisRequest(BaseModel):
                 ],
                 "unit": "Food",
                 "level": "A2",
-                "level_label": "Finding My Voice",
+                "unit_label": "Finding My Voice",
                 "progression_model": "unit",
                 "turns_total": 2
             }

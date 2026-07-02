@@ -5,7 +5,7 @@ You are an expert English language coach and examiner. Analyze the following stu
 
 ---
 
-STUDENT LEVEL: {{LEVEL}} ({{LEVEL_LABEL}})
+STUDENT LEVEL: {{LEVEL}} ({{UNIT_LABEL}})
 TOPIC: {{TOPIC}}
 
 TARGET SKILLS FOR GRADING:

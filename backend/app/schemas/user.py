@@ -8,7 +8,7 @@ class UserProfile(BaseModel):
     age: str | None = None
     location: str | None = None
     level: str | None = None
-    level_label: str | None = None
+    unit_label: str | None = None
     first_session_done: bool = False
     interests: list[str] | None = None
     persona_memory: dict | None = None
@@ -22,7 +22,7 @@ class UpdateProfileRequest(BaseModel):
     location: str | None = None
     level: str | None = None
     unit: str | None = None
-    level_label: str | None = None
+    unit_label: str | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -31,7 +31,7 @@ class UpdateProfileRequest(BaseModel):
                 "age": "12",
                 "location": "Delhi",
                 "level": "A2",
-                "level_label": "First Words"
+                "unit_label": "First Words"
             }
         }
     }

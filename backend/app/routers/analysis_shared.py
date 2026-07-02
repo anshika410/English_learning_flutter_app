@@ -17,7 +17,7 @@ async def run_and_save_session_analysis(
     messages: list[dict],
     topic: str,
     level: str,
-    level_label: str,
+    unit_label: str,
     progression_model: str,
     user: User,
     db: AsyncSession,
@@ -50,7 +50,7 @@ async def run_and_save_session_analysis(
             messages=messages,
             topic=topic,
             level=level,
-            level_label=level_label,
+            unit_label=unit_label,
             target_skill_ids=primary_ids,
         )
         scores = analysis.get("scores", [])
@@ -93,7 +93,7 @@ async def run_and_save_session_analysis(
                     next_lvl = levels_chain[current_idx + 1]
                     user.level = next_lvl
                     from ..core.curriculum_data import HEADLINES
-                    user.level_label = HEADLINES.get(next_lvl, "Finding My Voice")
+                    user.unit_label = HEADLINES.get(next_lvl, "Finding My Voice")
                     level = next_lvl
             except ValueError:
                 pass

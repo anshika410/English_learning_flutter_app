@@ -378,7 +378,7 @@ async def conversation_turn(
     }
 
     level_code = user.level or "A0"
-    level_label = level_label_map.get(level_code.upper(), "Finding My Voice")
+    unit_label = level_label_map.get(level_code.upper(), "Finding My Voice")
 
     # Resolve target skills
     due_next = user.due_next or {}
@@ -400,7 +400,7 @@ async def conversation_turn(
             messages=llm_history,
             topic=conv.topic or "Free conversation",
             level=level_code,
-            level_label=level_label,
+            unit_label=unit_label,
             current_turn=user_turn_number,
             persona_memory=user.persona_memory,
             due_next=due_next,
