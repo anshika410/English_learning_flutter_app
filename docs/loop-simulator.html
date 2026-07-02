@@ -2621,6 +2621,29 @@ function getEndpointMeta(path, method) {
 function ApiCallsView({logs, onClear}){
   const [openId, setOpenId] = React.useState(null);
   const [copied, setCopied] = React.useState(false);
+  const [copiedId, setCopiedId] = React.useState(null);
+
+  function copySingleLog(log, event) {
+    if (event) event.stopPropagation();
+    const divider = '─'.repeat(60);
+    let out = `${divider}\n`;
+    out += `${log.method} ${LLM_CONFIG.ellaApiUrl}${log.path}\n`;
+    out += `Time: ${log.timestamp}  |  Status: ${log.status}\n`;
+    out += `${divider}\n`;
+    if (log.method !== 'GET') {
+      out += `▸ Request Body:\n`;
+      out += log.requestBody ? JSON.stringify(log.requestBody, null, 2) : '(empty)';
+      out += `\n\n`;
+    }
+    out += `▸ Response Body:\n`;
+    out += log.responseBody ? (typeof log.responseBody === 'string' ? log.responseBody : JSON.stringify(log.responseBody, null, 2)) : '(empty)';
+    out += '\n';
+
+    navigator.clipboard.writeText(out).then(() => {
+      setCopiedId(log.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }
 
   function copyAllLogs() {
     const lines = logs.map((log, i) => {
@@ -2716,6 +2739,21 @@ function ApiCallsView({logs, onClear}){
                   fontSize: 10,
                   fontWeight: 'bold'
                 }}>{log.status}</span>
+                <button 
+                  style={{
+                    padding: '2px 6px', 
+                    fontSize: 10, 
+                    border: '1px solid var(--grey)', 
+                    borderRadius: 4,
+                    background: copiedId === log.id ? '#e8f5e9' : 'transparent',
+                    color: copiedId === log.id ? '#2e7d32' : 'var(--grey)',
+                    borderColor: copiedId === log.id ? '#2e7d32' : 'var(--grey)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={(e) => copySingleLog(log, e)}
+                >
+                  {copiedId === log.id ? '✓ Copied' : '📋 Copy'}
+                </button>
               </div>
             </div>
             {isOpen && (
