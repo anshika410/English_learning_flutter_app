@@ -86,7 +86,7 @@ async def run_and_save_session_analysis(
     if progression_model == "unit":
         next_step = active_step(updated_progress, level)
         if next_step is None:  # Completed all units
-            levels_chain = ["A1", "A2", "B1", "B2", "C1", "C2"]
+            levels_chain = ["A0", "A1", "A2", "B1", "B2", "C1"]
             try:
                 current_idx = levels_chain.index(level.upper())
                 if current_idx < len(levels_chain) - 1:

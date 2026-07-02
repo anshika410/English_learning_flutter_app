@@ -338,9 +338,7 @@ function chatGoalFor(primary, topic, level = null){
 }
 function learnerRecap(scores, aimed, level = null){
   const strong=(scores||[]).filter(s=>aimed.includes(s.id)&&Number(s.confidence)>=0.7);
-  const partial=(scores||[]).filter(s=>aimed.includes(s.id)&&Number(s.confidence)>=0.3&&Number(s.confidence)<0.7);
   if(strong.length) return 'You did it — I heard clear evidence for '+strong.map(s=>skillText(s.id, level).replace(/^I can /,'')).join('; ')+'.';
-  if(partial.length) return 'Almost there: you gave a good start. Next time, add one more detail.';
   return 'Good try. Next time Zoe will make the question smaller.';
 }
 function readinessScore({hasMission,hasArc,hitRate,liveOk,judgeOk,hasMemory,hasHelp}){
@@ -445,21 +443,13 @@ For EACH skill in the list, output STRICT JSON only (no prose):
 RULES:
 - Score ONLY the learner's language, not Zoe's prompt.
 - confidence 0..1 = strength of evidence in the learner's transcript.
-- These thresholds matter downstream: >=0.7 means strong evidence; 0.3-0.69 = emerging/partial; <0.3 = ignored.
-- FORCED COMMIT: if you see clear evidence for the target function, commit >=0.7. Do not hedge at 0.5. 0.5 is only genuine ambiguity.
-- Reward EFFORT not accuracy: a wrong-but-trying attempt that shows the skill still scores.
-- For A1/A2, fragments can be evidence if meaning is clear: "tree boys cricket" can support picture/place description.
-- Self-introduction evidence: name, age, place, or a clear attempt to introduce themselves. Full name+age+place should score high.
-- Description evidence: objects/people/actions/adjectives/location. 2-4 connected fragments can be strong at A1.
-- Opinion evidence: preference plus any reason. Past/future evidence: time marker or event/plan attempt.
-- prompted=true if Zoe set them up to do it; false if the learner volunteered it.
-- evidence = short direct learner quote only, or "".
-- If confidence <0.30, still include the skill with confidence and evidence if any; do not omit targets.
-Output JSON only.`
+- These thresholds matter downstream: >=0.7 means qualifying sighting/evidence; <0.7 = ignored.
+- If confidence <0.70, it is ignored and not graded.
+- Output JSON only.`
 };
 
 // ---------- engine ----------
-const FLOOR=0.3;
+const FLOOR=0.7;
 // ownership bar SCALES with level: a beginner owns by being understood; advanced by being accurate
 const OWN_BAR={A0:0.55,A1:0.60,A2:0.68,B1:0.72,B2:0.75,C1:0.78};
 const SIGHTINGS_TO_OWN=2;   // corroboration: need >=2 qualifying sightings (across chats) to own
@@ -1746,7 +1736,7 @@ function JudgeView({scores,debug,backendAnalysis,isApiMode,level}){
     <div className="lbl">{isApiMode ? 'Quantitative Skill Grading (LLM Judge)' : 'judge output — skills_evidenced[]'}</div>
     {dbg&&<div className={dbg.used_mock?'warn':'ev'}><b>Judge debug:</b> {dbg.ok?'LLM responded':'LLM failed'}{dbg.err?(' · '+dbg.err):''}{dbg.parse_error?(' · JSON parse error: '+dbg.parse_error):''}{dbg.used_mock?' · using mock fallback scores':''}</div>}
     {scores && scores.map((s,i)=>(<div className="ev" key={i}>
-      <span className="conf" style={{color:s.confidence>=0.7?'#23682f':s.confidence>=0.3?'#c8861a':'#b8472f'}}>{Number(s.confidence).toFixed(2)}</span>
+      <span className="conf" style={{color:s.confidence>=0.7?'#23682f':'#b8472f'}}>{Number(s.confidence).toFixed(2)}</span>
       <span className="id">{s.id}</span> {s.prompted?'· prompted':'· unprompted'}
       <span className="nm">{skillText(s.id, level)}</span>
       <div className="confbar"><i style={{width:(s.confidence*100)+'%'}}></i></div>
@@ -1755,13 +1745,13 @@ function JudgeView({scores,debug,backendAnalysis,isApiMode,level}){
       <div style={{marginTop:5,fontSize:11,color:'#5b50c4'}}><b>Next Zoe move:</b> {skillPlan(s.id, level).fallback}</div>
     </div>))}
     {dbg&&dbg.raw&&<details style={{marginTop:8}}><summary className="lbl" style={{cursor:'pointer'}}>raw judge output</summary><div className="mono" style={{whiteSpace:'pre-wrap'}}>{dbg.raw}</div></details>}
-    <small className="note">≥0.70 strong evidence · ≥0.30 emerging · &lt;0.30 ignored. Reasons show whether Zoe needs a better elicitation follow-up.</small>
+    <small className="note">≥0.70 qualifying evidence · &lt;0.70 ignored. Reasons show whether Zoe needs a better elicitation follow-up.</small>
   </div>);
 }
 
 function DualView({dual,level}){
   if(!dual)return<div style={{color:'#8a8678'}}>No comparison yet. End a chat — the same transcript is judged under BOTH models and shown side by side.</div>;
-  const col=(c)=>c>=0.7?'#23682f':c>=0.3?'#c8861a':'#b8472f';
+  const col=(c)=>c>=0.7?'#23682f':'#b8472f';
   const render=(blk)=>(<div style={{flex:1,minWidth:0}}>
     <div className="lbl">{blk.label} model</div>
     {blk.scores.map((s,i)=>(<div className="ev" key={i} style={{padding:'5px 7px'}}>
