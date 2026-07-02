@@ -138,7 +138,7 @@ async def session_analysis(
         conversation.session_type = body.session_type
     db.add(conversation)
 
-    level = body.level or user.level or "A1"
+    level = body.level or user.level or "A0"
     messages = [m.model_dump() for m in body.messages]
     
     # Use the conversation's stored topic (set from due_next at creation time)

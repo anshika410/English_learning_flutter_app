@@ -29,17 +29,17 @@ def extract_vocab_seeds(topic_name, description):
 
 def get_structure_targets(level):
     lvl = level.upper()
-    if lvl == "A1":
+    if lvl == "A0":
         return ["present simple", "basic adjectives", "simple sentences"]
-    elif lvl == "A2":
+    elif lvl == "A1":
         return ["past simple narration", "comparative adjectives", "going to future plans"]
-    elif lvl == "B1":
+    elif lvl == "A2":
         return ["present perfect", "first conditional", "expressing opinions with reasons"]
-    elif lvl == "B2":
+    elif lvl == "B1":
         return ["complex conditionals", "reported speech", "flexible active/passive voice"]
-    elif lvl == "C1":
+    elif lvl == "B2":
         return ["modal speculation/deduction", "participle clauses", "extended coherent narratives"]
-    elif lvl == "C2":
+    elif lvl == "C1":
         return ["figurative expressions", "idiomatic phrasing", "flexible registers"]
     return ["general conversation"]
 
@@ -100,8 +100,17 @@ def main():
     CAT = []
     strand_map = {'Vocabulary': 'VOC', 'Grammar': 'GRA', 'Fluency': 'FLU'}
     
-    for level in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
-        sheet = wb[level]
+    sheet_to_level = {
+        'A1': 'A0',
+        'A2': 'A1',
+        'B1': 'A2',
+        'B2': 'B1',
+        'C1': 'B2',
+        'C2': 'C1'
+    }
+    for sheet_name in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
+        sheet = wb[sheet_name]
+        level = sheet_to_level[sheet_name]
         current_strand = None
         counts = {'VOC': 0, 'GRA': 0, 'FLU': 0}
         
@@ -123,12 +132,12 @@ def main():
     print("Parsing transition units...")
     UNITS = {}
     transitions = [
-        ('A1', 'AO-A1'),
-        ('A2', 'A1→A2'),
-        ('B1', 'A2→B1'),
-        ('B2', 'B1→B2'),
-        ('C1', 'B2→C1'),
-        ('C2', 'C1→C2')
+        ('A0', 'AO-A1'),
+        ('A1', 'A1→A2'),
+        ('A2', 'A2→B1'),
+        ('B1', 'B1→B2'),
+        ('B2', 'B2→C1'),
+        ('C1', 'C1→C2')
     ]
     
     for level, sheetname in transitions:
@@ -180,8 +189,8 @@ def main():
                         'text': col3.strip()
                     })
         UNITS[level] = units_list
-    if 'C2' not in UNITS:
-        UNITS['C2'] = []
+    if 'C1' not in UNITS:
+        UNITS['C1'] = []
     
     total_steps = sum(len(ulist) for ulist in UNITS.values())
     print(f"✓ Parsed {total_steps} unit steps across levels.")
@@ -190,8 +199,16 @@ def main():
     print("Parsing topics...")
     LEVEL_TOPICS = {}
     
-    for level in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
-        sheetname = f"Topics — {level}"
+    level_to_topic_sheet = {
+        'A0': 'Topics — A1',
+        'A1': 'Topics — A2',
+        'A2': 'Topics — B1',
+        'B1': 'Topics — B2',
+        'B2': 'Topics — C1',
+        'C1': 'Topics — C2'
+    }
+    for level in ['A0', 'A1', 'A2', 'B1', 'B2', 'C1']:
+        sheetname = level_to_topic_sheet[level]
         sheet = wb[sheetname]
         topics_list = []
         
@@ -255,12 +272,12 @@ from datetime import datetime, timezone
 
 # Level headlines
 HEADLINES = {{
-    "A1": "I can talk about myself and things around me.",
-    "A2": "I can have simple conversations on everyday topics.",
-    "B1": "I can share my opinions and tell stories in English.",
-    "B2": "I can discuss, argue, and express myself fluently on a wide range of topics.",
-    "C1": "I can express myself clearly and confidently on complex, abstract, and unfamiliar topics — with very little hesitation.",
-    "C2": "I can communicate on any topic, with anyone, in any situation — with accuracy, flexibility, and no hesitation."
+    "A0": "I can talk about myself and things around me.",
+    "A1": "I can have simple conversations on everyday topics.",
+    "A2": "I can share my opinions and tell stories in English.",
+    "B1": "I can speak for about a minute on many different topics.",
+    "B2": "I feel comfortable talking with peers about complex things.",
+    "C1": "I can communicate on any topic with accuracy, flexibility, and no hesitation."
 }}
 
 # Flat CEFR skills
@@ -295,12 +312,12 @@ STRANDS = {{
 }}
 
 OWN_BAR = {{
+    "A0": 0.70,
     "A1": 0.70,
     "A2": 0.70,
     "B1": 0.70,
     "B2": 0.70,
-    "C1": 0.70,
-    "C2": 0.70
+    "C1": 0.70
 }}
 
 FLOOR = 0.70

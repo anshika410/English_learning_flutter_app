@@ -29,7 +29,7 @@ async def create_conversation(
 
     # Determine topic/unit from due_next skills or fallback to body.unit
     topic = body.unit
-    level = (user.level or "A1").upper()
+    level = (user.level or "A0").upper()
     aimed_skills = []
 
     if not topic:
@@ -39,7 +39,7 @@ async def create_conversation(
 
         if primary_skill_id:
             # Find which unit step this skill belongs to
-            units = UNITS.get(level, UNITS.get("A1", []))
+            units = UNITS.get(level, UNITS.get("A0", []))
             for unit in units:
                 skill_ids = [s["id"] for s in unit.get("skills", [])]
                 if primary_skill_id in skill_ids:
@@ -337,15 +337,15 @@ async def conversation_turn(
 
     # 5. Resolve user level details
     level_label_map = {
-        "A1": "First Words",
-        "A2": "Finding My Voice",
-        "B1": "Building Confidence",
-        "B2": "Expressing Myself",
-        "C1": "Speaking Fluently",
-        "C2": "Mastering the Language"
+        "A0": "First Words",
+        "A1": "Finding My Voice",
+        "A2": "Building Confidence",
+        "B1": "Expressing Myself",
+        "B2": "Speaking Fluently",
+        "C1": "Mastering the Language"
     }
 
-    level_code = user.level or "A1"
+    level_code = user.level or "A0"
     level_label = level_label_map.get(level_code.upper(), "Finding My Voice")
 
     # Resolve target skills

@@ -106,7 +106,7 @@ async def update_user_memory(
 
 @router.get("/me/garden", response_model=GardenResponse)
 async def get_user_garden(user: User = Depends(get_current_user)):
-    level = user.level or "A1"
+    level = user.level or "A0"
     progress = user.skills_progress or {}
     
     units_list = UNITS.get(level.upper(), [])
@@ -191,7 +191,7 @@ async def get_user_garden(user: User = Depends(get_current_user)):
 
 @router.get("/me/topics", response_model=list[TopicResponse])
 async def get_user_topics(user: User = Depends(get_current_user)):
-    level = (user.level or "A1").upper()
+    level = (user.level or "A0").upper()
     from ..core.curriculum_data import LEVEL_TOPICS
     return LEVEL_TOPICS.get(level, [])
 

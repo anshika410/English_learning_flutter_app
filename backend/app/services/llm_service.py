@@ -16,32 +16,36 @@ PROMPTS_DIR = _DOCKER_PROMPTS if _DOCKER_PROMPTS.exists() else _LOCAL_PROMPTS
 # ── Level instructions (mirrors Flutter client) ──────────────────────────────
 
 _LEVEL_INSTRUCTIONS = {
-    "A1": (
+    "A0": (
         "Accept any attempt as a valid turn. Never require full sentences. "
         "Celebrate every response.\nAsk only personal, familiar questions "
         "(family, food, daily routine, things they like).\n"
         "Speak at 40–60 wpm pace equivalent. Use only present simple and common vocabulary."
     ),
-    "A2": (
+    "A1": (
         "Use salient recasts — model the correct form naturally in your reply.\n"
         "Ask about past events and simple opinions. Introduce 'Have you ever…?' questions.\n"
         "Show filler words awareness only in post-session (not during conversation)."
     ),
-    "B1": (
+    "A2": (
         "Use metalinguistic nudges — name the error category and wait before correcting.\n"
         'Example: "Almost — which tense would we use for something finished in the past?"\n'
         "Push for 60-second responses by asking follow-up 'tell me more' questions.\n"
         "Offer vocabulary alternatives mid-conversation (maximum 2 per session)."
     ),
-    "B2": (
+    "B1": (
         "Apply explicit correction when grammar_setting permits. State error, correct form, brief reason.\n"
         "Push for 4-part argument: claim → reason → evidence → concession.\n"
         "Flag register mismatches. Offer 2–3 precision vocabulary alternatives."
     ),
-    "C1": (
+    "B2": (
         "Operate in peer mode. Suggestions, not corrections.\n"
         'Introduce stylistic options: "You could also say \'pivotal\' here — it implies a turning point."\n'
         "Expect idiomatic expression and fluent reformulation."
+    ),
+    "C1": (
+        "Operate in advanced peer mode. Encourage stylistic variation, complex idioms, "
+        "and sophisticated debate registers. Address registry slips and prompt for higher refinement."
     ),
 }
 
@@ -113,8 +117,8 @@ async def generate_conversation_starter(topic: str | None = None) -> dict:
 # ── Level blocks for the new conversation prompt ──────────────────────────────
 
 _LEVEL_BLOCKS = {
-    "A1": (
-        'LEVEL: A1 (First Words). Your role: CARRIER — you carry the conversation.\n'
+    "A0": (
+        'LEVEL: A0 (First Words). Your role: CARRIER — you carry the conversation.\n'
         '- Use very simple present-simple sentences and high-frequency words.\n'
         '- One idea per turn. Avoid stacked questions except the planned first self-introduction opener.\n'
         '- Accept fragments. A one-word answer is a success if meaning is clear.\n'
@@ -124,15 +128,15 @@ _LEVEL_BLOCKS = {
         '- If the learner is silent or confused, make the task smaller before changing topic.\n'
         '- ESCALATE: once the learner answers, MOVE ON to a related detail. NEVER re-ask what they already answered.'
     ),
-    "A2": (
-        'LEVEL: A2 (Finding My Voice). Your role: BRIDGE — help them connect ideas.\n'
+    "A1": (
+        'LEVEL: A1 (Finding My Voice). Your role: BRIDGE — help them connect ideas.\n'
         '- Use simple past and "going to" naturally in your turns so they hear the model.\n'
         '- Accept short answers but encourage "and then?" or "why?"\n'
         '- CORRECTION: recast only. Model the correct form in your reply without naming the error.\n'
         '- ESCALATE: push for one reason, one past event, or one plan after each answer.'
     ),
-    "B1": (
-        'LEVEL: B1 (Speaking Freely). Your role: SPACE-CREATOR — you talk less, they talk more.\n'
+    "A2": (
+        'LEVEL: A2 (Speaking Freely). Your role: SPACE-CREATOR — you talk less, they talk more.\n'
         '- Use natural language slightly above their level, but keep the task clear.\n'
         '- Ask open questions that invite reasons, examples, sequence, or opinion.\n'
         '- Give wait-space: do not over-explain before the learner speaks.\n'
@@ -140,17 +144,23 @@ _LEVEL_BLOCKS = {
         '- ESCALATE: build on what they say, ask why / what happened next / what if; never re-ask; keep moving forward.\n'
         '- Encourage longer turns: "Tell me two reasons" or "Give me one example."'
     ),
-    "B2": (
-        'LEVEL: B2 (Almost Fluent). Your role: CHALLENGER — push for precision and argument.\n'
+    "B1": (
+        'LEVEL: B1 (Almost Fluent). Your role: CHALLENGER — push for precision and argument.\n'
         '- Expect connected discourse. Push for claim + reason + evidence.\n'
         '- CORRECTION: explicit when it blocks meaning; otherwise note and move on.\n'
         '- ESCALATE: ask for counterarguments, nuance, register shifts.'
     ),
-    "C1": (
-        'LEVEL: C1 (Fluent). Your role: PEER — equal conversation partner.\n'
+    "B2": (
+        'LEVEL: B2 (Fluent). Your role: PEER — equal conversation partner.\n'
         '- Operate in peer mode. Suggestions, not corrections.\n'
         '- Introduce stylistic options and expect idiomatic expression.\n'
         '- ESCALATE: challenge ideas, introduce complexity, expect sustained discourse.'
+    ),
+    "C1": (
+        'LEVEL: C1 (Mastery). Your role: PEER/MENTOR — engage in highly fluent, complex debate.\n'
+        '- Discuss complex societal, philosophy or news topics.\n'
+        '- CORRECTION: note subtle register lapses or suggest high-level idioms.\n'
+        '- ESCALATE: expect detailed arguments, concessions, and highly fluent vocabulary.'
     ),
 }
 
@@ -160,7 +170,7 @@ _LEVEL_BLOCKS = {
 async def send_conversation_turn(
     messages: list[dict],
     topic: str = "Free conversation",
-    level: str = "A2",
+    level: str = "A1",
     level_label: str = "Finding My Voice",
     current_turn: int = 1,
     persona_memory: dict | None = None,
