@@ -27,55 +27,38 @@ async def create_conversation(
     from ..services import llm_service
     from ..core.curriculum_data import UNITS, LEVEL_TOPICS
 
-    session_type = body.session_type or "unit"
+    # Determine topic/unit from due_next skills or fallback to body.unit
     topic = body.unit
     level = (user.level or "A0").upper()
     aimed_skills = []
-    starters = None
 
-    if session_type == "free":
-        topic = "Free Talk"
-    elif session_type == "topic" and body.topic_id:
-        topics = LEVEL_TOPICS.get(level, [])
-        topic_obj = None
-        for t in topics:
-            if t["id"] == body.topic_id:
-                topic_obj = t
-                break
-        if topic_obj:
-            topic = topic_obj["name"]
-            starters = topic_obj.get("starters")
-        else:
-            topic = "Free Talk"
-    else:
-        session_type = "unit"
+    if not topic:
+        # Use due_next to find the current unit and derive topic
+        due = user.due_next or {}
+        primary_skill_id = due.get("primary")
+
+        if primary_skill_id:
+            # Find which unit step this skill belongs to
+            units = UNITS.get(level, UNITS.get("A0", []))
+            for unit in units:
+                skill_ids = [s["id"] for s in unit.get("skills", [])]
+                if primary_skill_id in skill_ids:
+                    topic = unit.get("name", "Free Talk")
+                    aimed_skills = skill_ids
+                    break
+
+        # Fallback: pick first unit name for this level (not level topics)
         if not topic:
-            # Use due_next to find the current unit and derive topic
-            due = user.due_next or {}
-            primary_skill_id = due.get("primary")
-
-            if primary_skill_id:
-                # Find which unit step this skill belongs to
-                units = UNITS.get(level, UNITS.get("A0", []))
-                for unit in units:
-                    skill_ids = [s["id"] for s in unit.get("skills", [])]
-                    if primary_skill_id in skill_ids:
-                        topic = unit.get("name", "Free Talk")
-                        aimed_skills = skill_ids
-                        break
-
-            # Fallback: pick first unit name for this level (not level topics)
-            if not topic:
-                units = UNITS.get(level, UNITS.get("A0", []))
-                if units:
-                    topic = units[0].get("name", "Free Talk")
-                    aimed_skills = [s["id"] for s in units[0].get("skills", [])]
-                else:
-                    topic = "Free Talk"
+            units = UNITS.get(level, UNITS.get("A1", []))
+            if units:
+                topic = units[0].get("name", "Free Talk")
+                aimed_skills = [s["id"] for s in units[0].get("skills", [])]
+            else:
+                topic = "Free Talk"
 
     # Generate starter using LLM
     try:
-        starter_data = await llm_service.generate_conversation_starter(topic=topic, starters=starters)
+        starter_data = await llm_service.generate_conversation_starter(topic)
         starter_text = starter_data["starter"]
         header_title = starter_data.get("header_title", topic)
     except Exception as e:
@@ -83,7 +66,7 @@ async def create_conversation(
         starter_text = "Hi! I’m Zoe. Let's talk!"
         header_title = topic or "Free Talk"
 
-    conv = Conversation(user_id=user.id, topic=topic, header_title=header_title, session_type=session_type)
+    conv = Conversation(user_id=user.id, topic=topic, header_title=header_title)
     db.add(conv)
     await db.flush()
 
@@ -453,7 +436,6 @@ def _conv_out(c: Conversation, starter: str | None = None, level: str | None = N
         starter=starter,
         level=level,
         aimed_at=aimed_at,
-        session_type=c.session_type,
         completed=c.completed,
         created_at=c.created_at,
     )

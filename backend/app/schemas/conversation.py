@@ -3,15 +3,11 @@ from datetime import datetime
 
 
 class CreateConversationRequest(BaseModel):
-    session_type: str | None = "unit"
-    topic_id: str | None = None
     unit: str | None = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "session_type": "topic",
-                "topic_id": "my_family",
                 "unit": "Describing the world"
             }
         }
@@ -24,7 +20,6 @@ class ConversationOut(BaseModel):
     starter: str | None = None
     level: str | None = None
     aimed_at: list[str] | None = None
-    session_type: str | None = None
     completed: bool = False
     created_at: datetime
 
