@@ -452,7 +452,7 @@ RULES:
 const FLOOR=0.7;
 // ownership bar SCALES with level: a beginner owns by being understood; advanced by being accurate
 const OWN_BAR={A0:0.55,A1:0.60,A2:0.68,B1:0.72,B2:0.75,C1:0.78};
-const SIGHTINGS_TO_OWN=2;   // corroboration: need >=2 qualifying sightings (across chats) to own
+const SIGHTINGS_TO_OWN=3;   // corroboration: need >=3 qualifying sightings (across chats) to own
 function ownBar(level){ return OWN_BAR[level]||0.7; }
 function bucketOf(mem,id){ if(mem.owned.includes(id))return'owned'; if(mem.emerging.includes(id))return'emerging'; return'locked'; }
 function strandOf(id){ const s=SKILLS.find(x=>x.id===id); if(s)return s.strand; if(UNIT_SKILLS[id])return UNIT_SKILLS[id].strand; return 'VOC'; }
@@ -1427,7 +1427,7 @@ function ReadmeView(){
         <li style={li}><span style={code}>units</span> — recent units/topics practiced. <b>Load-bearing:</b> the topic-picker avoids these so chats don't repeat.</li>
         <li style={li}><span style={code}>interests</span> — what the learner likes; feeds topic selection. Grows by listening to them over time.</li>
         <li style={li}><span style={code}>effort.times_spoken_total</span> — lifetime count of turns. The one number a learner sees. Only ever goes up; no streaks.</li>
-        <li style={li}><span style={code}>sightings</span> — how many <i>qualifying</i> times each skill has been shown. Ownership needs ≥{`${''}`}2 (corroboration), so one lucky chat doesn't own a skill.</li>
+        <li style={li}><span style={code}>sightings</span> — how many <i>qualifying</i> times each skill has been shown. Ownership needs ≥{`${''}`}3 (corroboration), so one lucky chat doesn't own a skill.</li>
         <li style={li}><span style={code}>strength</span> — unprompted demonstrations; future decay reads this.</li>
         <li style={li}><span style={code}>last_seen</span> — date each skill last appeared; future decay reads this.</li>
         <li style={li}><span style={code}>updated_after_chat</span> — which chat last changed this memory.</li>
@@ -1437,9 +1437,9 @@ function ReadmeView(){
     <RM t="How a skill becomes 'owned' (the rule that matters most)">
       <p style={p}>Three states: <b>locked → emerging → owned</b>. A skill enters <i>emerging</i> on first real evidence. It becomes <i>owned</i> when it's been shown well enough, <b>enough times</b>:</p>
       <ul style={{margin:'0 0 0 16px'}}>
-        <li style={li}><b>The bar scales with level</b> — at A1 a skill is "owned" at confidence ≥0.55 (understood is enough); by B1 it needs ≥0.68 (accuracy matters). A beginner owns by being understood; an advanced learner owns by being correct.</li>
-        <li style={li}><b>Needs ≥2 sightings</b> across chats — not one lucky moment.</li>
-        <li style={li}><b>Effort path at A1/A2</b> — repeated honest attempts can own a skill even without a peak score, because the principle is <i>reward effort, not accuracy</i>.</li>
+        <li style={li}><b>The bar scales with level</b> — at A0 a skill is "owned" at confidence ≥0.55 (understood is enough); by A2 it needs ≥0.68 (accuracy matters). A beginner owns by being understood; an advanced learner owns by being correct.</li>
+        <li style={li}><b>Needs ≥3 sightings</b> across chats — not one lucky moment.</li>
+        <li style={li}><b>Effort path at A0/A1</b> — repeated honest attempts can own a skill even without a peak score, because the principle is <i>reward effort, not accuracy</i>.</li>
         <li style={li}><b>Never demotes</b> here (decay is deferred).</li>
       </ul>
     </RM>
@@ -1449,7 +1449,7 @@ function ReadmeView(){
     </RM>
 
     <RM t="How topics work (why chats stay fresh)">
-      <p style={p}>The <i>skill</i> being targeted may repeat for several chats (a skill takes ≥2 sightings to own). To stop chats feeling samey, the <b>topic</b> changes: a topic bank (from the framework — themes like family, sports, festivals) supplies a fresh topic each chat, chosen to match the learner's interests and avoid <span style={code}>units</span>. Same skill, new context each time. <b>Updated:</b> topics are now lightly tagged to skill functions, and each due skill also carries a Teacher Invisible Plan: strong question, fallback, and judgeable evidence.</p>
+      <p style={p}>The <i>skill</i> being targeted may repeat for several chats (a skill takes ≥3 sightings to own). To stop chats feeling samey, the <b>topic</b> changes: a topic bank (from the framework — themes like family, sports, festivals) supplies a fresh topic each chat, chosen to match the learner's interests and avoid <span style={code}>units</span>. Same skill, new context each time. <b>Updated:</b> topics are now lightly tagged to skill functions, and each due skill also carries a Teacher Invisible Plan: strong question, fallback, and judgeable evidence.</p>
     </RM>
 
     <RM t="What changed in the 9/10 pass — for reviewers">
