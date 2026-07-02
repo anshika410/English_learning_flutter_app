@@ -174,7 +174,8 @@ class GardenStep {
   bool get hasGrowth => skills.any((s) => s.status != SkillStatus.locked);
 
   factory GardenStep.fromJson(Map<String, dynamic> j) => GardenStep(
-        step: (j['step'] as num?)?.toInt() ?? 0,
+        // API returns `unit`; older payloads used `step`. Accept both.
+        step: (j['step'] as num?)?.toInt() ?? (j['unit'] as num?)?.toInt() ?? 0,
         name: (j['name'] ?? '').toString(),
         focus: (j['focus'] ?? '').toString(),
         isCompleted: j['isCompleted'] as bool? ?? j['is_completed'] as bool? ?? false,
@@ -210,8 +211,9 @@ class GardenData {
             (j['activeStepIndex'] as num?)?.toInt() ?? (j['active_step_index'] as num?)?.toInt() ?? 0,
         recommendedTopic:
             (j['recommendedTopic'] ?? j['recommended_topic'] ?? '').toString(),
+        // API returns `units`; older payloads used `steps`. Accept both.
         steps: [
-          for (final s in (j['steps'] as List? ?? const []))
+          for (final s in (j['steps'] as List? ?? j['units'] as List? ?? const []))
             GardenStep.fromJson(Map<String, dynamic>.from(s as Map)),
         ],
       );

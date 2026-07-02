@@ -103,6 +103,15 @@ class EllaApiService {
   Future<GardenData> getGarden() async {
     final data = await _request('GET', '/users/me/garden');
     final garden = GardenData.fromJson(data);
+    // The garden renders nothing without units. If the API responded OK but we
+    // parsed zero units, it's almost always a payload-key change (e.g. the
+    // `steps`→`units` rename): the render silently blanks. Log the top-level
+    // keys we actually received so a future rename is obvious, not a mystery.
+    if (garden.steps.isEmpty) {
+      debugPrint('⚠️ [Garden] parsed 0 units — the garden will render blank. '
+          'Response top-level keys: ${data.keys.toList()}. '
+          'If the units are under a new key, update GardenData.fromJson.');
+    }
     if (kDebugMode) {
       debugPrint('┌─[Garden] parsed level=${garden.level} '
           'label=${garden.levelLabel} theme=${garden.theme} '
