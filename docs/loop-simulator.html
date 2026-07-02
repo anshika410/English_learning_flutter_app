@@ -908,7 +908,7 @@ function App(){
     if (LLM_CONFIG.mode === 'api') {
       try {
         const topicName = topic ? (topic.topic || topic.name) : "Free conversation";
-        const conv = await callEllaAPI('/session', 'POST', customTopic ? { unit: topicName } : {});
+        const conv = await callEllaAPI('/session', 'POST', customTopic ? { topic: topicName } : {});
         setActiveConvId(conv.session_id);
 
         // Update currentTopic from API response (backend derives from due_next)
@@ -2819,7 +2819,7 @@ function getEndpointMeta(path, method) {
   if (path === '/session' && method === 'POST') {
     return {
       desc: 'Creates and initiates a new tutoring conversation session.',
-      schema: { unit: 'string | null (Optional)', topic: 'string | null (Optional - Deprecated)' }
+      schema: { unit: 'string | null (Optional)', topic: 'string | null (Optional)' }
     };
   }
   if (path.startsWith('/session/') && path.endsWith('/turn')) {

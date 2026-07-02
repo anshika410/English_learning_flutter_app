@@ -61,11 +61,12 @@ async def create_conversation(
     topic_name = None
     starters = None
 
-    # Check if body.unit is actually a topic name or topic ID
-    if body.unit:
+    # Check if body.topic or body.unit is actually a topic name or topic ID
+    input_topic = body.topic or body.unit
+    if input_topic:
         level_topics = LEVEL_TOPICS.get(level, [])
         for t in level_topics:
-            if t.get("name") == body.unit or t.get("id") == body.unit:
+            if t.get("name") == input_topic or t.get("id") == input_topic:
                 topic_name = t["name"]
                 starters = t.get("starters")
                 break

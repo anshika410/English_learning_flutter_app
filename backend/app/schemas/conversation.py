@@ -4,11 +4,13 @@ from datetime import datetime
 
 class CreateConversationRequest(BaseModel):
     unit: str | None = None
+    topic: str | None = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "unit": "Describing the world"
+                "unit": "Describing the world",
+                "topic": "Transport and travel"
             }
         }
     }
