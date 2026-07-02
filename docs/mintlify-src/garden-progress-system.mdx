@@ -242,11 +242,9 @@ The client maps the combination of **`status`** and **`sightings`** directly to 
 | **Grammar (GRA)** | ![Grammar Sprout](/logo/fluency-sprout.png) | ![Grammar Mid-Grown](/logo/grammar-mid.png) | ![Grammar Fully Bloomed](/logo/grammar-fully-bloom.png) |
 | **Vocabulary (VOC)** | ![Vocabulary Sprout](/logo/fluency-sprout.png) | ![Vocabulary Mid-Grown](/logo/vocabulary-mid.png) | ![Vocabulary Fully Bloomed](/logo/vocabulary-fully-bloom.png) |
 
-
 ### C. Evidence Storage Rule
 For any skill evidenced during chat analysis:
-*   **Threshold**: If the match confidence is **`0.3` or above** (the grading floor), the verbatim phrase or sentence spoken by the user is recorded.
-*   **Structure**: Instead of saving raw strings, the engine stores a structured object:
+*   **Threshold**: If the match confidence is **`0.70` or above** (matching the grading floor), the verbatim phrase or sentence spoken by the user is recorded.
 *   **Structure**: Instead of saving raw strings, the engine stores a structured object:
     *   `evidence` (`string`): The verbatim quote spoken by the student.
     *   `confidence` (`float`): The LLM confidence score (`0.0` to `1.0`) of the match.
@@ -270,6 +268,11 @@ To keep the conversation aligned with the student's current target path, the `"r
 2. **Elicitation Fetching**: It fetches the corresponding friendly prompt question from the curriculum database (e.g., `"What did you do yesterday? Tell me two things."`).
 3. **Fallback Default**: If no active targets are available, it defaults to the elicitation question of the first unowned skill in the curriculum levels.
 
+### F. target_selector due_next Mechanics
+The target selection algorithm gathers unmastered skills inside the student's active unit to display and prompt during conversations:
+1. **due_next Collection**: Contains all skills inside the active unit step that are not yet marked as `"owned"`.
+2. **Primary Target (`primary`)**: The first un-owned skill in the active unit. Zoe actively attempts to elicit this skill from the student using the structured Teacher Invisible Plan questions.
+3. **Watching Targets (`watching`)**: The other un-owned skills in the active unit step. The grading engine monitors these and records sightings if they are used spontaneously, but the tutor does not prompt for them.
 
 ## 4. Visual Mapping Specifications
 
