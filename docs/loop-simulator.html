@@ -699,6 +699,8 @@ function App(){
   const [chatGoal,setChatGoal]=useState(null); // per-chat arc: warm-up → practice → success/recap
   const [hl,setHl]=useState({});
   const [llmLive,setLlmLive]=useState(null);
+  const [showExploreCard, setShowExploreCard] = useState(true);
+  const [showAllTopics, setShowAllTopics] = useState(false);
   const chatRef=useRef(); const autoStep=useRef(0);
 
   // API specific states
@@ -1209,8 +1211,47 @@ function App(){
     }
   }
 
+  async function startTopicConversation(topicObj) {
+    const n = chatNum + 1;
+    setChatNum(n);
+    setJudgeOut(null);
+    setJudgeDebug(null);
+    setDualJudge(null);
+    setChanges([]);
+    setTurnCount(0);
+    autoStep.current = 0;
+    setShowExploreCard(true);
+    setShowAllTopics(false);
+    
+    try {
+      const memoryData = await callEllaAPI('/users/me/memory');
+      setDbMemory(memoryData || {});
+      const prof = memoryData.profile || {};
+      const nm = freshMemory(level);
+      nm.name = prof.name === '—' ? '' : (prof.name || '');
+      nm.age = prof.age ? parseInt(prof.age) : null;
+      nm.city = prof.city === '—' ? '' : (prof.city || '');
+      nm.interests = memoryData.interests ? (Array.isArray(memoryData.interests) ? memoryData.interests.join(', ') : memoryData.interests) : '';
+      nm.owned = memoryData.owned || [];
+      nm.emerging = memoryData.emerging || [];
+      nm.sightings = memoryData.sightings || {};
+      nm.strength = memoryData.strength || {};
+      nm.effort = memoryData.effort || { times_spoken_total: 0 };
+      nm.units = memoryData.units || memoryData.last_topics || [];
+      nm.last_topics = memoryData.last_topics || [];
+      nm.due_next = (memoryData.due_next && memoryData.due_next.primary) ? memoryData.due_next : targetsListFor(nm, model);
+      setMem(nm);
+    } catch(e) {
+      console.error("Failed to refresh memory:", e);
+    }
+    
+    startConversation(topicObj);
+  }
+
   async function nextChat(){ const n=chatNum+1; setChatNum(n);
     setJudgeOut(null);setJudgeDebug(null);setDualJudge(null);setChanges([]);setTurnCount(0);autoStep.current=0;
+    setShowExploreCard(true);
+    setShowAllTopics(false);
     if (LLM_CONFIG.mode === 'api') {
       // Re-fetch memory from backend (due_next was updated after judging)
       try {
@@ -1320,6 +1361,124 @@ function App(){
           </div>
         ))}
         {busy&&<div className="bub sys">…thinking…</div>}
+        {judgeOut && showExploreCard && (
+          <div style={{
+            background: '#ffffff',
+            border: '1px solid #e5e5e5',
+            borderRadius: '12px',
+            padding: '16px',
+            margin: '12px 8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <button 
+              onClick={() => setShowExploreCard(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'none',
+                border: 'none',
+                fontSize: '16px',
+                cursor: 'pointer',
+                color: '#8a8678',
+                fontWeight: 'bold'
+              }}
+            >
+              ×
+            </button>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#1f1b16'
+            }}>
+              <span>🤖</span> Great chat today! What would you like to explore next?
+            </div>
+            
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px'
+            }}>
+              {(() => {
+                const isApi = LLM_CONFIG.mode === 'api';
+                const topicsList = isApi ? apiTopics : (TOPICS[level] || []);
+                const unused = topicsList.filter(t => {
+                  const tName = t.name || t.topic || "";
+                  return !mem.last_topics.includes(tName);
+                });
+                const pool = unused.length > 0 ? unused : topicsList;
+                const visible = showAllTopics ? pool : pool.slice(0, 3);
+                
+                return (
+                  <>
+                    {visible.map((t, idx) => {
+                      const tName = t.name || t.topic || "";
+                      const tIcon = t.icon || "💬";
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setShowExploreCard(false);
+                            setShowAllTopics(false);
+                            startTopicConversation({ topic: tName, name: tName, starters: t.starters });
+                          }}
+                          style={{
+                            background: '#fcfbfa',
+                            border: '1px solid #e6e1da',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            fontSize: '12.5px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            color: '#3a352e',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.background = '#f3f0eb';
+                            e.currentTarget.style.borderColor = '#dcd7cd';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.background = '#fcfbfa';
+                            e.currentTarget.style.borderColor = '#e6e1da';
+                          }}
+                        >
+                          <span>{tIcon}</span> {tName} &gt;
+                        </button>
+                      );
+                    })}
+                    {!showAllTopics && pool.length > 3 && (
+                      <button
+                        onClick={() => setShowAllTopics(true)}
+                        style={{
+                          background: 'none',
+                          border: '1px dotted #8a8678',
+                          borderRadius: '8px',
+                          padding: '8px 12px',
+                          fontSize: '12.5px',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          color: '#8a8678'
+                        }}
+                      >
+                        Show more ∨
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
       <div className="quickbar">
         <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput(studentMission(flatTargets(mem)[0], level).starter)}>💡 help me answer</button>
