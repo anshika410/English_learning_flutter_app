@@ -11,6 +11,33 @@ We evaluated Android's Speech-to-Text (STT) and Text-to-Speech (TTS) capabilitie
 
 ---
 
+## Current STT & TTS Implementation
+
+Before diving into the platform-level constraints, this section outlines how STT and TTS are currently integrated in the Ella Flutter application.
+
+### 1. Speech-to-Text (STT) Architecture
+
+The STT system is built to provide low-latency, real-time transcription feedback:
+* **Custom Native Channel (`NativeSttService`)**: Instead of relying on generic community packages, the app communicates with a custom native Android [SpeechHandler.kt](file:///Users/sama/AndroidStudioProjects/ella_flutter/frontend/android/app/src/main/kotlin/org/navgurukul/ella/SpeechHandler.kt) wrapper over a `MethodChannel("speech_handler")`.
+* **Timeout Tuning**: The native wrapper configures the Android `SpeechRecognizer` using custom silence tuning parameters to extend the default listening tolerance:
+  * `android.speech.extra.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS` (default: 8000ms): Sets silence length before finalizing.
+  * `android.speech.extra.SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS` (default: 5000ms): Sets silence length before partial results.
+  * `android.speech.extra.SPEECH_INPUT_MINIMUM_LENGTH_MILLIS` (default: 1500ms): Sets minimum audio length.
+* **Interim Feedbacks**: The native callbacks stream results in real time:
+  * `onPartialResults()`: Triggers Dart's `onResult(text, isFinal=false)` to feed live text updates to the UI.
+  * `onResults()`: Triggers Dart's `onResult(text, isFinal=true)` when the user finishes speaking.
+* **Web Fallback**: If run in a browser, it transparently falls back to `WebSttService` which wraps the HTML5 Web Speech API.
+
+### 2. Text-to-Speech (TTS) Architecture
+
+The TTS system supports multiple speech generation engines managed by a central manager:
+* **Central Orchestrator (`TtsManager`)**: Resolves which TTS engine to run based on the host platform and settings.
+* **Native System TTS (`SystemTtsEngine`)**: Serves as the default mobile engine. It utilizes the `flutter_tts` package to delegate directly to Android's native `TextToSpeech` APIs, configured for English (`en-US`) at a friendly reading rate (`0.5` speed).
+* **On-Device Piper TTS (`PiperTtsEngine`)**: Runs custom ONNX vocal models locally for advanced voice accent settings.
+* **Browser TTS (`WebTtsEngine`)**: Accesses the native browser `SpeechSynthesis` API when running on the web.
+
+---
+
 **1. Why Live Transcription Matters**
 
 Live transcription is the single most important capability for a natural-feeling speech experience. When users speak and see their words appear instantly via partial results, the interaction feels real-time and responsive. Without it, the experience feels delayed and broken — users won't wait for a full sentence to be processed before expecting feedback.
