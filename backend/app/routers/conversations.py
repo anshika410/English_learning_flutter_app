@@ -76,7 +76,7 @@ async def create_conversation(
         valid_topics = [t for t in level_topics if t.get("name")]
         
         persona = user.persona_memory or {}
-        used_topics = persona.get("units") or persona.get("last_topics", [])
+        used_topics = persona.get("last_topics", [])
         if not isinstance(used_topics, list):
             used_topics = []
             

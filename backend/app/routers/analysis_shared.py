@@ -209,21 +209,31 @@ async def run_and_save_session_analysis(
         conversation.quality = analysis.get("overall")
         db.add(conversation)
 
-    # Update units (track which units have been used to avoid repeats)
+    # Update units & topics lists separately
     persona = user.persona_memory or {}
-    units_list = persona.get("units") or persona.get("last_topics", [])
+    
+    # 1. Update units (Unit Names)
+    units_list = persona.get("units", [])
     if not isinstance(units_list, list):
         units_list = []
-    if actual_topic and actual_topic not in units_list:
-        units_list.append(actual_topic)
-        # Keep only last 20 units
+    if topic and topic not in units_list:
+        units_list.append(topic)
         if len(units_list) > 20:
             units_list = units_list[-20:]
         persona["units"] = units_list
-        if "last_topics" in persona:
-            del persona["last_topics"]
-        user.persona_memory = dict(persona)
-        flag_modified(user, "persona_memory")
+
+    # 2. Update last_topics (Syllabus Topic Names)
+    last_topics_list = persona.get("last_topics", [])
+    if not isinstance(last_topics_list, list):
+        last_topics_list = []
+    if actual_topic and actual_topic not in last_topics_list:
+        last_topics_list.append(actual_topic)
+        if len(last_topics_list) > 20:
+            last_topics_list = last_topics_list[-20:]
+        persona["last_topics"] = last_topics_list
+
+    user.persona_memory = dict(persona)
+    flag_modified(user, "persona_memory")
 
     # Update interests from extracted facts (detect interest-like facts)
     new_facts = analysis.get("extracted_memory_facts", [])
