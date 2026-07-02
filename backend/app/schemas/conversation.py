@@ -17,6 +17,7 @@ class CreateConversationRequest(BaseModel):
 class ConversationOut(BaseModel):
     session_id: str
     unit: str | None = None
+    topic: str | None = None
     starter: str | None = None
     level: str | None = None
     aimed_at: list[str] | None = None

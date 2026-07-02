@@ -214,8 +214,8 @@ async def run_and_save_session_analysis(
     units_list = persona.get("units") or persona.get("last_topics", [])
     if not isinstance(units_list, list):
         units_list = []
-    if topic and topic not in units_list:
-        units_list.append(topic)
+    if actual_topic and actual_topic not in units_list:
+        units_list.append(actual_topic)
         # Keep only last 20 units
         if len(units_list) > 20:
             units_list = units_list[-20:]

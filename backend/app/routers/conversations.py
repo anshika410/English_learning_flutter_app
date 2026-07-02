@@ -55,8 +55,10 @@ async def create_conversation(
     if active_unit_obj:
         aimed_skills = [s["id"] for s in active_unit_obj.get("skills", [])]
 
+    unit_name = active_unit_obj.get("name", "Free Talk") if active_unit_obj else "Free Talk"
+
     # Select a conversational topic from LEVEL_TOPICS instead of using the Unit name
-    topic = None
+    topic_name = None
     starters = None
 
     # Check if body.unit is actually a topic name or topic ID
@@ -64,11 +66,11 @@ async def create_conversation(
         level_topics = LEVEL_TOPICS.get(level, [])
         for t in level_topics:
             if t.get("name") == body.unit or t.get("id") == body.unit:
-                topic = t["name"]
+                topic_name = t["name"]
                 starters = t.get("starters")
                 break
 
-    if not topic:
+    if not topic_name:
         import random
         level_topics = LEVEL_TOPICS.get(level, [])
         valid_topics = [t for t in level_topics if t.get("name")]
@@ -83,22 +85,20 @@ async def create_conversation(
         
         if pool:
             selected_topic = random.choice(pool)
-            topic = selected_topic["name"]
+            topic_name = selected_topic["name"]
             starters = selected_topic.get("starters")
         else:
-            topic = "Free Talk"
+            topic_name = "Free Talk"
 
     # Generate starter using LLM
     try:
-        starter_data = await llm_service.generate_conversation_starter(topic=topic, starters=starters)
+        starter_data = await llm_service.generate_conversation_starter(topic=topic_name, starters=starters)
         starter_text = starter_data["starter"]
-        header_title = starter_data.get("header_title", topic)
     except Exception as e:
         # Fallback starter if LLM fails
         starter_text = "Hi! I’m Zoe. Let's talk!"
-        header_title = topic or "Free Talk"
 
-    conv = Conversation(user_id=user.id, topic=topic, header_title=header_title)
+    conv = Conversation(user_id=user.id, topic=unit_name, header_title=topic_name)
     db.add(conv)
     await db.flush()
 
@@ -465,6 +465,7 @@ def _conv_out(c: Conversation, starter: str | None = None, level: str | None = N
     return ConversationOut(
         session_id=c.id,
         unit=c.topic,
+        topic=c.header_title,
         starter=starter,
         level=level,
         aimed_at=aimed_at,
