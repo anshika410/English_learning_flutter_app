@@ -676,6 +676,7 @@ const MOCK_KID=['My name is Priya.','I am eleven.','Yes, one sister. Her name An
 
 function App(){
   const [model,setModel]=useState('unit'); // 'skill' | 'unit'
+  const [nextChatType,setNextChatType]=useState('unit');
   const [level,setLevel]=useState('A1');
   const [mem,setMem]=useState(()=>freshMemory('A1'));
   const [currentTopic,setCurrentTopic]=useState(null);
@@ -937,7 +938,35 @@ function App(){
     const mctx=memOverride||mem;
     const activeModel=modelOverride||model;
     const primary=flatTargets(mctx, activeModel)[0];
-    const topic=pickTopic(mctx, primary, topicsDataArg || apiTopics);
+    
+    let topic = null;
+    if (nextChatType === 'free') {
+      topic = {
+        theme: "Free Talk",
+        topic: "Free Talk",
+        starters: ""
+      };
+    } else if (nextChatType.startsWith('topic:')) {
+      const topicId = nextChatType.split(':')[1];
+      const bank = topicsDataArg || apiTopics || (LLM_CONFIG.mode !== 'api' ? (TOPICS[mctx.level] || []) : []);
+      const found = bank.find(t => (t.id === topicId || t.topic === topicId));
+      if (found) {
+        topic = {
+          theme: found.theme || "General",
+          topic: found.name || found.topic,
+          starters: found.starters ? (Array.isArray(found.starters) ? found.starters.join(" / ") : found.starters) : ""
+        };
+      } else {
+        topic = {
+          theme: "Free Talk",
+          topic: "Free Talk",
+          starters: ""
+        };
+      }
+    } else {
+      topic = pickTopic(mctx, primary, topicsDataArg || apiTopics);
+    }
+
     setCurrentTopic(topic);
     setChatGoal(chatGoalFor(primary, topic, mctx.level));
     setLlmLive(null);
@@ -945,8 +974,16 @@ function App(){
 
     if (LLM_CONFIG.mode === 'api') {
       try {
-        const topicName = topic ? topic.topic : "Free conversation";
-        const conv = await callEllaAPI('/session', 'POST', {});
+        const body = {};
+        if (nextChatType === 'free') {
+          body.session_type = 'free';
+        } else if (nextChatType.startsWith('topic:')) {
+          body.session_type = 'topic';
+          body.topic_id = nextChatType.split(':')[1];
+        } else {
+          body.session_type = 'unit';
+        }
+        const conv = await callEllaAPI('/session', 'POST', body);
         setActiveConvId(conv.session_id);
 
         // Update currentTopic from API response (backend derives from due_next)
@@ -973,7 +1010,13 @@ function App(){
   }
 
   function fallbackZoeOpens(activeChatNum, activeModel, primary, topic, lvl) {
-    const plannedOpen=primary ? ('Hi! I’m Zoe. '+skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
+    let plannedOpen = primary ? ('Hi! I’m Zoe. '+skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
+    if (topic && topic.starters) {
+      const parts = topic.starters.split(" / ");
+      if (parts.length > 0 && parts[0].trim()) {
+        plannedOpen = 'Hi! I’m Zoe. ' + parts[Math.floor(Math.random() * parts.length)].trim();
+      }
+    }
     setMsgs([
       {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(topic?(' — topic: '+topic.topic):'')},
       {role:'zoe',text:plannedOpen}
@@ -1331,9 +1374,22 @@ function App(){
         {!auto&&<button className="act" disabled={busy||!!judgeOut} onClick={()=>sendKid(input)}>Send</button>}
         {auto&&<button className="act" disabled={busy||!!judgeOut} onClick={autoTurn}>Next turn ▶</button>}
       </div>
-      <div className="inrow" style={{borderTop:'none',paddingTop:0}}>
+      <div className="inrow" style={{borderTop:'none',paddingTop:0, flexWrap:'wrap', gap:6, alignItems:'center'}}>
         <button className="ghost" onClick={()=>setAuto(a=>!a)}>{auto?'✋ manual':'🤖 auto'}</button>
         <button className="act" disabled={busy||!!judgeOut} onClick={endChat}>End chat & judge ⚖️</button>
+        
+        <span style={{fontSize:11, marginLeft:8, color:'var(--grey)'}}>Next Mode:</span>
+        <select value={nextChatType} onChange={e=>setNextChatType(e.target.value)} style={{fontSize:11, padding:'2px 4px', borderRadius:4, border:'1px solid var(--rule)'}}>
+          <option value="unit">Syllabus Unit (Guided)</option>
+          <option value="free">Free Talk</option>
+          {(() => {
+            const bank = LLM_CONFIG.mode === 'api' ? apiTopics : (TOPICS[level] || []);
+            return bank.map(t => (
+              <option key={t.id || t.topic} value={`topic:${t.id || t.topic}`}>{t.name || t.topic}</option>
+            ));
+          })()}
+        </select>
+
         <button className="ghost" disabled={busy} onClick={nextChat}>Next chat →</button>
         <button className="ghost" onClick={resetAll}>Reset</button>
       </div>
