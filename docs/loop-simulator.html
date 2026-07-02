@@ -1353,12 +1353,12 @@ function App(){
         <select value={level} onChange={e=>changeLevel(e.target.value)}>
           {['A0','A1','A2','B1','B2','C1'].map(l => {
             const labels = {
-              'A0': 'A0 (First words)',
-              'A1': 'A1 (Finding my voice)',
-              'A2': 'A2 (Speaking freely)',
-              'B1': 'B1 (Almost fluent)',
-              'B2': 'B2 (Fluent)',
-              'C1': 'C1 (Advanced/Mastery)'
+              'A0': 'A0',
+              'A1': 'A1',
+              'A2': 'A2',
+              'B1': 'B1',
+              'B2': 'B2',
+              'C1': 'C1'
             };
             return <option key={l} value={l}>{labels[l]}</option>;
           })}
