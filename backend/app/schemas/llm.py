@@ -81,7 +81,7 @@ class PlacementTurnResponse(BaseModel):
     age: int | None = None
     age_group: str | None = None
     level: str | None = None
-    level_name: str | None = None
+    unit_name: str | None = None
     level_description: str | None = None
     confidence: str | None = None
     possible_higher: bool | None = None

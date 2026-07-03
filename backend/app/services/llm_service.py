@@ -313,7 +313,7 @@ async def send_placement_turn(
                 "age": data.get("age"),
                 "age_group": data.get("age_group"),
                 "level": data.get("level") or data.get("level_code"),
-                "level_name": data.get("level_name"),
+                "unit_name": data.get("unit_name") or data.get("level_name"),
                 "level_description": data.get("level_description"),
                 "confidence": data.get("confidence"),
                 "possible_higher": data.get("possible_higher"),

@@ -73,7 +73,7 @@ class BackendLlmService {
     if (isComplete) {
       return PlacementMessageResult.complete(
         levelCode: data['level_code'] as String?,
-        levelName: data['level_name'] as String?,
+        levelName: (data['unit_name'] ?? data['level_name']) as String?,
         levelDescription: data['level_description'] as String?,
         confidence: data['confidence'] as String?,
         possibleHigher: data['possible_higher'] as bool?,
