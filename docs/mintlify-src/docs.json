@@ -43,6 +43,12 @@
         ]
       },
       {
+        "group": "Placement",
+        "pages": [
+          "voice-placement-system"
+        ]
+      },
+      {
         "group": "Architecture & Latency",
         "pages": [
           "memory_feature_feasibility"
