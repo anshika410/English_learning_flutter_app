@@ -1079,10 +1079,12 @@ function App(){
                 setDbMemory(memoryData || {});
                 const gardenData = await callEllaAPI('/users/me/garden');
                 setDbGarden(gardenData || null);
+                changeLevel(response.level);
+                setSessionType('standard');
               } catch (e) {
                 console.error("Failed to auto-refresh state:", e);
               }
-            }, 200);
+            }, 500);
           } else {
             setMsgs(m => [...m, { role: 'zoe', text: response.reply }]);
           }
@@ -1107,6 +1109,10 @@ function App(){
               evidence_summary: 'Used simple sentences correctly about routines.',
               interests: ['music', 'cricket']
             });
+            setTimeout(() => {
+              changeLevel('A2');
+              setSessionType('standard');
+            }, 500);
           } else {
             setMsgs(m => [...m, { role: 'zoe', text: 'That is interesting! Tell me more about that.' }]);
           }
@@ -1517,7 +1523,6 @@ function App(){
             {placementAssessment.interests && placementAssessment.interests.length > 0 && (
               <p style={{fontSize:12.5,margin:'4px 0'}}>Interests: {placementAssessment.interests.join(', ')}</p>
             )}
-            <button className="act" style={{background:'#2e7d32',marginTop:12,width:'100%',padding:'8px 12px',cursor:'pointer',border:'none',borderRadius:'6px',color:'#fff',fontWeight:'bold'}} onClick={applyPlacement}>Start Curriculum 🚀</button>
           </div>
         )}
         {judgeOut && showExploreCard && (
