@@ -710,7 +710,8 @@ function App(){
   const [dbGarden, setDbGarden] = useState(null);
   const [backendAnalysis, setBackendAnalysis] = useState(null);
   const [isApiAuthed, setIsApiAuthed] = useState(false);
-  const [apiLogs, setApiLogs] = useState([]);
+  const [sessionType, setSessionType] = useState('standard'); // 'standard' | 'placement'
+  const [placementAssessment, setPlacementAssessment] = useState(null);
 
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs]);
 
@@ -888,6 +889,97 @@ function App(){
     const support=intent?`\nLEARNER SUPPORT SIGNAL: ${intent}. First handle this: ${intent==='example'?'give one simple example, then ask them to try':intent==='easier'?'make the question smaller and offer a sentence frame':intent==='repeat'?'repeat in simpler words':intent==='affect'?'validate the feeling briefly and switch to an easier/fun choice question':'support'}.`:'';
     return `${prompts.base}\n\n${profileFor(level)}\n\n${frame}${topicLine}${arc}${support}\n${mctx.interests?('\nLEARNER INTERESTS: '+mctx.interests):''}${(mctx.units&&mctx.units.length)?('\nRECENT TOPICS (avoid repeating): '+mctx.units.join(', ')):''}\n\nCONVERSATION SO FAR:\n${convo||'(none — you open)'}\n\nReply with ONLY Zoe's next short spoken turn.`;
   }
+  async function startPlacementTest() {
+    setMsgs([]);
+    setJudgeOut(null);
+    setDualJudge(null);
+    setJudgeDebug(null);
+    setChanges([]);
+    setPlacementAssessment(null);
+    setSessionType('placement');
+    setBusy(true);
+    setTurnCount(0);
+    autoStep.current = 0;
+    setChatGoal("Determine learner's CEFR speaking level through adaptive conversation.");
+    setLlmLive(null);
+
+    const activeChatNum = chatNum;
+
+    if (LLM_CONFIG.mode === 'api') {
+      try {
+        const response = await callEllaAPI('/llm/placement-turn', 'POST', {
+          messages: [],
+          name: mem.name || "Student",
+          age: mem.age || 13
+        });
+        
+        setActiveConvId("placement_session");
+
+        setMsgs([
+          {role:'sys',text:'Placement Test — meeting Zoe for assessment'},
+          {role:'zoe',text:response.reply || "Hi! I'm Zoe. Let's chat!"}
+        ]);
+        setLlmLive(true);
+      } catch (err) {
+        console.error("Failed to start placement test:", err);
+        setMsgs([
+          {role:'sys',text:'Failed to start placement test: ' + (err.message || String(err))},
+        ]);
+      } finally {
+        setBusy(false);
+      }
+    } else {
+      setMsgs([
+        {role:'sys',text:'Placement Test (Mock Mode)'},
+        {role:'zoe',text:"Hi! I'm Zoe. Nice to meet you! Tell me, what's your name, and what is your favorite thing to do?"}
+      ]);
+      setBusy(false);
+    }
+  }
+
+  async function applyPlacement() {
+    if (!placementAssessment) return;
+    setBusy(true);
+    try {
+      if (LLM_CONFIG.mode === 'api') {
+        const apiMsgs = msgs.filter(m=>m.role==='zoe'||m.role==='me').map(m=>({
+          role: m.role==='me' ? 'user' : 'assistant',
+          content: m.text
+        }));
+
+        await callEllaAPI('/placements', 'POST', {
+          level: placementAssessment.level,
+          unit_label: placementAssessment.level_name || placementAssessment.unit_label,
+          confidence: placementAssessment.confidence || 'medium',
+          highlight: placementAssessment.evidence_summary || 'Assessed via simulator',
+          transcript_json: apiMsgs,
+          interests: placementAssessment.interests || []
+        });
+
+        const memoryData = await callEllaAPI('/users/me/memory');
+        setDbMemory(memoryData || {});
+        
+        try {
+          const gardenData = await callEllaAPI('/users/me/garden');
+          setDbGarden(gardenData || null);
+        } catch (ge) {
+          console.error("Failed to load garden after placement save:", ge);
+        }
+      }
+
+      changeLevel(placementAssessment.level);
+      alert(`Level applied! Active profile set to: ${placementAssessment.level} - ${placementAssessment.level_name || placementAssessment.unit_label}`);
+      setPlacementAssessment(null);
+      setSessionType('standard');
+      nextChat();
+    } catch (e) {
+      console.error("Failed to save placement:", e);
+      alert("Error saving placement: " + (e.message || String(e)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function startConversation(customTopic = null) {
     setMsgs([]);
     setJudgeOut(null);
@@ -997,6 +1089,56 @@ function App(){
     if(!text.trim()||busy)return;
     const currentTurnNum = turnCount * 2 + 1;
     const nm=[...msgs,{role:'me',text}]; setMsgs(nm); setInput(''); setTurnCount(c=>c+1); setBusy(true);
+
+    if (sessionType === 'placement') {
+      if (LLM_CONFIG.mode === 'api') {
+        try {
+          const apiMsgs = nm.filter(m=>m.role==='zoe'||m.role==='me').map(m=>({
+            role: m.role==='me' ? 'user' : 'assistant',
+            content: m.text
+          }));
+
+          const response = await callEllaAPI('/llm/placement-turn', 'POST', {
+            messages: apiMsgs,
+            name: mem.name || "Student",
+            age: mem.age || 13
+          });
+
+          if (response.is_complete) {
+            setMsgs(m => [...m, { role: 'sys', text: 'Placement test complete!' }]);
+            setPlacementAssessment(response);
+          } else {
+            setMsgs(m => [...m, { role: 'zoe', text: response.reply }]);
+          }
+          setLlmLive(true);
+        } catch (err) {
+          console.error("Failed to send placement turn:", err);
+          setMsgs(m => [...m, { role: 'sys', text: 'Error calling placement API: ' + (err.message || String(err)) }]);
+        } finally {
+          setBusy(false);
+        }
+      } else {
+        // Mock local completion on turn 5
+        setTimeout(() => {
+          if (turnCount >= 4) {
+            setMsgs(m => [...m, { role: 'sys', text: 'Placement test complete!' }]);
+            setPlacementAssessment({
+              is_complete: true,
+              level: 'A2',
+              level_name: 'Finding My Voice',
+              level_description: 'Can communicate in simple and routine tasks.',
+              confidence: 'high',
+              evidence_summary: 'Used simple sentences correctly about routines.',
+              interests: ['music', 'cricket']
+            });
+          } else {
+            setMsgs(m => [...m, { role: 'zoe', text: 'That is interesting! Tell me more about that.' }]);
+          }
+          setBusy(false);
+        }, 800);
+      }
+      return;
+    }
 
     if (LLM_CONFIG.mode === 'api' && activeConvId) {
       let isComplete = false;
@@ -1252,6 +1394,8 @@ function App(){
     setJudgeOut(null);setJudgeDebug(null);setDualJudge(null);setChanges([]);setTurnCount(0);autoStep.current=0;
     setShowExploreCard(true);
     setShowAllTopics(false);
+    setSessionType('standard');
+    setPlacementAssessment(null);
     if (LLM_CONFIG.mode === 'api') {
       // Re-fetch memory from backend (due_next was updated after judging)
       try {
@@ -1294,6 +1438,8 @@ function App(){
     }
   }
   function resetAll(){
+    setSessionType('standard');
+    setPlacementAssessment(null);
     if (LLM_CONFIG.mode === 'api') {
       localStorage.removeItem('ella_access_token');
       localStorage.removeItem('ella_device_id');
@@ -1348,7 +1494,15 @@ function App(){
         </div>
       </div>
       <div className="statline">Chat #{chatNum} · {model} · {level} · turns: {turnCount} · lifetime talks: {mem.effort.times_spoken_total} · LLM: {llmLive===null?'—':llmLive?'live':'mock'}</div>
-      {(()=>{const ms=studentMission(flatTargets(mem)[0], level); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()}
+      {sessionType === 'placement' ? (
+        <div className="mission" style={{borderColor:'var(--rust)'}}>
+          <b>Diagnostic Screening:</b> Talk to Zoe naturally. She is assessing your speaking capability.
+          <span className="phasepill" style={{background:'var(--rust)'}}>placement</span>
+          <div className="mini">Respond to Zoe's questions. The test completes automatically once she has enough evidence (typically 5-7 turns).</div>
+        </div>
+      ) : (
+        (()=>{const ms=studentMission(flatTargets(mem)[0], level); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()
+      )}
       <div className="chat" ref={chatRef}>
         {msgs.map((m,i)=>(
           <div key={i} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
@@ -1361,6 +1515,26 @@ function App(){
           </div>
         ))}
         {busy&&<div className="bub sys">…thinking…</div>}
+        {placementAssessment && (
+          <div style={{
+            background: '#eaf5ea',
+            border: '1.5px solid #c3e6c5',
+            borderRadius: '12px',
+            padding: '16px',
+            margin: '12px 8px',
+            color: '#1e4620',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+          }}>
+            <h3 style={{marginTop:0,marginBottom:8,color:'#1e4620'}}>🎉 Placement Test Complete!</h3>
+            <p style={{fontSize:13.5,margin:'4px 0'}}>Assessed Level: <b>{placementAssessment.level} - {placementAssessment.level_name || placementAssessment.unit_label}</b></p>
+            <p style={{fontSize:12.5,color:'#3b7a3e',margin:'4px 0'}}>Confidence: {placementAssessment.confidence || 'medium'}</p>
+            <p style={{fontSize:12.5,margin:'8px 0',lineHeight:1.4}}><i>{placementAssessment.evidence_summary}</i></p>
+            {placementAssessment.interests && placementAssessment.interests.length > 0 && (
+              <p style={{fontSize:12.5,margin:'4px 0'}}>Interests: {placementAssessment.interests.join(', ')}</p>
+            )}
+            <button className="act" style={{background:'#2e7d32',marginTop:12,width:'100%',padding:'8px 12px',cursor:'pointer',border:'none',borderRadius:'6px',color:'#fff',fontWeight:'bold'}} onClick={applyPlacement}>Apply level to profile & start curriculum</button>
+          </div>
+        )}
         {judgeOut && showExploreCard && (
           <div style={{
             background: '#ffffff',
@@ -1481,20 +1655,25 @@ function App(){
         )}
       </div>
       <div className="quickbar">
-        <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput(studentMission(flatTargets(mem)[0], level).starter)}>💡 help me answer</button>
-        <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput('Can you make it easier?')}>Make it easier</button>
-        <button className="ghost" disabled={busy||auto||!!judgeOut} onClick={()=>setInput('Please give me an example.')}>Example</button>
+        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput(studentMission(flatTargets(mem)[0], level).starter)}>💡 help me answer</button>
+        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput('Can you make it easier?')}>Make it easier</button>
+        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput('Please give me an example.')}>Example</button>
       </div>
       <div className="inrow">
-        <input value={input} placeholder={judgeOut ? 'Chat completed. Click Next chat →' : auto ? 'auto-mode on' : 'type as the learner…'} disabled={auto||busy||!!judgeOut} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')sendKid(input);}}/>
-        {!auto&&<button className="act" disabled={busy||!!judgeOut} onClick={()=>sendKid(input)}>Send</button>}
-        {auto&&<button className="act" disabled={busy||!!judgeOut} onClick={autoTurn}>Next turn ▶</button>}
+        <input value={input} placeholder={judgeOut ? 'Chat completed. Click Next chat →' : placementAssessment ? 'Placement test complete.' : auto ? 'auto-mode on' : 'type as the learner…'} disabled={auto||busy||!!judgeOut||!!placementAssessment} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')sendKid(input);}}/>
+        {!auto&&<button className="act" disabled={busy||!!judgeOut||!!placementAssessment} onClick={()=>sendKid(input)}>Send</button>}
+        {auto&&<button className="act" disabled={busy||!!judgeOut||!!placementAssessment} onClick={autoTurn}>Next turn ▶</button>}
       </div>
       <div className="inrow" style={{borderTop:'none',paddingTop:0}}>
         <button className="ghost" onClick={()=>setAuto(a=>!a)}>{auto?'✋ manual':'🤖 auto'}</button>
-        <button className="act" disabled={busy||!!judgeOut} onClick={endChat}>End chat & judge ⚖️</button>
+        {sessionType === 'placement' ? (
+          <button className="act" style={{background:'var(--rust)',cursor:'not-allowed'}} disabled={true}>Placement Active</button>
+        ) : (
+          <button className="act" disabled={busy||!!judgeOut} onClick={endChat}>End chat & judge ⚖️</button>
+        )}
         <button className="ghost" disabled={busy} onClick={nextChat}>Next chat →</button>
         <button className="ghost" onClick={resetAll}>Reset</button>
+        <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)',fontWeight:'bold'}} disabled={busy||!!placementAssessment} onClick={startPlacementTest}>📝 Placement Test</button>
       </div>
     </div>
     <div className="col right">
