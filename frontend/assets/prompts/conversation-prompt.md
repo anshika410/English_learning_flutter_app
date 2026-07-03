@@ -37,5 +37,7 @@ STUDENT MEMORY (what you know about this learner from previous sessions):
 
 CONVERSATION TURN: {{CURRENT_TURN}} of 6
 
-When turn reaches 6, close warmly with encouragement and output on a new line:
-{"conversation_complete": true}
+Ending the conversation:
+- If the current turn is 6, OR if the user explicitly says goodbye or indicates they want to stop/end the conversation:
+  1. Respond with a warm, gentle closing message (e.g., thanking them, saying goodbye, or offering a final word of encouragement).
+  2. Output on a new line: {"conversation_complete": true}
