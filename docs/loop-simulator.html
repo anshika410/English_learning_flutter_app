@@ -676,8 +676,8 @@ const MOCK_KID=['My name is Priya.','I am eleven.','Yes, one sister. Her name An
 
 function App(){
   const [model,setModel]=useState('unit'); // 'skill' | 'unit'
-  const [level,setLevel]=useState('A1');
-  const [mem,setMem]=useState(()=>freshMemory('A1'));
+  const [level,setLevel]=useState('A0');
+  const [mem,setMem]=useState(()=>freshMemory('A0'));
   const [currentTopic,setCurrentTopic]=useState(null);
   const [prompts,setPrompts]=useState(DEFAULT_PROMPTS);
   const [msgs,setMsgs]=useState([]);
@@ -818,7 +818,7 @@ function App(){
           console.error("Failed to fetch topics:", te);
         }
 
-        let targetLvl = lvl || memoryData.level || 'A1';
+        let targetLvl = lvl || memoryData.level || 'A0';
         setLevel(targetLvl);
         const prof = memoryData.profile || {};
         const nm = freshMemory(targetLvl);
@@ -2339,8 +2339,8 @@ function TopicsView({ mem, onStartTopic, apiTopics }) {
 function GardenView({mem, dbGarden}) {
   const [selectedSkill, setSelectedSkill] = React.useState(null);
   const isApi = LLM_CONFIG.mode === 'api' && dbGarden;
-  const level = isApi ? (dbGarden.level || mem.level || 'A1') : (mem.level || 'A1');
-  const steps = UNITS[level] || UNITS['A1'] || [];
+  const level = isApi ? (dbGarden.level || mem.level || 'A0') : (mem.level || 'A0');
+  const steps = UNITS[level] || UNITS['A0'] || [];
   const active = activeStep(mem);
   const activeStepNum = isApi ? (dbGarden.active_step_index || 1) : (active ? active.step : (UNITS[mem.level] ? UNITS[mem.level].length : 4));
   
