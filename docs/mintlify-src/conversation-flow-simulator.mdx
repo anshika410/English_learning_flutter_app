@@ -45,6 +45,25 @@ The Loop Simulator at [ella.navgurukul.org/v2/conversation-flow/](https://ella.n
 5. Back to step 1
 ```
 
+## The Diagnostic Placement Loop (API sequence)
+
+During the Voice Placement screening test, the standard learning loop is bypassed. No active conversation session is created, and `/llm/judge` is not called. Instead, the loop is stateless and adaptive:
+
+```mermaid
+graph TD
+    A[POST /llm/placement-turn <br> turns 1 to 6] --> B{Zoe says is_complete?}
+    B -- No --> A
+    B -- Yes, returns level & unit_name --> C[POST /placements <br> saves level & transcript to DB]
+```
+
+1. **`POST /llm/placement-turn`** (Stateless conversation turn — repeated 5-7 times):
+   - The app holds the message history locally and submits it on every turn.
+   - When the LLM decides the test is complete, the response returns `is_complete: true` along with the graded CEFR level, `unit_name`, evidence highlights, and interests.
+   - **Note**: The simulator does **not** call `/llm/judge` during the placement test, preventing `404` errors since there is no database session record.
+2. **`POST /placements`** (Save placement results):
+   - The client takes the grading payload and posts it to `/placements` to update `user.level` and initialize their syllabus path.
+
+
 ## Session Tab Structure
 
 Each entry in the Session tab is assembled locally after the judge grades a conversation:
