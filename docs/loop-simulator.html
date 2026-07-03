@@ -910,8 +910,8 @@ function App(){
       try {
         const response = await callEllaAPI('/llm/placement-turn', 'POST', {
           messages: [],
-          name: mem.name || "Student",
-          age: mem.age || 13
+          name: mem.name || null,
+          age: mem.age || null
         });
         
         setActiveConvId("placement_session");
@@ -1101,8 +1101,8 @@ function App(){
 
           const response = await callEllaAPI('/llm/placement-turn', 'POST', {
             messages: apiMsgs,
-            name: mem.name || "Student",
-            age: mem.age || 13
+            name: mem.name || null,
+            age: mem.age || null
           });
 
           if (response.is_complete) {
