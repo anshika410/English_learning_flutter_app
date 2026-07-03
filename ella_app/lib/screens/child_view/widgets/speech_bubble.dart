@@ -11,6 +11,11 @@ class SpeechBubble extends StatelessWidget {
   final String text;
   final bool showTail;
   final bool italic;
+
+  /// Tail placement. Normally the tail sits on top pointing up at Zoe; when
+  /// [tailDown] is true it moves to the bottom and points down toward the mic —
+  /// a cue that the bubble is showing the child's own words.
+  final bool tailDown;
   final Widget? footer;
 
   const SpeechBubble({
@@ -18,6 +23,7 @@ class SpeechBubble extends StatelessWidget {
     required this.text,
     this.showTail = false,
     this.italic = false,
+    this.tailDown = false,
     this.footer,
   });
 
@@ -61,29 +67,46 @@ class SpeechBubble extends StatelessWidget {
 
     if (!showTail) return bubble;
 
+    final tail = CustomPaint(
+      size: const Size(22, 11),
+      painter: _TailPainter(pointDown: tailDown),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
-      children: [
-        CustomPaint(size: const Size(22, 11), painter: _TailPainter()),
-        bubble,
-      ],
+      children: tailDown ? [bubble, tail] : [tail, bubble],
     );
   }
 }
 
 class _TailPainter extends CustomPainter {
+  // false → apex at top (points up at Zoe); true → apex at bottom (points down
+  // toward the mic).
+  final bool pointDown;
+  const _TailPainter({this.pointDown = false});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = EllaColors.bubbleSurface;
-    final path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
+    final path = Path();
+    if (pointDown) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(size.width / 2, size.height)
+        ..close();
+    } else {
+      path
+        ..moveTo(size.width / 2, 0)
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height)
+        ..close();
+    }
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(_TailPainter oldDelegate) => false;
+  bool shouldRepaint(_TailPainter oldDelegate) =>
+      oldDelegate.pointDown != pointDown;
 }

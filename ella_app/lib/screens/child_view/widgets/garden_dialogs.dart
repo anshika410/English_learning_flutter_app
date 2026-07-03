@@ -14,6 +14,26 @@ const Color _parchment = Color(0xFFFBF4E4);
 const Color _parchmentLine = Color(0xFFE7D7B6);
 const Color _ink = Color(0xFF4A3621);
 
+/// Short "time ago" label for an evidence timestamp, e.g. "2 days ago".
+/// Returns null when there is no timestamp to show.
+String? _relativeTime(DateTime? dt) {
+  if (dt == null) return null;
+  final diff = DateTime.now().difference(dt);
+  if (diff.inDays >= 1) {
+    final d = diff.inDays;
+    return '$d day${d == 1 ? '' : 's'} ago';
+  }
+  if (diff.inHours >= 1) {
+    final h = diff.inHours;
+    return '$h hour${h == 1 ? '' : 's'} ago';
+  }
+  if (diff.inMinutes >= 1) {
+    final m = diff.inMinutes;
+    return '$m minute${m == 1 ? '' : 's'} ago';
+  }
+  return 'just now';
+}
+
 void showSkillSheet(BuildContext context, GardenStep step, GardenSkill skill) {
   _showParchment(
     context,
@@ -116,9 +136,9 @@ class _SkillSheetBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SvgPicture.asset(skill.strand.icon, width: 34, height: 34),
+            SvgPicture.asset(skill.strand.icon, width: 64, height: 64),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -176,7 +196,7 @@ class _SkillSheetBody extends StatelessWidget {
             const SizedBox(height: 8),
           ],
         ] else
-          _EmptyState(strand: skill.strand),
+          Center(child: _EmptyState(strand: skill.strand)),
       ],
     );
   }
@@ -189,10 +209,13 @@ class _EvidenceBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Caption is the conversation topic this evidence came from (API), not a
-    // prompted/own label, and we no longer surface the raw % match.
-    final sub = evidence.topic.isNotEmpty
-        ? evidence.topic
+    // prompted/own label, and we no longer surface the raw % match. When the
+    // API includes a timestamp we append when it was said ("· 2 days ago").
+    final base = evidence.topic.isNotEmpty
+        ? 'Talking about ${evidence.topic}'
         : (evidence.prompted ? 'Zoe asked' : 'On your own');
+    final when = _relativeTime(evidence.createdAt);
+    final sub = when == null ? base : '$base  •  $when';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -235,11 +258,14 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SvgPicture.asset('assets/information-box/clock.svg', width: 40, height: 40),
+        SvgPicture.asset('assets/gardent-view/tiles.svg', width: 56),
         const SizedBox(height: 10),
         Text(
           'Waiting to be planted!',
+          textAlign: TextAlign.center,
           style: GoogleFonts.baloo2(
             fontSize: 15,
             fontWeight: FontWeight.w700,

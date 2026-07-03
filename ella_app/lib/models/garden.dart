@@ -30,13 +30,21 @@ extension StrandInfo on Strand {
         Strand.unknown => 'Skill',
       };
 
-  /// The full-bloom plant art for this strand (FLU=Rose, VOC=Marigold, GRA=Purple).
-  String get bloomAsset => switch (this) {
-        Strand.voc => 'assets/gardent-view/plannts-vocobulary-bloom.svg',
-        Strand.flu => 'assets/gardent-view/plants-fluency-bloom.svg',
-        Strand.gra => 'assets/gardent-view/plants-grammer-bloom.svg',
-        Strand.unknown => 'assets/gardent-view/plannts-vocobulary-bloom.svg',
+  /// File-name stem for this strand's plant art in assets/garden/plants/.
+  String get _plantStem => switch (this) {
+        Strand.voc => 'vocab',
+        Strand.flu => 'fluency',
+        Strand.gra => 'grammar',
+        Strand.unknown => 'vocab',
       };
+
+  /// Growth-stage plant art for this strand, from assets/garden/plants/.
+  /// Stages are keyed off sightings (1 → seedling, 2 → young, ≥3 → bloom).
+  String get seedlingAsset => 'assets/garden/plants/$_plantStem-seedling.svg';
+  String get youngAsset => 'assets/garden/plants/$_plantStem-young.svg';
+
+  /// The full-bloom plant art for this strand (FLU=Rose, VOC=Marigold, GRA=Purple).
+  String get bloomAsset => 'assets/garden/plants/$_plantStem-bloom.svg';
 
   /// Small icon used in the skill detail dialogs.
   String get icon => switch (this) {
@@ -108,11 +116,16 @@ class GardenEvidence {
   /// shown as the caption under the quote in the Skill Sheet).
   final String topic;
 
+  /// When this evidence was recorded (from the API), shown as a relative
+  /// timestamp ("2 days ago") after the topic. Null if the API omits it.
+  final DateTime? createdAt;
+
   const GardenEvidence({
     required this.quote,
     required this.confidence,
     required this.prompted,
     this.topic = '',
+    this.createdAt,
   });
 
   factory GardenEvidence.fromJson(Map<String, dynamic> j) => GardenEvidence(
@@ -120,6 +133,10 @@ class GardenEvidence {
         confidence: (j['confidence'] as num?)?.toDouble() ?? 0,
         prompted: j['prompted'] as bool? ?? false,
         topic: (j['topic'] ?? j['conversation_topic'] ?? '').toString(),
+        createdAt: DateTime.tryParse(
+          (j['created_at'] ?? j['recorded_at'] ?? j['timestamp'] ?? '')
+              .toString(),
+        ),
       );
 }
 

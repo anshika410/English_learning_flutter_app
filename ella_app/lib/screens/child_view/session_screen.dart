@@ -4,6 +4,8 @@
 // Wired to the real engine via chatProvider. No message list / testing controls
 // (those live in child_chat_screen behind the Glass Box flag).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -71,13 +73,38 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
-  String _latestZoeLine(ChatState s) {
+  String? _lastFrom(ChatState s, MessageSender who) {
     for (final m in s.messages.reversed) {
-      if (m.sender == MessageSender.zoe) return m.text;
+      if (m.sender == who) return m.text;
     }
-    if (s.status == ChatStatus.zoeThinking) return '…';
-    return widget.introText ?? 'Ready when you are. Shall we?';
+    return null;
   }
+
+  /// The caption shows exactly one speaker at a time — never a mix:
+  ///  • the child is speaking  → their live speech only ("Listening…" until words come);
+  ///  • Zoe is thinking        → the child's just-said words stay up until Zoe replies;
+  ///  • Zoe is speaking / idle → Zoe's latest line only.
+  String _caption(ChatState s) {
+    final intro = widget.introText ?? 'Ready when you are. Shall we?';
+    switch (s.status) {
+      case ChatStatus.userSpeaking:
+        final p = s.partialStt?.trim() ?? '';
+        return p.isEmpty ? 'Listening…' : p;
+      case ChatStatus.zoeThinking:
+        return _lastFrom(s, MessageSender.child) ??
+            (s.messages.isEmpty ? intro : '…');
+      case ChatStatus.zoeSpeaking:
+      case ChatStatus.idle:
+        return _lastFrom(s, MessageSender.zoe) ?? intro;
+    }
+  }
+
+  /// True while the bubble is showing the child's own words (drives the
+  /// downward tail toward the mic).
+  bool _captionIsChild(ChatState s) =>
+      s.status == ChatStatus.userSpeaking ||
+      (s.status == ChatStatus.zoeThinking &&
+          _lastFrom(s, MessageSender.child) != null);
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
@@ -135,11 +162,15 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       ),
     );
     if (confirm == true && mounted) {
-      await ref.read(chatProvider.notifier).endChat().catchError(_snack);
-      if (mounted) {
-        Navigator.of(context).pop();
-        widget.onEnded?.call();
-      }
+      final notifier = ref.read(chatProvider.notifier);
+      // Close the session instantly regardless of the current TTS/STT state:
+      // silence Zoe, stop the mic, then fire the scoring/persist in the
+      // background so the screen doesn't wait on the judge before closing.
+      unawaited(notifier.stopSpeaking());
+      unawaited(notifier.stopListening());
+      unawaited(notifier.endChat().catchError(_snack));
+      Navigator.of(context).pop();
+      widget.onEnded?.call();
     }
   }
 
@@ -164,8 +195,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 child: Text('Error: $e',
                     style: const TextStyle(color: Colors.white))),
             data: (s) {
-              final showPartial = s.status == ChatStatus.userSpeaking &&
-                  (s.partialStt?.isNotEmpty ?? false);
+              final captionIsChild = _captionIsChild(s);
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final mascotSize =
@@ -188,9 +218,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: SpeechBubble(
-                      text: showPartial ? s.partialStt! : _latestZoeLine(s),
-                      italic: showPartial,
+                      text: _caption(s),
+                      italic: s.status == ChatStatus.userSpeaking,
                       showTail: true,
+                      // While the bubble shows the child's words, the tail flips
+                      // to the bottom and points down toward the mic.
+                      tailDown: captionIsChild,
                     ),
                   ),
                   const Spacer(),

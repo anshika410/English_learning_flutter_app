@@ -71,6 +71,7 @@ flutter:
     - assets/bottom_tab/
     - assets/homescreen/
     - assets/gardent-view/
+    - assets/garden/plants/
     - assets/information-box/
 
   fonts:

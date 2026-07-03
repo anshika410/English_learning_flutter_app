@@ -305,7 +305,14 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     final cur = state.requireValue;
-    if (cur.sessionEnded || cur.status != ChatStatus.idle) return;
+    if (cur.sessionEnded) return;
+    // Accept a turn from idle (typed) or userSpeaking (STT just finished).
+    // Committing directly from userSpeaking lets the caption go partial → the
+    // child's committed text in one step, instead of briefly dropping to idle
+    // and flashing Zoe's previous line. Reject while Zoe is thinking/speaking.
+    if (cur.status != ChatStatus.idle && cur.status != ChatStatus.userSpeaking) {
+      return;
+    }
 
     final userMsg = ChatMessage(sender: MessageSender.child, text: trimmed);
     final msgs = [...cur.messages, userMsg];
@@ -700,31 +707,50 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       onFinal: (text) {
         // Fired either by 4s-pause auto-stop OR by manual stopListening.
         if (!state.hasValue) return;
-        // Flip status to idle so sendUserTurn proceeds.
-        state = AsyncValue.data(state.requireValue.copyWith(
-          status: ChatStatus.idle,
-          clearPartialStt: true,
-        ));
         final trimmed = text.trim();
         if (trimmed.isNotEmpty) {
-          // Fire-and-forget — sendUserTurn handles its own state updates.
+          // Commit straight from userSpeaking → zoeThinking (sendUserTurn owns
+          // the state update), so the caption never flashes Zoe's previous
+          // line between the partial clearing and the turn landing.
           sendUserTurn(trimmed);
+        } else {
+          // Nothing recognised — just return to idle.
+          state = AsyncValue.data(state.requireValue.copyWith(
+            status: ChatStatus.idle,
+            clearPartialStt: true,
+          ));
         }
       },
     );
   }
 
+  /// Silence Zoe immediately, whatever TTS state she is in. Used when the child
+  /// ends the chat mid-utterance so the session closes instantly.
+  Future<void> stopSpeaking() async {
+    try {
+      await ref.read(ttsProvider).stop();
+    } catch (_) {}
+  }
+
   Future<void> stopListening() async {
     final stt = ref.read(sttProvider);
     await stt.stopListening();
-    // After stop(), the plugin fires onResult(finalResult: true) which our
-    // onFinal handler picks up. As a safety net, flip status idle if it's
-    // still stuck on userSpeaking after a short delay.
+    // After stop(), the plugin normally fires onResult(finalResult: true),
+    // which onFinal commits. On platforms where that final is slow/missing
+    // (Android SpeechRecognizer), this safety net kicks in: if we're still
+    // stuck on userSpeaking, commit whatever partial we heard rather than
+    // dropping to idle — going idle here would briefly flash Zoe's previous
+    // line before the turn lands (the manual-stop bug).
     Future.delayed(const Duration(milliseconds: 400), () {
-      if (state.hasValue &&
-          state.requireValue.status == ChatStatus.userSpeaking) {
-        state = AsyncValue.data(state.requireValue
-            .copyWith(status: ChatStatus.idle, clearPartialStt: true));
+      if (!state.hasValue) return;
+      final s = state.requireValue;
+      if (s.status != ChatStatus.userSpeaking) return; // onFinal handled it
+      final partial = s.partialStt?.trim() ?? '';
+      if (partial.isNotEmpty) {
+        sendUserTurn(partial);
+      } else {
+        state = AsyncValue.data(
+            s.copyWith(status: ChatStatus.idle, clearPartialStt: true));
       }
     });
   }

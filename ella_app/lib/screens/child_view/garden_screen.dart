@@ -48,6 +48,14 @@ class GardenScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Refetch the garden the instant a chat ends. endChat() sets sessionEnded
+    // only after the server has merged the new state, so this pulls fresh
+    // growth without the child having to leave and re-open the tab.
+    ref.listen<AsyncValue<ChatState>>(chatProvider, (prev, next) {
+      final wasEnded = prev?.valueOrNull?.sessionEnded ?? false;
+      final isEnded = next.valueOrNull?.sessionEnded ?? false;
+      if (isEnded && !wasEnded) ref.invalidate(gardenProvider);
+    });
     final gardenAsync = ref.watch(gardenProvider);
     return Container(
       color: _meadowBottom,
@@ -139,7 +147,7 @@ class _GardenView extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 120),
             child: Column(
               children: [
-                _SkyHills(level: data.levelLabel, theme: data.theme),
+                _SkyHills(level: data.level, theme: data.theme),
                 Container(
                   width: double.infinity,
                   decoration: const BoxDecoration(
@@ -205,25 +213,16 @@ class _SkyHills extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: 22,
-            right: 26,
-            child: Container(
-              width: 58,
-              height: 58,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFFFFD23F),
-                boxShadow: [
-                  BoxShadow(
-                      color: Color(0x80FFD23F),
-                      blurRadius: 34,
-                      spreadRadius: 12),
-                ],
-              ),
+            top: -12,
+            right: -8,
+            child: SvgPicture.asset(
+              'assets/gardent-view/sun.svg',
+              width: 140,
+              height: 125,
             ),
           ),
-          const Positioned(top: 92, left: 24, child: _Cloud(scale: 1.0)),
-          const Positioned(top: 58, right: 104, child: _Cloud(scale: 0.72)),
+          const Positioned(top: 100, left: 16, child: _Cloud(width: 92)),
+          const Positioned(top: 58, right: 22, child: _Cloud(width: 78)),
           // Rolling hills filling the bottom of the sky, blending into meadow.
           const Positioned(
             left: 0,
@@ -258,7 +257,7 @@ class _SkyHills extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    level.isEmpty ? 'Your Garden' : level,
+                    level.isEmpty ? 'Your Garden' : 'Level - $level',
                     style: GoogleFonts.baloo2(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -322,28 +321,14 @@ class _HillsPainter extends CustomPainter {
 }
 
 class _Cloud extends StatelessWidget {
-  final double scale;
-  const _Cloud({required this.scale});
+  final double width;
+  const _Cloud({required this.width});
 
   @override
   Widget build(BuildContext context) {
-    return Transform.scale(
-      scale: scale,
-      child: Container(
-        width: 72,
-        height: 24,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.white.withValues(alpha: 0.5),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-      ),
+    return SvgPicture.asset(
+      'assets/gardent-view/clouds-weather.svg',
+      width: width,
     );
   }
 }
@@ -438,7 +423,9 @@ class _Plot extends StatelessWidget {
   Widget build(BuildContext context) {
     final skills = step.skills;
     final tileSpots = _tileSpotsFor(skills.length);
-    final hasBloom = step.skills.any((s) => s.stage == PlantStage.bloom);
+    // Growth is driven purely by sightings: 0 → bare tile, 1 → seedling,
+    // 2 → young, ≥3 → bloom. A butterfly visits once anything has bloomed.
+    final hasBloom = step.skills.any((s) => s.sightings >= 3);
 
     // Paint back-to-front (higher = further back) so front tiles/plants overlap
     // the ones behind them correctly on the isometric lattice.
@@ -458,10 +445,10 @@ class _Plot extends StatelessWidget {
             child: SvgPicture.asset('assets/gardent-view/Ellipse.svg',
                 width: _ellipseW, height: _ellipseH),
           ),
-          // Bush at the base.
+          // Bush resting inside the turf-shadow ellipse (front-left).
           Positioned(
-            bottom: 20,
-            left: 24,
+            bottom: 30,
+            left: 32,
             child: SvgPicture.asset('assets/gardent-view/bush.svg', width: 26),
           ),
           for (final i in order)
@@ -471,7 +458,7 @@ class _Plot extends StatelessWidget {
               onTap: () => showSkillSheet(context, step, skills[i]),
             ),
           for (final i in order)
-            if (skills[i].stage != PlantStage.bare)
+            if (skills[i].sightings >= 1)
               _SkillPlant(
                 skill: skills[i],
                 spot: tileSpots[i],
@@ -533,7 +520,8 @@ class _SkillTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tileAsset = skill.status == SkillStatus.locked
+    // No sightings yet → plain (normal) tile; once seen → tilled turf tile.
+    final tileAsset = skill.sightings == 0
         ? 'assets/gardent-view/tiles.svg'
         : 'assets/gardent-view/tiles-turf.svg';
 
@@ -563,9 +551,9 @@ class _SkillPlant extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       bottom: spot.bottom + _tileH * 0.50,
-      left: spot.left + _tileW / 2 - 22,
+      left: spot.left + _tileW / 2 - 28,
       child: SizedBox(
-        width: 44,
+        width: 56,
         child: Center(
           child: _Plant(
             skill: skill,
@@ -584,11 +572,12 @@ class _Plant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (asset, height) = switch (skill.stage) {
-      PlantStage.bloom => (skill.strand.bloomAsset, 76.0),
-      PlantStage.growing => ('assets/gardent-view/plants-emerging.svg', 54.0),
-      PlantStage.sprout => ('assets/gardent-view/plants-sprout.svg', 34.0),
-      PlantStage.bare => ('', 0.0),
+    // Growth stage follows sightings: 1 → seedling, 2 → young, ≥3 → bloom.
+    final (asset, height) = switch (skill.sightings) {
+      <= 0 => ('', 0.0),
+      1 => (skill.strand.seedlingAsset, 48.0),
+      2 => (skill.strand.youngAsset, 68.0),
+      _ => (skill.strand.bloomAsset, 88.0),
     };
     if (asset.isEmpty) return const SizedBox.shrink();
     return GestureDetector(
