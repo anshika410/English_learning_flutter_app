@@ -1079,12 +1079,10 @@ function App(){
                 setDbMemory(memoryData || {});
                 const gardenData = await callEllaAPI('/users/me/garden');
                 setDbGarden(gardenData || null);
-                changeLevel(response.level);
-                setSessionType('standard');
               } catch (e) {
                 console.error("Failed to auto-refresh state:", e);
               }
-            }, 500);
+            }, 200);
           } else {
             setMsgs(m => [...m, { role: 'zoe', text: response.reply }]);
           }
@@ -1109,10 +1107,7 @@ function App(){
               evidence_summary: 'Used simple sentences correctly about routines.',
               interests: ['music', 'cricket']
             });
-            setTimeout(() => {
-              changeLevel('A2');
-              setSessionType('standard');
-            }, 500);
+
           } else {
             setMsgs(m => [...m, { role: 'zoe', text: 'That is interesting! Tell me more about that.' }]);
           }
@@ -1382,13 +1377,17 @@ function App(){
   }
 
   async function nextChat(){ const n=chatNum+1; setChatNum(n);
+    let currentLvl = level;
+    if (placementAssessment && placementAssessment.level) {
+      currentLvl = placementAssessment.level;
+      setLevel(currentLvl);
+    }
     setJudgeOut(null);setJudgeDebug(null);setDualJudge(null);setChanges([]);setTurnCount(0);autoStep.current=0;
     setShowExploreCard(true);
     setShowAllTopics(false);
     setSessionType('standard');
     setPlacementAssessment(null);
     if (LLM_CONFIG.mode === 'api') {
-      // Re-fetch memory from backend (due_next was updated after judging)
       try {
         const memoryData = await callEllaAPI('/users/me/memory');
         setDbMemory(memoryData || {});
@@ -1399,7 +1398,7 @@ function App(){
           console.error("Failed to refresh garden data:", ge);
         }
         const prof = memoryData.profile || {};
-        const nm = freshMemory(level);
+        const nm = freshMemory(currentLvl);
         nm.name = prof.name === '—' ? '' : (prof.name || '');
         nm.age = prof.age ? parseInt(prof.age) : null;
         nm.city = prof.city === '—' ? '' : (prof.city || '');
@@ -1423,9 +1422,11 @@ function App(){
         setTimeout(()=>zoeOpens(n,model,carried),60);
       }
     } else {
-      const carried={...mem}; carried.due_next=targetsListFor(carried);
-      setMem(carried);
-      setMsgs([{role:'sys',text:'Chat '+n+' — '+model+' mode'}]); setTimeout(()=>zoeOpens(n,model,carried),60);
+      const nm = freshMemory(currentLvl);
+      nm.due_next = targetsListFor(nm, model);
+      setMem(nm);
+      setMsgs([{role:'sys',text:'Chat '+n+' — '+model+' mode'}]);
+      setTimeout(()=>zoeOpens(n,model,nm),60);
     }
   }
   function resetAll(){
