@@ -205,11 +205,16 @@
     // Stats — pilot focused
     const screened = data.users.filter(u => u.level).length;
     const levelCounts = data.level_distribution;
+    const speakingTimeVal = data.total_speaking_minutes >= 60 
+      ? (data.total_speaking_minutes / 60).toFixed(1) 
+      : data.total_speaking_minutes;
+    const speakingTimeSub = data.total_speaking_minutes >= 60 ? "hours total" : "minutes total";
+
     document.getElementById('stats-grid').innerHTML = `
       <div class="stat-card"><div class="label">Total Students</div><div class="value">${data.total_users}</div></div>
       <div class="stat-card"><div class="label">Screened</div><div class="value">${screened}</div><div class="sub">completed placement</div></div>
       <div class="stat-card"><div class="label">Pending</div><div class="value">${data.total_users - screened}</div><div class="sub">not yet screened</div></div>
-      <div class="stat-card"><div class="label">Speaking Time</div><div class="value">${data.total_speaking_minutes}</div><div class="sub">minutes total</div></div>
+      <div class="stat-card"><div class="label">Speaking Time</div><div class="value">${speakingTimeVal}</div><div class="sub">${speakingTimeSub}</div></div>
     `;
 
     // Level distribution
