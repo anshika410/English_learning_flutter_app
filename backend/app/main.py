@@ -7,6 +7,7 @@ from .core.database import engine, Base
 from .core.config import get_settings
 from .routers import auth, users, llm, conversations, placements, progress
 from .routers.admin import router as admin_router
+from .routers.admin_metrics import router as admin_metrics_router
 # from .routers.accent import router as accent_router, load_accent_model  # disabled — requires numpy/tensorflow
 
 # Import all models so SQLAlchemy registers them before create_all
@@ -81,6 +82,7 @@ app.include_router(conversations.router, prefix="/sessions")
 app.include_router(placements.router)
 app.include_router(progress.router)
 app.include_router(admin_router)
+app.include_router(admin_metrics_router)
 
 
 if settings.docs_enabled:
