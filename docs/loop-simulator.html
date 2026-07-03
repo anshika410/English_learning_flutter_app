@@ -940,45 +940,10 @@ function App(){
 
   async function applyPlacement() {
     if (!placementAssessment) return;
-    setBusy(true);
-    try {
-      if (LLM_CONFIG.mode === 'api') {
-        const apiMsgs = msgs.filter(m=>m.role==='zoe'||m.role==='me').map(m=>({
-          role: m.role==='me' ? 'user' : 'assistant',
-          content: m.text
-        }));
-
-        await callEllaAPI('/placements', 'POST', {
-          level: placementAssessment.level,
-          unit_label: placementAssessment.unit_name || placementAssessment.level_name || placementAssessment.unit_label,
-          confidence: placementAssessment.confidence || 'medium',
-          highlight: placementAssessment.evidence_summary || 'Assessed via simulator',
-          transcript_json: apiMsgs,
-          interests: placementAssessment.interests || []
-        });
-
-        const memoryData = await callEllaAPI('/users/me/memory');
-        setDbMemory(memoryData || {});
-        
-        try {
-          const gardenData = await callEllaAPI('/users/me/garden');
-          setDbGarden(gardenData || null);
-        } catch (ge) {
-          console.error("Failed to load garden after placement save:", ge);
-        }
-      }
-
-      changeLevel(placementAssessment.level);
-      alert(`Level applied! Active profile set to: ${placementAssessment.level} - ${placementAssessment.unit_name || placementAssessment.level_name || placementAssessment.unit_label}`);
-      setPlacementAssessment(null);
-      setSessionType('standard');
-      nextChat();
-    } catch (e) {
-      console.error("Failed to save placement:", e);
-      alert("Error saving placement: " + (e.message || String(e)));
-    } finally {
-      setBusy(false);
-    }
+    changeLevel(placementAssessment.level);
+    setPlacementAssessment(null);
+    setSessionType('standard');
+    nextChat();
   }
 
   async function startConversation(customTopic = null) {
@@ -1108,6 +1073,16 @@ function App(){
           if (response.is_complete) {
             setMsgs(m => [...m, { role: 'sys', text: 'Placement test complete!' }]);
             setPlacementAssessment(response);
+            setTimeout(async () => {
+              try {
+                const memoryData = await callEllaAPI('/users/me/memory');
+                setDbMemory(memoryData || {});
+                const gardenData = await callEllaAPI('/users/me/garden');
+                setDbGarden(gardenData || null);
+              } catch (e) {
+                console.error("Failed to auto-refresh state:", e);
+              }
+            }, 200);
           } else {
             setMsgs(m => [...m, { role: 'zoe', text: response.reply }]);
           }
@@ -1542,7 +1517,7 @@ function App(){
             {placementAssessment.interests && placementAssessment.interests.length > 0 && (
               <p style={{fontSize:12.5,margin:'4px 0'}}>Interests: {placementAssessment.interests.join(', ')}</p>
             )}
-            <button className="act" style={{background:'#2e7d32',marginTop:12,width:'100%',padding:'8px 12px',cursor:'pointer',border:'none',borderRadius:'6px',color:'#fff',fontWeight:'bold'}} onClick={applyPlacement}>Apply level to profile & start curriculum</button>
+            <button className="act" style={{background:'#2e7d32',marginTop:12,width:'100%',padding:'8px 12px',cursor:'pointer',border:'none',borderRadius:'6px',color:'#fff',fontWeight:'bold'}} onClick={applyPlacement}>Start Curriculum 🚀</button>
           </div>
         )}
         {judgeOut && showExploreCard && (

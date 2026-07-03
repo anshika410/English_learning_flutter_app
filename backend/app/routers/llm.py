@@ -80,6 +80,7 @@ async def conversation_turn(
 async def placement_turn(
     body: PlacementTurnRequest,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Executes a dialogue turn during the voice placement screening test.
@@ -95,6 +96,32 @@ async def placement_turn(
             name=body.name or user.name,
             age=body.age or (int(user.age) if user.age and user.age.isdigit() else None),
         )
+        
+        if result.get("is_complete"):
+            from ..models.placement import Placement
+            import json
+            
+            level = result.get("level")
+            unit_name = result.get("unit_name")
+            interests = result.get("interests", [])
+            
+            placement = Placement(
+                user_id=user.id,
+                level=level,
+                unit_label=unit_name,
+                confidence=result.get("confidence"),
+                highlight=result.get("evidence_summary"),
+                transcript_json=json.dumps(messages) if messages else None,
+            )
+            db.add(placement)
+            
+            user.level = level
+            user.unit_label = unit_name
+            if interests:
+                user.interests = ",".join(interests)
+            db.add(user)
+            await db.flush()
+            
         return PlacementTurnResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
