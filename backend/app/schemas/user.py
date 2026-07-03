@@ -60,6 +60,14 @@ class MemoryProfileSub(BaseModel):
     grade: str | None = None
 
 
+class PlacementSubResponse(BaseModel):
+    level: str
+    unit_label: str | None = None
+    confidence: str | None = None
+    highlight: str | None = None
+    created_at: str
+
+
 class UserMemoryResponse(BaseModel):
     id: str
     device_id: str
@@ -67,6 +75,7 @@ class UserMemoryResponse(BaseModel):
     level: str | None = None
     first_session_done: bool = False
     interests: list[str] = []
+    placement: PlacementSubResponse | None = None
     owned: list[str] = []
     emerging: list[str] = []
     due_next: dict = {}

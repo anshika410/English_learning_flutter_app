@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
-from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse
+from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse, PlacementSubResponse
 from ..core.curriculum_data import UNITS, active_step, unit_complete, bucket_of
 
 
@@ -34,6 +34,17 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         "grade": None
     }
 
+    placement_data = None
+    if user.placements:
+        latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+        placement_data = PlacementSubResponse(
+            level=latest_placement.level,
+            unit_label=latest_placement.unit_label,
+            confidence=latest_placement.confidence,
+            highlight=latest_placement.highlight,
+            created_at=latest_placement.created_at.isoformat(),
+        )
+
     return UserMemoryResponse(
         id=user.id,
         device_id=user.device_id,
@@ -41,6 +52,7 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         level=user.level,
         first_session_done=user.first_session_done,
         interests=user.interests.split(",") if user.interests else [],
+        placement=placement_data,
         owned=progress.get("owned", []),
         emerging=progress.get("emerging", []),
         due_next=due,

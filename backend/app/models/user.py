@@ -1,8 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, Integer, DateTime, JSON, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.database import Base
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .placement import Placement
 
 
 def _utcnow() -> datetime:
@@ -48,6 +51,12 @@ class User(Base):
 
     # Current target skills for Zoe
     due_next: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
+
+    placements: Mapped[list["Placement"]] = relationship(
+        "Placement",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
