@@ -1201,7 +1201,15 @@ function App(){
     const p=`You are role-playing a LANGUAGE LEARNER (not the tutor). You are ${desc}. Reply ONLY as the learner — short, imperfect, realistic, with natural mistakes for your level. Do not explain.\n\nConversation:\n${convo}\n\nTutor just said: "${last?last.text:'(opening)'}"\nYour short learner reply:`;
     const r=await callLLM(p,"conv"); if(r.ok)return r.text.trim().replace(/^(Me:|Learner:)\s*/i,''); return MOCK_KID[autoStep.current%MOCK_KID.length];
   }
-  async function autoTurn(){ if(busy)return; if(autoStep.current>=6){await endChat();return;} setBusy(true); const k=await mockKidLLM(); setBusy(false); autoStep.current++; await sendKid(k); }
+  async function autoTurn(){
+    if(busy)return;
+    if (sessionType === 'placement') {
+      if (placementAssessment) return;
+    } else {
+      if(autoStep.current>=6){await endChat();return;}
+    }
+    setBusy(true); const k=await mockKidLLM(); setBusy(false); autoStep.current++; await sendKid(k);
+  }
 
   async function runJudge(skillIds,label){
     label=label||'primary';
@@ -1224,6 +1232,7 @@ function App(){
   }
 
   async function endChat(customMsgs = null, force = false){
+    if (sessionType === 'placement') return;
     if(busy && !force)return; setBusy(true);
     setMsgs(m=>[...m,{role:'sys',text:'Chat ended — judging...'}]);
 
