@@ -2041,6 +2041,10 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
     {snapshots.length>0&&<div><div className="lbl">memory after each chat</div>
       {snapshots.map((s,i)=><div className="hist" key={i}><b>after chat {s.chat}</b> ({s.model}) · owned {s.owned.length} · emerging {s.emerging.length}<br/><span style={{fontFamily:'monospace',fontSize:'10px',color:'#5b50c4'}}>due → {s.due.join(', ')}</span></div>)}</div>}
     <small className="note">owned/emerging hold buckets; confidence is NOT stored here (see Session log). Snapshots show how memory evolved chat by chat.</small>
+    {isApiMode&&<div style={{marginTop:16,padding:12,border:'1.5px dashed var(--rust)',borderRadius:8,background:'#fff5f5'}}>
+      <div style={{fontSize:12,fontWeight:700,color:'var(--rust)',marginBottom:6}}>⚠️ Danger Zone</div>
+      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)'}} onClick={()=>{if(confirm('This will delete your token and create a fresh user. All progress will be lost. Continue?')){localStorage.removeItem('ella_access_token');localStorage.removeItem('ella_device_id');window.location.reload();}}}>🗑️ Delete & Start Fresh (new user for placement test)</button>
+    </div>}
   </div>);
 }
 function JudgeView({scores,debug,backendAnalysis,isApiMode,level}){
