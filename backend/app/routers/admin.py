@@ -28,7 +28,7 @@ class AdminUserOut(BaseModel):
     age: str | None
     location: str | None
     level: str | None
-    level_label: str | None
+    unit_label: str | None
     total_sessions: int
     completed_sessions: int
     total_speaking_seconds: int
@@ -116,7 +116,7 @@ async def admin_stats(
             age=u.age,
             location=u.location,
             level=u.level,
-            level_label=u.level_label,
+            unit_label=u.unit_label,
             total_sessions=stats["total"],
             completed_sessions=completed,
             total_speaking_seconds=stats["speaking_secs"],
@@ -221,3 +221,28 @@ async def get_placement_transcript(
         ]
     except Exception:
         return []
+
+
+class AdminPromptsResponse(BaseModel):
+    conversation: str
+    judge: str
+    placement: str
+
+
+@router.get("/prompts", response_model=AdminPromptsResponse)
+async def get_admin_prompts():
+    """Get active LLM prompt templates from disk."""
+    from ..services.llm_service import PROMPTS_DIR
+    try:
+        conv = (PROMPTS_DIR / "conversation-prompt.md").read_text()
+        judge = (PROMPTS_DIR / "end-result-prompt.md").read_text()
+        placement = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+        return AdminPromptsResponse(
+            conversation=conv,
+            judge=judge,
+            placement=placement,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to read prompt templates: {e}"
+        )

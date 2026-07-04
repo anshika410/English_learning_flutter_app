@@ -1,0 +1,269 @@
+# ELLA MVP Build Spec (Extracted Content)
+
+Below is the full text content extracted from the product artifact link `https://claude.ai/public/artifacts/d9549465-384d-470c-a8c1-0d72c3bcc8c1` (parsed from the Next.js JS payload):
+
+---
+
+# ELLA — MVP Build Spec
+
+A voice-first English tutor for grades 5–12 in Hindi-medium government schools. This is the complete MVP defined as objects and states — what ships, what's deferred, and why.
+
+## The loop
+
+A talking loop. Zoe opens a conversation aimed at one skill the child hasn't shown → they talk → a model scores it → the child's collection fills. Repeat, nudging toward the next skill each time.
+
+* **STAGE 1 · SHIP - Seed & open**: Engine picks a target skill from due_next. Zoe opens, referencing last chat for continuity.
+* **STAGE 2 · SHIP - Talk + capture**: Live chat. Zoe scaffolds toward the target without testing. Each child turn tagged as evidence.
+* **STAGE 3 · SHIP - Judge**: After the chat, a model scores each skill 0–1 on a forced-commit rubric. Can't hedge at 0.5.
+* **STAGE 4 · SHIP - Render**: Child sees gains only — new things collected, the lifetime number, one "next" hint.
+* **STAGE 5 · DEFER - Merge + decay**: Reconcile new scores vs history; age old skills by disuse. Built when kids return.
+* **STAGE 6 · DEFER - Smart select**: Replace dumb due_next with an edge + spaced-revisit + novelty blend.
+
+*Why this order:* Stages 1–4 are the engagement engine. Decay and corroboration are the rigour engine — they improve measurement accuracy, which matters for nobody until kids return week after week.
+
+---
+
+## Build scope
+
+The master table. `SHIP` = in the MVP. `DEFER` = designed, built later. `WRITE-ONLY` = stored now, used later.
+
+| Object / capability | MVP? | How to do it (MVP version) |
+| --- | --- | --- |
+| Seed opening | SHIP | Dumb due_next: 3-bucket blend (§06). Zoe references last topic. |
+| Live conversation | SHIP | One Zoe. A1 & A2 level profiles written & injected; B1–C2 deferred (§03). |
+| Signal capture | SHIP | Per-turn tag: which skill is this evidence for + effort markers. |
+| Judge / scoring | SHIP | Same model as Zoe, different prompt, forced-commit rubric. Text-only signals. |
+| Promotion | SHIP | Single confident sighting (≥0.7) → owned. Corroboration deferred. |
+| Memory object | SHIP | ~9 fields incl. strength + last_seen written but unused (§04). |
+| Render to child | SHIP | Gains only: collection, lifetime number, 1 horizon. No deficit, no CEFR text. |
+| Decay engine | DEFER | Not built. Schema carries the fields it'll need. |
+| Corroboration promotion | DEFER | 2+ sightings, ≥1 unprompted, ≥2 sessions. Built with decay. |
+| Smart selection | DEFER | Edge + spaced + novelty weighting. |
+| Teacher-facing layer | DEFER | Out of scope for MVP entirely. |
+
+---
+
+## Zoe's behaviour — level profiles
+
+The most important pedagogical idea in the product: **the amount of help Zoe gives is itself the curriculum.**
+
+A good human tutor of a beginner does enormous work — speaks slowly, fills silences, celebrates a single word. The same tutor with an advanced learner does almost nothing: they shut up, let the learner struggle, push back, demand precision. The tutor's job is to **progressively do less, so the learner does more** — "gradual release of responsibility": I do → we do → you do.
+
+Zoe is **one character**, not six personas — continuity is what a nervous kid bonds with. What changes by level is her *behaviour*: her role, her language ceiling, how she handles errors, the kind of questions she asks.
+
+> **Build vocabulary: profiles, not dials**
+> We discuss this as "dials," but we build it as level profiles. A dial implies a knob the system computes a behaviour from — fiddly, needs ranges nobody's defined. In reality the behaviour at each level is a pre-written block of instructions, not a number. So there are six profiles (one per CEFR level); the "dial" is just which profile is active. The table below is the profile library — selecting one is the whole mechanism.
+
+### How it's built — the prompt, in two blocks
+
+It bakes into the conversation prompt, assembled from two blocks at session start:
+1. **Base system prompt**: Small, always-on. Who Zoe is, the comic warmth, the absolute rules that never change at any level: never criticise, any attempt counts, she's a backpack with glasses.
+2. **Level profile**: The active row of the table below, injected at session start based on the child's level. Sets language ceiling, role, correction approach, question type for the whole session. One row at a time — Zoe never holds all six.
+
+That's the whole prompt for MVP: base + the one level profile. We rely on the model to react to each child turn natively within that frame — no separate per-turn machinery. Whether that's enough, or whether we need a reactive layer on top, is an open decision (see §11).
+
+### The profile library — canonical content (A1 → C2)
+
+A1 & A2 = write & ship now (where all our users are). B1 → C2 = designed, validated later.
+
+| Level | Zoe's role | Language | Correction | Encourage vs correct | Student goal |
+| --- | --- | --- | --- | --- | --- |
+| A1 · First Words | Carrier — carries the conversation; binary questions; max scaffolding | A1–B1, short present simple, high-freq vocab | None. Recast naturally in reply ("I go market" → "You went to the market!") | Always encouraging. Single word = success. | Just talk — speak at all |
+| A2 · Finding Voice | Scaffolder — active scaffolding; moving toward equal turns; invites past tense | A1–B1, simple past, connectors and/but/because/so | Recast. Model correct form prominently; never name the error | Encouraging with gentle push ("tell me a little more") | 2–3 connected sentences; use a connector |
+| B1 · Speaking Freely | Space-creator — holds silence; student speaks more; open questions | B2–C1 input (i+1), collocations, modals, conditionals | Nudge → explicit if needed. Metalinguistic nudge, wait 8s. Max 2/session | Encourage first, nudge only if needed | 3–4 sentences; opinion + reason; hold a point |
+| B2 · Almost Fluent | Challenger — sparring partner; comfortable with long silences | B2–C1 (Zoe speaks C1), discourse markers, hedging | Explicit. Name error + correct + reason. Max 2/session | Balanced — pushes and affirms | Structured argument under challenge |
+| C1 · Fluent | Peer — equal; challenges thinking; no guiding | C2 peer register, idiom, no simplification | Explicit, warm. Name minor mistakes; stylistic options | Warm and honest; genuine engagement | Precision and nuance; full range |
+| C2 · Artful | Conversation partner — no role, just talking | C2 fully natural, no adjustments | None — nothing to correct | Intellectually engaged; responds to ideas | Pure ideas; language invisible |
+
+> **STT caveat — the correction column is the wounded one**
+> On Android on-device STT, Zoe only ever sees the transcribed text, never the audio. So correction works only for grammatical and lexical errors (these survive transcription) — never pronunciation (gone), and the transcript is STT's guess, not ground truth. Two consequences baked into the build: 
+> 1. No pronunciation dial exists at any level — a deliberate exclusion, not an oversight.
+> 2. At B2+, where corrections get precise (C1's "comprised of → comprises"), Zoe corrects only high-confidence textual errors and stays silent when unsure — a phantom correction at peer register is worse than none.
+> *The transcript is not a faithful record of what the child said; everything downstream inherits that noise.*
+
+> **A principle that matures, not breaks**
+> Read the "encourage vs correct" column top to bottom: that's where "reward effort, never accuracy" evolves. At A1 it's near-absolute — accuracy is irrelevant, the enemy is silence. By C1 a learner who only gets "great effort!" feels patronised; advanced learners want accuracy engaged. The principle doesn't break — it matures. A deliberate softening to discuss as a team, not a drift.
+
+---
+
+## The memory object
+
+The entire state carried between conversations. ~9 fields, kept small on purpose — cheap to store, cheap to inject into the next prompt, readable when debugging.
+
+```json
+// stored after Priya's chat — the whole "memory" that travels forward
+{
+  "level":       "A1",
+  "owned":       ["VOC-01","VOC-02","VOC-03","GRA-01","GRA-02","FLU-01","FLU-02","FLU-03"],
+  "emerging":    ["VOC-04","GRA-04"],
+  "due_next":    ["GRA-04","FLU-04","VOC-04"],
+  "units":       ["family","cricket"],
+  "interests":   "cricket, younger sister Anjali",
+  "effort":      { "times_spoken_total": 240 },   // the one lifetime number
+  "strength":    { "FLU-03": 2, "VOC-04": 1 },     // write-only in MVP
+  "last_seen":   { "FLU-03": "2026-05-20", "VOC-04": "2026-05-20" }  // write-only
+}
+```
+
+| Field | MVP use | Meaning |
+| --- | --- | --- |
+| level | ACTIVE | Current CEFR band. |
+| owned | ACTIVE | Skills demonstrated to threshold. |
+| emerging | ACTIVE | Seen once, not yet owned. |
+| due_next | ACTIVE | Ranked targets for next chat (§06). |
+| units | ACTIVE | Practised units (recent topics/units for continuity). |
+| interests | ACTIVE | Free text; personalises topics. |
+| effort | ACTIVE | One lifetime number: times_spoken_total (§05). |
+| strength | WRITE-ONLY | Corroborated sightings per skill. Decay reads this later. |
+| last_seen | WRITE-ONLY | Date each skill last had evidence. Decay reads this later. |
+
+---
+
+## What a skill is, and its states
+
+A **skill = one "I can" statement** — the smallest unit of progress. There are 20 at A1. Each is at once a curriculum item, a conversation target, and a collectible the child sees.
+
+Each skill, per child, carries four things: a **state**, a **confidence** 0–1 (the judge's last score), a **strength** count, and a **last_seen** date. The child sees none of these — only the collectible object, and only once the skill is at least emerging.
+
+| State | Definition | Enters when (MVP) | Leaves when (MVP) |
+| --- | --- | --- | --- |
+| Locked | No evidence yet. Starting state for all 20. | Default at start. | First evidence seen → Emerging. |
+| Emerging | Judge has seen evidence ≥1 time, but not enough to call owned. "Started, not finished." | Judge logs 1st evidence (confidence > 0). | One confident sighting (≥0.7) → Owned. |
+| Owned | Demonstrated to threshold. Counts as collected. | Promotion rule met. | Stays owned — MVP never demotes. |
+| Needs Revisit | An owned skill that has faded from disuse. Deferred — doesn't exist in MVP. | n/a in MVP. | Silently re-added to due_next; never removed from the collection. |
+
+### Promotion — the one MVP-vs-later difference
+* **MVP**: Emerging → Owned on a **single confident sighting** (confidence $\ge 0.7$). Simple, generous, keeps a nervous kid moving. Risk: occasional false mastery — acceptable while no kids are returning yet.
+* **Deferred**: Emerging → Owned needs **corroboration**: demonstrated 2+ times, at least once unprompted (child used it without Zoe steering), across at least 2 separate sessions. Built together with decay, once kids return week to week.
+
+> **Golden rule**
+> Decay only ever moves a skill into "needs revisit" — it **never removes it from the child's collection.** No deficit is ever shown.
+
+---
+
+## due_next — aiming the next chat
+
+A ranked shortlist of 2–3 skills, filled from three buckets in priority order. Zoe leads with #1; the judge watches all three.
+
+| # | Bucket | Rule | Why | Priya's pick |
+| --- | --- | --- | --- | --- |
+| 1 | Finish what's started | An emerging skill (seen once) | Nearest the edge — one more sighting wins it. Cheapest, most motivating. | `GRA-04` · "and" |
+| 2 | Open the weakest strand | Next locked skill in the strand with fewest owned | Keeps the three strands balanced, not lopsided. | `FLU-04` · 2–3 turns |
+| 3 | Familiar favourite | An owned skill tied to interests | A breather of easy + personal. Decay feeds this slot later. | `VOC-04` · family |
+
+*How "I can" statements are used:* Each one is a target. It tells Zoe what behaviour to pull from the child, and tells the judge what to look for. E.g. `GRA-04` → Zoe asks *"What do you like AND what does Anjali like?"* → if Priya joins two ideas, `GRA-04` flips toward owned.
+
+---
+
+## The effort signal — one lifetime number
+
+No streaks. One number: **"times you've spoken to Zoe."**
+
+* **Why we killed streaks**: A streak punishes the break — miss a day and it resets to zero, a hit of failure for exactly the nervous learner we're protecting. For a kid on a shared phone, with patchy power and exam weeks, daily access isn't guaranteed; a streak quietly blames them for circumstances that aren't theirs. And streaks reward showing up, not talking — a kid can open the app, tap nothing, and keep the streak. Wrong behaviour rewarded.
+* **Why this number instead**: "Times spoken" only ever goes up. A gap never hurts it. It measures the actual behaviour we want — volume of speech — and it grows pleasingly fast, so it feels good for an 11-year-old. A kid returning after two weeks finds their number still there, bigger than they remembered. The opposite of a reset.
+
+> **Rule**
+> Never attach a target or a cadence ("talk 5 days this week"). The moment effort has a quota, missing it becomes failure — and we're back to the streak problem in a new hat. The number is a mirror, not a goal.
+
+*Note:* Richer effort data (avg turns, longest answer) is still captured internally for the judge and for tuning Zoe's scaffolding — it just isn't surfaced to the child. Only the one lifetime number shows.
+
+---
+
+## The reward metaphor — 3 options
+
+How the child sees their growing collection of skills. The backpack is open for debate. All three avoid showing locked counts or a visible ceiling (the deficit feeling we're designing against).
+
+### 1. Sticker album
+* Collect stickers on pages as you talk. Each skill = one sticker, slapped in at a jaunty angle.
+* **Pros**: Instantly familiar to every kid. Tactile, collectible, joyful.
+* **Cons**: Empty slots can re-introduce the "I'm missing things" deficit. Mitigate: reveal pages only as they fill.
+
+### 2. Constellation sky
+* Each skill lights a star; stars join into constellations (a strand = a shape forming overhead).
+* **Pros**: Beautiful. "Lighting up the dark" is a lovely growth feeling. No empty-slot problem.
+* **Cons**: Abstract for an A1 kid who needs concrete. A dim star is still a faint "not yet."
+
+### 3. Garden / tree (Product Lean)
+* Skills grow plants; over time your patch fills with green. A tree that leafs out as you climb levels.
+* **Pros**: Strongest "growth" metaphor. Culturally neutral, rural-friendly. Nothing ever looks "missing" — just not-yet-grown.
+* **Cons**: Slower visual payoff than a sticker snapping in. Needs care to feel rewarding per-chat.
+
+> **For discussion**
+> My lean is **garden/tree**: it's the only one of the three where un-earned skills read as "not yet grown" rather than "missing" — which is the cleanest fit for "never show a deficit." But sticker album wins on instant kid-joy. Worth testing both with actual kids before committing.
+
+---
+
+## The 20 A1 "I can" statements
+
+The curriculum spine. IDs are referenced throughout this spec. The child never sees this text — only the collectible it maps to.
+
+| ID | I can statement | Object child sees |
+| --- | --- | --- |
+| VOC-01 | I can say my name, age, and where I'm from. | 🙋 Me |
+| VOC-02 | I can name everyday objects at home and school. | 🎒 Things |
+| VOC-03 | I can say numbers, colours, and days of the week. | 🌈 Colours |
+| VOC-04 | I can name family members, animals, and basic foods. | 👨‍👩‍👧 Family |
+| VOC-05 | I can use simple action words — eat, sleep, run. | 🏃 Doing |
+| VOC-06 | I can describe how I feel — happy, sad, tired. | 😊 Feelings |
+| VOC-07 | I can make myself understood with the words I know. | 💡 Get it across |
+| GRA-01 | I can say 'I am' and 'I am not' to describe myself. | 🪞 I am |
+| GRA-02 | I can make simple sentences — I like dogs. | ✏️ Simple lines |
+| GRA-03 | I can talk about what I do every day — I go, I eat. | 🔁 Every day |
+| GRA-04 | I can use 'and' to join two ideas. | 🔗 And |
+| GRA-05 | I can make negative sentences — I don't like. | 🚫 Not/don't |
+| GRA-06 | I can ask simple questions — Do you like cricket? | ❓ Questions |
+| GRA-07 | I'm starting to use 'a', 'an', and 'the'. | 🅰️ a/an/the |
+| FLU-01 | I can speak in short sentences on familiar topics. | 🗨️ Short talk |
+| FLU-02 | I can introduce myself and keep going when it's hard. | 🤝 Say hello |
+| FLU-03 | I can give a reason — I like cricket because it's fun. | 🏏 Reasons |
+| FLU-04 | I can keep a simple exchange going for 2–3 turns. | ↔️ Back & forth |
+| FLU-05 | I can understand someone speaking slowly and clearly. | 👂 Listening |
+| FLU-06 | I can ask someone to repeat when I don't understand. | 🙋‍♀️ Say again? |
+
+---
+
+## Concepts, defined
+
+* **Skill**: One "I can" statement — the smallest unit of progress. 20 at A1. A curriculum item, a conversation target, and a collectible all at once.
+* **Emerging**: A skill the judge has seen evidence for at least once, but not enough to call owned. "Started, not finished."
+* **Owned**: A skill demonstrated to threshold. MVP: one confident sighting (≥0.7). Counts as collected.
+* **Render to child**: What the child sees after a chat: new things collected, the lifetime number, one "next" hint. Never a score, never errors, never CEFR names.
+* **The judge**: A model that reads the full transcript post-chat and scores each skill 0–1. Run separately from Zoe. Forced-commit rubric.
+* **Strength**: How durable a skill is — how many separate times demonstrated. +1 per corroborated sighting. Higher = decays slower.
+* **Decay**: A skill fades if never used again. Lowers confidence over time so the app brings it back. Formula: $confidence = stored \times e^{-rate \times days}$.
+* **Forced-commit rubric**: Scoring instruction that makes the judge raise confidence on evidence instead of hedging. This is our fix for the "warmup trap" — a judge that hedges forever = a placement prompt that never escalates.
+* **Effort, not accuracy**: Core principle. A wrong-but-trying turn still earns progress. Enforced in Zoe's tone AND the scoring layer. At A1 the enemy is silence, not error.
+
+---
+
+## Build remarks & open forks
+
+### How to do it — 3 remarks
+1. **Write strength & last_seen now**: Even though nothing reads them in MVP. This makes decay a pure addition later — not a schema migration on a live app.
+2. **The forced-commit rubric IS the warmup-trap fix**: The rubric must say "raise confidence when you see evidence." A judge that hedges at 0.5 forever is the same bug as a placement prompt that never escalates.
+3. **Single-sighting + no-decay is fine — for now**: False mastery will accumulate. The blast radius is zero while there are no returning users. Fix promotion + decay together, as one "rigour pass," exactly when kids start returning.
+
+### Open forks — decide as a team
+* **Decay rates per level**: Placeholder values (slow at A1, steep at B1+) are made up to feel right. Real numbers need return-visit data.
+* **0.7 confidence threshold**: The bar for a "confident sighting." Picked to be generous to a nervous A1 kid. Not validated.
+* **Single-sighting promotion**: A values bet: "don't crush the nervous kid" over "measure accurately." Right for now.
+* **due_next priority order**: "Finish > balance > breather" is a heuristic. Plausible default, unconfirmed.
+* **Reward metaphor**: Backpack vs sticker album vs constellation vs garden (§08). Lean: garden. Test with kids.
+* **Level profile content**: A1 & A2 profiles to be written as real prompt text; B1–C2 profiles drafted but unvalidated.
+* **Judge model**: Not finalised. Same model w/ different prompt for MVP.
+* **Per-turn coaching layer**: Default is NOT to build one.
+
+### Deferred decision — a per-turn coaching layer
+
+**Decision for MVP: don't build one (Option A). Test whether we need it.**
+
+A per-turn coaching layer would, between each child turn and Zoe's reply, produce a one-line instruction — e.g. *"child gave one word, celebrate it and ask one easy follow-up"* — and inject it into Zoe's prompt for that turn only. Three options:
+
+* **Option A · No layer (MVP DEFAULT)**: Zoe runs on base prompt + level profile. Reactivity comes from the model reading the transcript natively.
+  * *Trade-off*: Simplest. Bets that a modern model handles per-turn contingency on its own.
+* **Option B · Deterministic layer**: A small rulebook of if/then checks on the turn (length, silence, connector used) picks a note. No model call.
+  * *Trade-off*: Cheap, fast, debuggable — fits budget Android. But brittle: only catches what we wrote rules for.
+* **Option C · Model-based layer**: A second model call generates the note each turn before Zoe replies.
+  * *Trade-off*: Most robust to messy real input (Hinglish, off-topic answers). But a second call every turn on Gemini = real cost + latency. Only ever sensible as a fallback.
+
+**The plan**: Ship **Option A**. Run real A1 conversations on the bare level profile and watch where Zoe fails to be contingent. If the model handles it natively, we've saved the whole layer. If it doesn't, we build **Option B** — writing rules for the observed failures, not imagined ones.

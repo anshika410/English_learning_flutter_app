@@ -1,0 +1,160 @@
+---
+title: "System Architecture and Flow"
+sidebarTitle: "System Architecture"
+description: "High-level overview and sequence diagrams for the ELLA application flow."
+---
+
+# System Architecture & Flow
+
+This section details the API calls, data payloads, and state updates that occur as a student interacts with the ELLA application. It maps out exactly how the client maps to the backend APIs screen-by-screen.
+
+## A. System Architecture Overview
+
+Below is the end-to-end data flow showing how the React frontend, the FastAPI backend, the PostgreSQL Database, and the LLM Judge orchestrate user state, level transitions, and garden progress.
+
+```mermaid
+graph TD
+    %% Frontend Client
+    subgraph Frontend [React Loop Simulator Client]
+        UI[User Interface / Garden View / Chat Panel]
+        State[Client State: level, activeStepNum, dbGarden, dbMemory]
+    end
+
+    %% Backend Services
+    subgraph Backend [FastAPI Application Host]
+        AuthRouter[/auth/anonymous]
+        UsersRouter[/users/me/garden & /users/me/memory]
+        SessionRouter[/session & /session/{id}/turn]
+        JudgeRouter[/llm/judge]
+        Engine[Progression & Curriculum Engine]
+    end
+
+    %% Database & LLM
+    DB[(PostgreSQL Database)]
+    LLM[Google Gemini LLM Service]
+
+    %% Flow Mappings
+    UI -->|1. Request Auth/Profile| AuthRouter
+    UI -->|2. Fetch Garden/Memory| UsersRouter
+    UI -->|3. Start/Run Chat| SessionRouter
+    UI -->|4. End Chat & Judge| JudgeRouter
+
+    AuthRouter -->|Query/Create User| DB
+    UsersRouter -->|Fetch Progress & Targets| DB
+    SessionRouter -->|Fetch/Save Turns| DB
+    JudgeRouter -->|Fetch Transcript| DB
+    JudgeRouter -->|Grade Transcript| LLM
+    JudgeRouter -->|Apply Merges & Level-up| Engine
+    Engine -->|Update User Profile & Progress| DB
+
+    DB -.->|Return JSON Data| State
+    State -.->|Re-render UI| UI
+```
+
+## B. Screen-wise API Flow & State Transitions
+
+### 1. App Launch & Initialization
+
+When the student opens the application, the client establishes user identity, fetches user history, and builds the visual garden layout.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as React Client
+    participant API as FastAPI Backend
+    participant DB as PostgreSQL DB
+
+    Note over Client: App Loads (Initial State)
+    Client->>API: POST /auth/anonymous { "device_id": "dev_123" }
+    API->>DB: Query or insert user record
+    DB-->>API: Return User Profile
+    API-->>Client: Return Access Token
+
+    Note over Client: Authenticated (Save token in localStorage)
+    rect rgb(240, 248, 255)
+        Client->>API: GET /users/me/memory (Authorization Bearer)
+        API->>DB: Read user.skills_progress & user.due_next
+        DB-->>API: User memory data
+        API-->>Client: Response: { level: "A1", owned: [...], emerging: [...] }
+    end
+
+    rect rgb(245, 245, 245)
+        Client->>API: GET /users/me/garden
+        API->>DB: Fetch curriculum units for level
+        DB-->>API: Step definitions & user progress
+        API-->>Client: Response: { active_step_index: 1, theme: "The Clearing", units: [...] }
+    end
+
+    Note over Client: UI Renders: Floating farmer avatar placed at Step 1.<br/>Soil grids render 3 locked wooden plots and 1 active grid.
+```
+
+#### Client State Updates
+* **`level`** state is updated to the user's current level (e.g. `"A1"`).
+* **`dbMemory`** state is filled with the user's vocabulary and grammar checklists.
+* **`dbGarden`** state is updated to populate the 4 units of the garden (sightings, plant statuses, evidence tooltips).
+
+### 2. Active Chat Session
+
+When the student clicks "Start Chatting", the client initiates a conversation session based on the active step's target skill.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as React Client
+    participant API as FastAPI Backend
+
+    Note over Client: User clicks "Start Chatting"
+    Client->>API: POST /session (Creates active session)
+    API-->>Client: Response: { session_id: "sess_xyz", starter: "Hello!..." }
+
+    Note over Client: Chat Panel Opens (Zoe speaks starter)
+    
+    loop Conversation Turns
+        Client->>API: POST /session/sess_xyz/turn { "content": "Learner speech text..." }
+        API-->>Client: Response: { "zoe": "Assistant's reply text..." }
+    end
+```
+
+#### Client State Updates
+* **`activeConvId`** is set to the generated `session_id`.
+* **`msgs`** array appends messages live as chat balloons appear in the scrollable viewport.
+
+### 3. Judging, Merging, and Level-up
+
+When the conversation terminates, the backend runs the LLM Judge to check targeted skills, save quote evidence, and progress levels.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as React Client
+    participant API as FastAPI Backend
+    participant LLM as Gemini LLM
+    participant DB as PostgreSQL DB
+
+    Note over Client: User clicks "End Chat"
+    Client->>API: POST /llm/judge { session_id, messages, level, progression_model }
+    API->>LLM: Send transcript for grading
+    LLM-->>API: Return skill grading scores & confidence
+    
+    Note over API: Engine Processes Judge Output:
+    Note over API: 1. Add qualifying quotes (confidence >= 0.7) to skill evidence (max 3)
+    Note over API: 2. Check if active level units are complete (Steps 1-4)
+    Note over API: 3. If yes, advance user.level (A1 -> A2) and reset active_step_index to 1.
+    
+    API->>DB: Save updated user profile & progress
+    DB-->>API: Success
+    API-->>Client: Return analysis: { aimed_at: [...], hit_targets: [...], state_changes: [...] }
+
+    Note over Client: Client receives analysis
+    Client->>API: GET /users/me/memory (Fetch updated memory)
+    API-->>Client: Response: { level: "A2", ... }
+    Client->>API: GET /users/me/garden (Fetch new level garden)
+    API-->>Client: Response: { level: "A2", active_step_index: 1, theme: "The Young Garden", units: [...] }
+
+    Note over Client: UI Updates: Dynamic switch to "The Young Garden" theme.<br/>Farmer avatar transitions to A2 Step 1 raised bed.<br/>Hovering over plant slots shows graded evidence sentences.
+```
+
+#### Client State Updates
+* **`backendAnalysis`** is populated to show the graded confidence scores inside the simulator's **Judge** panel.
+* **`level`** state updates to `"A2"`, triggering the dropdown to change.
+* **`dbGarden`** is updated with the newly retrieved A2 units and reset progress checks.

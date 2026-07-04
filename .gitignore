@@ -106,3 +106,9 @@ frontend/windows/flutter/ephemeral/
 
 # SQLite dev database
 backend/zoe.db
+zoe.db
+*.db
+
+# Mintlify
+docs/mintlify-src/out/
+docs/mintlify-src/export.zip

@@ -53,8 +53,9 @@ cd backend
 docker-compose up --build
 ```
 
-API available at `http://localhost:8000`  
-Docs at `http://localhost:8000/docs`
+API available at `http://localhost:8000` (Local) / `https://ella.navgurukul.org/api` (Production)  
+Swagger Docs at `http://localhost:8000/docs` (Local) / `https://ella.navgurukul.org/api/docs` (Production)  
+ReDoc at `http://localhost:8000/redoc` (Local) / `https://ella.navgurukul.org/api/redoc` (Production)
 
 ### 3. Run locally (without Docker)
 
@@ -76,22 +77,22 @@ uvicorn app.main:app --reload --port 8000
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/auth/anonymous` | — | Silent device-based login (creates account on first launch) |
-| GET | `/users/me` | ✓ | Get profile |
-| PUT | `/users/me` | ✓ | Update name/age/location |
-| PUT | `/users/me/settings` | ✓ | Update focus settings |
-| POST | `/llm/conversation-starter` | ✓ | Generate opener |
-| POST | `/llm/conversation-turn` | ✓ | Send message, get reply |
-| POST | `/llm/placement-turn` | ✓ | Placement conversation turn |
-| POST | `/llm/session-analysis` | ✓ | End-of-session feedback |
-| POST | `/conversations` | ✓ | Create session |
-| GET | `/conversations` | ✓ | List past sessions |
-| GET | `/conversations/:id` | ✓ | Get session |
-| PUT | `/conversations/:id/complete` | ✓ | Mark complete |
-| POST | `/conversations/:id/messages` | ✓ | Store a turn |
-| GET | `/conversations/:id/messages` | ✓ | Get transcript |
-| POST | `/placements` | ✓ | Save placement result |
-| GET | `/placements/latest` | ✓ | Get latest level |
-| GET | `/placements` | ✓ | Level history |
-| GET | `/progress/summary` | ✓ | Stats overview |
-| GET | `/health` | — | Health check |
+| POST | `/auth/anonymous` | — | Silent device-based login. Automatically generates a persistent JWT token and user record from the device UUID on startup. |
+| GET | `/users/me` | ✓ | Retrieve authenticated student profile details. |
+| PUT | `/users/me` | ✓ | Update profile info (name, age, location) extracted from conversations. |
+| PUT | `/users/me/settings` | ✓ | Update student coaching settings (grammar, vocabulary, and fluency priorities). |
+| POST | `/llm/conversation-starter` | ✓ | Generates a friendly topic-based opener from Zoe. |
+| POST | `/llm/conversation-turn` | ✓ | Send user spoken message to Zoe, receive reply and grammar corrections. |
+| POST | `/llm/placement-turn` | ✓ | Executes a turn in the voice placement screening test. Evaluates speech CEFR level; returns Zoe's next response or complete assessment (`is_complete=True`). |
+| POST | `/llm/session-analysis` | ✓ | Generates overall post-session encouraging feedback cards, best moment highlights, and skills grade. |
+| POST | `/conversations` | ✓ | Create a new active voice chat session container. |
+| GET | `/conversations` | ✓ | Retrieve user conversation history list. |
+| GET | `/conversations/:id` | ✓ | Fetch specific conversation session metadata. |
+| PUT | `/conversations/:id/complete` | ✓ | Conclude the session and log calculated speaking duration. |
+| POST | `/conversations/:id/messages` | ✓ | Persist individual spoken message bubble, corrections, and latency metrics to database history. |
+| GET | `/conversations/:id/messages` | ✓ | Retrieve transcript history of a conversation session. |
+| POST | `/placements` | ✓ | Save placement test CEFR level, highlights, interests, and transcript. |
+| GET | `/placements/latest` | ✓ | Fetch latest active CEFR level placement details. |
+| GET | `/placements` | ✓ | Retrieve full level history of all completed placement tests. |
+| GET | `/progress/summary` | ✓ | Fetch aggregated learning statistics (minutes spoken, session completion rates). |
+| GET | `/health` | — | Basic system health check. |

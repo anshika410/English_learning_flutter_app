@@ -1,8 +1,5 @@
-import 'dart:convert';
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
-import '../models/focus_settings.dart';
-import '../models/placement_result.dart';
 import 'api_service.dart';
 
 /// LLM service that routes all calls through the backend proxy.
@@ -32,7 +29,6 @@ class BackendLlmService {
     String level = 'A2',
     String levelLabel = 'Finding My Voice',
     int currentTurn = 1,
-    FocusSettings focusSettings = const FocusSettings.defaults(),
   }) async {
     final messages = history
         .where((m) => m.role != MessageRole.system)
@@ -49,9 +45,6 @@ class BackendLlmService {
       level: level,
       levelLabel: levelLabel,
       currentTurn: currentTurn,
-      grammarFocus: focusSettings.grammar.label,
-      vocabFocus: focusSettings.vocabulary.label,
-      fluencyFocus: focusSettings.fluency.label,
     );
 
     if (data == null) return null;
@@ -80,7 +73,7 @@ class BackendLlmService {
     if (isComplete) {
       return PlacementMessageResult.complete(
         levelCode: data['level_code'] as String?,
-        levelName: data['level_name'] as String?,
+        levelName: (data['unit_name'] ?? data['level_name']) as String?,
         levelDescription: data['level_description'] as String?,
         confidence: data['confidence'] as String?,
         possibleHigher: data['possible_higher'] as bool?,

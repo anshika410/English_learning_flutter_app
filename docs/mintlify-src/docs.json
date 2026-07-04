@@ -1,0 +1,157 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Ella Docs",
+  "basePath": "/docs",
+  "metadata": {
+    "timestamp": true
+  },
+  "colors": {
+    "primary": "#16A34A",
+    "light": "#07C983",
+    "dark": "#15803D"
+  },
+  "favicon": "/favicon.svg",
+  "api": {
+    "openapi": "/openapi.json",
+    "playground": {
+      "proxy": false
+    }
+  },
+  "navigation": {
+    "pages": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "readme",
+          "system-architecture",
+          "conversation-flow-simulator"
+        ]
+      },
+      {
+        "group": "Backend & Database",
+        "pages": [
+          "backend-readme",
+          "existing_api_and_database_inventory",
+          "database_options_readme"
+        ]
+      },
+      {
+        "group": "Gamification",
+        "pages": [
+          "garden-progress-system"
+        ]
+      },
+      {
+        "group": "Placement",
+        "pages": [
+          "voice-placement-system"
+        ]
+      },
+      {
+        "group": "Architecture & Latency",
+        "pages": [
+          "memory_feature_feasibility"
+        ]
+      },
+      {
+        "group": "Voice",
+        "pages": [
+          "stt_tts_mobile_constraints"
+        ]
+      },
+      {
+        "group": "API: Placement Loop",
+        "pages": [
+          "api/llm/placement-turn",
+          "api/placements/list-placements",
+          "api/placements/create-placement",
+          "api/placements/get-latest-placement"
+        ]
+      },
+      {
+        "group": "API: Authentication",
+        "pages": [
+          "api/auth/anonymous-auth"
+        ]
+      },
+      {
+        "group": "API: Users & Profiles",
+        "pages": [
+          "api/users/get-profile",
+          "api/users/update-profile",
+          "api/users/update-settings",
+          "api/users/get-user-memory",
+          "api/users/update-user-memory"
+        ]
+      },
+      {
+        "group": "API: Conversation",
+        "pages": [
+          "api/session/list-sessions",
+          "api/session/create-session",
+          "api/session/get-session",
+          "api/session/get-messages",
+          "api/session/store-message",
+          "api/session/session-turn",
+          "api/session/get-session-log"
+        ]
+      },
+      {
+        "group": "API: Gamification",
+        "pages": [
+          "api/users/get-user-garden",
+          "api/users/get-primary-target",
+          "api/progress/get-progress-summary"
+        ]
+      },
+      {
+        "group": "API: LLM Judge",
+        "pages": [
+          "api/session/get-session-analysis",
+          "api/llm/session-analysis",
+          "api/llm/conversation-starter",
+          "api/llm/conversation-turn"
+        ]
+      },
+      {
+        "group": "API: Administration",
+        "pages": [
+          "api/admin/admin-stats",
+          "api/admin/get-placement-transcript"
+        ]
+      },
+      {
+        "group": "API: Health Checks",
+        "pages": [
+          "api/health-check"
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "API Swagger",
+        "href": "https://ella.navgurukul.org/api/docs"
+      },
+      {
+        "label": "API ReDoc",
+        "href": "https://ella.navgurukul.org/api/redoc"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/navgurukul/ella_flutter"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/navgurukul/ella_flutter"
+    }
+  }
+}

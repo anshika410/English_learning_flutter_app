@@ -18,16 +18,16 @@ Routers (API modules)
   auth — anonymous device-based authentication
   users — profile read/update
   llm — LLM proxy (placement turn, conversation turn, conversation starter, session analysis)
-  conversations — create, list, complete, messages
+   session — create, list, turn, messages, analysis, session-log
   placements — save and retrieve placement results
   progress — progress summary
   admin — admin stats and transcript viewer (key-protected)
 
 
 Database Tables (current)
-  users — id, device_id, name, age, location, level, level_label, grammar_focus, vocab_focus, fluency_focus, first_session_done, created_at
+  users — id, device_id, name, age, location, level, level_label, first_session_done, created_at
   placements — id, user_id, level, level_label, confidence, highlight, transcript_json, created_at
-  conversations — id, user_id, topic, header_title, duration_seconds, session_type, quality, completed, created_at
+  conversations — id, user_id, topic, header_title, duration_seconds (calculated as user_turns * 30), session_type, quality, completed, created_at
   messages — id, conversation_id, role, content, correction, turn_number, stt_duration_ms, llm_duration_ms, tts_duration_ms, created_at
   session_analyses — id, conversation_id, analysis_json, created_at
 
@@ -46,9 +46,6 @@ API Endpoints
     Body: name, age, location (all optional)
     Updates user profile
 
-  PUT /users/me/settings
-    Body: grammar_focus, vocab_focus, fluency_focus
-    Updates coaching preferences
 
   POST /llm/placement-turn
     Body: messages (array of role/content), name, age
@@ -61,32 +58,38 @@ API Endpoints
     Generates opening line for a conversation
 
   POST /llm/conversation-turn
-    Body: conversation_id, messages, topic, level, level_label, current_turn, grammar_focus, vocab_focus, fluency_focus
+    Body: conversation_id, messages, topic, level, level_label, current_turn
     Returns: reply, correction, conversation_complete
     Proxies to DeepSeek with conversation prompt
 
   POST /llm/session-analysis
     Body: conversation_id, messages, topic, level, level_label
     Returns: overall, best_moment, courage_or_motivation, try_next_time, transcript_notes
-    Generates post-session analysis
+    Generates post-session analysis, marks session as complete, and computes duration_seconds dynamically as user_turns * 30.
 
-  POST /conversations
+  POST /session
     Body: topic (optional)
-    Returns: conversation object with id
+    Returns: session object with session_id
 
-  GET /conversations
-    Returns: list of user's conversations
+  GET /session
+    Returns: list of user's sessions
 
-  PUT /conversations/{id}/complete
-    Body: duration_seconds, session_type
-    Marks conversation as complete
+  POST /session/{session_id}/turn
+    Body: content
+    Executes a turn in the practice chat, returns reply, correction, conversation_complete
 
-  POST /conversations/{id}/messages
+  POST /session/{session_id}/messages
     Body: role, content, correction, stt_duration_ms, llm_duration_ms, tts_duration_ms, turn_number
     Stores a message
 
-  GET /conversations/{id}/messages
-    Returns: all messages for a conversation
+  GET /session/{session_id}/messages
+    Returns: all messages for a session
+
+  GET /session/{session_id}/analysis
+    Returns: qualitative and quantitative analysis of the session
+
+  GET /session/{session_id}/session-log
+    Returns: compiled session log data
 
   POST /placements
     Body: level, level_label, highlight, transcript_json

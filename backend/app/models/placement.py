@@ -19,6 +19,15 @@ class Placement(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     level: Mapped[str] = mapped_column(String(5))
     level_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    @property
+    def unit_label(self) -> str | None:
+        return self.level_label
+
+    @unit_label.setter
+    def unit_label(self, value: str | None) -> None:
+        self.level_label = value
+
     confidence: Mapped[str | None] = mapped_column(String(20), nullable=True)
     highlight: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript_json: Mapped[str | None] = mapped_column(Text, nullable=True)
