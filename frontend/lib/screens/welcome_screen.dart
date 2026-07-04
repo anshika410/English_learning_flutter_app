@@ -1,13 +1,10 @@
-import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
-import '../theme/ella_responsive.dart';
 import '../widgets/ella_primary_button.dart';
-import 'onboarding_screen.dart';
+import 'placement_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -16,15 +13,6 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-// Idle mascot cycle: listening(4s) → juggling(4s) → listening(4s) → bubblepop(4s) → repeat
-const List<String> _kIdleAssets = [
-  'assets/mascot-animations/listening.webp',
-  'assets/mascot-animations/juggling.webp',
-  'assets/mascot-animations/listening.webp',
-  'assets/mascot-animations/bubblepop.webp',
-];
-const Duration _kIdleHold = Duration(seconds: 4);
-
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final TtsManager _tts = TtsManager();
   bool _isSpeakingIntro = false;
@@ -32,11 +20,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   bool _showStartButton = false;
   String _visibleHeading = '';
   String _visibleSubline = '';
-
-  // Idle animation loop state
-  String _mascotAsset = 'assets/mascot-animations/speaking.webp';
-  int _idleStep = 0;
-  Timer? _idleTimer;
 
   static const String _introHeading = 'Hi, I am Zoe!';
   static const String _introSubline =
@@ -54,30 +37,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     super.didChangeDependencies();
     if (_didPrecacheMascotImages) return;
 
-    for (final asset in _kIdleAssets) {
-      precacheImage(AssetImage(asset), context);
-    }
     precacheImage(
       const AssetImage('assets/mascot-animations/speaking.webp'),
       context,
     );
+    precacheImage(
+      const AssetImage('assets/mascot-animations/listening.webp'),
+      context,
+    );
     _didPrecacheMascotImages = true;
-  }
-
-  void _startIdleLoop() {
-    _idleTimer?.cancel();
-    _idleStep = 0;
-    _mascotAsset = _kIdleAssets[0];
-    _scheduleNextIdleStep();
-  }
-
-  void _scheduleNextIdleStep() {
-    _idleTimer = Timer(_kIdleHold, () {
-      if (!mounted) return;
-      _idleStep = (_idleStep + 1) % _kIdleAssets.length;
-      setState(() => _mascotAsset = _kIdleAssets[_idleStep]);
-      _scheduleNextIdleStep();
-    });
   }
 
   Future<void> _playIntroSpeech() async {
@@ -91,18 +59,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     try {
       await _tts.initialize();
-      // On web, browsers block speechSynthesis unless triggered by a user gesture.
-      // Skip auto-speak on web; TTS fires when the user taps the Start button instead.
-      if (!kIsWeb) {
-        final Future<void> speechFuture = _tts.speak(_introSpeech);
-        await _typeIntroText();
-        await speechFuture.timeout(
-          const Duration(seconds: 8),
-          onTimeout: () {},
-        );
-      } else {
-        await _typeIntroText();
-      }
+      final Future<void> speechFuture = _tts.speak(_introSpeech);
+      await _typeIntroText();
+      // Wait for TTS but cap at 8s — web TTS can hang indefinitely
+      await speechFuture.timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {},
+      );
     } catch (_) {
       // Keep UI resilient even if a TTS engine fails.
     } finally {
@@ -111,7 +74,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           _isSpeakingIntro = false;
           _showStartButton = true;
         });
-        _startIdleLoop();
       }
     }
   }
@@ -170,24 +132,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _navigateToPlacement() {
-    // On web, speak here — this runs inside a tap handler (user gesture),
-    // which satisfies the browser autoplay policy for speechSynthesis.
-    if (kIsWeb) {
-      _tts.speak(_introSpeech);
-    } else {
-      _tts.stop();
-    }
+    _tts.stop();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context2, animation, secondary) =>
-            const OnboardingScreen(),
-        transitionDuration: const Duration(milliseconds: 400),
+            const PlacementScreen(),
+        transitionDuration: const Duration(milliseconds: 350),
         transitionsBuilder: (context2, animation, secondary, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeIn,
-            ),
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          );
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(curved),
             child: child,
           );
         },
@@ -197,15 +157,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   void dispose() {
-    _idleTimer?.cancel();
     _tts.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isWide = EllaResponsive.isWide(context);
-
     return Scaffold(
       backgroundColor: EllaColors.neutralBg,
       body: Stack(
@@ -218,78 +175,66 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
           // Main content
           SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isWide ? 760 : 560),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Spacer(flex: 2),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
 
-                      // Zoe mascot — speaking during intro, then idle-cycles
-                      _ZoeMascot(
-                        assetPath: _isSpeakingIntro
-                            ? 'assets/mascot-animations/speaking.webp'
-                            : _mascotAsset,
-                      ),
+                  // Zoe mascot — animated webp looping inside circle
+                  _ZoeMascot(isSpeaking: _isSpeakingIntro),
 
-                      const SizedBox(height: 40),
+                  const SizedBox(height: 20),
 
-                      // Heading — extra bold
-                      Text(
-                        _visibleHeading,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontFamily: 'Chillax',
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          color: EllaColors.neutralPrimary,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Warm support line
-                      Text(
-                        _visibleSubline,
-                        textAlign: TextAlign.center,
-                        maxLines: isWide ? 1 : null,
-                        overflow: isWide ? TextOverflow.ellipsis : null,
-                        style: GoogleFonts.baloo2(
-                          fontSize: EllaResponsive.sublineFontSize(context),
-                          fontWeight: FontWeight.w500,
-                          color: EllaColors.neutralSecondary,
-                          height: 1.3,
-                        ),
-                      ),
-
-                      const SizedBox(height: 48),
-
-                      AnimatedSlide(
-                        duration: const Duration(milliseconds: 420),
-                        curve: Curves.easeOutCubic,
-                        offset: _showStartButton
-                            ? Offset.zero
-                            : const Offset(0, 0.18),
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 320),
-                          opacity: _showStartButton ? 1 : 0,
-                          child: IgnorePointer(
-                            ignoring: !_showStartButton,
-                            child: EllaPrimaryButton(
-                              label: 'Start learning',
-                              onTap: _navigateToPlacement,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const Spacer(flex: 2),
-                    ],
+                  // Heading — extra bold
+                  Text(
+                    _visibleHeading,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Chillax',
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: EllaColors.neutralPrimary,
+                      height: 1.2,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+
+                  // Warm support line
+                  Text(
+                    _visibleSubline,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.baloo2(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: EllaColors.neutralSecondary,
+                      height: 1.3,
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  AnimatedSlide(
+                    duration: const Duration(milliseconds: 420),
+                    curve: Curves.easeOutCubic,
+                    offset: _showStartButton
+                        ? Offset.zero
+                        : const Offset(0, 0.18),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 320),
+                      opacity: _showStartButton ? 1 : 0,
+                      child: IgnorePointer(
+                        ignoring: !_showStartButton,
+                        child: EllaPrimaryButton(
+                          label: 'Start learning',
+                          onTap: _navigateToPlacement,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const Spacer(flex: 2),
+                ],
               ),
             ),
           ),
@@ -302,16 +247,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 // ─── Zoe Mascot ──────────────────────────────────────────────────────────────
 
 class _ZoeMascot extends StatelessWidget {
-  final String assetPath;
+  final bool isSpeaking;
 
-  const _ZoeMascot({required this.assetPath});
+  const _ZoeMascot({required this.isSpeaking});
 
   @override
   Widget build(BuildContext context) {
-    final size = EllaResponsive.mascotSize(context);
     return Container(
-      width: size,
-      height: size,
+      width: 160,
+      height: 160,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: EllaColors.zoeMintLight,
@@ -336,8 +280,10 @@ class _ZoeMascot extends StatelessWidget {
           transitionBuilder: (child, animation) =>
               FadeTransition(opacity: animation, child: child),
           child: Image.asset(
-            assetPath,
-            key: ValueKey<String>(assetPath),
+            isSpeaking
+                ? 'assets/mascot-animations/speaking.webp'
+                : 'assets/mascot-animations/listening.webp',
+            key: ValueKey<bool>(isSpeaking),
             fit: BoxFit.cover,
             alignment: Alignment.center,
             errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
@@ -355,73 +301,47 @@ class _CornerBlocks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wide = EllaResponsive.isWide(context);
-    final xOff = wide
-        ? EllaResponsive.blockXOffsetWide
-        : EllaResponsive.blockXOffsetMobile;
-    final yOffTop = wide
-        ? EllaResponsive.blockYOffsetTopWide
-        : EllaResponsive.blockYOffsetTopMobile;
-    final yOffBot = wide
-        ? EllaResponsive.blockYOffsetBottomWide
-        : EllaResponsive.blockYOffsetBottomMobile;
-    final wNarrow = wide
-        ? EllaResponsive.blockWidthNarrowWide
-        : EllaResponsive.blockWidthNarrowMobile;
-    final wWide = wide
-        ? EllaResponsive.blockWidthWideWide
-        : EllaResponsive.blockWidthWideMobile;
-    final hTall = wide
-        ? EllaResponsive.blockHeightTallWide
-        : EllaResponsive.blockHeightTallMobile;
-    final hMid = wide
-        ? EllaResponsive.blockHeightMidWide
-        : EllaResponsive.blockHeightMidMobile;
-    final hShort = wide
-        ? EllaResponsive.blockHeightShortWide
-        : EllaResponsive.blockHeightShortMobile;
-
     return Stack(
       children: [
         // Top-left — Mango (orange) — tallest, most dominant
         _CornerBlock(
           color: EllaColors.mangoMain,
           alignment: Alignment.topLeft,
-          xOffset: -xOff,
-          yOffset: -yOffTop,
+          xOffset: -88,
+          yOffset: -96,
           rotationDeg: -20,
-          width: wNarrow,
-          height: hTall,
+          width: 170,
+          height: 360,
         ),
         // Top-right — Sky (blue)
         _CornerBlock(
           color: EllaColors.skyMain,
           alignment: Alignment.topRight,
-          xOffset: xOff,
-          yOffset: -yOffTop,
+          xOffset: 88,
+          yOffset: -96,
           rotationDeg: 20,
-          width: wNarrow,
-          height: hMid,
+          width: 170,
+          height: 350,
         ),
         // Bottom-left — Sunny Yellow
         _CornerBlock(
           color: EllaColors.sunnyYellow,
           alignment: Alignment.bottomLeft,
-          xOffset: -xOff,
-          yOffset: yOffBot,
+          xOffset: -88,
+          yOffset: 92,
           rotationDeg: 20,
-          width: wWide,
-          height: hShort,
+          width: 180,
+          height: 340,
         ),
         // Bottom-right — Rose (pink)
         _CornerBlock(
           color: EllaColors.roseMain,
           alignment: Alignment.bottomRight,
-          xOffset: xOff,
-          yOffset: yOffBot,
+          xOffset: 88,
+          yOffset: 92,
           rotationDeg: -20,
-          width: wWide,
-          height: hShort,
+          width: 180,
+          height: 340,
         ),
       ],
     );
