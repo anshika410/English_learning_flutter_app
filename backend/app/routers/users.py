@@ -51,16 +51,45 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     all_topics = LEVEL_TOPICS.get(level_code, [])
     valid_topics = [t for t in all_topics if t.get("name")]
     used = set(last_topics_list)
-    fresh = [t["name"] for t in valid_topics if t["name"] not in used]
+    fresh = [t for t in valid_topics if t["name"] not in used]
     if not fresh:
-        fresh = [t["name"] for t in valid_topics]
+        fresh = list(valid_topics)
     import random
     random.shuffle(fresh)
-    recommended = fresh[0] if fresh else None
-    alternatives = fresh[1:4] if len(fresh) > 1 else []
 
-    from ..schemas.user import NextTopics
-    next_topics_obj = NextTopics(recommended=recommended, alternatives=alternatives) if recommended else None
+    def _make_label(name):
+        """Derive a short label from topic name."""
+        # Common patterns: "My family" → "Family", "Food I like" → "Food", "My school" → "School"
+        lower = name.lower()
+        if lower.startswith("my "):
+            return name[3:].split()[0].capitalize()
+        words = name.split()
+        if len(words) <= 2:
+            return words[0].capitalize()
+        # For longer names, use first noun-like word
+        skip = {"the", "a", "an", "and", "in", "of", "vs.", "i", "don't"}
+        for w in words:
+            if w.lower() not in skip and len(w) > 2:
+                return w.capitalize()
+        return words[0].capitalize()
+
+    def _topic_item(t):
+        starters = t.get("starters", [])
+        return {
+            "name": t["name"],
+            "label": _make_label(t["name"]),
+            "starter": starters[0] if starters else None,
+        }
+
+    from ..schemas.user import NextTopics, NextTopicItem
+    next_topics_obj = None
+    if fresh:
+        rec = _topic_item(fresh[0])
+        alts = [_topic_item(t) for t in fresh[1:4]]
+        next_topics_obj = NextTopics(
+            recommended=NextTopicItem(**rec),
+            alternatives=[NextTopicItem(**a) for a in alts]
+        )
 
     return UserMemoryResponse(
         id=user.id,
