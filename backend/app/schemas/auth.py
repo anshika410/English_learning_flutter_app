@@ -15,6 +15,21 @@ class AnonymousAuthRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
     user_id: str
     is_new: bool  # true = first time this device registered
+
+
+class GoogleAuthRequest(BaseModel):
+    token: str
+    device_id: str | None = None
+
+
+class MagicLinkRequest(BaseModel):
+    email: str
+    device_id: str | None = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
