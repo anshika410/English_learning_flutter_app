@@ -64,3 +64,27 @@ When the placement test is complete, the API returns the following JSON fields:
   Passive interests extracted from the conversation (e.g., `["cricket", "music"]`), which are automatically saved to their profile to recommend personalized syllabus units.
 * **`notes_for_first_session`** (string):
   Actionable tips from Zoe for the student's first tutor session.
+
+---
+
+## Placement to Conversation Memory Sync
+
+When the placement test is completed, the system updates the student's persistent **User Memory** profile so they can enter the standard conversation loop. Below is the mapping of how placement output connects to the memory fields:
+
+### 🔗 Fields Updated by Placement
+| Memory Field | Data Type | Source/Connection |
+| :--- | :--- | :--- |
+| **`level`** | `VARCHAR(5)` | Set to the assessed level code (e.g. `A2`). |
+| **`placement`** | `JSON` | Stores the complete test metadata: `level`, `unit_label`, `confidence`, `highlight` (evidence summary text), and `created_at`. |
+| **`interests`** | `VARCHAR(200)` | Automatically populated with interest tags from the conversation (e.g. `cricket, gardening`). |
+| **`units` / `last_topics`** | `JSON` | Pre-set to the starting curriculum unit name (e.g. `["Finding My Voice"]`). |
+| **`profile`** | `JSON` | Captures `name` and `age` from the screening initiation details. |
+| **`due_next`** | `JSON` | Dynamically calculated by the curriculum manager to suggest the first lessons for the newly set level. |
+
+### 📭 Fields Remaining Default (Curriculum-Only)
+The following fields do **not** receive placement data and only begin updating once standard curriculum chats are logged:
+* **`owned` / `emerging`**: Track micro-grammar/vocab milestones gained during standard lessons.
+* **`sightings` / `strength`**: Count evidence instances inside standard chats.
+* **`effort` (`times_spoken_total`)**: Total speaking count accumulated in daily sessions.
+* **`updated_after_chat`**: Tracks standard sessions completed.
+
