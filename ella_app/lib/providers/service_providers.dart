@@ -4,6 +4,7 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/audio_service.dart';
 import '../services/ella_api_service.dart';
 import '../services/llm_service.dart';
 import '../services/supabase_service.dart';
@@ -32,3 +33,10 @@ final sttProvider = Provider<SpeechToTextService>(
 );
 
 final ttsProvider = Provider<FlutterTtsService>((ref) => FlutterTtsService());
+
+/// App-wide SFX + background-music player. Initialized once in main().
+final audioProvider = Provider<AudioService>((ref) {
+  final service = AudioService();
+  ref.onDispose(service.dispose);
+  return service;
+});

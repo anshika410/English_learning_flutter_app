@@ -13,9 +13,11 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../services/audio_service.dart';
 import 'session_screen.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/garden_sky_background.dart';
+import 'widgets/zoe_mascot.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
 // 'demo'), so this is a swappable placeholder matching the design demo until a
@@ -173,10 +175,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SvgPicture.asset(
-                            _kMascotAsset,
-                            width: mascotW,
-                            height: mascotW * _kMascotAspect,
+                          ZoeMascot(
+                            mode: ZoeMascotMode.listening,
+                            size: mascotW,
+                            reducedMotion: MediaQuery.of(context).disableAnimations,
                           ),
                           const SizedBox(height: 20),
                           _LastTimeCard(recapTopic: _recapTopic),
@@ -195,7 +197,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                               ),
                             ),
                             height: 60,
-                            onTap: onStart,
+                            onTap: withTapClick(onStart),
                           ),
                         ],
                       ),
@@ -296,7 +298,7 @@ class _CircleIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: withTapClick(onTap),
       child: Container(
         width: 54,
         height: 54,
@@ -347,7 +349,7 @@ class _LastTimeCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(body, style: EllaTextStyles.bodyBase),
+          Text(body, style: EllaTextStyles.bodySemibold),
         ],
       ),
     );

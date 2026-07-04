@@ -180,6 +180,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return ConversationView(
       phase: phase,
       mascotSpeaking: _ending || s.status == ChatStatus.zoeSpeaking,
+      mascotThinking: s.status == ChatStatus.zoeThinking,
       zoeLine: zoeLine,
       studentLine: studentLine,
       studentLive: studentLive,

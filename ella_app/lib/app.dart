@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
 import 'screens/child_view/home_screen.dart';
@@ -23,6 +24,7 @@ class EllaApp extends StatelessWidget {
       title: 'ELLA',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
+      navigatorObservers: [appRouteObserver],
       home: const _EllaHome(),
     );
   }

@@ -41,6 +41,8 @@ dependencies:
   flutter_svg: ^2.0.10+1
   shared_preferences: ^2.3.3
   google_fonts: ^6.2.1
+  audioplayers: ^6.1.0
+  path_drawing: ^1.0.1
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +76,8 @@ flutter:
     - assets/gardent-view/
     - assets/garden/plants/
     - assets/information-box/
+    - assets/sounds/sfx/
+    - assets/sounds/music/
 
   fonts:
     - family: Chillax
@@ -87,6 +91,23 @@ flutter:
         - asset: assets/chillax/Chillax-Semibold.otf
           weight: 600
         - asset: assets/chillax/Chillax-Bold.otf
+          weight: 700
+    # Amulya → titles / UI / display; Synonym → body, buttons, Zoe voice.
+    - family: Amulya
+      fonts:
+        - asset: assets/fonts/Amulya-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Amulya-Bold.otf
+          weight: 700
+    - family: Synonym
+      fonts:
+        - asset: assets/fonts/Synonym-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Synonym-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Synonym-Semibold.otf
+          weight: 600
+        - asset: assets/fonts/Synonym-Bold.otf
           weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see

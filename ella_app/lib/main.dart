@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
+import 'providers/service_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,5 +26,15 @@ Future<void> main() async {
     }
   }
 
-  runApp(const ProviderScope(child: EllaApp()));
+  // Shared container so the audio service initialized here is the same instance
+  // the widget tree reads via `audioProvider`.
+  final container = ProviderContainer();
+  // Best-effort: load mute prefs + warm up players. Never block boot on audio.
+  try {
+    await container.read(audioProvider).initialize();
+  } catch (_) {}
+
+  runApp(
+    UncontrolledProviderScope(container: container, child: const EllaApp()),
+  );
 }

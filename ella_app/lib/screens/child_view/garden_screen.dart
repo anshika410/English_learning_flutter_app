@@ -12,11 +12,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../route_observer.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/garden.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/garden_provider.dart';
+import '../../providers/service_providers.dart';
+import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
 import 'session_screen.dart';
 import 'session_intro.dart';
 import 'widgets/garden_dialogs.dart';
@@ -32,8 +36,10 @@ const Color _meadowBottom = EllaColors.fieldDark;
 const double _skyHeight = 188;
 const double _plotW = 220;
 const double _plotH = 190;
-const double _tileW = 82;
+const double _tileW = 98.4; // 82 × 1.2 (tiles enlarged 20%)
 const double _tileH = _tileW / 105 * 80;
+// Slot the flower art sits in; enlarged 30% alongside the plant heights below.
+const double _plantSlotW = 72.8; // 56 × 1.3
 // Half-extents of a tile's isometric top-face diamond (the tiles.svg top face
 // runs x:7.5→97.5, y:7.5→52.5 in its 105-wide viewBox). Tiles must step by
 // exactly these amounts to tessellate edge-to-edge without overlapping.
@@ -42,13 +48,88 @@ const double _isoHalfH = _tileW / 105 * 22.5;
 const double _ellipseW = 204;
 const double _ellipseH = _ellipseW / 252 * 119;
 
-class GardenScreen extends ConsumerWidget {
+class GardenScreen extends ConsumerStatefulWidget {
   final VoidCallback? onConversationEnded;
 
   const GardenScreen({super.key, this.onConversationEnded});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GardenScreen> createState() => _GardenScreenState();
+}
+
+class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
+  // Last-seen sightings per skill id, so we can detect when a skill grows
+  // (sightings increase) after a session and play the new-sprout cue once.
+  // Seeded from the first garden payload — no sound on initial load.
+  Map<String, int> _lastSightings = {};
+
+  // Captured in initState so dispose() never reads `ref` (unreliable while the
+  // element is deactivating) — otherwise the stop-on-leave can silently fail.
+  late final AudioInterface _audio;
+
+  @override
+  void initState() {
+    super.initState();
+    _audio = ref.read(audioProvider);
+    // Start on every mount so the loop is audible each time the garden opens
+    // (not just the first time).
+    _startMusic();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe as RouteAware so we can react when another screen is pushed on
+    // top of / popped back to the garden. Subscribing is idempotent.
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  void _startMusic() => _audio.playMusic(Sounds.gardenMusic);
+  void _stopMusic() => _audio.stopMusic();
+
+  // The garden loop plays only while this screen is the visible, top-most route.
+  // dispose() alone isn't enough: pushing Session/Profile on top doesn't dispose
+  // the garden, so we stop the loop on didPushNext and resume it on didPopNext.
+  @override
+  void didPopNext() => _startMusic();
+
+  @override
+  void didPushNext() => _stopMusic();
+
+  /// Records the current sightings and returns true if any skill grew since the
+  /// previous payload. Returns false on the first payload (baseline only).
+  bool _registerAndDetectGrowth(GardenData data) {
+    final next = <String, int>{};
+    for (final step in data.steps) {
+      for (final skill in step.skills) {
+        next[skill.id] = skill.sightings;
+      }
+    }
+    var grew = false;
+    if (_lastSightings.isNotEmpty) {
+      for (final entry in next.entries) {
+        if (entry.value > (_lastSightings[entry.key] ?? 0)) {
+          grew = true;
+          break;
+        }
+      }
+    }
+    _lastSightings = next;
+    return grew;
+  }
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    _stopMusic();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Refetch the garden the instant a chat ends. endChat() sets sessionEnded
     // only after the server has merged the new state, so this pulls fresh
     // growth without the child having to leave and re-open the tab.
@@ -57,12 +138,23 @@ class GardenScreen extends ConsumerWidget {
       final isEnded = next.valueOrNull?.sessionEnded ?? false;
       if (isEnded && !wasEnded) ref.invalidate(gardenProvider);
     });
+    // When refreshed garden data shows a skill has grown, play the new-sprout
+    // cue. Baseline is set silently on the first payload.
+    ref.listen<AsyncValue<GardenData>>(gardenProvider, (prev, next) {
+      final data = next.valueOrNull;
+      if (data == null) return;
+      if (_registerAndDetectGrowth(data)) {
+        ref.read(audioProvider).playSfx(Sounds.newSprout);
+      }
+    });
     final gardenAsync = ref.watch(gardenProvider);
     return Container(
       color: _meadowBottom,
       child: gardenAsync.when(
-        data: (data) =>
-            _GardenView(data: data, onConversationEnded: onConversationEnded),
+        data: (data) => _GardenView(
+          data: data,
+          onConversationEnded: widget.onConversationEnded,
+        ),
         loading: () => const _SkyScaffold(
           child: Center(
             child: CircularProgressIndicator(color: EllaColors.berryDark),
@@ -235,53 +327,75 @@ class _SkyHills extends StatelessWidget {
             height: 86,
             child: CustomPaint(painter: _HillsPainter()),
           ),
-          // Level / theme badge.
+          // Level / theme badge — also the back control to the home screen.
           Positioned(
             top: 16,
             left: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-              decoration: BoxDecoration(
-                // Solid berryDark so the white label stays AA-safe (a berry
-                // gradient's light band would fail under the text).
-                color: EllaColors.berryDark,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: const [
-                  BoxShadow(
-                    color: EllaColors.berryDeep,
-                    offset: Offset(0, 3),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    level.isEmpty ? 'Your Garden' : 'Level - $level',
-                    style: EllaFonts.bricolage(
-                      const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: EllaColors.onPrimary,
-                        height: 1.0,
-                      ),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Container(
+                padding: const EdgeInsets.only(
+                  left: 10,
+                  right: 16,
+                  top: 9,
+                  bottom: 9,
+                ),
+                decoration: BoxDecoration(
+                  // Solid berryDark so the white label stays AA-safe (a berry
+                  // gradient's light band would fail under the text).
+                  color: EllaColors.berryDark,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: EllaColors.berryDeep,
+                      offset: Offset(0, 3),
+                      blurRadius: 0,
                     ),
-                  ),
-                  if (theme.isNotEmpty)
-                    Text(
-                      theme,
-                      style: EllaFonts.bricolage(
-                        TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: EllaColors.onPrimary.withValues(alpha: 0.85),
-                          height: 1.2,
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.arrow_back_rounded,
+                      size: 20,
+                      color: EllaColors.onPrimary,
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          level.isEmpty ? 'Your Garden' : 'Level - $level',
+                          style: EllaFonts.bricolage(
+                            const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: EllaColors.onPrimary,
+                              height: 1.0,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (theme.isNotEmpty)
+                          Text(
+                            theme,
+                            style: EllaFonts.bricolage(
+                              TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: EllaColors.onPrimary.withValues(
+                                  alpha: 0.85,
+                                ),
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -569,9 +683,9 @@ class _SkillPlant extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       bottom: spot.bottom + _tileH * 0.50,
-      left: spot.left + _tileW / 2 - 28,
+      left: spot.left + _tileW / 2 - _plantSlotW / 2,
       child: SizedBox(
-        width: 56,
+        width: _plantSlotW,
         child: Center(
           child: _Plant(skill: skill, swayDelayMs: swayDelayMs, onTap: onTap),
         ),
@@ -655,11 +769,12 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     // Growth stage follows sightings: 1 → seedling, 2 → young, ≥3 → bloom.
+    // Heights enlarged 30% (48/68/88 → 62.4/88.4/114.4).
     final (asset, height) = switch (widget.skill.sightings) {
       <= 0 => ('', 0.0),
-      1 => (widget.skill.strand.seedlingAsset, 48.0),
-      2 => (widget.skill.strand.youngAsset, 68.0),
-      _ => (widget.skill.strand.bloomAsset, 88.0),
+      1 => (widget.skill.strand.seedlingAsset, 62.4),
+      2 => (widget.skill.strand.youngAsset, 88.4),
+      _ => (widget.skill.strand.bloomAsset, 114.4),
     };
     if (asset.isEmpty) return const SizedBox.shrink();
 
@@ -818,7 +933,7 @@ class _LetsTalkBar extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               GestureDetector(
-                onTap: onTalk,
+                onTap: withTapClick(onTalk),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,

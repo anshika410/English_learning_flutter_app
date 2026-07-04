@@ -1,13 +1,11 @@
 // Botanical Berry typography — the app's single source of text styles.
-// See Botanical_Berry_Design_System.md. Fonts load at runtime via google_fonts
-// (no bundled .ttf): Bricolage Grotesque (display/UI), Andika (body + button
-// labels), Grandstander (Zoe voice, 400 only), Baloo 2 (Hindi fallback).
+// Latin text uses the bundled Fontshare families (see pubspec.yaml `fonts:`);
+// Baloo 2 (Hindi fallback) still loads at runtime via google_fonts.
 //
 // Role rules (baked into the styles below):
-//   • Andika       → child-read copy + button labels (literacy-optimised).
-//   • Bricolage    → titles, tabs, chips, metadata (structural UI to navigate).
-//   • Grandstander → Zoe's voice, weight 400 ONLY (never bolded — heavier weights
-//                    read as authoritative and break Zoe's coaching register).
+//   • Amulya  → titles, tabs, chips, metadata, display (structural UI).
+//   • Synonym → child-read body copy, button labels, and Zoe's voice.
+//   • Baloo 2 → Hindi fallback.
 
 import 'package:flutter/widgets.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,14 +13,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'theme_colors.dart';
 
 /// Font-family helpers. Prefer the ready-made styles in [EllaTextStyles]; reach
-/// for these only when composing a bespoke style.
+/// for these only when composing a bespoke style. Names are kept for their role
+/// (titles vs. body vs. Zoe voice); the underlying bundled family may change.
 abstract final class EllaFonts {
-  static TextStyle bricolage([TextStyle? style]) =>
-      GoogleFonts.bricolageGrotesque(textStyle: style);
-  static TextStyle body([TextStyle? style]) =>
-      GoogleFonts.andika(textStyle: style);
-  static TextStyle zoe([TextStyle? style]) =>
-      GoogleFonts.grandstander(textStyle: style);
+  static TextStyle _family(String family, TextStyle? style) =>
+      (style ?? const TextStyle()).copyWith(fontFamily: family);
+
+  /// Titles / UI / display.
+  static TextStyle bricolage([TextStyle? style]) => _family('Amulya', style);
+
+  /// Child-read body copy + button labels.
+  static TextStyle body([TextStyle? style]) => _family('Synonym', style);
+
+  /// Zoe's voice. Weight 400 only (never bolded).
+  static TextStyle zoe([TextStyle? style]) => _family('Synonym', style);
+
   static TextStyle hindi([TextStyle? style]) =>
       GoogleFonts.baloo2(textStyle: style);
 }
@@ -49,9 +54,21 @@ abstract final class EllaTextStyles {
     const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: _ink),
   );
 
-  /// 16 / Andika 400 — default learner-facing text.
+  /// 16 / Synonym 400 — default learner-facing text.
   static TextStyle get bodyBase => EllaFonts.body(
     const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: _ink),
+  );
+
+  /// 16 / Synonym 600 (Semibold), line-height 160% — body copy for chat
+  /// bubbles and home cards.
+  static TextStyle get bodySemibold => EllaFonts.body(
+    const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      height: 1.6,
+      letterSpacing: 0,
+      color: _ink,
+    ),
   );
 
   /// 18 / Andika 400 — important body copy, readable chat text.

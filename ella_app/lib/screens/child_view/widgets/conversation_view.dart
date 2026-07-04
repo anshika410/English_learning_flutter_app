@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import 'garden_sky_background.dart';
-import 'sprout_mascot.dart';
+import 'zoe_mascot.dart';
 
 enum ConvPhase { prepare, talking, ending }
 
@@ -22,6 +22,7 @@ enum MicState { idle, listening, busy }
 class ConversationView extends StatelessWidget {
   final ConvPhase phase;
   final bool mascotSpeaking;
+  final bool mascotThinking; // Zoe is preparing her reply
 
   /// Latest-turn content. Zoe's line is always shown while talking/ending; the
   /// student bubble only appears for the current turn.
@@ -43,6 +44,7 @@ class ConversationView extends StatelessWidget {
     super.key,
     required this.phase,
     required this.mascotSpeaking,
+    this.mascotThinking = false,
     this.zoeLine,
     this.studentLine,
     this.studentLive = false,
@@ -70,7 +72,15 @@ class ConversationView extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 28),
-              SproutMascot(speaking: mascotSpeaking, size: mascotSize),
+              ZoeMascot(
+                mode: mascotSpeaking
+                    ? ZoeMascotMode.speaking
+                    : mascotThinking
+                        ? ZoeMascotMode.thinking
+                        : ZoeMascotMode.listening,
+                size: mascotSize,
+                reducedMotion: MediaQuery.of(context).disableAnimations,
+              ),
               const SizedBox(height: 18),
               if (phase == ConvPhase.prepare)
                 const _PrepareCard()
@@ -175,20 +185,26 @@ class _ZoeBubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showSpeaker) ...[
-            const Padding(
-              padding: EdgeInsets.only(top: 2, right: 6),
-              child: Icon(
+          // The icon's slot is always reserved (maintainSize) so toggling it
+          // when TTS starts/stops never reflows the bubble or the text.
+          Padding(
+            padding: const EdgeInsets.only(top: 2, right: 6),
+            child: Visibility(
+              visible: showSpeaker,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: const Icon(
                 Icons.volume_up_rounded,
                 size: 16,
                 color: EllaColors.environmentDeep,
               ),
             ),
-          ],
+          ),
           Flexible(
             child: Text(
               text,
-              style: EllaTextStyles.bodyBase.copyWith(height: 1.35),
+              style: EllaTextStyles.bodySemibold,
             ),
           ),
         ],
@@ -218,7 +234,7 @@ class _StudentBubble extends StatelessWidget {
         border: Border.all(color: EllaColors.berryDark, width: 2.5),
       ),
       // Same font/weight as every other line (no italic, even while live).
-      child: Text(text, style: EllaTextStyles.bodyBase.copyWith(height: 1.35)),
+      child: Text(text, style: EllaTextStyles.bodySemibold),
     );
   }
 }
