@@ -16,13 +16,17 @@ class LlmInfoTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(chatProvider);
     final live = async.maybeWhen(
-        data: (s) => s.liveLlmLastCall, orElse: () => true);
+      data: (s) => s.liveLlmLastCall,
+      orElse: () => true,
+    );
     final notifier = ref.read(chatProvider.notifier);
     final proxy = dotenv.env['LLM_PROXY_URL'] ?? '(not set)';
     final authUid =
         Supabase.instance.client.auth.currentUser?.id ?? '(not signed in)';
     final restoredCount = async.maybeWhen(
-        data: (s) => s.sessionLogs.length, orElse: () => 0);
+      data: (s) => s.sessionLogs.length,
+      orElse: () => 0,
+    );
 
     return ListView(
       padding: const EdgeInsets.all(12),
@@ -40,21 +44,25 @@ class LlmInfoTab extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('IDENTITY',
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2F6FB0),
-                      letterSpacing: 0.8)),
+              const Text(
+                'IDENTITY',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2F6FB0),
+                  letterSpacing: 0.8,
+                ),
+              ),
               const SizedBox(height: 4),
               _idRow('auth.uid', authUid),
               _idRow('child_id', notifier.childId),
               _idRow('online', notifier.online ? 'yes' : 'no (offline mode)'),
               _idRow(
-                  'restored',
-                  restoredCount == 0
-                      ? '0 prior chats from Supabase'
-                      : '$restoredCount prior chats from Supabase'),
+                'restored',
+                restoredCount == 0
+                    ? '0 prior chats from Supabase'
+                    : '$restoredCount prior chats from Supabase',
+              ),
             ],
           ),
         ),
@@ -99,19 +107,24 @@ class LlmInfoTab extends ConsumerWidget {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF2F6FB0),
-                    fontWeight: FontWeight.w600)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF2F6FB0),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           Expanded(
-            child: SelectableText(value,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  color: Color(0xFF1F1B16),
-                )),
+            child: SelectableText(
+              value,
+              style: const TextStyle(
+                fontSize: 11,
+                fontFamily: 'monospace',
+                color: Color(0xFF1F1B16),
+              ),
+            ),
           ),
         ],
       ),
@@ -125,13 +138,17 @@ class LlmInfoTab extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-              width: 120,
-              child: Text(label,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey))),
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
           Expanded(
-            child: Text(value,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600)),
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),

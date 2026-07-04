@@ -3,8 +3,8 @@
 // "Start Talking" button) sits inside the bubble, matching the Figma homescreen.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 
 class SpeechBubble extends StatelessWidget {
@@ -49,18 +49,17 @@ class SpeechBubble extends StatelessWidget {
         children: [
           Text(
             text,
-            style: GoogleFonts.baloo2(
-              fontSize: 15,
-              height: 1.45,
-              fontWeight: FontWeight.w500,
-              fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-              color: italic ? EllaColors.secondary : EllaColors.bubbleText,
-            ),
+            // Zoe's line is her voice (Grandstander 400); the child's echoed
+            // words use Andika body, italic + secondary, so the two never blur.
+            style: italic
+                ? EllaTextStyles.bodyBase.copyWith(
+                    height: 1.45,
+                    fontStyle: FontStyle.italic,
+                    color: EllaColors.textSecondary,
+                  )
+                : EllaTextStyles.zoeVoice.copyWith(height: 1.4),
           ),
-          if (footer != null) ...[
-            const SizedBox(height: 14),
-            footer!,
-          ],
+          if (footer != null) ...[const SizedBox(height: 14), footer!],
         ],
       ),
     );

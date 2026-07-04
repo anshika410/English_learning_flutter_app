@@ -24,19 +24,19 @@ Strand strandFromString(String? s) {
 
 extension StrandInfo on Strand {
   String get label => switch (this) {
-        Strand.voc => 'Vocabulary',
-        Strand.gra => 'Grammar',
-        Strand.flu => 'Fluency',
-        Strand.unknown => 'Skill',
-      };
+    Strand.voc => 'Vocabulary',
+    Strand.gra => 'Grammar',
+    Strand.flu => 'Fluency',
+    Strand.unknown => 'Skill',
+  };
 
   /// File-name stem for this strand's plant art in assets/garden/plants/.
   String get _plantStem => switch (this) {
-        Strand.voc => 'vocab',
-        Strand.flu => 'fluency',
-        Strand.gra => 'grammar',
-        Strand.unknown => 'vocab',
-      };
+    Strand.voc => 'vocab',
+    Strand.flu => 'fluency',
+    Strand.gra => 'grammar',
+    Strand.unknown => 'vocab',
+  };
 
   /// Growth-stage plant art for this strand, from assets/garden/plants/.
   /// Stages are keyed off sightings (1 → seedling, 2 → young, ≥3 → bloom).
@@ -48,25 +48,28 @@ extension StrandInfo on Strand {
 
   /// Small icon used in the skill detail dialogs.
   String get icon => switch (this) {
-        Strand.voc => 'assets/information-box/people-who-support-svgrepo-com 1.svg',
-        Strand.gra => 'assets/information-box/clock.svg',
-        Strand.flu => 'assets/information-box/talk-svgrepo-com.svg',
-        Strand.unknown => 'assets/information-box/flower.svg',
-      };
+    Strand.voc => 'assets/information-box/people-who-support-svgrepo-com 1.svg',
+    Strand.gra => 'assets/information-box/clock.svg',
+    Strand.flu => 'assets/information-box/talk-svgrepo-com.svg',
+    Strand.unknown => 'assets/information-box/flower.svg',
+  };
 
-  Color get tagColor => switch (this) {
-        Strand.voc => EllaColors.limeDark,
-        Strand.gra => EllaColors.grapeMain,
-        Strand.flu => EllaColors.roseMain,
-        Strand.unknown => EllaColors.muted,
-      };
+  /// Botanical Berry track identity for this strand.
+  TrackColors get track => switch (this) {
+    Strand.voc => TrackColors.vocabulary,
+    Strand.flu => TrackColors.fluency,
+    Strand.gra => TrackColors.grammar,
+    Strand.unknown => const TrackColors(
+      surface: EllaColors.surfaceVariant,
+      border: EllaColors.border,
+      main: EllaColors.textTertiary,
+      text: EllaColors.textTertiary,
+    ),
+  };
 
-  Color get tagBg => switch (this) {
-        Strand.voc => EllaColors.limeLightest,
-        Strand.gra => EllaColors.grapeLightest,
-        Strand.flu => EllaColors.roseLightest,
-        Strand.unknown => EllaColors.surface,
-      };
+  Color get tagColor => track.text;
+
+  Color get tagBg => track.surface;
 }
 
 /// Skill mastery state.
@@ -85,10 +88,10 @@ SkillStatus statusFromString(String? s) {
 
 extension SkillStatusInfo on SkillStatus {
   String get tag => switch (this) {
-        SkillStatus.owned => 'Bloomed',
-        SkillStatus.emerging => 'Growing',
-        SkillStatus.locked => 'Not planted',
-      };
+    SkillStatus.owned => 'Bloomed',
+    SkillStatus.emerging => 'Growing',
+    SkillStatus.locked => 'Not planted',
+  };
 }
 
 /// Visual growth stage shown on a plot.
@@ -129,15 +132,14 @@ class GardenEvidence {
   });
 
   factory GardenEvidence.fromJson(Map<String, dynamic> j) => GardenEvidence(
-        quote: (j['evidence'] ?? j['quote'] ?? '').toString(),
-        confidence: (j['confidence'] as num?)?.toDouble() ?? 0,
-        prompted: j['prompted'] as bool? ?? false,
-        topic: (j['topic'] ?? j['conversation_topic'] ?? '').toString(),
-        createdAt: DateTime.tryParse(
-          (j['created_at'] ?? j['recorded_at'] ?? j['timestamp'] ?? '')
-              .toString(),
-        ),
-      );
+    quote: (j['evidence'] ?? j['quote'] ?? '').toString(),
+    confidence: (j['confidence'] as num?)?.toDouble() ?? 0,
+    prompted: j['prompted'] as bool? ?? false,
+    topic: (j['topic'] ?? j['conversation_topic'] ?? '').toString(),
+    createdAt: DateTime.tryParse(
+      (j['created_at'] ?? j['recorded_at'] ?? j['timestamp'] ?? '').toString(),
+    ),
+  );
 }
 
 class GardenSkill {
@@ -160,16 +162,16 @@ class GardenSkill {
   PlantStage get stage => plantStageFor(status, sightings);
 
   factory GardenSkill.fromJson(Map<String, dynamic> j) => GardenSkill(
-        id: (j['id'] ?? '').toString(),
-        strand: strandFromString(j['strand'] as String?),
-        text: (j['text'] ?? '').toString(),
-        status: statusFromString(j['status'] as String?),
-        sightings: (j['sightings'] as num?)?.toInt() ?? 0,
-        evidence: [
-          for (final e in (j['evidence'] as List? ?? const []))
-            GardenEvidence.fromJson(Map<String, dynamic>.from(e as Map)),
-        ],
-      );
+    id: (j['id'] ?? '').toString(),
+    strand: strandFromString(j['strand'] as String?),
+    text: (j['text'] ?? '').toString(),
+    status: statusFromString(j['status'] as String?),
+    sightings: (j['sightings'] as num?)?.toInt() ?? 0,
+    evidence: [
+      for (final e in (j['evidence'] as List? ?? const []))
+        GardenEvidence.fromJson(Map<String, dynamic>.from(e as Map)),
+    ],
+  );
 }
 
 class GardenStep {
@@ -191,16 +193,17 @@ class GardenStep {
   bool get hasGrowth => skills.any((s) => s.status != SkillStatus.locked);
 
   factory GardenStep.fromJson(Map<String, dynamic> j) => GardenStep(
-        // API returns `unit`; older payloads used `step`. Accept both.
-        step: (j['step'] as num?)?.toInt() ?? (j['unit'] as num?)?.toInt() ?? 0,
-        name: (j['name'] ?? '').toString(),
-        focus: (j['focus'] ?? '').toString(),
-        isCompleted: j['isCompleted'] as bool? ?? j['is_completed'] as bool? ?? false,
-        skills: [
-          for (final s in (j['skills'] as List? ?? const []))
-            GardenSkill.fromJson(Map<String, dynamic>.from(s as Map)),
-        ],
-      );
+    // API returns `unit`; older payloads used `step`. Accept both.
+    step: (j['step'] as num?)?.toInt() ?? (j['unit'] as num?)?.toInt() ?? 0,
+    name: (j['name'] ?? '').toString(),
+    focus: (j['focus'] ?? '').toString(),
+    isCompleted:
+        j['isCompleted'] as bool? ?? j['is_completed'] as bool? ?? false,
+    skills: [
+      for (final s in (j['skills'] as List? ?? const []))
+        GardenSkill.fromJson(Map<String, dynamic>.from(s as Map)),
+    ],
+  );
 }
 
 class GardenData {
@@ -221,17 +224,19 @@ class GardenData {
   });
 
   factory GardenData.fromJson(Map<String, dynamic> j) => GardenData(
-        level: (j['level'] ?? '').toString(),
-        levelLabel: (j['levelLabel'] ?? j['level_label'] ?? '').toString(),
-        theme: (j['theme'] ?? '').toString(),
-        activeStepIndex:
-            (j['activeStepIndex'] as num?)?.toInt() ?? (j['active_step_index'] as num?)?.toInt() ?? 0,
-        recommendedTopic:
-            (j['recommendedTopic'] ?? j['recommended_topic'] ?? '').toString(),
-        // API returns `units`; older payloads used `steps`. Accept both.
-        steps: [
-          for (final s in (j['steps'] as List? ?? j['units'] as List? ?? const []))
-            GardenStep.fromJson(Map<String, dynamic>.from(s as Map)),
-        ],
-      );
+    level: (j['level'] ?? '').toString(),
+    levelLabel: (j['levelLabel'] ?? j['level_label'] ?? '').toString(),
+    theme: (j['theme'] ?? '').toString(),
+    activeStepIndex:
+        (j['activeStepIndex'] as num?)?.toInt() ??
+        (j['active_step_index'] as num?)?.toInt() ??
+        0,
+    recommendedTopic: (j['recommendedTopic'] ?? j['recommended_topic'] ?? '')
+        .toString(),
+    // API returns `units`; older payloads used `steps`. Accept both.
+    steps: [
+      for (final s in (j['steps'] as List? ?? j['units'] as List? ?? const []))
+        GardenStep.fromJson(Map<String, dynamic>.from(s as Map)),
+    ],
+  );
 }

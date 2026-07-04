@@ -32,11 +32,7 @@ class ZoeMascot extends StatefulWidget {
   final MascotMood mood;
   final double size;
 
-  const ZoeMascot({
-    super.key,
-    required this.mood,
-    this.size = 200,
-  });
+  const ZoeMascot({super.key, required this.mood, this.size = 200});
 
   @override
   State<ZoeMascot> createState() => _ZoeMascotState();

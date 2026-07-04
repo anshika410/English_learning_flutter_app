@@ -19,18 +19,21 @@ String tileSvg(int state) {
   final String p;
   switch (state) {
     case 1: // emerging — a small sprout
-      p = '<path d="M30 60 L30 48" stroke="#4E9A00" stroke-width="2.6" stroke-linecap="round"/>'
+      p =
+          '<path d="M30 60 L30 48" stroke="#4E9A00" stroke-width="2.6" stroke-linecap="round"/>'
           '<path d="M30 50 Q22 47 21 39 Q29 40 30 48 Z" fill="#9BD55E" stroke="#4E9A00" stroke-width="1"/>'
           '<path d="M30 52 Q38 49 39 42 Q31 43 30 50 Z" fill="#B5E47E" stroke="#4E9A00" stroke-width="1"/>';
       break;
     case 2: // growing — taller stem with a bud
-      p = '<path d="M30 60 L30 36" stroke="#4E9A00" stroke-width="2.8" stroke-linecap="round"/>'
+      p =
+          '<path d="M30 60 L30 36" stroke="#4E9A00" stroke-width="2.8" stroke-linecap="round"/>'
           '<path d="M30 50 Q20 47 18 38 Q28 39 30 48 Z" fill="#8FCC52" stroke="#4E9A00" stroke-width="1"/>'
           '<path d="M30 44 Q40 41 42 32 Q32 33 30 42 Z" fill="#8FCC52" stroke="#4E9A00" stroke-width="1"/>'
           '<ellipse cx="30" cy="32" rx="5.5" ry="7" fill="#FFB8C8" stroke="#C82050" stroke-width="1.4"/>';
       break;
     case 3: // owned — full bloom
-      p = '<path d="M30 60 L30 34" stroke="#4E9A00" stroke-width="3" stroke-linecap="round"/>'
+      p =
+          '<path d="M30 60 L30 34" stroke="#4E9A00" stroke-width="3" stroke-linecap="round"/>'
           '<path d="M30 52 Q19 49 17 39 Q28 40 30 50 Z" fill="#8FCC52" stroke="#4E9A00" stroke-width="1"/>'
           '<path d="M30 46 Q41 43 43 34 Q32 35 30 44 Z" fill="#8FCC52" stroke="#4E9A00" stroke-width="1"/>'
           '<g stroke="#C82050" stroke-width="1.2">'
@@ -42,7 +45,8 @@ String tileSvg(int state) {
           '<circle cx="30" cy="23" r="5" fill="#FFD699" stroke="#C87000" stroke-width="1.2"/>';
       break;
     default: // empty — bare soil pebbles
-      p = '<g fill="#C9A876">'
+      p =
+          '<g fill="#C9A876">'
           '<ellipse cx="24" cy="58" rx="3" ry="1.4"/>'
           '<ellipse cx="36" cy="62" rx="3.6" ry="1.6"/>'
           '<ellipse cx="30" cy="66" rx="2.6" ry="1.2"/></g>';
@@ -64,35 +68,39 @@ String _plotWrap(String inner) =>
     '$inner</svg>';
 
 String _emptyPlot() => _plotWrap(
-    '<g fill="#A8C97E"><ellipse cx="45" cy="78" rx="4" ry="1.8"/><ellipse cx="70" cy="84" rx="4.6" ry="2"/></g>');
+  '<g fill="#A8C97E"><ellipse cx="45" cy="78" rx="4" ry="1.8"/><ellipse cx="70" cy="84" rx="4.6" ry="2"/></g>',
+);
 
 String _hut() => _plotWrap(
-    '<polygon points="40,58 40,84 59,93 59,67" fill="#B8854E" stroke="#7A5226" stroke-width="1.4"/>'
-    '<polygon points="78,58 78,84 59,93 59,67" fill="#D2A268" stroke="#7A5226" stroke-width="1.4"/>'
-    '<polygon points="34,62 59,42 59,70" fill="#8A5E32" stroke="#5E3D1A" stroke-width="1.4"/>'
-    '<polygon points="84,62 59,42 59,70" fill="#A4733E" stroke="#5E3D1A" stroke-width="1.4"/>');
+  '<polygon points="40,58 40,84 59,93 59,67" fill="#B8854E" stroke="#7A5226" stroke-width="1.4"/>'
+  '<polygon points="78,58 78,84 59,93 59,67" fill="#D2A268" stroke="#7A5226" stroke-width="1.4"/>'
+  '<polygon points="34,62 59,42 59,70" fill="#8A5E32" stroke="#5E3D1A" stroke-width="1.4"/>'
+  '<polygon points="84,62 59,42 59,70" fill="#A4733E" stroke="#5E3D1A" stroke-width="1.4"/>',
+);
 
 String _well() => _plotWrap(
-    '<polygon points="46,64 46,82 59,89 59,71" fill="#B8854E" stroke="#7A5226" stroke-width="1.2"/>'
-    '<polygon points="72,64 72,82 59,89 59,71" fill="#D2A268" stroke="#7A5226" stroke-width="1.2"/>'
-    '<polygon points="41,67 59,53 59,73" fill="#8A5E32" stroke="#5E3D1A" stroke-width="1.2"/>'
-    '<polygon points="77,67 59,53 59,73" fill="#A4733E" stroke="#5E3D1A" stroke-width="1.2"/>'
-    '<ellipse cx="88" cy="86" rx="11" ry="5.2" fill="#9FB6C2" stroke="#56707C" stroke-width="1.4"/>'
-    '<path d="M77 86 L77 79 Q88 73 99 79 L99 86" fill="#B9CCD6" stroke="#56707C" stroke-width="1.4"/>');
+  '<polygon points="46,64 46,82 59,89 59,71" fill="#B8854E" stroke="#7A5226" stroke-width="1.2"/>'
+  '<polygon points="72,64 72,82 59,89 59,71" fill="#D2A268" stroke="#7A5226" stroke-width="1.2"/>'
+  '<polygon points="41,67 59,53 59,73" fill="#8A5E32" stroke="#5E3D1A" stroke-width="1.2"/>'
+  '<polygon points="77,67 59,53 59,73" fill="#A4733E" stroke="#5E3D1A" stroke-width="1.2"/>'
+  '<ellipse cx="88" cy="86" rx="11" ry="5.2" fill="#9FB6C2" stroke="#56707C" stroke-width="1.4"/>'
+  '<path d="M77 86 L77 79 Q88 73 99 79 L99 86" fill="#B9CCD6" stroke="#56707C" stroke-width="1.4"/>',
+);
 
 // Note: the HTML windmill blades spin via CSS animation; here they are static.
 String _windmill() => _plotWrap(
-    '<polygon points="46,68 46,84 59,91 59,75" fill="#B8854E" stroke="#7A5226" stroke-width="1.2"/>'
-    '<polygon points="72,68 72,84 59,91 59,75" fill="#D2A268" stroke="#7A5226" stroke-width="1.2"/>'
-    '<polygon points="42,71 59,58 59,77" fill="#8A5E32" stroke="#5E3D1A" stroke-width="1.2"/>'
-    '<polygon points="76,71 59,58 59,77" fill="#A4733E" stroke="#5E3D1A" stroke-width="1.2"/>'
-    '<polygon points="84,88 87,52 95,52 98,88" fill="#EBDCB8" stroke="#9A8048" stroke-width="1.4"/>'
-    '<g transform="translate(91,54)">'
-    '<rect x="-2.2" y="-18" width="4.4" height="16" rx="2" fill="#D8463C"/>'
-    '<rect x="2" y="-2.2" width="16" height="4.4" rx="2" fill="#D8463C"/>'
-    '<rect x="-2.2" y="2" width="4.4" height="16" rx="2" fill="#D8463C"/>'
-    '<rect x="-18" y="-2.2" width="16" height="4.4" rx="2" fill="#D8463C"/>'
-    '<circle r="3" fill="#7A4400"/></g>');
+  '<polygon points="46,68 46,84 59,91 59,75" fill="#B8854E" stroke="#7A5226" stroke-width="1.2"/>'
+  '<polygon points="72,68 72,84 59,91 59,75" fill="#D2A268" stroke="#7A5226" stroke-width="1.2"/>'
+  '<polygon points="42,71 59,58 59,77" fill="#8A5E32" stroke="#5E3D1A" stroke-width="1.2"/>'
+  '<polygon points="76,71 59,58 59,77" fill="#A4733E" stroke="#5E3D1A" stroke-width="1.2"/>'
+  '<polygon points="84,88 87,52 95,52 98,88" fill="#EBDCB8" stroke="#9A8048" stroke-width="1.4"/>'
+  '<g transform="translate(91,54)">'
+  '<rect x="-2.2" y="-18" width="4.4" height="16" rx="2" fill="#D8463C"/>'
+  '<rect x="2" y="-2.2" width="16" height="4.4" rx="2" fill="#D8463C"/>'
+  '<rect x="-2.2" y="2" width="4.4" height="16" rx="2" fill="#D8463C"/>'
+  '<rect x="-18" y="-2.2" width="16" height="4.4" rx="2" fill="#D8463C"/>'
+  '<circle r="3" fill="#7A4400"/></g>',
+);
 
 /// Building for a bed, chosen by how many of its tiles are owned (state 3).
 /// >=100% windmill · >=50% well · any sprout hut · else empty plot.

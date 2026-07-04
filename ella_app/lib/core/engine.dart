@@ -63,7 +63,11 @@ class GardenTally {
   final int owned;
   final int sprouting;
   final int total;
-  const GardenTally({required this.owned, required this.sprouting, required this.total});
+  const GardenTally({
+    required this.owned,
+    required this.sprouting,
+    required this.total,
+  });
 }
 
 GardenTally gardenTally(MemoryState mem) {
@@ -92,12 +96,15 @@ String _bucketFromLists(List<String> owned, List<String> emerging, String id) {
 const Map<String, String> _strandLabels = {
   'VOC': 'Vocabulary',
   'GRA': 'Grammar',
-  'FLU': 'Fluency'
+  'FLU': 'Fluency',
 };
 const int kEmergingCleanupThreshold = 3;
 
-int _unitStrandRank(String strand) =>
-    strand == 'FLU' ? 0 : strand == 'VOC' ? 1 : 2;
+int _unitStrandRank(String strand) => strand == 'FLU'
+    ? 0
+    : strand == 'VOC'
+    ? 1
+    : 2;
 
 List<SkillTarget> _unitEmergingCleanup(MemoryState mem) {
   final emerging = mem.emerging
@@ -106,8 +113,9 @@ List<SkillTarget> _unitEmergingCleanup(MemoryState mem) {
   emerging.sort((a, b) {
     final sa = kUnitSkillsById[a]!;
     final sb = kUnitSkillsById[b]!;
-    final rankCompare =
-        _unitStrandRank(sa.strand).compareTo(_unitStrandRank(sb.strand));
+    final rankCompare = _unitStrandRank(
+      sa.strand,
+    ).compareTo(_unitStrandRank(sb.strand));
     if (rankCompare != 0) return rankCompare;
     return a.compareTo(b);
   });
@@ -151,7 +159,8 @@ MergeResult applyMerge(MemoryState mem, List<SkillScore> scores, String level) {
 
     // Read post-increment values for the promotion check
     final currentSightings = sightings[sc.id] ?? 0;
-    final effortPath = (level == 'A1' || level == 'A2') &&
+    final effortPath =
+        (level == 'A1' || level == 'A2') &&
         (strength[sc.id] ?? 0) + (sightings[sc.id] ?? 0) >= 3 &&
         sc.confidence >= kFloor;
 
@@ -230,10 +239,12 @@ List<SkillTarget> dueSkill(MemoryState mem, String level) {
       orElse: () => const SkillDef(id: '', strand: 'VOC', text: ''),
     );
     if (locked.id.isNotEmpty) {
-      picks.add(SkillTarget(
-        id: locked.id,
-        why: 'open weakest strand: ${_strandLabels[strand] ?? strand}',
-      ));
+      picks.add(
+        SkillTarget(
+          id: locked.id,
+          why: 'open weakest strand: ${_strandLabels[strand] ?? strand}',
+        ),
+      );
       break;
     }
   }
@@ -288,8 +299,9 @@ DueUnitResult dueUnit(MemoryState mem) {
   }
 
   final sorted = [...u.skills]
-    ..sort((a, b) =>
-        _unitStrandRank(a.strand).compareTo(_unitStrandRank(b.strand)));
+    ..sort(
+      (a, b) => _unitStrandRank(a.strand).compareTo(_unitStrandRank(b.strand)),
+    );
 
   final picks = sorted
       .where((s) => bucketOf(mem, s.id) != 'owned')
@@ -376,19 +388,24 @@ String buildConvPrompt({
         .replaceAll('{{UNITFOCUS}}', u?.focus ?? '')
         .replaceAll('{{TARGETS}}', primaryLine + watchLine);
   } else {
-    frame = prompts.convSkill.replaceAll('{{TARGETS}}', primaryLine + watchLine);
+    frame = prompts.convSkill.replaceAll(
+      '{{TARGETS}}',
+      primaryLine + watchLine,
+    );
   }
 
-  final profile =
-      (level == 'A1' || level == 'A2') ? prompts.profileA1 : prompts.profileB1;
+  final profile = (level == 'A1' || level == 'A2')
+      ? prompts.profileA1
+      : prompts.profileB1;
 
   final convo = history
       .where((m) => m.role != 'sys')
       .map((m) => '${m.role == 'zoe' ? 'Zoe' : 'Learner'}: ${m.text}')
       .join('\n');
 
-  final interestLine =
-      mem.interests.isNotEmpty ? '\nLEARNER INTERESTS: ${mem.interests}' : '';
+  final interestLine = mem.interests.isNotEmpty
+      ? '\nLEARNER INTERESTS: ${mem.interests}'
+      : '';
   final recentLine = mem.lastTopics.isNotEmpty
       ? '\nRECENT TOPICS (avoid repeating): ${mem.lastTopics.join(', ')}'
       : '';
@@ -433,8 +450,7 @@ MemoryState applyEndChat({
   );
 
   if (usedTopic != null) {
-    final newTopics =
-        [usedTopic.topic, ...updated.lastTopics].take(5).toList();
+    final newTopics = [usedTopic.topic, ...updated.lastTopics].take(5).toList();
     updated = updated.copyWith(lastTopics: newTopics);
   }
 

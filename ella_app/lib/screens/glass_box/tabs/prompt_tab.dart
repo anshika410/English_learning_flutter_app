@@ -44,10 +44,15 @@ class _PromptTabState extends ConsumerState<PromptTab>
           labelColor: const Color(0xFF4CAF50),
           unselectedLabelColor: Colors.grey,
           indicatorColor: const Color(0xFF4CAF50),
-          tabs: const [Tab(text: 'Conv prompt'), Tab(text: 'Judge prompt')],
+          tabs: const [
+            Tab(text: 'Conv prompt'),
+            Tab(text: 'Judge prompt'),
+          ],
         ),
         Expanded(
-          child: ref.watch(chatProvider).when(
+          child: ref
+              .watch(chatProvider)
+              .when(
                 data: (s) {
                   final prompts = ref.watch(promptsOverrideProvider);
                   return TabBarView(
@@ -106,9 +111,14 @@ class _PromptView extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: Row(
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.copy_outlined, size: 18),
@@ -129,7 +139,10 @@ class _PromptView extends StatelessWidget {
             child: SelectableText(
               text,
               style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 12, height: 1.5),
+                fontFamily: 'monospace',
+                fontSize: 12,
+                height: 1.5,
+              ),
             ),
           ),
         ),

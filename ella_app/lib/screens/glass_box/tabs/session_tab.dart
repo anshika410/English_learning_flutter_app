@@ -13,7 +13,9 @@ class SessionTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(chatProvider).when(
+    return ref
+        .watch(chatProvider)
+        .when(
           data: (s) => _SessionView(logs: s.sessionLogs),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
@@ -47,13 +49,15 @@ class _SessionView extends StatelessWidget {
           child: Text(
             'session logs — immutable, one per chat (${logs.length})',
             style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF4CAF50),
-                letterSpacing: 0.8),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF4CAF50),
+              letterSpacing: 0.8,
+            ),
           ),
         ),
-        for (int i = 0; i < logs.length; i++) _SessionTile(log: logs[i], index: i),
+        for (int i = 0; i < logs.length; i++)
+          _SessionTile(log: logs[i], index: i),
         const SizedBox(height: 8),
         const Text(
           'Accumulates (memory overwrites; these do not).',
@@ -85,10 +89,7 @@ class _SessionTileState extends State<_SessionTile> {
   String get _pretty {
     // Schema-shaped JSON (what's in Supabase) PLUS the in-memory transcript.
     final j = widget.log.toJson();
-    final full = {
-      ...j,
-      'transcript': widget.log.transcript,
-    };
+    final full = {...j, 'transcript': widget.log.transcript};
     const encoder = JsonEncoder.withIndent('  ');
     return encoder.convert(full);
   }
@@ -112,9 +113,13 @@ class _SessionTileState extends State<_SessionTile> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(_summary,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
+                    child: Text(
+                      _summary,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   Icon(_open ? Icons.expand_less : Icons.expand_more, size: 18),
                 ],
@@ -129,10 +134,11 @@ class _SessionTileState extends State<_SessionTile> {
               child: SelectableText(
                 _pretty,
                 style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    height: 1.4,
-                    color: Color(0xFFEFE9D8)),
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  height: 1.4,
+                  color: Color(0xFFEFE9D8),
+                ),
               ),
             ),
         ],

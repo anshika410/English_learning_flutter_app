@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/text_styles.dart';
+import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 
 class ChatBubble extends StatelessWidget {
@@ -18,18 +20,19 @@ class ChatBubble extends StatelessWidget {
         bottom: 4,
       ),
       child: Row(
-        mainAxisAlignment: isZoe ? MainAxisAlignment.start : MainAxisAlignment.end,
+        mainAxisAlignment: isZoe
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (isZoe) ...[
-            _ZoeAvatar(),
-            const SizedBox(width: 8),
-          ],
+          if (isZoe) ...[_ZoeAvatar(), const SizedBox(width: 8)],
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isZoe ? Colors.white : const Color(0xFF4CAF50),
+                // Child bubble uses greenMain (ink text = 7.29:1, AA); white on
+                // greenDark would fail. Zoe bubble is a plain surface.
+                color: isZoe ? EllaColors.surface : EllaColors.greenMain,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
                   topRight: const Radius.circular(18),
@@ -46,9 +49,8 @@ class ChatBubble extends StatelessWidget {
               ),
               child: Text(
                 message.text,
-                style: TextStyle(
-                  color: isZoe ? const Color(0xFF2D2D2D) : Colors.white,
-                  fontSize: 16,
+                style: EllaTextStyles.bodyBase.copyWith(
+                  color: EllaColors.ink,
                   height: 1.4,
                 ),
               ),
@@ -67,12 +69,10 @@ class _ZoeAvatar extends StatelessWidget {
       width: 32,
       height: 32,
       decoration: const BoxDecoration(
-        color: Color(0xFF4CAF50),
+        color: EllaColors.greenDark,
         shape: BoxShape.circle,
       ),
-      child: const Center(
-        child: Text('🎒', style: TextStyle(fontSize: 16)),
-      ),
+      child: const Center(child: Text('🎒', style: TextStyle(fontSize: 16))),
     );
   }
 }
@@ -119,7 +119,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: EllaColors.surface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(18),
@@ -134,7 +134,10 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                   ),
                 ],
               ),
-              child: const Text('…', style: TextStyle(fontSize: 20, color: Color(0xFF4CAF50))),
+              child: const Text(
+                '…',
+                style: TextStyle(fontSize: 20, color: EllaColors.greenDark),
+              ),
             ),
           ),
         ],

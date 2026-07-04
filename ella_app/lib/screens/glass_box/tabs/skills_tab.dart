@@ -15,7 +15,9 @@ class SkillsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(chatProvider).when(
+    return ref
+        .watch(chatProvider)
+        .when(
           data: (s) => _SkillsView(mem: s.memory),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
@@ -45,23 +47,21 @@ class _SkillsView extends StatelessWidget {
         // Flat skills by strand
         for (final strand in ['VOC', 'GRA', 'FLU'])
           if (byStrand[strand] != null)
-            _StrandCard(
-              strand: strand,
-              skills: byStrand[strand]!,
-              mem: mem,
-            ),
+            _StrandCard(strand: strand, skills: byStrand[strand]!, mem: mem),
 
         // Unit steps
         const SizedBox(height: 8),
-        const Text('UNIT STEPS',
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-                letterSpacing: 1)),
+        const Text(
+          'UNIT STEPS',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+            letterSpacing: 1,
+          ),
+        ),
         const SizedBox(height: 8),
-        for (final u in kUnitSteps)
-          _UnitStepCard(unit: u, mem: mem),
+        for (final u in kUnitSteps) _UnitStepCard(unit: u, mem: mem),
       ],
     );
   }
@@ -108,9 +108,14 @@ class _Chip extends StatelessWidget {
         border: Border.all(color: color),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -120,8 +125,11 @@ class _StrandCard extends StatelessWidget {
   final List<SkillDef> skills;
   final MemoryState mem;
 
-  const _StrandCard(
-      {required this.strand, required this.skills, required this.mem});
+  const _StrandCard({
+    required this.strand,
+    required this.skills,
+    required this.mem,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -137,12 +145,15 @@ class _StrandCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4CAF50),
-                    letterSpacing: 0.8)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4CAF50),
+                letterSpacing: 0.8,
+              ),
+            ),
             const Divider(height: 10),
             for (final s in skills) _SkillRow(skill: s, mem: mem),
           ],
@@ -180,20 +191,22 @@ class _SkillRow extends StatelessWidget {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           Expanded(
-            child: Text(skill.text,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: bucket == 'locked'
-                        ? Colors.grey.shade500
-                        : Colors.black87)),
+            child: Text(
+              skill.text,
+              style: TextStyle(
+                fontSize: 13,
+                color: bucket == 'locked'
+                    ? Colors.grey.shade500
+                    : Colors.black87,
+              ),
+            ),
           ),
           if (sightings > 0 || strength > 0)
             Padding(
               padding: const EdgeInsets.only(left: 8),
               child: Text(
                 's:$sightings e:$strength',
-                style:
-                    const TextStyle(fontSize: 11, color: Colors.grey),
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ),
         ],
@@ -223,22 +236,25 @@ class _UnitStepCard extends StatelessWidget {
                 Text(
                   'Step ${unit.step}: ${unit.name}',
                   style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4CAF50)),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4CAF50),
+                  ),
                 ),
                 const Spacer(),
                 if (complete)
-                  const Text('✓ done',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF4CAF50),
-                          fontWeight: FontWeight.bold)),
+                  const Text(
+                    '✓ done',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF4CAF50),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
               ],
             ),
             const Divider(height: 8),
-            for (final s in unit.skills)
-              _UnitSkillRow(skill: s, mem: mem),
+            for (final s in unit.skills) _UnitSkillRow(skill: s, mem: mem),
           ],
         ),
       ),
@@ -269,14 +285,16 @@ class _UnitSkillRow extends StatelessWidget {
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          Text('[${skill.strand}] ',
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey)),
+          Text(
+            '[${skill.strand}] ',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           Expanded(
-            child: Text(skill.text,
-                style: const TextStyle(fontSize: 12)),
+            child: Text(skill.text, style: const TextStyle(fontSize: 12)),
           ),
         ],
       ),

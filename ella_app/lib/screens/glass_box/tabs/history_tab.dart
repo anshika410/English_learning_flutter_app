@@ -12,7 +12,9 @@ class HistoryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(chatProvider).when(
+    return ref
+        .watch(chatProvider)
+        .when(
           data: (s) => _HistoryView(entries: s.historyEntries),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
@@ -45,10 +47,11 @@ class _HistoryView extends StatelessWidget {
           child: Text(
             'session history — the loop evolving',
             style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF4CAF50),
-                letterSpacing: 0.8),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF4CAF50),
+              letterSpacing: 0.8,
+            ),
           ),
         ),
         for (final h in entries) _EntryRow(entry: h),

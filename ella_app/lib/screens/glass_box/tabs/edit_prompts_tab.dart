@@ -71,7 +71,10 @@ class _EditPromptsTabState extends ConsumerState<EditPromptsTab> {
   Widget build(BuildContext context) {
     final mode = ref
         .watch(chatProvider)
-        .maybeWhen(data: (s) => s.memory.progressionModel, orElse: () => 'units');
+        .maybeWhen(
+          data: (s) => s.memory.progressionModel,
+          orElse: () => 'units',
+        );
 
     return ListView(
       padding: const EdgeInsets.all(12),
@@ -94,8 +97,9 @@ class _EditPromptsTabState extends ConsumerState<EditPromptsTab> {
         _field('Profile · A1 / A2', 'profileA1'),
         _field('Profile · B1+', 'profileB1'),
         _field(
-            'Conversation framing · ${mode == 'units' ? 'UNITS (theme-led)' : 'MICRO-SKILL (list-led)'}',
-            mode == 'units' ? 'convUnit' : 'convSkill'),
+          'Conversation framing · ${mode == 'units' ? 'UNITS (theme-led)' : 'MICRO-SKILL (list-led)'}',
+          mode == 'units' ? 'convUnit' : 'convSkill',
+        ),
         _field('Judge prompt (shared)', 'judge'),
         const SizedBox(height: 8),
         Row(
@@ -127,18 +131,24 @@ class _EditPromptsTabState extends ConsumerState<EditPromptsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB8472F),
-                  letterSpacing: 0.5)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFB8472F),
+              letterSpacing: 0.5,
+            ),
+          ),
           const SizedBox(height: 4),
           TextField(
             controller: _ctls[key],
             maxLines: 8,
-            style:
-                const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.4),
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              height: 1.4,
+            ),
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,

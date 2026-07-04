@@ -13,7 +13,9 @@ class MemoryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(chatProvider).when(
+    return ref
+        .watch(chatProvider)
+        .when(
           data: (s) => _MemoryView(state: s),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
@@ -29,9 +31,7 @@ class _MemoryView extends StatelessWidget {
     final m = state.memory;
     // Build the object in the same shape as the simulator's display.
     final obj = {
-      'profile': {
-        'child_id': m.childId,
-      },
+      'profile': {'child_id': m.childId},
       'level': m.level,
       'progression_model': m.progressionModel,
       'owned [${m.owned.length}]': m.owned,
@@ -90,18 +90,20 @@ class _MemoryView extends StatelessWidget {
 
         // State changes this chat
         if (state.lastChanges.isNotEmpty) ...[
-          const Text('state changes this chat',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB8472F),
-                  letterSpacing: 0.5)),
+          const Text(
+            'state changes this chat',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFB8472F),
+              letterSpacing: 0.5,
+            ),
+          ),
           const SizedBox(height: 4),
           for (final c in state.lastChanges)
             Container(
               margin: const EdgeInsets.only(bottom: 4),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFE6F3E9),
                 border: Border.all(color: const Color(0xFF3AA655)),
@@ -110,7 +112,9 @@ class _MemoryView extends StatelessWidget {
               child: Text(
                 '${c.id} · ${c.from} → ${c.to} ${c.to == 'owned' ? '🌳' : '🌱'}',
                 style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           const SizedBox(height: 12),
@@ -122,10 +126,11 @@ class _MemoryView extends StatelessWidget {
               ? 'memory object · updated after chat ${state.memory.updatedAfterChat}'
               : 'memory object · (fresh)',
           style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB8472F),
-              letterSpacing: 0.5),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFB8472F),
+            letterSpacing: 0.5,
+          ),
         ),
         const SizedBox(height: 6),
 
@@ -151,12 +156,15 @@ class _MemoryView extends StatelessWidget {
         // Snapshots after each chat
         if (state.snapshots.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text('memory after each chat',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB8472F),
-                  letterSpacing: 0.5)),
+          const Text(
+            'memory after each chat',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFB8472F),
+              letterSpacing: 0.5,
+            ),
+          ),
           const SizedBox(height: 6),
           for (final s in state.snapshots) _SnapshotRow(snapshot: s),
         ],
@@ -191,9 +199,10 @@ class _SnapshotRow extends StatelessWidget {
           Text(
             'due → ${snapshot.dueFlat.isEmpty ? '(none)' : snapshot.dueFlat.join(', ')}',
             style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 10,
-                color: Color(0xFF5B50C4)),
+              fontFamily: 'monospace',
+              fontSize: 10,
+              color: Color(0xFF5B50C4),
+            ),
           ),
           const Divider(height: 8),
         ],

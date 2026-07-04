@@ -15,7 +15,8 @@ final supabaseServiceProvider = Provider<SupabaseService>((ref) {
 
 final ellaApiServiceProvider = Provider<EllaApiService>((ref) {
   return EllaApiService(
-    baseUrl: dotenv.env['ELLA_API_BASE_URL'] ?? 'https://ella.navgurukul.org/api',
+    baseUrl:
+        dotenv.env['ELLA_API_BASE_URL'] ?? 'https://ella.navgurukul.org/api',
   );
 });
 
@@ -26,6 +27,8 @@ final llmServiceProvider = Provider<LlmService>((ref) {
   );
 });
 
-final sttProvider = Provider<SpeechToTextService>((ref) => SpeechToTextService());
+final sttProvider = Provider<SpeechToTextService>(
+  (ref) => SpeechToTextService(),
+);
 
 final ttsProvider = Provider<FlutterTtsService>((ref) => FlutterTtsService());

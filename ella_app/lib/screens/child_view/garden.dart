@@ -63,10 +63,7 @@ class _GardenContent extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               step.name,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.white70,
-              ),
+              style: const TextStyle(fontSize: 12, color: Colors.white70),
             ),
             const SizedBox(height: 8),
             // Plant row for this step
@@ -82,7 +79,11 @@ class _GardenContent extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               '🌳 All units complete!',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ],
@@ -96,7 +97,11 @@ class _Plant extends StatefulWidget {
   final String bucket;
   final bool grew;
 
-  const _Plant({required this.skillId, required this.bucket, required this.grew});
+  const _Plant({
+    required this.skillId,
+    required this.bucket,
+    required this.grew,
+  });
 
   @override
   State<_Plant> createState() => _PlantState();

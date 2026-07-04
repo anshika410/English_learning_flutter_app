@@ -5,14 +5,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../models/garden.dart';
 
-const Color _parchment = Color(0xFFFBF4E4);
-const Color _parchmentLine = Color(0xFFE7D7B6);
-const Color _ink = Color(0xFF4A3621);
+// Botanical Berry: the parchment sheet becomes an elevated botanical surface.
+const Color _parchment = EllaColors.surfaceElevated;
+const Color _parchmentLine = EllaColors.border;
+const Color _ink = EllaColors.ink;
 
 /// Short "time ago" label for an evidence timestamp, e.g. "2 days ago".
 /// Returns null when there is no timestamp to show.
@@ -105,10 +106,12 @@ void _showParchment(
                     child: Text(
                       badge,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.baloo2(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                      style: EllaFonts.bricolage(
+                        const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: EllaColors.onPrimary,
+                        ),
                       ),
                     ),
                   ),
@@ -143,11 +146,13 @@ class _SkillSheetBody extends StatelessWidget {
             Expanded(
               child: Text(
                 skill.text,
-                style: GoogleFonts.baloo2(
-                  fontSize: 17,
-                  height: 1.25,
-                  fontWeight: FontWeight.w700,
-                  color: _ink,
+                style: EllaFonts.bricolage(
+                  const TextStyle(
+                    fontSize: 17,
+                    height: 1.25,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
                 ),
               ),
             ),
@@ -158,11 +163,15 @@ class _SkillSheetBody extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _Tag(label: skill.strand.label, bg: skill.strand.tagBg, fg: skill.strand.tagColor),
+            _Tag(
+              label: skill.strand.label,
+              bg: skill.strand.tagBg,
+              fg: skill.strand.tagColor,
+            ),
             _Tag(
               label: skill.status.tag,
-              bg: EllaColors.mangoLightest,
-              fg: EllaColors.mangoDark,
+              bg: EllaColors.berryLight,
+              fg: EllaColors.berryDeep,
               // "Bloomed" gets the flower asset (Figma).
               leadingAsset: skill.status == SkillStatus.owned
                   ? 'assets/information-box/flower.svg'
@@ -176,16 +185,21 @@ class _SkillSheetBody extends StatelessWidget {
         if (hasEvidence) ...[
           Row(
             children: [
-              SvgPicture.asset('assets/information-box/talk-svgrepo-com.svg',
-                  width: 16, height: 16),
+              SvgPicture.asset(
+                'assets/information-box/talk-svgrepo-com.svg',
+                width: 16,
+                height: 16,
+              ),
               const SizedBox(width: 6),
               Text(
                 'WHAT YOU SAID',
-                style: GoogleFonts.baloo2(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                  color: EllaColors.muted,
+                style: EllaFonts.bricolage(
+                  const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: EllaColors.textTertiary,
+                  ),
                 ),
               ),
             ],
@@ -220,7 +234,7 @@ class _EvidenceBox extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.6),
+        color: EllaColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _parchmentLine, width: 1),
       ),
@@ -230,19 +244,17 @@ class _EvidenceBox extends StatelessWidget {
         children: [
           Text(
             '"${evidence.quote}"',
-            style: GoogleFonts.baloo2(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: _ink,
-            ),
+            style: EllaTextStyles.bodySmall.copyWith(fontSize: 15, color: _ink),
           ),
           const SizedBox(height: 3),
           Text(
             sub,
-            style: GoogleFonts.baloo2(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: EllaColors.muted,
+            style: EllaFonts.bricolage(
+              const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: EllaColors.textTertiary,
+              ),
             ),
           ),
         ],
@@ -266,20 +278,21 @@ class _EmptyState extends StatelessWidget {
         Text(
           'Waiting to be planted!',
           textAlign: TextAlign.center,
-          style: GoogleFonts.baloo2(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: _ink,
+          style: EllaFonts.bricolage(
+            const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: _ink,
+            ),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           'Talk to Zoe to start growing this skill.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.baloo2(
+          style: EllaTextStyles.bodySmall.copyWith(
             fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: EllaColors.muted,
+            color: EllaColors.textSecondary,
           ),
         ),
       ],
@@ -302,20 +315,21 @@ class _UnitSheetBody extends StatelessWidget {
       children: [
         Text(
           'UNIT ${step.step} OF ${data.steps.length}',
-          style: GoogleFonts.baloo2(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-            color: EllaColors.muted,
+          style: EllaFonts.bricolage(
+            const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: EllaColors.textTertiary,
+            ),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           step.focus,
-          style: GoogleFonts.baloo2(
+          style: EllaTextStyles.bodySmall.copyWith(
             fontSize: 15,
             height: 1.4,
-            fontWeight: FontWeight.w500,
             color: _ink,
           ),
         ),
@@ -324,11 +338,13 @@ class _UnitSheetBody extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           'ON MASTERY, YOU WILL BE ABLE TO',
-          style: GoogleFonts.baloo2(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-            color: EllaColors.muted,
+          style: EllaFonts.bricolage(
+            const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: EllaColors.textTertiary,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -360,7 +376,7 @@ class _SkillRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.5),
+          color: EllaColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _parchmentLine, width: 1),
         ),
@@ -375,8 +391,7 @@ class _SkillRow extends StatelessWidget {
                 children: [
                   Text(
                     skill.text,
-                    style: GoogleFonts.baloo2(
-                      fontSize: 14,
+                    style: EllaTextStyles.bodySmall.copyWith(
                       height: 1.2,
                       fontWeight: FontWeight.w600,
                       color: _ink,
@@ -385,16 +400,21 @@ class _SkillRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     skill.strand.label,
-                    style: GoogleFonts.baloo2(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: skill.strand.tagColor,
+                    style: EllaFonts.bricolage(
+                      TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: skill.strand.tagColor,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: EllaColors.muted),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: EllaColors.textTertiary,
+            ),
           ],
         ),
       ),
@@ -417,7 +437,10 @@ class _Tag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(99),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -427,10 +450,8 @@ class _Tag extends StatelessWidget {
           ],
           Text(
             label,
-            style: GoogleFonts.baloo2(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: fg,
+            style: EllaFonts.bricolage(
+              TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg),
             ),
           ),
         ],

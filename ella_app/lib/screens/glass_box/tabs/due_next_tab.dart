@@ -15,7 +15,9 @@ class DueNextTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(chatProvider).when(
+    return ref
+        .watch(chatProvider)
+        .when(
           data: (s) => _DueNextView(state: s),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
@@ -45,9 +47,11 @@ class _DueNextView extends StatelessWidget {
         // Stored due_next
         _Card('Stored due_next', [
           _row('primary', due.primary ?? '(none)'),
-          if (due.primary != null)
-            _row('  text', skillText(due.primary!)),
-          _row('watching', due.watching.isEmpty ? '(none)' : due.watching.join(', ')),
+          if (due.primary != null) _row('  text', skillText(due.primary!)),
+          _row(
+            'watching',
+            due.watching.isEmpty ? '(none)' : due.watching.join(', '),
+          ),
         ]),
 
         // Constants in effect
@@ -62,8 +66,13 @@ class _DueNextView extends StatelessWidget {
         if (mem.progressionModel == 'units')
           _Card('Active unit step', [
             if (activeU == null)
-              const Text('All steps complete ✓',
-                  style: TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.bold))
+              const Text(
+                'All steps complete ✓',
+                style: TextStyle(
+                  color: Color(0xFF4CAF50),
+                  fontWeight: FontWeight.bold,
+                ),
+              )
             else ...[
               _row('step', activeU.step),
               _row('name', activeU.name),
@@ -74,8 +83,10 @@ class _DueNextView extends StatelessWidget {
         // Live picks with why strings
         _Card('Current picks (${allPicks.length})', [
           if (allPicks.isEmpty)
-            const Text('No picks — all targets met.',
-                style: TextStyle(color: Colors.grey))
+            const Text(
+              'No picks — all targets met.',
+              style: TextStyle(color: Colors.grey),
+            )
           else
             for (int i = 0; i < allPicks.length; i++) ...[
               Padding(
@@ -86,7 +97,10 @@ class _DueNextView extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: i == 0
                                 ? const Color(0xFF4CAF50)
@@ -97,21 +111,32 @@ class _DueNextView extends StatelessWidget {
                             i == 0 ? 'PRIMARY' : 'WATCH $i',
                             style: TextStyle(
                               fontSize: 10,
-                              color: i == 0 ? Colors.white : Colors.grey.shade700,
+                              color: i == 0
+                                  ? Colors.white
+                                  : Colors.grey.shade700,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(allPicks[i].id,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          allPicks[i].id,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(skillText(allPicks[i].id),
-                        style: const TextStyle(fontSize: 12, color: Colors.black87)),
-                    Text(allPicks[i].why,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(
+                      skillText(allPicks[i].id),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      allPicks[i].why,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
@@ -129,23 +154,26 @@ class _DueNextView extends StatelessWidget {
   }
 
   Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 160,
-              child: Text(label,
-                  style: const TextStyle(fontSize: 13, color: Colors.grey)),
-            ),
-            Expanded(
-              child: Text(value,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600)),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 160,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Colors.grey),
+          ),
         ),
-      );
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Card extends StatelessWidget {
@@ -162,12 +190,15 @@ class _Card extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4CAF50),
-                    letterSpacing: 0.8)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4CAF50),
+                letterSpacing: 0.8,
+              ),
+            ),
             const Divider(height: 10),
             ...children,
           ],

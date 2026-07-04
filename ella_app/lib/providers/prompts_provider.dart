@@ -5,5 +5,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/prompts.dart';
 
-final promptsOverrideProvider =
-    StateProvider<AppPrompts>((ref) => kDefaultPrompts);
+final promptsOverrideProvider = StateProvider<AppPrompts>(
+  (ref) => kDefaultPrompts,
+);

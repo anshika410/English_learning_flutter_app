@@ -11,8 +11,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/garden.dart';
 import '../../providers/chat_provider.dart';
@@ -21,12 +21,13 @@ import 'session_screen.dart';
 import 'session_intro.dart';
 import 'widgets/garden_dialogs.dart';
 
-// Palette taken from the Figma garden SVG gradients.
-const Color _skyTop = Color(0xFFC8DCF0);
-const Color _skyBottom = Color(0xFFE4D8E8);
-const Color _hillBack = Color(0xFFC4E0BB);
-const Color _meadowTop = Color(0xFFA8CCA0);
-const Color _meadowBottom = Color(0xFF8EBE82);
+// Botanical Berry garden palette: environment sky easing into the garden-field
+// ground ramp (fieldLight → fieldMain → fieldDark).
+const Color _skyTop = EllaColors.environmentLight;
+const Color _skyBottom = EllaColors.environmentMain;
+const Color _hillBack = EllaColors.fieldLight;
+const Color _meadowTop = EllaColors.fieldMain;
+const Color _meadowBottom = EllaColors.fieldDark;
 
 const double _skyHeight = 188;
 const double _plotW = 220;
@@ -60,21 +61,25 @@ class GardenScreen extends ConsumerWidget {
     return Container(
       color: _meadowBottom,
       child: gardenAsync.when(
-        data: (data) => _GardenView(
-          data: data,
-          onConversationEnded: onConversationEnded,
-        ),
+        data: (data) =>
+            _GardenView(data: data, onConversationEnded: onConversationEnded),
         loading: () => const _SkyScaffold(
-          child: Center(child: CircularProgressIndicator(color: Colors.white)),
+          child: Center(
+            child: CircularProgressIndicator(color: EllaColors.berryDark),
+          ),
         ),
         error: (e, _) => _SkyScaffold(
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Could not load your garden',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700)),
+                const Text(
+                  'Could not load your garden',
+                  style: TextStyle(
+                    color: EllaColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => ref.invalidate(gardenProvider),
@@ -111,22 +116,19 @@ class _SkyScaffold extends StatelessWidget {
 class _GardenView extends ConsumerWidget {
   final GardenData data;
   final VoidCallback? onConversationEnded;
-  const _GardenView({
-    required this.data,
-    required this.onConversationEnded,
-  });
+  const _GardenView({required this.data, required this.onConversationEnded});
 
   Future<void> _letsTalk(BuildContext context, WidgetRef ref) async {
     // Ensure previous session state is reset before starting new session
     final chatNotifier = ref.read(chatProvider.notifier);
     final chatState = ref.read(chatProvider);
-    
+
     // If previous chat ended, reset for new session
     if (chatState.hasValue && chatState.requireValue.sessionEnded) {
       await chatNotifier.nextChat();
     }
     if (!context.mounted) return;
-    
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SessionScreen(
@@ -178,7 +180,9 @@ class _GardenView extends ConsumerWidget {
             bottom: 0,
             child: _LetsTalkBar(
               // Same greeting as the Home screen, derived from memory.
-              text: buildHomeGreeting(ref.watch(chatProvider).valueOrNull?.memory),
+              text: buildHomeGreeting(
+                ref.watch(chatProvider).valueOrNull?.memory,
+              ),
               onTalk: () => _letsTalk(context, ref),
             ),
           ),
@@ -238,15 +242,13 @@ class _SkyHills extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [EllaColors.mangoTop, EllaColors.mangoMain],
-                ),
+                // Solid berryDark so the white label stays AA-safe (a berry
+                // gradient's light band would fail under the text).
+                color: EllaColors.berryDark,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: const [
                   BoxShadow(
-                    color: EllaColors.mangoDark,
+                    color: EllaColors.berryDeep,
                     offset: Offset(0, 3),
                     blurRadius: 0,
                   ),
@@ -258,21 +260,25 @@ class _SkyHills extends StatelessWidget {
                 children: [
                   Text(
                     level.isEmpty ? 'Your Garden' : 'Level - $level',
-                    style: GoogleFonts.baloo2(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      height: 1.0,
+                    style: EllaFonts.bricolage(
+                      const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: EllaColors.onPrimary,
+                        height: 1.0,
+                      ),
                     ),
                   ),
                   if (theme.isNotEmpty)
                     Text(
                       theme,
-                      style: GoogleFonts.baloo2(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.85),
-                        height: 1.2,
+                      style: EllaFonts.bricolage(
+                        TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: EllaColors.onPrimary.withValues(alpha: 0.85),
+                          height: 1.2,
+                        ),
                       ),
                     ),
                 ],
@@ -339,8 +345,11 @@ class _PlotRow extends StatelessWidget {
   final GardenData data;
   final GardenStep step;
   final bool plotOnLeft;
-  const _PlotRow(
-      {required this.data, required this.step, required this.plotOnLeft});
+  const _PlotRow({
+    required this.data,
+    required this.step,
+    required this.plotOnLeft,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -349,8 +358,9 @@ class _PlotRow extends StatelessWidget {
       child: Stack(
         children: [
           Align(
-            alignment:
-                plotOnLeft ? Alignment.centerLeft : Alignment.centerRight,
+            alignment: plotOnLeft
+                ? Alignment.centerLeft
+                : Alignment.centerRight,
             child: Padding(
               padding: EdgeInsets.only(
                 left: plotOnLeft ? 12 : 0,
@@ -387,9 +397,9 @@ class _UnitLabel extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: EllaColors.bubbleSurface,
+          color: EllaColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE8D4B8), width: 1.5),
+          border: Border.all(color: EllaColors.border, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.12),
@@ -400,11 +410,13 @@ class _UnitLabel extends StatelessWidget {
         ),
         child: Text(
           name,
-          style: GoogleFonts.baloo2(
-            fontSize: 13,
-            height: 1.1,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF4A3621),
+          style: EllaFonts.bricolage(
+            const TextStyle(
+              fontSize: 13,
+              height: 1.1,
+              fontWeight: FontWeight.w700,
+              color: EllaColors.ink,
+            ),
           ),
         ),
       ),
@@ -432,6 +444,10 @@ class _Plot extends StatelessWidget {
     final order = List<int>.generate(skills.length, (i) => i)
       ..sort((a, b) => tileSpots[b].bottom.compareTo(tileSpots[a].bottom));
 
+    // Per-plant sway stagger: delay = (gridX + gridY) × 400ms, matching the
+    // grove animation handoff. Mirrors the lattice layout in _tileSpotsFor.
+    final cols = math.max(1, math.sqrt(skills.length).ceil());
+
     return SizedBox(
       width: _plotW,
       height: _plotH,
@@ -442,8 +458,11 @@ class _Plot extends StatelessWidget {
           Positioned(
             bottom: 6,
             left: (_plotW - _ellipseW) / 2,
-            child: SvgPicture.asset('assets/gardent-view/Ellipse.svg',
-                width: _ellipseW, height: _ellipseH),
+            child: SvgPicture.asset(
+              'assets/gardent-view/Ellipse.svg',
+              width: _ellipseW,
+              height: _ellipseH,
+            ),
           ),
           // Bush resting inside the turf-shadow ellipse (front-left).
           Positioned(
@@ -462,14 +481,11 @@ class _Plot extends StatelessWidget {
               _SkillPlant(
                 skill: skills[i],
                 spot: tileSpots[i],
+                swayDelayMs: ((i % cols) + (i ~/ cols)) * 400,
                 onTap: () => showSkillSheet(context, step, skills[i]),
               ),
           if (hasBloom)
-            const Positioned(
-              bottom: 106,
-              left: 24,
-              child: _Butterfly(),
-            ),
+            const Positioned(bottom: 106, left: 24, child: _Butterfly()),
         ],
       ),
     );
@@ -540,10 +556,12 @@ class _SkillTile extends StatelessWidget {
 class _SkillPlant extends StatelessWidget {
   final GardenSkill skill;
   final _TileSpot spot;
+  final int swayDelayMs;
   final VoidCallback onTap;
   const _SkillPlant({
     required this.skill,
     required this.spot,
+    required this.swayDelayMs,
     required this.onTap,
   });
 
@@ -555,35 +573,116 @@ class _SkillPlant extends StatelessWidget {
       child: SizedBox(
         width: 56,
         child: Center(
-          child: _Plant(
-            skill: skill,
-            onTap: onTap,
-          ),
+          child: _Plant(skill: skill, swayDelayMs: swayDelayMs, onTap: onTap),
         ),
       ),
     );
   }
 }
 
-class _Plant extends StatelessWidget {
+// Spring-overshoot curve from the grove handoff: cubic-bezier(0.34,1.56,0.64,1).
+// Scales past 1.0 before settling, giving the plant a satisfying "pop".
+const Cubic _popCurve = Cubic(0.34, 1.56, 0.64, 1.0);
+
+// Idle plant sway: rotation ±2.2° about the bottom-centre, 3600ms ping-pong.
+const double _swayMaxRad = 2.2 * math.pi / 180;
+
+class _Plant extends StatefulWidget {
   final GardenSkill skill;
+  final int swayDelayMs;
   final VoidCallback onTap;
-  const _Plant({required this.skill, required this.onTap});
+  const _Plant({
+    required this.skill,
+    required this.swayDelayMs,
+    required this.onTap,
+  });
+
+  @override
+  State<_Plant> createState() => _PlantState();
+}
+
+class _PlantState extends State<_Plant> with TickerProviderStateMixin {
+  // Idle sway loop (1a) and one-shot pop-in (2a) from the grove handoff.
+  late final AnimationController _sway = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3600),
+  );
+  late final AnimationController _pop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  );
+
+  late final Animation<double> _swayAngle = Tween<double>(
+    begin: -_swayMaxRad,
+    end: _swayMaxRad,
+  ).animate(CurvedAnimation(parent: _sway, curve: Curves.easeInOut));
+
+  late final Animation<double> _popScale = Tween<double>(
+    begin: 0.0,
+    end: 1.0,
+  ).animate(CurvedAnimation(parent: _pop, curve: _popCurve));
+
+  bool _started = false;
+
+  void _start() {
+    if (_started) return;
+    _started = true;
+    // Pop the plant in, then begin the staggered sway loop once it settles.
+    _pop.forward();
+    Future.delayed(Duration(milliseconds: widget.swayDelayMs), () {
+      if (mounted) _sway.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Respect reduced-motion: hold everything at the final resting state.
+    if (MediaQuery.of(context).disableAnimations) {
+      _pop.value = 1.0;
+      return;
+    }
+    _start();
+  }
+
+  @override
+  void dispose() {
+    _sway.dispose();
+    _pop.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     // Growth stage follows sightings: 1 → seedling, 2 → young, ≥3 → bloom.
-    final (asset, height) = switch (skill.sightings) {
+    final (asset, height) = switch (widget.skill.sightings) {
       <= 0 => ('', 0.0),
-      1 => (skill.strand.seedlingAsset, 48.0),
-      2 => (skill.strand.youngAsset, 68.0),
-      _ => (skill.strand.bloomAsset, 88.0),
+      1 => (widget.skill.strand.seedlingAsset, 48.0),
+      2 => (widget.skill.strand.youngAsset, 68.0),
+      _ => (widget.skill.strand.bloomAsset, 88.0),
     };
     if (asset.isEmpty) return const SizedBox.shrink();
-    return GestureDetector(
-      onTap: onTap,
+
+    final art = GestureDetector(
+      onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: SvgPicture.asset(asset, height: height, fit: BoxFit.contain),
+    );
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([_sway, _pop]),
+      // Sway rotates and pop scales about the bottom-centre (the plant's base),
+      // so the stem pivots in the soil instead of drifting off its tile.
+      builder: (_, child) => Transform.rotate(
+        angle: _swayAngle.value,
+        alignment: Alignment.bottomCenter,
+        child: Transform.scale(
+          scale: _popScale.value,
+          alignment: Alignment.bottomCenter,
+          child: child,
+        ),
+      ),
+      child: art,
     );
   }
 }
@@ -595,27 +694,70 @@ class _Butterfly extends StatefulWidget {
 }
 
 class _ButterflyState extends State<_Butterfly>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl =
-      AnimationController(vsync: this, duration: const Duration(seconds: 4))
-        ..repeat(reverse: true);
+    with TickerProviderStateMixin {
+  // Float path (1c): 6500ms looping drift through the handoff's four waypoints.
+  late final AnimationController _float = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 6500),
+  );
+  // Wing flap (1b): 500ms ping-pong scaleX 1.0 ↔ 0.55.
+  late final AnimationController _flap = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 500),
+  );
+
+  late final Animation<double> _floatX = _seq(const [0, 10, -6, -12, 0]);
+  late final Animation<double> _floatY = _seq(const [0, -12, -22, -8, 0]);
+
+  late final Animation<double> _flapScale = Tween<double>(
+    begin: 1.0,
+    end: 0.55,
+  ).animate(CurvedAnimation(parent: _flap, curve: Curves.easeInOut));
+
+  // Builds an easeInOut TweenSequence stepping through [pts] in equal segments.
+  Animation<double> _seq(List<double> pts) {
+    return TweenSequence<double>([
+      for (var i = 0; i < pts.length - 1; i++)
+        TweenSequenceItem(
+          tween: Tween(begin: pts[i], end: pts[i + 1])
+              .chain(CurveTween(curve: Curves.easeInOut)),
+          weight: 25,
+        ),
+    ]).animate(_float);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) return;
+    if (!_float.isAnimating) _float.repeat();
+    if (!_flap.isAnimating) _flap.repeat(reverse: true);
+  }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _float.dispose();
+    _flap.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _ctrl,
+      animation: Listenable.merge([_float, _flap]),
       builder: (_, child) => Transform.translate(
-        offset: Offset(6 * _ctrl.value, -10 * math.sin(_ctrl.value * math.pi)),
-        child: child,
+        offset: Offset(_floatX.value, _floatY.value),
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.diagonal3Values(_flapScale.value, 1.0, 1.0),
+          child: child,
+        ),
       ),
-      child: SvgPicture.asset('assets/gardent-view/butterfly 1.svg',
-          width: 26, height: 26),
+      child: SvgPicture.asset(
+        'assets/gardent-view/butterfly 1.svg',
+        width: 26,
+        height: 26,
+      ),
     );
   }
 }
@@ -632,9 +774,10 @@ class _LetsTalkBar extends StatelessWidget {
     final line = text;
     return Container(
       decoration: BoxDecoration(
-        color: EllaColors.bubbleSurface,
-        border:
-            const Border(top: BorderSide(color: EllaColors.border, width: 1.5)),
+        color: EllaColors.surface,
+        border: const Border(
+          top: BorderSide(color: EllaColors.border, width: 1.5),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -654,7 +797,7 @@ class _LetsTalkBar extends StatelessWidget {
                 height: 44,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: EllaColors.zoeMintLight,
+                  color: EllaColors.greenLight,
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Image.asset(
@@ -667,11 +810,9 @@ class _LetsTalkBar extends StatelessWidget {
               Expanded(
                 child: Text(
                   line,
-                  style: GoogleFonts.baloo2(
-                    fontSize: 13,
+                  style: EllaTextStyles.bodySmall.copyWith(
                     height: 1.2,
-                    fontWeight: FontWeight.w500,
-                    color: EllaColors.bubbleText,
+                    color: EllaColors.textSecondary,
                   ),
                 ),
               ),
@@ -679,18 +820,18 @@ class _LetsTalkBar extends StatelessWidget {
               GestureDetector(
                 onTap: onTalk,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 11,
+                  ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [EllaColors.mangoTop, EllaColors.mangoMain],
-                    ),
+                    // Solid berryDark keeps the white label AA-safe in this
+                    // compact bar button.
+                    color: EllaColors.berryDark,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: const [
                       BoxShadow(
-                        color: EllaColors.mangoDark,
+                        color: EllaColors.berryDeep,
                         offset: Offset(0, 3),
                         blurRadius: 0,
                       ),
@@ -698,10 +839,9 @@ class _LetsTalkBar extends StatelessWidget {
                   ),
                   child: Text(
                     "Let's Talk",
-                    style: GoogleFonts.baloo2(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF3A2200),
+                    style: EllaTextStyles.button.copyWith(
+                      fontSize: 15,
+                      color: EllaColors.onPrimary,
                     ),
                   ),
                 ),

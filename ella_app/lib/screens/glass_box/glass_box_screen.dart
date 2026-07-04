@@ -48,15 +48,18 @@ class _GlassBoxScreenState extends ConsumerState<GlassBoxScreen>
       builder: (dialogCtx) => AlertDialog(
         title: Text('Switch level to $level?'),
         content: const Text(
-            'Wipes in-memory state and starts a fresh chat at the new level. '
-            'Supabase row is not touched until next End Chat.'),
+          'Wipes in-memory state and starts a fresh chat at the new level. '
+          'Supabase row is not touched until next End Chat.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogCtx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-              onPressed: () => Navigator.pop(dialogCtx, true),
-              child: const Text('Switch')),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('Switch'),
+          ),
         ],
       ),
     );
@@ -71,15 +74,18 @@ class _GlassBoxScreenState extends ConsumerState<GlassBoxScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentLevel = ref.watch(chatProvider).maybeWhen(
-        data: (s) => s.memory.level, orElse: () => 'A1');
+    final currentLevel = ref
+        .watch(chatProvider)
+        .maybeWhen(data: (s) => s.memory.level, orElse: () => 'A1');
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
-        title: const Text('🔬 Glass Box',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text(
+          '🔬 Glass Box',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -106,7 +112,10 @@ class _GlassBoxScreenState extends ConsumerState<GlassBoxScreen>
           labelColor: const Color(0xFF4CAF50),
           unselectedLabelColor: Colors.grey,
           indicatorColor: const Color(0xFF4CAF50),
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          labelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
           tabs: const [
             Tab(text: '📖 Read me'),
             Tab(text: '🧠 Memory'),

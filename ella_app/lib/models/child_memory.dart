@@ -15,18 +15,18 @@ class SkillScore {
   });
 
   factory SkillScore.fromJson(Map<String, dynamic> j) => SkillScore(
-        id: j['id'] as String,
-        confidence: (j['confidence'] as num).toDouble(),
-        prompted: j['prompted'] as bool,
-        evidence: (j['evidence'] as String?) ?? '',
-      );
+    id: j['id'] as String,
+    confidence: (j['confidence'] as num).toDouble(),
+    prompted: j['prompted'] as bool,
+    evidence: (j['evidence'] as String?) ?? '',
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'confidence': confidence,
-        'prompted': prompted,
-        'evidence': evidence,
-      };
+    'id': id,
+    'confidence': confidence,
+    'prompted': prompted,
+    'evidence': evidence,
+  };
 }
 
 class StateChange {
@@ -50,21 +50,21 @@ class DueNext {
 
   List<String> get flat => [?primary, ...watching];
 
-  DueNext copyWith({String? primary, bool clearPrimary = false, List<String>? watching}) =>
-      DueNext(
-        primary: clearPrimary ? null : (primary ?? this.primary),
-        watching: watching ?? this.watching,
-      );
+  DueNext copyWith({
+    String? primary,
+    bool clearPrimary = false,
+    List<String>? watching,
+  }) => DueNext(
+    primary: clearPrimary ? null : (primary ?? this.primary),
+    watching: watching ?? this.watching,
+  );
 
   factory DueNext.fromJson(Map<String, dynamic> j) => DueNext(
-        primary: j['primary'] as String?,
-        watching: List<String>.from((j['watching'] as List?) ?? []),
-      );
+    primary: j['primary'] as String?,
+    watching: List<String>.from((j['watching'] as List?) ?? []),
+  );
 
-  Map<String, dynamic> toJson() => {
-        'primary': primary,
-        'watching': watching,
-      };
+  Map<String, dynamic> toJson() => {'primary': primary, 'watching': watching};
 }
 
 class MemoryState {
@@ -115,28 +115,25 @@ class MemoryState {
     int? effortTimesSpoken,
     int? chatCount,
     int? updatedAfterChat,
-  }) =>
-      MemoryState(
-        childId: childId ?? this.childId,
-        level: level ?? this.level,
-        progressionModel: progressionModel ?? this.progressionModel,
-        owned: owned ?? this.owned,
-        emerging: emerging ?? this.emerging,
-        dueNext: dueNext ?? this.dueNext,
-        lastTopics: lastTopics ?? this.lastTopics,
-        interests: interests ?? this.interests,
-        sightings: sightings ?? this.sightings,
-        strength: strength ?? this.strength,
-        lastSeen: lastSeen ?? this.lastSeen,
-        effortTimesSpoken: effortTimesSpoken ?? this.effortTimesSpoken,
-        chatCount: chatCount ?? this.chatCount,
-        updatedAfterChat: updatedAfterChat ?? this.updatedAfterChat,
-      );
+  }) => MemoryState(
+    childId: childId ?? this.childId,
+    level: level ?? this.level,
+    progressionModel: progressionModel ?? this.progressionModel,
+    owned: owned ?? this.owned,
+    emerging: emerging ?? this.emerging,
+    dueNext: dueNext ?? this.dueNext,
+    lastTopics: lastTopics ?? this.lastTopics,
+    interests: interests ?? this.interests,
+    sightings: sightings ?? this.sightings,
+    strength: strength ?? this.strength,
+    lastSeen: lastSeen ?? this.lastSeen,
+    effortTimesSpoken: effortTimesSpoken ?? this.effortTimesSpoken,
+    chatCount: chatCount ?? this.chatCount,
+    updatedAfterChat: updatedAfterChat ?? this.updatedAfterChat,
+  );
 
-  factory MemoryState.fresh(String level, {String childId = 'demo'}) => MemoryState(
-        childId: childId,
-        level: level,
-      );
+  factory MemoryState.fresh(String level, {String childId = 'demo'}) =>
+      MemoryState(childId: childId, level: level);
 
   // Supabase stores memory_state as a JSONB column called `state`.
   // Column names match ELLA-Final-Build-Spec.md Part C exactly.
@@ -154,11 +151,23 @@ class MemoryState {
       lastTopics: List<String>.from((j['last_topics'] as List?) ?? []),
       interests: j['interests'] as String? ?? '',
       sightings: Map<String, int>.from(
-          (j['sightings'] as Map?)?.map((k, v) => MapEntry(k as String, (v as num).toInt())) ?? {}),
+        (j['sightings'] as Map?)?.map(
+              (k, v) => MapEntry(k as String, (v as num).toInt()),
+            ) ??
+            {},
+      ),
       strength: Map<String, int>.from(
-          (j['strength'] as Map?)?.map((k, v) => MapEntry(k as String, (v as num).toInt())) ?? {}),
+        (j['strength'] as Map?)?.map(
+              (k, v) => MapEntry(k as String, (v as num).toInt()),
+            ) ??
+            {},
+      ),
       lastSeen: Map<String, String>.from(
-          (j['last_seen'] as Map?)?.map((k, v) => MapEntry(k as String, v as String)) ?? {}),
+        (j['last_seen'] as Map?)?.map(
+              (k, v) => MapEntry(k as String, v as String),
+            ) ??
+            {},
+      ),
       effortTimesSpoken: (j['effort_times_spoken'] as num?)?.toInt() ?? 0,
       chatCount: (j['chat_count'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
@@ -168,19 +177,19 @@ class MemoryState {
   // Keys map 1:1 to memory_state columns.
   // `interests` lives on the `children` table — NOT here.
   Map<String, dynamic> toJson() => {
-        'level': level,
-        'progression_model': progressionModel,
-        'owned': owned,
-        'emerging': emerging,
-        'due_next': dueNext.toJson(),
-        'last_topics': lastTopics,
-        'sightings': sightings,
-        'strength': strength,
-        'last_seen': lastSeen,
-        'effort_times_spoken': effortTimesSpoken,
-        'chat_count': chatCount,
-        'updated_after_chat': updatedAfterChat,
-      };
+    'level': level,
+    'progression_model': progressionModel,
+    'owned': owned,
+    'emerging': emerging,
+    'due_next': dueNext.toJson(),
+    'last_topics': lastTopics,
+    'sightings': sightings,
+    'strength': strength,
+    'last_seen': lastSeen,
+    'effort_times_spoken': effortTimesSpoken,
+    'chat_count': chatCount,
+    'updated_after_chat': updatedAfterChat,
+  };
 }
 
 // Lightweight message used by buildConvPrompt — no Flutter dependency.

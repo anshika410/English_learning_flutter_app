@@ -15,9 +15,11 @@ class _LearnerProfile {
 
 const Map<String, _LearnerProfile> _learnerProfiles = {
   'A1': _LearnerProfile(
-      'a beginner who speaks in very short, broken sentences, sometimes one word, with mistakes and occasional Hinglish'),
+    'a beginner who speaks in very short, broken sentences, sometimes one word, with mistakes and occasional Hinglish',
+  ),
   'A2': _LearnerProfile(
-      'an elementary learner managing 2-3 simple sentences with errors'),
+    'an elementary learner managing 2-3 simple sentences with errors',
+  ),
   'B1': _LearnerProfile('a B1 learner, fairly fluent with occasional mistakes'),
   'B2': _LearnerProfile('a B2 learner, fluent with minor errors'),
   'C1': _LearnerProfile('a C1 learner, very fluent and confident'),
@@ -25,26 +27,20 @@ const Map<String, _LearnerProfile> _learnerProfiles = {
 };
 
 class LlmService {
-  final String _proxyUrl; // e.g. https://<project>.supabase.co/functions/v1/llm-proxy
+  final String
+  _proxyUrl; // e.g. https://<project>.supabase.co/functions/v1/llm-proxy
   final String _anonKey;
 
   LlmService({required String proxyUrl, required String anonKey})
-      : _proxyUrl = proxyUrl,
-        _anonKey = anonKey;
+    : _proxyUrl = proxyUrl,
+      _anonKey = anonKey;
 
   // ── conv ──────────────────────────────────────────────────────────────────
   // Returns Zoe's next spoken line.
   Future<String> conv(String prompt) async {
-    final body = jsonEncode({
-      'role': 'conv',
-      'prompt': prompt,
-    });
+    final body = jsonEncode({'role': 'conv', 'prompt': prompt});
     final response = await http
-        .post(
-          Uri.parse(_proxyUrl),
-          headers: _headers(),
-          body: body,
-        )
+        .post(Uri.parse(_proxyUrl), headers: _headers(), body: body)
         .timeout(const Duration(seconds: 30));
 
     _checkStatus(response, 'conv');
@@ -83,22 +79,18 @@ class LlmService {
     _checkStatus(response, 'mockLearner');
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final raw = (data['text'] as String? ?? '').trim();
-    return raw.replaceFirst(RegExp(r'^(Me:|Learner:)\s*', caseSensitive: false), '');
+    return raw.replaceFirst(
+      RegExp(r'^(Me:|Learner:)\s*', caseSensitive: false),
+      '',
+    );
   }
 
   // ── judge ─────────────────────────────────────────────────────────────────
   // Sends the judge prompt and parses the strict JSON response into SkillScores.
   Future<List<SkillScore>> judge(String prompt) async {
-    final body = jsonEncode({
-      'role': 'judge',
-      'prompt': prompt,
-    });
+    final body = jsonEncode({'role': 'judge', 'prompt': prompt});
     final response = await http
-        .post(
-          Uri.parse(_proxyUrl),
-          headers: _headers(),
-          body: body,
-        )
+        .post(Uri.parse(_proxyUrl), headers: _headers(), body: body)
         .timeout(const Duration(seconds: 45));
 
     _checkStatus(response, 'judge');
@@ -116,9 +108,9 @@ class LlmService {
   // ─────────────────────────────────────────────────────────────────────────
 
   Map<String, String> _headers() => {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_anonKey',
-      };
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $_anonKey',
+  };
 
   void _checkStatus(http.Response r, String role) {
     if (r.statusCode != 200) {

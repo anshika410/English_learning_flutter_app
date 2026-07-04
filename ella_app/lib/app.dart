@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'core/theme_colors.dart';
+import 'core/text_styles.dart';
 import 'screens/child_view/home_screen.dart';
 import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/profile_screen.dart';
+import 'screens/child_view/conversation_states_preview.dart';
 import 'screens/glass_box/glass_box_screen.dart';
 
-// kShowGlassBox: flip to true to expose the Glass Box (engine testing) tab.
-// Hidden by default so the bottom nav matches the Figma [Talk | My Garden | Profile].
+// kShowGlassBox: flip to true to expose the Glass Box (engine testing) screen
+// via a floating debug button. Hidden by default so the child-facing build shows
+// only the Home / Garden / Profile surfaces.
+// Flip to true to expose the debug FABs (conversation-states preview + Glass Box).
 const bool kShowGlassBox = false;
 
 class EllaApp extends StatelessWidget {
@@ -19,26 +22,43 @@ class EllaApp extends StatelessWidget {
     return MaterialApp(
       title: 'ELLA',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4CAF50)),
-        useMaterial3: true,
-      ),
+      theme: _botanicalBerryTheme(),
       home: const _EllaHome(),
     );
   }
 }
 
-class _NavItem {
-  final String label;
-  final String? svgAsset;
-  final IconData? icon;
-  final Widget screen;
-  _NavItem({
-    required this.label,
-    this.svgAsset,
-    this.icon,
-    required this.screen,
-  });
+/// Botanical Berry theme. Interactive primary is [EllaColors.berryDark] (AA-safe
+/// with onPrimary); [EllaColors.berryMain] is decorative only. TextTheme is
+/// mapped from [EllaTextStyles] so Material widgets inherit the type scale.
+ThemeData _botanicalBerryTheme() {
+  const scheme = ColorScheme(
+    brightness: Brightness.light,
+    primary: EllaColors.berryDark,
+    onPrimary: EllaColors.onPrimary,
+    secondary: EllaColors.greenMain,
+    onSecondary: EllaColors.ink,
+    error: EllaColors.error,
+    onError: EllaColors.onPrimary,
+    surface: EllaColors.surface,
+    onSurface: EllaColors.ink,
+  );
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: EllaColors.canvas,
+    textTheme: TextTheme(
+      displayLarge: EllaTextStyles.display,
+      headlineLarge: EllaTextStyles.headline,
+      titleLarge: EllaTextStyles.titleMedium,
+      titleMedium: EllaTextStyles.titleSmall,
+      bodyLarge: EllaTextStyles.bodyLarge,
+      bodyMedium: EllaTextStyles.bodyBase,
+      bodySmall: EllaTextStyles.bodySmall,
+      labelLarge: EllaTextStyles.button,
+      labelSmall: EllaTextStyles.caption,
+    ),
+  );
 }
 
 class _EllaHome extends StatefulWidget {
@@ -49,154 +69,72 @@ class _EllaHome extends StatefulWidget {
 }
 
 class _EllaHomeState extends State<_EllaHome> {
-  int _index = 0;
-
-  void _openGarden() => setState(() => _index = 1);
-
-  late final List<_NavItem> _items = [
-    _NavItem(
-      label: 'Talk',
-      svgAsset: 'assets/bottom_tab/to-chat-with-svgrepo-com.svg',
-      screen: HomeScreen(onConversationEnded: _openGarden),
-    ),
-    _NavItem(
-      label: 'My Garden',
-      svgAsset: 'assets/bottom_tab/tree-svgrepo-com.svg',
-      screen: GardenScreen(onConversationEnded: _openGarden),
-    ),
-    _NavItem(
-      label: 'Profile',
-      svgAsset: 'assets/bottom_tab/profile-svgrepo-com.svg',
-      screen: const ProfileScreen(),
-    ),
-    if (kShowGlassBox)
-      _NavItem(
-        label: 'Glass Box',
-        icon: Icons.science_outlined,
-        screen: const GlassBoxScreen(),
+  // The Home screen's top-right icons open Garden / Profile as pushed routes
+  // (system back returns here), so the app no longer needs a bottom tab bar —
+  // each section has its own entry point on Home.
+  // Garden/Profile are pushed as routes; wrap each in a Scaffold so their text
+  // has a Material ancestor (otherwise it renders with debug yellow underlines).
+  void _openGarden() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const Scaffold(
+          backgroundColor: Colors.transparent,
+          body: GardenScreen(),
+        ),
       ),
-  ];
+    );
+  }
+
+  void _openProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const Scaffold(
+          backgroundColor: Colors.transparent,
+          body: ProfileScreen(),
+        ),
+      ),
+    );
+  }
+
+  void _openGlassBox() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const GlassBoxScreen()));
+  }
+
+  void _openConversationPreview() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ConversationStatesPreview()));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: EllaColors.bg,
-      body: IndexedStack(
-        index: _index,
-        children: [for (final item in _items) item.screen],
+      body: HomeScreen(
+        onConversationEnded: _openGarden,
+        onOpenGarden: _openGarden,
+        onOpenProfile: _openProfile,
       ),
-      bottomNavigationBar: _EllaBottomNav(
-        items: _items,
-        index: _index,
-        onTap: (i) => setState(() => _index = i),
-      ),
-    );
-  }
-}
-
-class _EllaBottomNav extends StatelessWidget {
-  final List<_NavItem> items;
-  final int index;
-  final ValueChanged<int> onTap;
-
-  const _EllaBottomNav({
-    required this.items,
-    required this.index,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: 88,
-        padding: const EdgeInsets.fromLTRB(22, 10, 22, 8),
-        decoration: BoxDecoration(
-          color: EllaColors.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              offset: const Offset(0, -2),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            for (var i = 0; i < items.length; i++)
-              Expanded(
-                child: _NavButton(
-                  item: items[i],
-                  selected: i == index,
-                  onTap: () => onTap(i),
+      floatingActionButton: kShowGlassBox
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'convPreview',
+                  onPressed: _openConversationPreview,
+                  child: const Icon(Icons.view_carousel_outlined),
                 ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavButton extends StatelessWidget {
-  final _NavItem item;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _NavButton({
-    required this.item,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedWidth = item.label.length > 6 ? 104.0 : 56.0;
-    final iconWidget = item.svgAsset != null
-        ? SvgPicture.asset(item.svgAsset!, width: 26, height: 26)
-        : Icon(item.icon,
-            size: 26,
-            color: selected ? EllaColors.mangoDark : EllaColors.muted);
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: selected ? selectedWidth : 64,
-              height: selected ? 56 : 58,
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: selected ? EllaColors.navSelected : Colors.transparent,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  iconWidget,
-                  const SizedBox(height: 4),
-                  Text(
-                    item.label,
-                    maxLines: 1,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: selected ? 11 : 10.5,
-                      fontWeight:
-                          selected ? FontWeight.w800 : FontWeight.w700,
-                      color: selected ? Colors.white : EllaColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+                const SizedBox(height: 12),
+                FloatingActionButton.small(
+                  heroTag: 'glassBox',
+                  onPressed: _openGlassBox,
+                  child: const Icon(Icons.science_outlined),
+                ),
+              ],
+            )
+          : null,
     );
   }
 }

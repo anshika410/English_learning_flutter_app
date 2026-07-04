@@ -40,12 +40,14 @@ class ChatState {
   final String? partialStt;
 
   // Simulator parity additions
-  final int chatNumber; // 1-based; resets only on resetAll/setLevel/setProgressionModel
+  final int
+  chatNumber; // 1-based; resets only on resetAll/setLevel/setProgressionModel
   final bool autoMode;
   final int autoStep; // number of auto turns taken so far
   final List<SkillScore> lastJudgeScores; // primary framing
   final List<SkillScore> lastJudgeScoresOther; // alternate framing
-  final String lastJudgeOtherLabel; // 'units' | 'micro-skill' (empty if no judge yet)
+  final String
+  lastJudgeOtherLabel; // 'units' | 'micro-skill' (empty if no judge yet)
   final List<MemorySnapshot> snapshots;
   final List<SessionLog> sessionLogs;
   final List<HistoryEntry> historyEntries;
@@ -118,43 +120,45 @@ class ChatState {
     List<String>? serverAimedAt,
     String? lastSyncError,
     bool clearSyncError = false,
-  }) =>
-      ChatState(
-        messages: messages ?? this.messages,
-        memory: memory ?? this.memory,
-        status: status ?? this.status,
-        inputMode: inputMode ?? this.inputMode,
-        lastChanges: clearChanges ? const [] : (lastChanges ?? this.lastChanges),
-        currentTopic: clearTopic ? null : (currentTopic ?? this.currentTopic),
-        turnCount: turnCount ?? this.turnCount,
-        sessionEnded: sessionEnded ?? this.sessionEnded,
-        partialStt: clearPartialStt ? null : (partialStt ?? this.partialStt),
-        chatNumber: chatNumber ?? this.chatNumber,
-        autoMode: autoMode ?? this.autoMode,
-        autoStep: autoStep ?? this.autoStep,
-        lastJudgeScores: lastJudgeScores ?? this.lastJudgeScores,
-        lastJudgeScoresOther: lastJudgeScoresOther ?? this.lastJudgeScoresOther,
-        lastJudgeOtherLabel: lastJudgeOtherLabel ?? this.lastJudgeOtherLabel,
-        snapshots: snapshots ?? this.snapshots,
-        sessionLogs: sessionLogs ?? this.sessionLogs,
-        historyEntries: historyEntries ?? this.historyEntries,
-        aimedAt: aimedAt ?? this.aimedAt,
-        hitTargets: hitTargets ?? this.hitTargets,
-        liveLlmLastCall: liveLlmLastCall ?? this.liveLlmLastCall,
-        activeSessionId: clearActiveSessionId
-            ? null
-            : (activeSessionId ?? this.activeSessionId),
-        serverAimedAt: serverAimedAt ?? this.serverAimedAt,
-        lastSyncError:
-            clearSyncError ? null : (lastSyncError ?? this.lastSyncError),
-      );
+  }) => ChatState(
+    messages: messages ?? this.messages,
+    memory: memory ?? this.memory,
+    status: status ?? this.status,
+    inputMode: inputMode ?? this.inputMode,
+    lastChanges: clearChanges ? const [] : (lastChanges ?? this.lastChanges),
+    currentTopic: clearTopic ? null : (currentTopic ?? this.currentTopic),
+    turnCount: turnCount ?? this.turnCount,
+    sessionEnded: sessionEnded ?? this.sessionEnded,
+    partialStt: clearPartialStt ? null : (partialStt ?? this.partialStt),
+    chatNumber: chatNumber ?? this.chatNumber,
+    autoMode: autoMode ?? this.autoMode,
+    autoStep: autoStep ?? this.autoStep,
+    lastJudgeScores: lastJudgeScores ?? this.lastJudgeScores,
+    lastJudgeScoresOther: lastJudgeScoresOther ?? this.lastJudgeScoresOther,
+    lastJudgeOtherLabel: lastJudgeOtherLabel ?? this.lastJudgeOtherLabel,
+    snapshots: snapshots ?? this.snapshots,
+    sessionLogs: sessionLogs ?? this.sessionLogs,
+    historyEntries: historyEntries ?? this.historyEntries,
+    aimedAt: aimedAt ?? this.aimedAt,
+    hitTargets: hitTargets ?? this.hitTargets,
+    liveLlmLastCall: liveLlmLastCall ?? this.liveLlmLastCall,
+    activeSessionId: clearActiveSessionId
+        ? null
+        : (activeSessionId ?? this.activeSessionId),
+    serverAimedAt: serverAimedAt ?? this.serverAimedAt,
+    lastSyncError: clearSyncError
+        ? null
+        : (lastSyncError ?? this.lastSyncError),
+  );
 
   List<ConvMessage> get convHistory => messages
       .where((m) => m.sender != MessageSender.system)
-      .map((m) => ConvMessage(
-            role: m.sender == MessageSender.zoe ? 'zoe' : 'user',
-            text: m.text,
-          ))
+      .map(
+        (m) => ConvMessage(
+          role: m.sender == MessageSender.zoe ? 'zoe' : 'user',
+          text: m.text,
+        ),
+      )
       .toList();
 }
 
@@ -259,12 +263,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     if (_online) {
       try {
         final api = ref.read(ellaApiServiceProvider);
-        final conversation =
-            await api.createConversation(topic: topic?.topic);
+        final conversation = await api.createConversation(topic: topic?.topic);
         backendSessionId = conversation['session_id'] as String?;
         starter = conversation['starter'] as String?;
-        serverAimedAt =
-            List<String>.from((conversation['aimed_at'] as List?) ?? const []);
+        serverAimedAt = List<String>.from(
+          (conversation['aimed_at'] as List?) ?? const [],
+        );
         if (starter == null || starter.trim().isEmpty) {
           starter = await api.conversationStarter(topic: topic?.topic);
         }
@@ -273,26 +277,38 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       }
     }
 
-    state = AsyncValue.data(cur.copyWith(
-      status: ChatStatus.zoeThinking,
-      currentTopic: topic,
-      activeSessionId: backendSessionId,
-      serverAimedAt: serverAimedAt,
-      lastSyncError: syncError,
-      clearSyncError: syncError == null,
-    ));
+    state = AsyncValue.data(
+      cur.copyWith(
+        status: ChatStatus.zoeThinking,
+        currentTopic: topic,
+        activeSessionId: backendSessionId,
+        serverAimedAt: serverAimedAt,
+        lastSyncError: syncError,
+        clearSyncError: syncError == null,
+      ),
+    );
 
     if (starter != null && starter.trim().isNotEmpty) {
-      final zoeMsg = ChatMessage(sender: MessageSender.zoe, text: starter.trim());
-      state = AsyncValue.data(state.requireValue.copyWith(
-        messages: [zoeMsg],
-        status: ChatStatus.idle,
-        liveLlmLastCall: true,
-      ));
+      final zoeMsg = ChatMessage(
+        sender: MessageSender.zoe,
+        text: starter.trim(),
+      );
+      state = AsyncValue.data(
+        state.requireValue.copyWith(
+          messages: [zoeMsg],
+          // Mark Zoe as speaking while the greeting TTS plays so the mascot
+          // opens its mouth (mirrors _zoeTurn); reset to idle when done.
+          status: ChatStatus.zoeSpeaking,
+          liveLlmLastCall: true,
+        ),
+      );
       try {
         final tts = ref.read(ttsProvider);
         await tts.speak(zoeMsg.text);
       } catch (_) {}
+      state = AsyncValue.data(
+        state.requireValue.copyWith(status: ChatStatus.idle),
+      );
       return;
     }
 
@@ -310,19 +326,22 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // Committing directly from userSpeaking lets the caption go partial → the
     // child's committed text in one step, instead of briefly dropping to idle
     // and flashing Zoe's previous line. Reject while Zoe is thinking/speaking.
-    if (cur.status != ChatStatus.idle && cur.status != ChatStatus.userSpeaking) {
+    if (cur.status != ChatStatus.idle &&
+        cur.status != ChatStatus.userSpeaking) {
       return;
     }
 
     final userMsg = ChatMessage(sender: MessageSender.child, text: trimmed);
     final msgs = [...cur.messages, userMsg];
 
-    state = AsyncValue.data(cur.copyWith(
-      messages: msgs,
-      status: ChatStatus.zoeThinking,
-      turnCount: cur.turnCount + 1,
-      clearPartialStt: true,
-    ));
+    state = AsyncValue.data(
+      cur.copyWith(
+        messages: msgs,
+        status: ChatStatus.zoeThinking,
+        turnCount: cur.turnCount + 1,
+        clearPartialStt: true,
+      ),
+    );
 
     await _zoeTurn(state.requireValue.convHistory, cur.currentTopic);
   }
@@ -341,20 +360,21 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       await endChat();
       return;
     }
-    state = AsyncValue.data(cur.copyWith(
-      status: ChatStatus.zoeThinking,
-      autoStep: cur.autoStep + 1,
-    ));
+    state = AsyncValue.data(
+      cur.copyWith(status: ChatStatus.zoeThinking, autoStep: cur.autoStep + 1),
+    );
     try {
       final llm = ref.read(llmServiceProvider);
       final reply = await llm.mockLearner(
         history: cur.convHistory,
         level: cur.memory.level,
       );
-      state = AsyncValue.data(state.requireValue.copyWith(
-        status: ChatStatus.idle,
-        liveLlmLastCall: true,
-      ));
+      state = AsyncValue.data(
+        state.requireValue.copyWith(
+          status: ChatStatus.idle,
+          liveLlmLastCall: true,
+        ),
+      );
       await sendUserTurn(reply);
     } catch (e) {
       // Fallback to canned replies if the proxy is unreachable
@@ -367,10 +387,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         'Yesterday I go to school.',
       ];
       final reply = mockKid[(cur.autoStep) % mockKid.length];
-      state = AsyncValue.data(state.requireValue.copyWith(
-        status: ChatStatus.idle,
-        liveLlmLastCall: false,
-      ));
+      state = AsyncValue.data(
+        state.requireValue.copyWith(
+          status: ChatStatus.idle,
+          liveLlmLastCall: false,
+        ),
+      );
       await sendUserTurn(reply);
     }
   }
@@ -415,8 +437,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         aimed = analysis.aimedAt.isNotEmpty
             ? analysis.aimedAt
             : (cur.serverAimedAt.isNotEmpty
-                ? cur.serverAimedAt
-                : mem.dueNext.flat);
+                  ? cur.serverAimedAt
+                  : mem.dueNext.flat);
         hitTargets = analysis.hitTargets;
         liveLlm = true;
 
@@ -448,11 +470,15 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         // user can still move on. primaryScores is empty here → no changes.
         final merge = applyMerge(mem, primaryScores, mem.level);
         effectiveChanges = merge.changes;
-        aimed =
-            cur.serverAimedAt.isNotEmpty ? cur.serverAimedAt : mem.dueNext.flat;
+        aimed = cur.serverAimedAt.isNotEmpty
+            ? cur.serverAimedAt
+            : mem.dueNext.flat;
         hitTargets = aimed
-            .where((id) =>
-                primaryScores.any((s) => s.id == id && s.confidence >= kFloor))
+            .where(
+              (id) => primaryScores.any(
+                (s) => s.id == id && s.confidence >= kFloor,
+              ),
+            )
             .toList();
         newMem = applyEndChat(
           mem: mem,
@@ -493,8 +519,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       effectiveChanges = merge.changes;
       aimed = mem.dueNext.flat;
       hitTargets = aimed
-          .where((id) =>
-              primaryScores.any((s) => s.id == id && s.confidence >= kFloor))
+          .where(
+            (id) =>
+                primaryScores.any((s) => s.id == id && s.confidence >= kFloor),
+          )
           .toList();
       newMem = applyEndChat(
         mem: mem,
@@ -516,10 +544,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // (The server already stored the canonical transcript via /turn.)
     final transcript = cur.messages
         .where((m) => m.sender != MessageSender.system)
-        .map((m) => {
-              'speaker': m.sender == MessageSender.zoe ? 'zoe' : 'learner',
-              'text': m.text,
-            })
+        .map(
+          (m) => {
+            'speaker': m.sender == MessageSender.zoe ? 'zoe' : 'learner',
+            'text': m.text,
+          },
+        )
         .toList();
 
     final scoresJson = primaryScores.map((s) => s.toJson()).toList();
@@ -577,28 +607,29 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           : 'Grew: ${effectiveChanges.map((c) => '${c.id} ${c.from}→${c.to}').join(', ')}';
       sysText = '$grew · aimed ${aimed.length}, hit ${hitTargets.length}';
     }
-    final sysMsg =
-        ChatMessage(sender: MessageSender.system, text: sysText);
+    final sysMsg = ChatMessage(sender: MessageSender.system, text: sysText);
 
-    state = AsyncValue.data(cur.copyWith(
-      memory: newMem,
-      messages: [...cur.messages, sysMsg],
-      status: ChatStatus.idle,
-      lastChanges: effectiveChanges,
-      sessionEnded: true,
-      lastJudgeScores: primaryScores,
-      lastJudgeScoresOther: otherScores,
-      lastJudgeOtherLabel: mode,
-      snapshots: [...cur.snapshots, snap],
-      sessionLogs: [...cur.sessionLogs, inMemSession],
-      historyEntries: [...cur.historyEntries, hist],
-      aimedAt: aimed,
-      hitTargets: hitTargets,
-      liveLlmLastCall: liveLlm,
-      lastSyncError: syncError,
-      clearSyncError: syncError == null,
-      clearActiveSessionId: true,
-    ));
+    state = AsyncValue.data(
+      cur.copyWith(
+        memory: newMem,
+        messages: [...cur.messages, sysMsg],
+        status: ChatStatus.idle,
+        lastChanges: effectiveChanges,
+        sessionEnded: true,
+        lastJudgeScores: primaryScores,
+        lastJudgeScoresOther: otherScores,
+        lastJudgeOtherLabel: mode,
+        snapshots: [...cur.snapshots, snap],
+        sessionLogs: [...cur.sessionLogs, inMemSession],
+        historyEntries: [...cur.historyEntries, hist],
+        aimedAt: aimed,
+        hitTargets: hitTargets,
+        liveLlmLastCall: liveLlm,
+        lastSyncError: syncError,
+        clearSyncError: syncError == null,
+        clearActiveSessionId: true,
+      ),
+    );
   }
 
   // ── Next chat (keeps memory) ──────────────────────────────────────────────
@@ -614,18 +645,20 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     );
     final carriedMem = cur.memory.copyWith(dueNext: newDue);
 
-    state = AsyncValue.data(cur.copyWith(
-      memory: carriedMem,
-      messages: const [],
-      turnCount: 0,
-      sessionEnded: false,
-      autoStep: 0,
-      chatNumber: cur.chatNumber + 1,
-      clearTopic: true,
-      clearChanges: true,
-      clearPartialStt: true,
-      status: ChatStatus.idle,
-    ));
+    state = AsyncValue.data(
+      cur.copyWith(
+        memory: carriedMem,
+        messages: const [],
+        turnCount: 0,
+        sessionEnded: false,
+        autoStep: 0,
+        chatNumber: cur.chatNumber + 1,
+        clearTopic: true,
+        clearChanges: true,
+        clearPartialStt: true,
+        status: ChatStatus.idle,
+      ),
+    );
     await startSession();
   }
 
@@ -633,16 +666,20 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   Future<void> resetAll() async {
     final cur = state.requireValue;
-    final fresh = MemoryState.fresh(cur.memory.level, childId: _childId)
-        .copyWith(progressionModel: cur.memory.progressionModel);
+    final fresh = MemoryState.fresh(
+      cur.memory.level,
+      childId: _childId,
+    ).copyWith(progressionModel: cur.memory.progressionModel);
     final freshWithDue = fresh.copyWith(
       dueNext: targetsListFor(fresh, fresh.progressionModel, fresh.level),
     );
-    state = AsyncValue.data(ChatState(
-      memory: freshWithDue,
-      inputMode: cur.inputMode,
-      autoMode: cur.autoMode,
-    ));
+    state = AsyncValue.data(
+      ChatState(
+        memory: freshWithDue,
+        inputMode: cur.inputMode,
+        autoMode: cur.autoMode,
+      ),
+    );
     await startSession();
   }
 
@@ -651,16 +688,20 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   Future<void> setProgressionModel(String mode) async {
     final cur = state.requireValue;
     if (cur.memory.progressionModel == mode) return;
-    final fresh = MemoryState.fresh(cur.memory.level, childId: _childId)
-        .copyWith(progressionModel: mode);
+    final fresh = MemoryState.fresh(
+      cur.memory.level,
+      childId: _childId,
+    ).copyWith(progressionModel: mode);
     final freshWithDue = fresh.copyWith(
       dueNext: targetsListFor(fresh, mode, fresh.level),
     );
-    state = AsyncValue.data(ChatState(
-      memory: freshWithDue,
-      inputMode: cur.inputMode,
-      autoMode: cur.autoMode,
-    ));
+    state = AsyncValue.data(
+      ChatState(
+        memory: freshWithDue,
+        inputMode: cur.inputMode,
+        autoMode: cur.autoMode,
+      ),
+    );
     await startSession();
   }
 
@@ -669,16 +710,20 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   Future<void> setLevel(String level) async {
     final cur = state.requireValue;
     if (cur.memory.level == level) return;
-    final fresh = MemoryState.fresh(level, childId: _childId)
-        .copyWith(progressionModel: cur.memory.progressionModel);
+    final fresh = MemoryState.fresh(
+      level,
+      childId: _childId,
+    ).copyWith(progressionModel: cur.memory.progressionModel);
     final freshWithDue = fresh.copyWith(
       dueNext: targetsListFor(fresh, fresh.progressionModel, level),
     );
-    state = AsyncValue.data(ChatState(
-      memory: freshWithDue,
-      inputMode: cur.inputMode,
-      autoMode: cur.autoMode,
-    ));
+    state = AsyncValue.data(
+      ChatState(
+        memory: freshWithDue,
+        inputMode: cur.inputMode,
+        autoMode: cur.autoMode,
+      ),
+    );
     await startSession();
   }
 
@@ -686,10 +731,13 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   void toggleInputMode() {
     final cur = state.requireValue;
-    state = AsyncValue.data(cur.copyWith(
-      inputMode:
-          cur.inputMode == InputMode.voice ? InputMode.text : InputMode.voice,
-    ));
+    state = AsyncValue.data(
+      cur.copyWith(
+        inputMode: cur.inputMode == InputMode.voice
+            ? InputMode.text
+            : InputMode.voice,
+      ),
+    );
   }
 
   Future<void> startListening() async {
@@ -701,7 +749,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       onPartial: (partial) {
         if (state.hasValue) {
           state = AsyncValue.data(
-              state.requireValue.copyWith(partialStt: partial));
+            state.requireValue.copyWith(partialStt: partial),
+          );
         }
       },
       onFinal: (text) {
@@ -715,10 +764,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           sendUserTurn(trimmed);
         } else {
           // Nothing recognised — just return to idle.
-          state = AsyncValue.data(state.requireValue.copyWith(
-            status: ChatStatus.idle,
-            clearPartialStt: true,
-          ));
+          state = AsyncValue.data(
+            state.requireValue.copyWith(
+              status: ChatStatus.idle,
+              clearPartialStt: true,
+            ),
+          );
         }
       },
     );
@@ -750,7 +801,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         sendUserTurn(partial);
       } else {
         state = AsyncValue.data(
-            s.copyWith(status: ChatStatus.idle, clearPartialStt: true));
+          s.copyWith(status: ChatStatus.idle, clearPartialStt: true),
+        );
       }
     });
   }
@@ -773,7 +825,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     }
     // micro-skill framing
     final due = mem.dueNext.flat.where((id) => !id.startsWith('U')).toList();
-    final fromEmerging = mem.emerging.where((id) => id.startsWith(mem.level)).toList();
+    final fromEmerging = mem.emerging
+        .where((id) => id.startsWith(mem.level))
+        .toList();
     final ids = <String>{...due, ...fromEmerging}.toList();
     if (ids.isNotEmpty) return ids;
     return skillsAtLevel(mem.level).take(8).map((s) => s.id).toList();
@@ -794,27 +848,32 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         );
         final reply = turn.latestAssistantText;
         if (reply != null && reply.trim().isNotEmpty) {
-          final zoeMsg =
-              ChatMessage(sender: MessageSender.zoe, text: reply.trim());
-          state = AsyncValue.data(state.requireValue.copyWith(
-            messages: [...state.requireValue.messages, zoeMsg],
-            status: ChatStatus.zoeSpeaking,
-            liveLlmLastCall: true,
-          ));
+          final zoeMsg = ChatMessage(
+            sender: MessageSender.zoe,
+            text: reply.trim(),
+          );
+          state = AsyncValue.data(
+            state.requireValue.copyWith(
+              messages: [...state.requireValue.messages, zoeMsg],
+              status: ChatStatus.zoeSpeaking,
+              liveLlmLastCall: true,
+            ),
+          );
           try {
             final tts = ref.read(ttsProvider);
             await tts.speak(zoeMsg.text);
           } catch (_) {}
           if (state.hasValue) {
             state = AsyncValue.data(
-                state.requireValue.copyWith(status: ChatStatus.idle));
+              state.requireValue.copyWith(status: ChatStatus.idle),
+            );
           }
           return;
         }
       } catch (e) {
-        state = AsyncValue.data(cur.copyWith(
-          lastSyncError: 'Conversation turn API failed: $e',
-        ));
+        state = AsyncValue.data(
+          cur.copyWith(lastSyncError: 'Conversation turn API failed: $e'),
+        );
       }
     }
 
@@ -841,11 +900,13 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     }
 
     final zoeMsg = ChatMessage(sender: MessageSender.zoe, text: zoeText);
-    state = AsyncValue.data(state.requireValue.copyWith(
-      messages: [...state.requireValue.messages, zoeMsg],
-      status: ChatStatus.zoeSpeaking,
-      liveLlmLastCall: live,
-    ));
+    state = AsyncValue.data(
+      state.requireValue.copyWith(
+        messages: [...state.requireValue.messages, zoeMsg],
+        status: ChatStatus.zoeSpeaking,
+        liveLlmLastCall: live,
+      ),
+    );
 
     try {
       final tts = ref.read(ttsProvider);
@@ -856,11 +917,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
     if (state.hasValue) {
       state = AsyncValue.data(
-          state.requireValue.copyWith(status: ChatStatus.idle));
+        state.requireValue.copyWith(status: ChatStatus.idle),
+      );
     }
   }
-
 }
 
-final chatProvider =
-    AsyncNotifierProvider<ChatNotifier, ChatState>(ChatNotifier.new);
+final chatProvider = AsyncNotifierProvider<ChatNotifier, ChatState>(
+  ChatNotifier.new,
+);

@@ -13,7 +13,9 @@ class DualJudgeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(chatProvider).when(
+    return ref
+        .watch(chatProvider)
+        .when(
           data: (s) => _DualView(
             primaryLabel: s.memory.progressionModel,
             primary: s.lastJudgeScores,
@@ -72,26 +74,32 @@ class _DualView extends StatelessWidget {
           ),
         ),
         // Two side-by-side columns on wide screens, stacked on narrow.
-        LayoutBuilder(builder: (ctx, c) {
-          if (c.maxWidth > 700) {
-            return Row(
+        LayoutBuilder(
+          builder: (ctx, c) {
+            if (c.maxWidth > 700) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _Column(label: primaryLabel, scores: primary),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _Column(label: otherLabel, scores: other),
+                  ),
+                ],
+              );
+            }
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _Column(label: primaryLabel, scores: primary)),
-                const SizedBox(width: 8),
-                Expanded(child: _Column(label: otherLabel, scores: other)),
+                _Column(label: primaryLabel, scores: primary),
+                const SizedBox(height: 16),
+                _Column(label: otherLabel, scores: other),
               ],
             );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Column(label: primaryLabel, scores: primary),
-              const SizedBox(height: 16),
-              _Column(label: otherLabel, scores: other),
-            ],
-          );
-        }),
+          },
+        ),
       ],
     );
   }
@@ -107,16 +115,21 @@ class _Column extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('$label framing',
-            style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF4CAF50),
-                letterSpacing: 0.8)),
+        Text(
+          '$label framing',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF4CAF50),
+            letterSpacing: 0.8,
+          ),
+        ),
         const SizedBox(height: 6),
         if (scores.isEmpty)
-          const Text('(no scores)',
-              style: TextStyle(color: Colors.grey, fontSize: 12))
+          const Text(
+            '(no scores)',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          )
         else
           for (final s in scores) ScoreCard(score: s),
       ],

@@ -39,38 +39,42 @@ class SessionLog {
   });
 
   factory SessionLog.fromJson(Map<String, dynamic> j) => SessionLog(
-        sessionId: j['session_id'] as String?,
-        childId: j['child_id'] as String,
-        chatNumber: (j['chat_number'] as num?)?.toInt() ?? 0,
-        level: j['level'] as String? ?? 'A1',
-        progressionModel: j['progression_model'] as String? ?? 'units',
-        turnsTotal: (j['turns_total'] as num?)?.toInt() ?? 0,
-        topic: j['topic'] as String?,
-        aimedAt: List<String>.from((j['aimed_at'] as List?) ?? []),
-        hitTargets: List<String>.from((j['hit_targets'] as List?) ?? []),
-        judgeScoresRaw: List<Map<String, dynamic>>.from(
-            (j['skills_evidenced'] as List?)
-                    ?.map((e) => Map<String, dynamic>.from(e as Map)) ??
-                []),
-        stateChanges: List<Map<String, dynamic>>.from(
-            (j['state_changes'] as List?)
-                    ?.map((e) => Map<String, dynamic>.from(e as Map)) ??
-                []),
-        transcriptRef: j['transcript_ref'] as String?,
-      );
+    sessionId: j['session_id'] as String?,
+    childId: j['child_id'] as String,
+    chatNumber: (j['chat_number'] as num?)?.toInt() ?? 0,
+    level: j['level'] as String? ?? 'A1',
+    progressionModel: j['progression_model'] as String? ?? 'units',
+    turnsTotal: (j['turns_total'] as num?)?.toInt() ?? 0,
+    topic: j['topic'] as String?,
+    aimedAt: List<String>.from((j['aimed_at'] as List?) ?? []),
+    hitTargets: List<String>.from((j['hit_targets'] as List?) ?? []),
+    judgeScoresRaw: List<Map<String, dynamic>>.from(
+      (j['skills_evidenced'] as List?)?.map(
+            (e) => Map<String, dynamic>.from(e as Map),
+          ) ??
+          [],
+    ),
+    stateChanges: List<Map<String, dynamic>>.from(
+      (j['state_changes'] as List?)?.map(
+            (e) => Map<String, dynamic>.from(e as Map),
+          ) ??
+          [],
+    ),
+    transcriptRef: j['transcript_ref'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        if (sessionId != null) 'session_id': sessionId,
-        'child_id': childId,
-        'chat_number': chatNumber,
-        'level': level,
-        'progression_model': progressionModel,
-        'turns_total': turnsTotal,
-        if (topic != null) 'topic': topic,
-        'aimed_at': aimedAt,
-        'hit_targets': hitTargets,
-        'skills_evidenced': judgeScoresRaw,
-        'state_changes': stateChanges,
-        if (transcriptRef != null) 'transcript_ref': transcriptRef,
-      };
+    if (sessionId != null) 'session_id': sessionId,
+    'child_id': childId,
+    'chat_number': chatNumber,
+    'level': level,
+    'progression_model': progressionModel,
+    'turns_total': turnsTotal,
+    if (topic != null) 'topic': topic,
+    'aimed_at': aimedAt,
+    'hit_targets': hitTargets,
+    'skills_evidenced': judgeScoresRaw,
+    'state_changes': stateChanges,
+    if (transcriptRef != null) 'transcript_ref': transcriptRef,
+  };
 }

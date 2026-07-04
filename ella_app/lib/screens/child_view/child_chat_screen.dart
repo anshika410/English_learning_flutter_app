@@ -77,9 +77,14 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Zoe',
-            style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+        title: const Text(
+          'Zoe',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
         actions: [
           if (kShowModePill)
             chatAsync.when(
@@ -110,10 +115,14 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
                 scrollController: _scrollController,
               ),
               loading: () => const Center(
-                  child: CircularProgressIndicator(color: Colors.white)),
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
               error: (e, _) => Center(
-                  child: Text('Error: $e',
-                      style: const TextStyle(color: Colors.white))),
+                child: Text(
+                  'Error: $e',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
             ),
           ),
 
@@ -142,15 +151,15 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
           chatAsync.when(
             data: (s) => _ControlRow(
               autoMode: s.autoMode,
-              canEndChat: s.messages
+              canEndChat:
+                  s.messages
                       .where((m) => m.sender != MessageSender.system)
                       .isNotEmpty &&
                   !s.sessionEnded &&
                   s.status == ChatStatus.idle,
               canNextChat: s.sessionEnded,
-              onToggleAuto: () => ref
-                  .read(chatProvider.notifier)
-                  .setAutoMode(!s.autoMode),
+              onToggleAuto: () =>
+                  ref.read(chatProvider.notifier).setAutoMode(!s.autoMode),
               onEndChat: () => _confirmEndChat(context),
               onNextChat: () =>
                   ref.read(chatProvider.notifier).nextChat().catchError(_snack),
@@ -179,8 +188,7 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
 
   void _snack(Object e) {
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -192,14 +200,17 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
       builder: (_) => AlertDialog(
         title: const Text('End chat?'),
         content: const Text(
-            'Zoe will score the conversation and your garden will update.'),
+          'Zoe will score the conversation and your garden will update.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Keep going')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep going'),
+          ),
           ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('End chat')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('End chat'),
+          ),
         ],
       ),
     );
@@ -214,15 +225,18 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Reset everything?'),
         content: const Text(
-            'Wipes in-memory state, snapshots, sessions, and history. '
-            'The Supabase row stays untouched until the next End Chat.'),
+          'Wipes in-memory state, snapshots, sessions, and history. '
+          'The Supabase row stays untouched until the next End Chat.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Reset')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reset'),
+          ),
         ],
       ),
     );
@@ -237,15 +251,19 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Switch progression model?'),
-        content: Text('Wipes in-memory state and starts a fresh chat in '
-            '"$mode" mode. Supabase row is not touched until next End Chat.'),
+        content: Text(
+          'Wipes in-memory state and starts a fresh chat in '
+          '"$mode" mode. Supabase row is not touched until next End Chat.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Switch')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Switch'),
+          ),
         ],
       ),
     );
@@ -435,9 +453,11 @@ class _InputDock extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: state.status == ChatStatus.idle ? onAutoTurn : null,
               icon: const Icon(Icons.play_arrow_rounded),
-              label: Text(state.autoStep >= kAutoMaxTurns
-                  ? 'End chat'
-                  : 'Next turn (${state.autoStep}/$kAutoMaxTurns)'),
+              label: Text(
+                state.autoStep >= kAutoMaxTurns
+                    ? 'End chat'
+                    : 'Next turn (${state.autoStep}/$kAutoMaxTurns)',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF4CAF50),
@@ -450,10 +470,14 @@ class _InputDock extends StatelessWidget {
             if (state.partialStt != null && state.partialStt!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(state.partialStt!,
-                    style: const TextStyle(
-                        color: Colors.white70, fontStyle: FontStyle.italic),
-                    textAlign: TextAlign.center),
+                child: Text(
+                  state.partialStt!,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             if (state.inputMode == InputMode.voice)
               _MicButton(status: state.status, onTap: onMicTap)
@@ -544,8 +568,8 @@ class _MicButton extends StatelessWidget {
           color: isBusy
               ? Colors.white24
               : isListening
-                  ? const Color(0xFFB55233)
-                  : const Color(0xFF4CAF50),
+              ? const Color(0xFFB55233)
+              : const Color(0xFF4CAF50),
         ),
         child: Icon(
           isListening ? Icons.stop_rounded : Icons.mic,
@@ -579,16 +603,17 @@ class _TextInputRow extends StatelessWidget {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               hintText: 'Type your reply…',
-              hintStyle:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.2),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: BorderSide.none,
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
             ),
             style: const TextStyle(color: Colors.white),
             onSubmitted: enabled ? (t) => onSend(t) : null,
@@ -604,7 +629,11 @@ class _TextInputRow extends StatelessWidget {
               shape: BoxShape.circle,
               color: enabled ? const Color(0xFF4CAF50) : Colors.white24,
             ),
-            child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.send_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
         ),
       ],
@@ -637,7 +666,11 @@ class _ControlRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-          12, 4, 12, MediaQuery.of(context).padding.bottom + 8),
+        12,
+        4,
+        12,
+        MediaQuery.of(context).padding.bottom + 8,
+      ),
       color: Colors.black.withValues(alpha: 0.15),
       child: Row(
         children: [
@@ -665,8 +698,11 @@ class _ControlRow extends StatelessWidget {
     );
   }
 
-  Widget _btn(
-      {required String label, VoidCallback? onTap, required bool primary}) {
+  Widget _btn({
+    required String label,
+    VoidCallback? onTap,
+    required bool primary,
+  }) {
     final enabled = onTap != null;
     return Expanded(
       child: GestureDetector(

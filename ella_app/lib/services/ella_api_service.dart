@@ -108,21 +108,29 @@ class EllaApiService {
     // `steps`→`units` rename): the render silently blanks. Log the top-level
     // keys we actually received so a future rename is obvious, not a mystery.
     if (garden.steps.isEmpty) {
-      debugPrint('⚠️ [Garden] parsed 0 units — the garden will render blank. '
-          'Response top-level keys: ${data.keys.toList()}. '
-          'If the units are under a new key, update GardenData.fromJson.');
+      debugPrint(
+        '⚠️ [Garden] parsed 0 units — the garden will render blank. '
+        'Response top-level keys: ${data.keys.toList()}. '
+        'If the units are under a new key, update GardenData.fromJson.',
+      );
     }
     if (kDebugMode) {
-      debugPrint('┌─[Garden] parsed level=${garden.level} '
-          'label=${garden.levelLabel} theme=${garden.theme} '
-          'steps=${garden.steps.length} topic=${garden.recommendedTopic}');
+      debugPrint(
+        '┌─[Garden] parsed level=${garden.level} '
+        'label=${garden.levelLabel} theme=${garden.theme} '
+        'steps=${garden.steps.length} topic=${garden.recommendedTopic}',
+      );
       for (final step in garden.steps) {
-        debugPrint('│ step ${step.step} "${step.name}" '
-            'completed=${step.isCompleted} skills=${step.skills.length}');
+        debugPrint(
+          '│ step ${step.step} "${step.name}" '
+          'completed=${step.isCompleted} skills=${step.skills.length}',
+        );
         for (final s in step.skills) {
-          debugPrint('│   • ${s.id} ${s.strand.name} ${s.status.name} '
-              'sightings=${s.sightings} evidence=${s.evidence.length}'
-              '${s.evidence.isNotEmpty ? ' → "${s.evidence.first.quote}"' : ''}');
+          debugPrint(
+            '│   • ${s.id} ${s.strand.name} ${s.status.name} '
+            'sightings=${s.sightings} evidence=${s.evidence.length}'
+            '${s.evidence.isNotEmpty ? ' → "${s.evidence.first.quote}"' : ''}',
+          );
         }
       }
       debugPrint('└────────────────────────────────────────');
@@ -138,7 +146,10 @@ class EllaApiService {
     );
   }
 
-  Future<List<SessionLog>> listSessions({int limit = 20, int offset = 0}) async {
+  Future<List<SessionLog>> listSessions({
+    int limit = 20,
+    int offset = 0,
+  }) async {
     final data = await _request('GET', '/session?limit=$limit&offset=$offset');
     final rows = (data['_list'] as List? ?? const []);
     return [
@@ -179,11 +190,7 @@ class EllaApiService {
     return _request(
       'POST',
       '/session/$sessionId/messages',
-      body: {
-        'role': role,
-        'content': content,
-        'turn_number': turnNumber,
-      },
+      body: {'role': role, 'content': content, 'turn_number': turnNumber},
     );
   }
 
@@ -230,21 +237,17 @@ class EllaApiService {
     required String level,
     required String levelLabel,
     required String progressionModel,
-  }) =>
-      {
-        'session_id': sessionId,
-        'messages': [
-          for (final m in history)
-            {
-              'role': m.role == 'zoe' ? 'assistant' : 'user',
-              'content': m.text,
-            },
-        ],
-        'topic': topic,
-        'level': level,
-        'level_label': levelLabel,
-        'progression_model': _serverProgressionModel(progressionModel),
-      };
+  }) => {
+    'session_id': sessionId,
+    'messages': [
+      for (final m in history)
+        {'role': m.role == 'zoe' ? 'assistant' : 'user', 'content': m.text},
+    ],
+    'topic': topic,
+    'level': level,
+    'level_label': levelLabel,
+    'progression_model': _serverProgressionModel(progressionModel),
+  };
 
   Future<SessionAnalysisApiResult> sessionAnalysis({
     required String sessionId,
@@ -328,21 +331,16 @@ class EllaApiService {
       headers['Authorization'] = 'Bearer ${await getOrCreateToken()}';
     }
 
-    _log('REQUEST  $method $uri',
-        body != null ? jsonEncode(body) : null);
+    _log('REQUEST  $method $uri', body != null ? jsonEncode(body) : null);
 
     final Future<http.Response> request = switch (method) {
       'GET' => _client.get(uri, headers: headers),
       'POST' => _client.post(
-          uri,
-          headers: headers,
-          body: jsonEncode(body ?? {}),
-        ),
-      'PUT' => _client.put(
-          uri,
-          headers: headers,
-          body: jsonEncode(body ?? {}),
-        ),
+        uri,
+        headers: headers,
+        body: jsonEncode(body ?? {}),
+      ),
+      'PUT' => _client.put(uri, headers: headers, body: jsonEncode(body ?? {})),
       _ => throw EllaApiException('Unsupported method $method'),
     };
     final http.Response response;
@@ -396,7 +394,9 @@ class EllaApiService {
       // lines, so emit line-by-line.
       String pretty;
       try {
-        pretty = const JsonEncoder.withIndent('  ').convert(jsonDecode(payload));
+        pretty = const JsonEncoder.withIndent(
+          '  ',
+        ).convert(jsonDecode(payload));
       } catch (_) {
         pretty = payload;
       }
@@ -441,9 +441,9 @@ class EllaApiService {
 
   static Map<String, int> _intMap(Object? value) {
     if (value is! Map) return const {};
-    return Map<String, int>.from(value.map(
-      (key, val) => MapEntry(key as String, (val as num).toInt()),
-    ));
+    return Map<String, int>.from(
+      value.map((key, val) => MapEntry(key as String, (val as num).toInt())),
+    );
   }
 
   static SessionLog _sessionFromConversation(

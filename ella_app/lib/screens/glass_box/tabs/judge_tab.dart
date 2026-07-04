@@ -13,7 +13,9 @@ class JudgeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(chatProvider).when(
+    return ref
+        .watch(chatProvider)
+        .when(
           data: (s) => _JudgeView(scores: s.lastJudgeScores),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
@@ -47,10 +49,11 @@ class _JudgeView extends StatelessWidget {
           child: Text(
             'skills_evidenced[] — primary framing',
             style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF4CAF50),
-                letterSpacing: 0.8),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF4CAF50),
+              letterSpacing: 0.8,
+            ),
           ),
         ),
         for (final s in scores) ScoreCard(score: s),
@@ -74,8 +77,8 @@ class ScoreCard extends StatelessWidget {
     final color = c >= 0.7
         ? const Color(0xFF23682F)
         : c >= 0.3
-            ? const Color(0xFFC8861A)
-            : const Color(0xFFB8472F);
+        ? const Color(0xFFC8861A)
+        : const Color(0xFFB8472F);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -93,17 +96,19 @@ class ScoreCard extends StatelessWidget {
                 child: Text(
                   score.id,
                   style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold),
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Text(
                 c.toStringAsFixed(2),
                 style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13),
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -113,8 +118,10 @@ class ScoreCard extends StatelessWidget {
             style: const TextStyle(fontSize: 10, color: Colors.grey),
           ),
           const SizedBox(height: 4),
-          Text(skillText(score.id),
-              style: const TextStyle(fontSize: 12, color: Colors.black87)),
+          Text(
+            skillText(score.id),
+            style: const TextStyle(fontSize: 12, color: Colors.black87),
+          ),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
@@ -127,11 +134,14 @@ class ScoreCard extends StatelessWidget {
           ),
           if (score.evidence.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text('"${score.evidence}"',
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.black54)),
+            Text(
+              '"${score.evidence}"',
+              style: const TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: Colors.black54,
+              ),
+            ),
           ],
         ],
       ),

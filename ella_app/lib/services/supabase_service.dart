@@ -46,8 +46,14 @@ class SupabaseService {
     return row['session_id'] as String;
   }
 
-  Future<void> updateSession(String sessionId, Map<String, dynamic> patch) async {
-    await _client.from('session_logs').update(patch).eq('session_id', sessionId);
+  Future<void> updateSession(
+    String sessionId,
+    Map<String, dynamic> patch,
+  ) async {
+    await _client
+        .from('session_logs')
+        .update(patch)
+        .eq('session_id', sessionId);
   }
 
   // ── transcripts ───────────────────────────────────────────────────────────
@@ -83,8 +89,11 @@ class SupabaseService {
       final m = Map<String, dynamic>.from(r as Map);
       final embed = m.remove('transcripts');
       final turns = (embed is Map && embed['turns'] is List)
-          ? List<Map<String, dynamic>>.from((embed['turns'] as List)
-              .map((e) => Map<String, dynamic>.from(e as Map)))
+          ? List<Map<String, dynamic>>.from(
+              (embed['turns'] as List).map(
+                (e) => Map<String, dynamic>.from(e as Map),
+              ),
+            )
           : <Map<String, dynamic>>[];
       final log = SessionLog.fromJson(m);
       // SessionLog.fromJson doesn't set `transcript` — overlay it here.

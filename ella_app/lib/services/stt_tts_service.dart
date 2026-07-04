@@ -83,6 +83,11 @@ class FlutterTtsService implements TtsInterface {
     await _tts.setSpeechRate(0.48); // slightly slower for children
     await _tts.setVolume(1.0);
     await _tts.setPitch(1.1); // slightly higher pitch for Zoe
+    // Make speak() await actual playback completion. Without this flutter_tts
+    // returns as soon as the utterance is queued, so callers that `await speak`
+    // (and the zoeSpeaking status that drives the open-mouth mascot) would end
+    // the moment audio starts instead of when Zoe finishes talking.
+    await _tts.awaitSpeakCompletion(true);
     _tts.setCompletionHandler(() => _speaking = false);
   }
 
