@@ -75,6 +75,7 @@ class MemoryState {
   final List<String> emerging;
   final DueNext dueNext;
   final List<String> lastTopics; // ring buffer, max 5
+  final String lastTimeRecap; // server-authored recap line for the home screen
   final String interests; // free-text, feeds topic picker
   final Map<String, int> sightings; // per-skill qualifying count
   final Map<String, int> strength; // per-skill unprompted count
@@ -91,6 +92,7 @@ class MemoryState {
     this.emerging = const [],
     this.dueNext = const DueNext(),
     this.lastTopics = const [],
+    this.lastTimeRecap = '',
     this.interests = '',
     this.sightings = const {},
     this.strength = const {},
@@ -108,6 +110,7 @@ class MemoryState {
     List<String>? emerging,
     DueNext? dueNext,
     List<String>? lastTopics,
+    String? lastTimeRecap,
     String? interests,
     Map<String, int>? sightings,
     Map<String, int>? strength,
@@ -123,6 +126,7 @@ class MemoryState {
     emerging: emerging ?? this.emerging,
     dueNext: dueNext ?? this.dueNext,
     lastTopics: lastTopics ?? this.lastTopics,
+    lastTimeRecap: lastTimeRecap ?? this.lastTimeRecap,
     interests: interests ?? this.interests,
     sightings: sightings ?? this.sightings,
     strength: strength ?? this.strength,
@@ -149,6 +153,7 @@ class MemoryState {
       emerging: List<String>.from((j['emerging'] as List?) ?? []),
       dueNext: due,
       lastTopics: List<String>.from((j['last_topics'] as List?) ?? []),
+      lastTimeRecap: j['last_time_recap'] as String? ?? '',
       interests: j['interests'] as String? ?? '',
       sightings: Map<String, int>.from(
         (j['sightings'] as Map?)?.map(

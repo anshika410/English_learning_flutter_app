@@ -12,9 +12,13 @@ import '../../core/engine.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
+import '../../models/home_topic.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/topics_provider.dart';
 import '../../services/audio_service.dart';
+import 'all_topics_screen.dart';
 import 'session_screen.dart';
+import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/garden_sky_background.dart';
 import 'widgets/zoe_mascot.dart';
@@ -114,9 +118,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     return _topic;
   }
 
-  String? get _recapTopic => (_memory != null && _memory!.lastTopics.isNotEmpty)
-      ? _memory!.lastTopics.first
-      : null;
+  // Server-authored recap line ("Last time…"), shown verbatim. Empty until the
+  // API provides it, in which case the card shows its first-chat fallback.
+  String get _recap => _memory?.lastTimeRecap ?? '';
 
   Future<void> _startTalking() async {
     final chatState = ref.read(chatProvider);
@@ -181,7 +185,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                             reducedMotion: MediaQuery.of(context).disableAnimations,
                           ),
                           const SizedBox(height: 20),
-                          _LastTimeCard(recapTopic: _recapTopic),
+                          _LastTimeCard(recap: _recap),
                           const SizedBox(height: 16),
                           const _SectionDivider(label: 'Next Session'),
                           const SizedBox(height: 12),
@@ -214,7 +218,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                 ),
               ),
               const SizedBox(height: 10),
-              _TopicChipsRow(onPick: onStart),
+              _TopicChipsRow(onConversationEnded: widget.onConversationEnded),
             ],
           ),
         ),
@@ -317,13 +321,15 @@ class _CircleIconButton extends StatelessWidget {
 // ── "Last time" recall card ─────────────────────────────────────────────────
 
 class _LastTimeCard extends StatelessWidget {
-  final String? recapTopic;
-  const _LastTimeCard({required this.recapTopic});
+  // Server-authored recap text (memory.last_time_recap). Empty on a first chat
+  // or before the API provides it, when the friendly fallback is shown instead.
+  final String recap;
+  const _LastTimeCard({required this.recap});
 
   @override
   Widget build(BuildContext context) {
-    final body = recapTopic != null
-        ? 'Last time, we talked about ${_titleCase(recapTopic!)}.'
+    final body = recap.trim().isNotEmpty
+        ? recap.trim()
         : "This is our first chat together — I can't wait!";
 
     return Container(
@@ -383,65 +389,76 @@ class _SectionDivider extends StatelessWidget {
   }
 }
 
-// ── Pick-your-own topic chips ───────────────────────────────────────────────
+// ── Pick-your-own topic chips (server-driven) ───────────────────────────────
 
-class _TopicChipsRow extends StatelessWidget {
-  final VoidCallback? onPick;
-  const _TopicChipsRow({required this.onPick});
+// The first two topics from GET /users/me/topics, plus a "See More" chip that
+// opens the full list. Tapping a topic starts a session on it (POST /session)
+// via the shared startTopicSession flow. Empty slots stay as neutral
+// placeholders while the list loads so the row's layout doesn't jump.
+class _TopicChipsRow extends ConsumerWidget {
+  final VoidCallback? onConversationEnded;
+  const _TopicChipsRow({required this.onConversationEnded});
 
   @override
-  Widget build(BuildContext context) {
-    // TODO: route the chosen topic into startSession once the provider accepts a
-    // topic override; for now every chip opens the standard session flow.
+  Widget build(BuildContext context, WidgetRef ref) {
+    final topics = ref.watch(topicsProvider).asData?.value ?? const <HomeTopic>[];
+    final shown = topics.take(2).toList();
+
+    final slots = <Widget>[];
+    for (final topic in shown) {
+      slots.add(
+        Expanded(
+          child: _ApiTopicChip(
+            topic: topic,
+            onTap: () => startTopicSession(
+              context,
+              ref,
+              topic,
+              onConversationEnded: onConversationEnded,
+            ),
+          ),
+        ),
+      );
+    }
+    // Keep three equal columns even before the topics arrive.
+    for (var i = shown.length; i < 2; i++) {
+      slots.add(const Expanded(child: _ChipPlaceholder()));
+    }
+    slots.add(
+      Expanded(
+        child: _SeeMoreChip(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  AllTopicsScreen(onConversationEnded: onConversationEnded),
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Row(
       children: [
-        Expanded(
-          child: _TopicChip(
-            icon: Icons.groups_rounded,
-            label: 'Family',
-            fill: EllaColors.berryLight,
-            content: EllaColors.berryDark,
-            onTap: onPick,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _TopicChip(
-            icon: Icons.school_rounded,
-            label: 'School',
-            fill: EllaColors.environmentLight,
-            content: EllaColors.environmentDeep,
-            onTap: onPick,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _TopicChip(
-            icon: Icons.open_in_full_rounded,
-            label: 'See More!',
-            fill: EllaColors.surface,
-            content: EllaColors.ink,
-            onTap: onPick,
-          ),
-        ),
+        for (var i = 0; i < slots.length; i++) ...[
+          if (i > 0) const SizedBox(width: 12),
+          slots[i],
+        ],
       ],
     );
   }
 }
 
-class _TopicChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
+class _ChipShell extends StatelessWidget {
   final Color fill;
-  final Color content;
+  final Color outline;
+  final Widget child;
   final VoidCallback? onTap;
 
-  const _TopicChip({
-    required this.icon,
-    required this.label,
+  const _ChipShell({
     required this.fill,
-    required this.content,
-    required this.onTap,
+    required this.outline,
+    required this.child,
+    this.onTap,
   });
 
   @override
@@ -455,27 +472,84 @@ class _TopicChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: fill,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: content.withValues(alpha: 0.35),
-            width: 1.5,
-          ),
+          border: Border.all(color: outline, width: 1.5),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 22, color: content),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: EllaTextStyles.caption.copyWith(color: content),
-            ),
-          ],
-        ),
+        child: Center(child: child),
       ),
     );
   }
+}
+
+class _ApiTopicChip extends StatelessWidget {
+  final HomeTopic topic;
+  final VoidCallback onTap;
+
+  const _ApiTopicChip({required this.topic, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = parseCssColor(topic.color) ?? EllaColors.berryLight;
+    return _ChipShell(
+      fill: fill,
+      outline: EllaColors.ink.withValues(alpha: 0.2),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (topic.icon.isNotEmpty)
+            Text(topic.icon, style: const TextStyle(fontSize: 22))
+          else
+            const Icon(Icons.chat_bubble_rounded, size: 22, color: EllaColors.ink),
+          const SizedBox(height: 6),
+          Text(
+            topic.name,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: EllaTextStyles.caption.copyWith(color: EllaColors.ink),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SeeMoreChip extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SeeMoreChip({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChipShell(
+      fill: EllaColors.surface,
+      outline: EllaColors.ink.withValues(alpha: 0.35),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.open_in_full_rounded, size: 22, color: EllaColors.ink),
+          const SizedBox(height: 6),
+          Text(
+            'See More!',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: EllaTextStyles.caption.copyWith(color: EllaColors.ink),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChipPlaceholder extends StatelessWidget {
+  const _ChipPlaceholder();
+
+  @override
+  Widget build(BuildContext context) => _ChipShell(
+    fill: EllaColors.surface.withValues(alpha: 0.5),
+    outline: EllaColors.ink.withValues(alpha: 0.12),
+    child: const SizedBox.shrink(),
+  );
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────

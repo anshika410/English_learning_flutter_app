@@ -247,7 +247,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   // ── Session start ────────────────────────────────────────────────────────
 
-  Future<void> startSession() async {
+  Future<void> startSession({Topic? topicOverride}) async {
     final cur = state.requireValue;
     // If returning to a new session, clear old topic and reset state
     if (cur.messages.isEmpty && cur.currentTopic != null) {
@@ -255,7 +255,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     }
     if (cur.sessionEnded || cur.messages.isNotEmpty) return;
 
-    final topic = pickTopic(cur.memory);
+    // A tapped home-screen topic overrides the engine's pick; otherwise the
+    // engine chooses the next topic as before.
+    final topic = topicOverride ?? pickTopic(cur.memory);
     String? backendSessionId;
     String? starter;
     List<String> serverAimedAt = const [];
@@ -634,7 +636,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   // ── Next chat (keeps memory) ──────────────────────────────────────────────
 
-  Future<void> nextChat() async {
+  Future<void> nextChat({Topic? topicOverride}) async {
     final cur = state.requireValue;
     if (!cur.sessionEnded) return;
 
@@ -659,7 +661,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         status: ChatStatus.idle,
       ),
     );
-    await startSession();
+    await startSession(topicOverride: topicOverride);
   }
 
   // ── Reset (in-memory only — does NOT touch Supabase) ──────────────────────

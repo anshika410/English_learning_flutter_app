@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/child_memory.dart';
 import '../models/garden.dart';
+import '../models/home_topic.dart';
 import '../models/session.dart';
 
 class EllaApiException implements Exception {
@@ -136,6 +137,17 @@ class EllaApiService {
       debugPrint('└────────────────────────────────────────');
     }
     return garden;
+  }
+
+  /// Home-screen topic cards — GET /users/me/topics. Returns a JSON array;
+  /// `_request` wraps a top-level list under `_list` (same as listSessions).
+  Future<List<HomeTopic>> getTopics() async {
+    final data = await _request('GET', '/users/me/topics');
+    final rows = (data['_list'] as List? ?? const []);
+    return [
+      for (final row in rows)
+        HomeTopic.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
   }
 
   Future<void> updatePersonaMemory(Map<String, dynamic> personaMemory) async {
@@ -434,6 +446,7 @@ class EllaApiService {
       sightings: _intMap(j['sightings']),
       strength: _intMap(j['strength']),
       lastTopics: List<String>.from((j['last_topics'] as List?) ?? const []),
+      lastTimeRecap: j['last_time_recap'] as String? ?? '',
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
     );

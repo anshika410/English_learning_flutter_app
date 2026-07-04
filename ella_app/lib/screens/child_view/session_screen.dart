@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme_colors.dart';
+import '../../core/topic_data.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import 'widgets/conversation_view.dart';
@@ -20,7 +21,16 @@ class SessionScreen extends ConsumerStatefulWidget {
   final String? introText;
   final VoidCallback? onEnded;
 
-  const SessionScreen({super.key, this.introText, this.onEnded});
+  /// When set (a topic tapped on the home screen), overrides the engine's topic
+  /// pick for this session's POST /session; otherwise the engine chooses.
+  final Topic? initialTopic;
+
+  const SessionScreen({
+    super.key,
+    this.introText,
+    this.onEnded,
+    this.initialTopic,
+  });
 
   @override
   ConsumerState<SessionScreen> createState() => _SessionScreenState();
@@ -46,7 +56,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         !s.requireValue.sessionEnded &&
         s.requireValue.messages.isEmpty) {
       _sessionStarted = true;
-      ref.read(chatProvider.notifier).startSession();
+      ref
+          .read(chatProvider.notifier)
+          .startSession(topicOverride: widget.initialTopic);
     }
   }
 
