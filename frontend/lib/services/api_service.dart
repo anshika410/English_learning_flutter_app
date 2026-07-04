@@ -109,11 +109,22 @@ class ApiService {
   Future<bool> requestMagicLink(String email) async {
     try {
       final deviceId = await _getOrCreateDeviceId();
+      String redirectUrl;
+      if (kIsWeb) {
+        redirectUrl = Uri.base.origin + '/';
+      } else {
+        redirectUrl = 'ella://login';
+      }
+
       final response = await http
           .post(
             Uri.parse('$_baseUrl/auth/magic-link/request'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': email, 'device_id': deviceId}),
+            body: jsonEncode({
+              'email': email, 
+              'device_id': deviceId,
+              'redirect_url': redirectUrl,
+            }),
           )
           .timeout(const Duration(seconds: 10));
 

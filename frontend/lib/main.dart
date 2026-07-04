@@ -11,6 +11,18 @@ import 'services/user_prefs_service.dart';
 import 'services/api_service.dart';
 import 'theme/ella_theme.dart';
 
+import 'package:flutter/foundation.dart';
+import 'package:app_links/app_links.dart';
+
+void _handleDeepLink(Uri uri) async {
+  String? accessToken = uri.queryParameters['access_token'];
+  String? refreshToken = uri.queryParameters['refresh_token'];
+  if (accessToken != null && accessToken.isNotEmpty) {
+     await ApiService.instance.saveTokensFromMagicLink(accessToken, refreshToken);
+     main(); // Restart the app state after login
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Load .env gracefully — may not exist in web deployments
@@ -22,11 +34,24 @@ Future<void> main() async {
   }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Check tokens from URL if running on web (after magic link verify)
-  String? accessToken = Uri.base.queryParameters['access_token'];
-  String? refreshToken = Uri.base.queryParameters['refresh_token'];
-  if (accessToken != null && accessToken.isNotEmpty) {
-     await ApiService.instance.saveTokensFromMagicLink(accessToken, refreshToken);
+  if (kIsWeb) {
+    // Check tokens from URL if running on web (after magic link verify)
+    String? accessToken = Uri.base.queryParameters['access_token'];
+    String? refreshToken = Uri.base.queryParameters['refresh_token'];
+    if (accessToken != null && accessToken.isNotEmpty) {
+       await ApiService.instance.saveTokensFromMagicLink(accessToken, refreshToken);
+    }
+  } else {
+    // Setup App Links for mobile deep linking
+    final appLinks = AppLinks();
+    try {
+      final initialUri = await appLinks.getInitialLink();
+      if (initialUri != null) _handleDeepLink(initialUri);
+    } catch (_) {}
+    
+    appLinks.uriLinkStream.listen((uri) {
+      _handleDeepLink(uri);
+    });
   }
 
   // Authenticate with backend

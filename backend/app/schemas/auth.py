@@ -29,6 +29,7 @@ class GoogleAuthRequest(BaseModel):
 class MagicLinkRequest(BaseModel):
     email: str
     device_id: str | None = None
+    redirect_url: str | None = None
 
 
 class RefreshRequest(BaseModel):
