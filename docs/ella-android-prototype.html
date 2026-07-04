@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELLA — Android App Prototype</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#d9d2c5;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:24px 12px;gap:16px}
+:root{
+  --ink:#1f1b16;--paper:#fbf7ef;--paper2:#f3ecdf;
+  --green:#3aa655;--green-dk:#23682f;--green-soft:#e6f3e9;
+  --amber:#c8861a;--amber-soft:#faf0d9;
+  --purple:#5b50c4;--purple-soft:#ecebfb;
+  --blue:#2f6fb0;--blue-soft:#e6f0f9;
+  --rust:#b8472f;--rule:#d8cfbe;--grey:#8a8678;--white:#fff;
+  --sky:#bfe3ff;
+}
+h1{font-size:18px;color:var(--ink);font-weight:800;letter-spacing:.3px}
+.sub{font-size:12px;color:#6b6358;margin-top:-10px}
+
+/* ── Phone frame ─────────────────────────────────── */
+.phone{width:390px;height:800px;background:var(--ink);border-radius:38px;padding:11px;box-shadow:0 14px 40px rgba(0,0,0,.3);position:relative}
+.screen{width:100%;height:100%;background:var(--paper2);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.notch{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:130px;height:24px;background:var(--ink);border-radius:0 0 16px 16px;z-index:50}
+
+/* ── Status bar ──────────────────────────────────── */
+.statusbar{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0;background:var(--white)}
+
+/* ── App bar ─────────────────────────────────────── */
+.appbar{background:var(--white);border-bottom:2px solid var(--ink);flex-shrink:0}
+.appbar-top{display:flex;align-items:center;gap:9px;padding:9px 14px 7px}
+.logo{font-size:16px;font-weight:800;color:var(--green-dk)}
+.child-chip{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;background:var(--paper2);border:1.5px solid var(--ink);border-radius:14px;padding:3px 9px;font-weight:600}
+.avatar{width:18px;height:18px;border-radius:50%;background:var(--green);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700}
+
+/* ── Tabs ────────────────────────────────────────── */
+.tabs{display:flex}
+.tab{flex:1;text-align:center;padding:9px 0;font-size:12px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;color:var(--grey);transition:all .15s}
+.tab.on{color:var(--ink);border-bottom-color:var(--green)}
+.tab .badge{font-size:8px;background:var(--rust);color:#fff;border-radius:8px;padding:1px 5px;margin-left:4px;vertical-align:middle}
+
+/* ── Screen body ─────────────────────────────────── */
+.body{flex:1;overflow:hidden;position:relative}
+.view{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.view.hidden{display:none}
+
+/* ═══ CHILD VIEW ═══════════════════════════════════ */
+.child-view{background:linear-gradient(180deg,var(--sky) 0%,#dff0ff 36%,var(--green-soft) 100%)}
+
+/* garden header */
+.garden{flex-shrink:0;padding:10px 14px 6px;position:relative}
+.garden-row{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:74px}
+.plant{display:flex;flex-direction:column;align-items:center;font-size:11px;transition:all .4s}
+.plant .leaf{font-size:13px;line-height:1}
+.plant.owned .leaf{font-size:24px}
+.plant.emerging .leaf{font-size:17px;opacity:.9}
+.plant.locked .leaf{font-size:11px;opacity:.4}
+.plant.grew{animation:pop .6s ease}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}
+.soil{height:8px;background:linear-gradient(180deg,#8b6b43,#6b4f2f);border-radius:0 0 5px 5px;margin:0 14px}
+.effort{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px;font-size:12px;color:var(--green-dk);font-weight:700}
+
+/* chat */
+.chat-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
+.bub{max-width:80%;padding:9px 13px;border:2px solid var(--ink);border-radius:15px;font-size:13.5px;line-height:1.4;box-shadow:2px 2px 0 var(--ink);word-break:break-word;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+.bub.zoe{background:var(--white);align-self:flex-start;border-bottom-left-radius:4px}
+.bub.me{background:var(--green);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.bub.zoe .who{font-size:9px;font-weight:800;color:var(--green-dk);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;display:block}
+.speaking{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}
+.speaking i{width:3px;height:9px;background:var(--green-dk);border-radius:2px;animation:eq .8s infinite}
+.speaking i:nth-child(2){animation-delay:.15s}.speaking i:nth-child(3){animation-delay:.3s}
+@keyframes eq{0%,100%{height:4px}50%{height:11px}}
+
+/* input dock (voice + text) */
+.mic-dock{flex-shrink:0;padding:9px 14px 16px;background:rgba(255,255,255,.7);border-top:2px solid var(--ink);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;gap:7px}
+.mic-state{font-size:11px;color:var(--grey);font-weight:600;height:14px}
+
+/* input-mode toggle */
+.mode-pills{display:flex;border:1.5px solid var(--ink);border-radius:14px;overflow:hidden;align-self:center}
+.pill{padding:3px 12px;font-size:10.5px;font-weight:700;background:#fff;border:none;cursor:pointer;color:var(--ink)}
+.pill.on{background:var(--ink);color:#fff}
+
+/* voice mode */
+.voice-input{display:flex;flex-direction:column;align-items:center;gap:7px}
+.voice-input.hidden{display:none}
+.mic-btn{width:66px;height:66px;border-radius:50%;background:var(--green);border:2.5px solid var(--ink);box-shadow:0 4px 0 var(--ink);color:#fff;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.mic-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.mic-btn.listening{background:var(--rust);animation:ring 1.2s infinite}
+@keyframes ring{0%{box-shadow:0 4px 0 var(--ink),0 0 0 0 rgba(184,71,47,.5)}70%{box-shadow:0 4px 0 var(--ink),0 0 0 16px rgba(184,71,47,0)}100%{box-shadow:0 4px 0 var(--ink),0 0 0 0 rgba(184,71,47,0)}}
+
+/* text mode */
+.text-input{display:flex;gap:7px;width:100%;align-items:center}
+.text-input.hidden{display:none}
+.text-input input{flex:1;padding:10px 13px;border:2px solid var(--ink);border-radius:18px;font-size:13.5px;background:#fff;color:var(--ink);outline:none}
+.text-input input:focus{border-color:var(--green)}
+.send-btn{width:42px;height:42px;border-radius:50%;background:var(--green);border:2px solid var(--ink);box-shadow:0 3px 0 var(--ink);color:#fff;font-size:17px;cursor:pointer;flex-shrink:0}
+.send-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+
+.end-chat{font-size:11px;color:var(--rust);font-weight:700;border:1.5px solid var(--rust);background:#fff;border-radius:14px;padding:5px 14px;cursor:pointer}
+
+/* ═══ GLASS BOX ════════════════════════════════════ */
+.glass-view{background:var(--paper)}
+.gb-banner{flex-shrink:0;background:var(--amber-soft);border-bottom:1.5px dashed var(--amber);padding:6px 12px;font-size:10px;color:#7a5a13;text-align:center;font-weight:600}
+.gb-tabs{flex-shrink:0;display:flex;gap:3px;padding:8px 8px 0;overflow-x:auto;background:var(--paper)}
+.gb-tabs::-webkit-scrollbar{display:none}
+.gb-tab{font-size:10px;font-weight:700;padding:5px 9px;border:1.5px solid var(--ink);border-bottom:none;border-radius:7px 7px 0 0;background:var(--paper2);cursor:pointer;white-space:nowrap}
+.gb-tab.on{background:var(--white)}
+.gb-content{flex:1;overflow-y:auto;padding:13px;background:var(--white);border-top:1.5px solid var(--ink)}
+
+.lbl{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--rust);margin:13px 0 5px}
+.lbl:first-child{margin-top:0}
+.mono{font-family:'SF Mono',ui-monospace,monospace;font-size:10px;line-height:1.55;white-space:pre-wrap;word-break:break-word;background:var(--paper);padding:9px;border-radius:7px;border:1px solid var(--rule)}
+.k{color:var(--purple);font-weight:700}
+.chg-card{background:var(--green-soft);border:1px solid var(--green);border-radius:6px;padding:6px 9px;margin-bottom:5px;font-size:11px}
+.ev-card{border:1px solid var(--rule);border-radius:7px;padding:7px 9px;margin-bottom:6px;font-size:11px}
+.confbar{height:5px;background:#eee;border-radius:3px;margin-top:4px;overflow:hidden}
+.confbar i{display:block;height:100%;border-radius:3px}
+.badge2{display:inline-block;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700}
+.b-pr{background:var(--blue-soft);color:var(--blue)}
+.b-un{background:var(--green-soft);color:var(--green-dk)}
+.due-card{border:1.5px solid var(--ink);border-radius:8px;padding:7px 9px;margin-bottom:6px;font-size:11px;background:var(--blue-soft)}
+.due-card .b{font-size:9px;font-weight:800;color:var(--blue);text-transform:uppercase;margin-bottom:2px}
+.hist-row{font-size:10.5px;border-bottom:1px solid var(--rule);padding:6px 0;line-height:1.5}
+.note-sm{display:block;color:var(--grey);font-size:9.5px;margin-top:8px;line-height:1.4}
+.skill-row{display:flex;align-items:flex-start;gap:7px;padding:3px 5px;font-size:11px;margin-bottom:2px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:3px}
+.d-locked{background:#ccc}.d-emerging{background:var(--amber)}.d-owned{background:var(--green)}
+.terminal{background:#1f1b16;color:#efe9d8;padding:10px;border-radius:7px;font-family:monospace;font-size:9px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.warn-box{background:var(--amber-soft);border:1.5px dashed var(--amber);border-radius:7px;padding:7px 10px;font-size:10px;margin-bottom:8px;color:#7a5a13;line-height:1.4}
+
+/* caption strip under phone */
+.caption{max-width:390px;font-size:11.5px;color:#544d42;line-height:1.5;text-align:center;background:#fff;border:1px solid var(--rule);border-radius:10px;padding:10px 14px}
+.caption b{color:var(--ink)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.ctrl{font-size:11px;font-weight:700;padding:6px 12px;border:1.5px solid var(--ink);border-radius:14px;background:#fff;cursor:pointer}
+.ctrl:hover{background:var(--paper2)}
+</style>
+</head>
+<body>
+
+<h1>ELLA — Android App Prototype</h1>
+<div class="sub">Two-tab shell · Child View (voice + garden) · Glass Box (testing only)</div>
+
+<div class="controls">
+  <button class="ctrl" onclick="simSpeak()">▶ Simulate child speaking</button>
+  <button class="ctrl" onclick="doEndChat()">⚖️ End chat &amp; judge</button>
+  <button class="ctrl" onclick="doReset()">↺ Reset</button>
+</div>
+
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen">
+    <div class="statusbar"><span>9:41</span><span>📶 🔋 100%</span></div>
+
+    <!-- App bar + tabs -->
+    <div class="appbar">
+      <div class="appbar-top">
+        <span class="logo">🎒 ELLA</span>
+        <span class="child-chip"><span class="avatar">P</span>Priya · A1</span>
+      </div>
+      <div class="tabs">
+        <div class="tab on" id="tab-child" onclick="setTab('child')">📱 Child View</div>
+        <div class="tab" id="tab-glass" onclick="setTab('glass')">🔬 Glass Box <span class="badge">TEST</span></div>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <!-- ═══ CHILD VIEW ═══ -->
+      <div class="view child-view" id="view-child">
+        <div class="garden">
+          <div class="garden-row" id="garden"></div>
+          <div class="soil"></div>
+          <div class="effort">🌟 <span id="effort-num">4</span> times spoken</div>
+        </div>
+
+        <div class="chat-scroll" id="chat">
+          <div class="bub zoe"><span class="who">Zoe</span>Hi! I'm Zoe 🎒 What's your name?</div>
+          <div class="bub me">My name is Priya.</div>
+          <div class="bub zoe"><span class="who">Zoe</span>Nice to meet you, Priya! How old are you?</div>
+          <div class="bub me">I am eleven.</div>
+          <div class="bub zoe"><span class="who">Zoe</span>Lovely! Do you go to school? What do you like there?</div>
+          <div class="bub me">Yes. I like maths and drawing.</div>
+          <div class="bub zoe"><span class="who">Zoe</span>That's wonderful! Why do you like maths?</div>
+        </div>
+
+        <div class="mic-dock">
+          <div class="mic-state" id="mic-state">Tap to speak</div>
+          <div class="mode-pills">
+            <button class="pill on" id="pill-voice" onclick="setInputMode('voice')">🎤 Voice</button>
+            <button class="pill" id="pill-text" onclick="setInputMode('text')">⌨️ Text</button>
+          </div>
+          <div class="voice-input" id="voice-input">
+            <button class="mic-btn" id="mic-btn" onclick="micTap()">🎤</button>
+          </div>
+          <div class="text-input hidden" id="text-input">
+            <input id="text-field" placeholder="type what the child says…"
+              onkeydown="if(event.key==='Enter')sendText()">
+            <button class="send-btn" onclick="sendText()">➤</button>
+          </div>
+          <button class="end-chat" onclick="doEndChat()">End chat ⚖️</button>
+        </div>
+      </div>
+
+      <!-- ═══ GLASS BOX ═══ -->
+      <div class="view glass-view hidden" id="view-glass">
+        <div class="gb-banner">⚠️ Internal testing view — hidden in production (one flag)</div>
+        <div class="gb-tabs" id="gb-tabs">
+          <div class="gb-tab on" onclick="setGB('memory')" id="g-memory">🧠 Memory</div>
+          <div class="gb-tab" onclick="setGB('judge')" id="g-judge">⚖️ Judge</div>
+          <div class="gb-tab" onclick="setGB('due')" id="g-due">🎯 due_next</div>
+          <div class="gb-tab" onclick="setGB('skills')" id="g-skills">🌱 Skills</div>
+          <div class="gb-tab" onclick="setGB('prompt')" id="g-prompt">📝 Prompt</div>
+          <div class="gb-tab" onclick="setGB('hist')" id="g-hist">📊 History</div>
+        </div>
+        <div class="gb-content" id="gb-content"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="caption" id="caption">
+  <b>Child View:</b> the child can <b>speak</b> (tap the mic → on-device STT) or <b>type</b> (toggle to Text) — both feed the same loop, and Zoe always replies aloud via TTS. The <b>garden</b> at the top is the child-facing progress — plants grow as skills move locked → emerging → owned. The only number shown is "times spoken."
+</div>
+
+<script>
+let tab='child', gbTab='memory', judged=false, effort=4, listening=false, inputMode='voice';
+
+const PLANTS=[
+  {id:'A1-VOC-01',leaf:'🌻',b:'owned'},
+  {id:'A1-GRA-01',leaf:'🌿',b:'owned'},
+  {id:'A1-GRA-02',leaf:'🌷',b:'owned'},
+  {id:'A1-VOC-02',leaf:'🌱',b:'emerging'},
+  {id:'A1-FLU-01',leaf:'🌱',b:'emerging'},
+  {id:'U1-VOC-01',leaf:'🌱',b:'emerging'},
+  {id:'A1-GRA-03',leaf:'·',b:'locked'},
+  {id:'A1-VOC-03',leaf:'·',b:'locked'},
+  {id:'A1-FLU-02',leaf:'·',b:'locked'},
+];
+const ST={
+  'A1-VOC-01':"I can say my name, age, and where I'm from.",
+  'A1-VOC-02':"I can name everyday objects at home and school.",
+  'A1-VOC-03':"I can say numbers, colours, and days of the week.",
+  'A1-GRA-01':"I can say 'I am' and 'I am not' to describe myself.",
+  'A1-GRA-02':"I can make simple sentences — I like dogs.",
+  'A1-GRA-03':"I can use present simple — I go, I eat.",
+  'A1-FLU-01':"I can speak in short sentences on familiar topics.",
+  'A1-FLU-02':"I can keep an exchange going for 2–3 turns.",
+  'U1-VOC-01':"I can describe what people look like and feel.",
+};
+const JUDGE=[
+  {id:'A1-FLU-01',c:.82,p:false,e:'I like maths and drawing.'},
+  {id:'A1-GRA-02',c:.77,p:false,e:'I like maths and drawing.'},
+  {id:'A1-VOC-02',c:.65,p:true ,e:'maths and drawing'},
+  {id:'A1-GRA-01',c:.88,p:false,e:'My name is Priya. I am eleven.'},
+];
+const HIST=[];
+
+function renderGarden(grew){
+  const g=document.getElementById('garden');
+  g.innerHTML='';
+  PLANTS.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='plant '+p.b+(grew&&grew.includes(p.id)?' grew':'');
+    d.innerHTML=`<span class="leaf">${p.leaf}</span>`;
+    g.appendChild(d);
+  });
+}
+
+function setTab(t){
+  tab=t;
+  document.getElementById('tab-child').classList.toggle('on',t==='child');
+  document.getElementById('tab-glass').classList.toggle('on',t==='glass');
+  document.getElementById('view-child').classList.toggle('hidden',t!=='child');
+  document.getElementById('view-glass').classList.toggle('hidden',t!=='glass');
+  document.getElementById('caption').innerHTML = t==='child'
+    ? `<b>Child View:</b> the child can <b>speak</b> (mic → on-device STT) or <b>type</b> (Text toggle) — both feed the same loop, and Zoe always replies aloud via TTS. The <b>garden</b> is child-facing progress — plants grow as skills move locked → emerging → owned. Only "times spoken" is shown.`
+    : `<b>Glass Box (testing only):</b> the engine's internals — memory state, judge scores, what the next chat targets, the assembled prompt, and history. Hidden in production by flipping one flag. This is where you verify the loop matches the simulator.`;
+  if(t==='glass')renderGB();
+}
+function setGB(g){gbTab=g;document.querySelectorAll('.gb-tab').forEach(e=>e.classList.toggle('on',e.id==='g-'+g));renderGB();}
+
+function setInputMode(m){
+  inputMode=m;
+  document.getElementById('pill-voice').classList.toggle('on',m==='voice');
+  document.getElementById('pill-text').classList.toggle('on',m==='text');
+  document.getElementById('voice-input').classList.toggle('hidden',m!=='voice');
+  document.getElementById('text-input').classList.toggle('hidden',m!=='text');
+  document.getElementById('mic-state').textContent = m==='voice' ? 'Tap to speak' : 'Type and send';
+  if(m==='text')setTimeout(()=>document.getElementById('text-field').focus(),50);
+}
+
+function micTap(){
+  const btn=document.getElementById('mic-btn'),s=document.getElementById('mic-state');
+  listening=!listening;
+  if(listening){btn.classList.add('listening');btn.textContent='⏹';s.textContent='Listening…';}
+  else{btn.classList.remove('listening');btn.textContent='🎤';s.textContent='Tap to speak';
+    // STT produced text → feed the same turn handler
+    childTurn(KID[effort%KID.length], true);}
+}
+
+function sendText(){
+  const f=document.getElementById('text-field');
+  const txt=(f.value||'').trim();
+  if(!txt)return;
+  f.value='';
+  childTurn(txt, false);   // text path → same handler, Zoe still speaks reply (TTS) if voice on
+}
+
+function addBub(cls,html){
+  const c=document.getElementById('chat');
+  const d=document.createElement('div');d.className='bub '+cls;d.innerHTML=html;
+  c.appendChild(d);c.scrollTop=c.scrollHeight;
+}
+const KID=["Because it is fun.","I go every day.","My teacher is kind.","I have many friends.","Drawing is my favourite."];
+const ZOE=["Nice! Tell me more.","Why do you like it?","That sounds lovely! What else?","How does it make you feel?"];
+
+// Shared turn handler — both voice (STT) and text feed into this identically.
+function childTurn(text, spoken){
+  if(tab!=='child')setTab('child');
+  effort++;document.getElementById('effort-num').textContent=effort;
+  addBub('me',text);
+  const s=document.getElementById('mic-state');s.textContent='Zoe is thinking…';
+  setTimeout(()=>{
+    addBub('zoe',`<span class="who">Zoe <span class="speaking"><i></i><i></i><i></i></span></span>${ZOE[effort%ZOE.length]}`);
+    s.textContent='Zoe is speaking…';   // TTS plays Zoe's reply regardless of input mode
+    setTimeout(()=>{ setInputMode(inputMode); },1200);
+  },700);
+}
+
+// kept for the top control button
+function simSpeak(){ childTurn(KID[effort%KID.length], true); }
+function doEndChat(){
+  if(judged)return;judged=true;
+  if(tab!=='child')setTab('child');
+  addBub('zoe',`<span class="who">Zoe</span>That was a lovely chat, Priya! 🌸 Look — your garden grew!`);
+  setTimeout(()=>{
+    PLANTS.find(p=>p.id==='A1-FLU-01').b='owned';
+    PLANTS.find(p=>p.id==='A1-FLU-01').leaf='🌻';
+    PLANTS.find(p=>p.id==='A1-VOC-02').b='owned';
+    PLANTS.find(p=>p.id==='A1-VOC-02').leaf='🌹';
+    renderGarden(['A1-FLU-01','A1-VOC-02']);
+    HIST.push({n:HIST.length+1,owned:5,grew:2,aimed:2,hit:1});
+  },500);
+}
+function doReset(){
+  judged=false;effort=4;
+  PLANTS.find(p=>p.id==='A1-FLU-01').b='emerging';PLANTS.find(p=>p.id==='A1-FLU-01').leaf='🌱';
+  PLANTS.find(p=>p.id==='A1-VOC-02').b='emerging';PLANTS.find(p=>p.id==='A1-VOC-02').leaf='🌱';
+  HIST.length=0;
+  document.getElementById('effort-num').textContent=effort;
+  document.getElementById('chat').innerHTML=`<div class="bub zoe"><span class="who">Zoe</span>Hi! I'm Zoe 🎒 What's your name?</div><div class="bub me">My name is Priya.</div><div class="bub zoe"><span class="who">Zoe</span>Nice to meet you, Priya! How old are you?</div><div class="bub me">I am eleven.</div>`;
+  renderGarden();
+  if(tab==='glass')renderGB();
+}
+
+function cc(c){return c>=.7?'var(--green-dk)':c>=.3?'var(--amber)':'var(--rust)';}
+function renderGB(){
+  const el=document.getElementById('gb-content');
+  if(gbTab==='memory')el.innerHTML=gbMemory();
+  else if(gbTab==='judge')el.innerHTML=gbJudge();
+  else if(gbTab==='due')el.innerHTML=gbDue();
+  else if(gbTab==='skills')el.innerHTML=gbSkills();
+  else if(gbTab==='prompt')el.innerHTML=gbPrompt();
+  else if(gbTab==='hist')el.innerHTML=gbHist();
+}
+function gbMemory(){
+  const owned=judged?['A1-VOC-01','A1-GRA-01','A1-GRA-02','A1-FLU-01','A1-VOC-02']:['A1-VOC-01','A1-GRA-01','A1-GRA-02'];
+  const em=judged?['U1-VOC-01']:['A1-VOC-02','A1-FLU-01','U1-VOC-01'];
+  let h='';
+  if(judged){h+=`<div class="lbl">grew this chat</div><div class="chg-card"><b>A1-FLU-01</b> emerging → <b>owned</b> 🌸</div><div class="chg-card"><b>A1-VOC-02</b> locked → <b>emerging</b> 🌱</div>`;}
+  h+=`<div class="lbl">memory_state (overwritten each chat)</div>`;
+  h+=`<div class="mono">{\n  <span class="k">"level"</span>: "A1",\n  <span class="k">"progression_model"</span>: "units",\n  <span class="k">"owned"</span> [${owned.length}]: ${JSON.stringify(owned)},\n  <span class="k">"emerging"</span>: ${JSON.stringify(em)},\n  <span class="k">"due_next"</span>: { "primary":"U1-FLU-01", "watching":["U1-GRA-01"] },\n  <span class="k">"interests"</span>: "cricket, drawing",\n  <span class="k">"effort_times_spoken"</span>: ${effort}\n}</div>`;
+  h+=`<small class="note-sm">Written only by the engine (service role). The app reads this; it never writes it.</small>`;
+  return h;
+}
+function gbJudge(){
+  if(!judged)return`<div style="color:var(--grey);font-size:12px;padding:8px 0">No judge run yet. Tap <b>End chat</b> in Child View.</div>`;
+  let h=`<div class="lbl">skill judge output</div>`;
+  JUDGE.forEach(s=>{h+=`<div class="ev-card"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:monospace;font-weight:700;font-size:10px">${s.id}</span><span style="display:flex;gap:5px;align-items:center"><span class="badge2 ${s.p?'b-pr':'b-un'}">${s.p?'prompted':'spontaneous'}</span><b style="color:${cc(s.c)};font-size:12px">${s.c.toFixed(2)}</b></span></div><div style="font-size:10px;color:#4a443c;margin:3px 0">${ST[s.id]}</div><div class="confbar"><i style="width:${s.c*100}%;background:${cc(s.c)}"></i></div>${s.e?`<div style="font-style:italic;font-size:9.5px;color:#4a443c;margin-top:4px">"${s.e}"</div>`:''}</div>`;});
+  h+=`<small class="note-sm">≥0.55 (A1 bar) = qualifying sighting · ≥0.3 = emerging · 2 sightings to own.</small>`;
+  return h;
+}
+function gbDue(){
+  return`<div class="lbl">due_next — next chat's target</div><div class="warn-box">Active unit: <b>Step 1 — Describing the world</b></div>
+  <div class="due-card"><div class="b">#1 · primary · FLU</div><b>U1-FLU-01</b><br><span style="font-size:10px">I can describe a picture or place in 3–4 sentences.</span></div>
+  <div class="due-card"><div class="b">#2 · watching · GRA</div><b>U1-GRA-01</b><br><span style="font-size:10px">I can use present continuous — She is running.</span></div>
+  <small class="note-sm">Recomputed by engine code after every chat. Injected into Zoe's next prompt.</small>`;
+}
+function gbSkills(){
+  const all=[['A1-VOC-01','owned'],['A1-VOC-02',judged?'owned':'emerging'],['A1-VOC-03','locked'],['A1-GRA-01','owned'],['A1-GRA-02','owned'],['A1-GRA-03','locked'],['A1-FLU-01',judged?'owned':'emerging'],['A1-FLU-02','locked']];
+  let h='';['VOC','GRA','FLU'].forEach(str=>{const a=all.filter(x=>x[0].includes('-'+str+'-'));const o=a.filter(x=>x[1]==='owned').length;h+=`<div class="lbl">${str} — ${o}/${a.length} owned</div>`;a.forEach(([id,b])=>{h+=`<div class="skill-row"><span class="dot d-${b}"></span><span style="font-family:monospace;font-size:9px;color:var(--grey);min-width:62px">${id}</span><span style="opacity:${b==='locked'?.5:1};font-size:10.5px">${ST[id]||id}</span></div>`;});});
+  return h;
+}
+function gbPrompt(){
+  return`<div class="lbl">assembled Zoe prompt (live)</div><div class="terminal">You are Zoe, a warm English tutor.
+LEVEL: A1 — role: CARRIER. Keep turns short.
+UNIT: "Describing the world".
+PRIMARY skill: U1-FLU-01 — describe in 3–4 sentences.
+TOPIC: "My school". INTERESTS: cricket, drawing.
+
+CONVERSATION SO FAR:
+Zoe: Hi! What's your name?
+Learner: My name is Priya.
+...
+Reply with ONLY Zoe's next short turn.</div><small class="note-sm">Built by engine from base + level profile + due_next + transcript.</small>`;
+}
+function gbHist(){
+  if(HIST.length===0)return`<div style="color:var(--grey);font-size:12px;padding:8px 0">No chats completed. End a chat to populate.</div>`;
+  let h=`<div class="lbl">session history</div>`;
+  HIST.forEach(r=>{h+=`<div class="hist-row"><b style="font-family:monospace">chat ${r.n}</b> (units/A1) · owned ${r.owned} · <span style="color:var(--green-dk)">+${r.grew} grew</span> · aimed ${r.aimed}/hit ${r.hit}</div>`;});
+  return h;
+}
+
+renderGarden();
+renderGB();
+</script>
+</body>
+</html>

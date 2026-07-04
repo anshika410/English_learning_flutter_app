@@ -3,7 +3,9 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
 import '../models/latency_info.dart';
+import '../models/focus_options.dart';
 import '../services/llm_service.dart';
+import '../services/llm_service_base.dart';
 import '../services/backend_llm_service.dart';
 import '../services/api_service.dart';
 import '../services/stt_service.dart';
@@ -13,11 +15,14 @@ import '../services/whisper_stt_service.dart';
 import '../services/tts_manager.dart';
 import '../services/tts_service.dart';
 import '../services/user_prefs_service.dart';
+import '../utils/name_formatting.dart';
 
 enum SttEngineType { system, continuous, whisper }
 
 class ChatProvider extends ChangeNotifier {
-  final LlmService _llm = LlmService();
+  final LlmServiceBase _llm;
+
+  ChatProvider() : _llm = LlmService();
   final BackendLlmService _backendLlm = BackendLlmService();
   final ApiService _api = ApiService.instance;
   final SttService _stt = SttService();
@@ -27,13 +32,15 @@ class ChatProvider extends ChangeNotifier {
   final TtsManager _tts = TtsManager();
   final UserPrefsService _prefs = UserPrefsService();
 
+
   SttEngineType _sttEngineType = SttEngineType.system;
   bool _whisperAvailable = false;
 
   final List<ChatMessage> _messages = [];
   String _currentTranscript = '';
   bool _isListening = false;
-  bool _isMicRecognizing = false; // true only when recognizer is actively running
+  bool _isMicRecognizing =
+      false; // true only when recognizer is actively running
   bool _isLoading = false;
   bool _isSpeaking = false;
   bool _autoSpeak = true;
@@ -46,15 +53,16 @@ class ChatProvider extends ChangeNotifier {
   String? _userLocation;
   String? _userLevel; // CEFR: A1, A2, B1, B2, C1
   String? _userLevelLabel;
+  List<String>? _userInterests;
 
   // Conversation session state
   String? _conversationTopic;
   String? _conversationId; // backend conversation id
   bool _conversationComplete = false;
 
-  // First-session tracking
+  // Focus settings & first-session tracking
   bool _hasCompletedFirstSession = false;
-
+  FocusSettings _focusSettings = const FocusSettings.defaults();
   // Latency tracking
   DateTime? _sttStartTime; // when mic was tapped
   DateTime?
@@ -90,6 +98,7 @@ class ChatProvider extends ChangeNotifier {
 
   /// Whether the user has already completed placement (persisted).
   bool get hasCompletedPlacement => _userLevel != null;
+  List<String>? get userInterests => _userInterests; // from placement result
 
   void setUserProfile({
     String? name,
@@ -97,24 +106,83 @@ class ChatProvider extends ChangeNotifier {
     String? location,
     String? level,
     String? levelLabel,
+    List<String>? interests,
   }) {
-    _userName = name ?? _userName;
-    _userAge = age ?? _userAge;
-    _userLocation = location ?? _userLocation;
+    final normalizedName = name == null || name.trim().isEmpty
+        ? null
+        : normalizeDisplayName(name);
+    final normalizedAge = age == null || age.trim().isEmpty ? null : age.trim();
+    final normalizedLocation = location == null || location.trim().isEmpty
+        ? null
+        : location.trim();
+    _userName = normalizedName ?? _userName;
+    _userAge = normalizedAge ?? _userAge;
+    _userLocation = normalizedLocation ?? _userLocation;
     _userLevel = level ?? _userLevel;
     _userLevelLabel = levelLabel ?? _userLevelLabel;
+    if (interests != null) {
+      _userInterests = interests
+          .map((interest) => interest.trim())
+          .where((interest) => interest.isNotEmpty)
+          .toList();
+    }
     _prefs.saveProfile(
-      name: name,
-      age: age,
-      location: location,
+      name: normalizedName,
+      age: normalizedAge,
+      location: normalizedLocation,
       level: level,
       levelLabel: levelLabel,
     );
     notifyListeners();
   }
 
-  // First-session tracking
+  Future<bool> updateUserProfile({
+    String? name,
+    String? age,
+    String? location,
+  }) async {
+    final normalizedName = name == null || name.trim().isEmpty
+        ? null
+        : normalizeDisplayName(name);
+    final normalizedAge = age == null || age.trim().isEmpty ? null : age.trim();
+    final normalizedLocation = location == null || location.trim().isEmpty
+        ? null
+        : location.trim();
+
+    try {
+      await _api.ensureAuthenticated();
+      final updated = await _api.updateProfile(
+        name: normalizedName,
+        age: normalizedAge,
+        location: normalizedLocation,
+      );
+      if (!updated) return false;
+
+      setUserProfile(
+        name: normalizedName,
+        age: normalizedAge,
+        location: normalizedLocation,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> logout() async {
+    await _prefs.clearAll();
+    _userName = null;
+    _userAge = null;
+    _userLocation = null;
+    _userLevel = null;
+    _userLevelLabel = null;
+    _hasCompletedFirstSession = false;
+    notifyListeners();
+  }
+
+  // Focus settings & first-session tracking
   bool get hasCompletedFirstSession => _hasCompletedFirstSession;
+  FocusSettings get focusSettings => _focusSettings;
 
   void markFirstSessionComplete() {
     _hasCompletedFirstSession = true;
@@ -122,14 +190,36 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // LLM provider info
-  LlmProvider get llmProvider => _llm.activeProvider;
-  List<LlmProvider> get availableLlmProviders => _llm.availableProviders;
-  String get llmProviderName => _llm.activeConfig.name;
-  String get llmModelName => _llm.activeConfig.model;
+  void updateFocusSettings(FocusSettings settings) {
+    _focusSettings = settings;
+    _prefs.saveFocusSettings(settings);
+    notifyListeners();
+  }
+
+  // LLM provider info (only meaningful when using the real LlmService)
+  LlmProvider get llmProvider {
+    final llm = _llm;
+    return llm is LlmService ? llm.activeProvider : LlmProvider.deepseek;
+  }
+
+  List<LlmProvider> get availableLlmProviders {
+    final llm = _llm;
+    return llm is LlmService ? llm.availableProviders : const [];
+  }
+
+  String get llmProviderName {
+    final llm = _llm;
+    return llm is LlmService ? llm.activeConfig.name : 'Mock';
+  }
+
+  String get llmModelName {
+    final llm = _llm;
+    return llm is LlmService ? llm.activeConfig.model : 'mock';
+  }
 
   void setLlmProvider(LlmProvider provider) {
-    _llm.setProvider(provider);
+    final llm = _llm;
+    if (llm is LlmService) llm.setProvider(provider);
     notifyListeners();
   }
 
@@ -154,6 +244,7 @@ class ChatProvider extends ChangeNotifier {
     _userLevel = _prefs.userLevel;
     _userLevelLabel = _prefs.userLevelLabel;
     _hasCompletedFirstSession = _prefs.hasCompletedFirstSession;
+    _focusSettings = _prefs.focusSettings;
 
     await _stt.initialize();
     _whisperAvailable = await _whisperStt.initialize();
@@ -216,7 +307,9 @@ class ChatProvider extends ChangeNotifier {
     String headerTitle;
     try {
       // Try backend LLM first, fall back to direct
-      final backendResult = await _backendLlm.generateConversationStarter(topic: topic);
+      final backendResult = await _backendLlm.generateConversationStarter(
+        topic: topic,
+      );
       if (backendResult != null) {
         starter = backendResult.starter;
         headerTitle = backendResult.headerTitle;
@@ -246,7 +339,9 @@ class ChatProvider extends ChangeNotifier {
   Future<EndResultAnalysis?> analyzeConversationEnd() async {
     // Mark conversation complete on backend
     if (_conversationId != null) {
-      final durationSeconds = _messages.isNotEmpty ? _messages.length * 30 : null;
+      final durationSeconds = _messages.isNotEmpty
+          ? _messages.length * 30
+          : null;
       _api.completeConversation(
         _conversationId!,
         durationSeconds: durationSeconds,
@@ -459,7 +554,9 @@ class ChatProvider extends ChangeNotifier {
 
     Duration? llmDuration;
     Duration? ttsDuration;
-    final turnNumber = _messages.where((m) => m.role == MessageRole.user).length;
+    final turnNumber = _messages
+        .where((m) => m.role == MessageRole.user)
+        .length;
 
     try {
       // --- LLM (backend proxy first, direct fallback) ---
@@ -476,6 +573,7 @@ class ChatProvider extends ChangeNotifier {
             level: _userLevel ?? 'A2',
             levelLabel: _userLevelLabel ?? 'Finding My Voice',
             currentTurn: turnNumber,
+            focusSettings: _focusSettings,
           );
           if (backendResult != null) {
             reply = ChatMessage(
@@ -505,6 +603,7 @@ class ChatProvider extends ChangeNotifier {
             level: _userLevel,
             levelLabel: _userLevelLabel,
             currentTurn: turnNumber,
+            focusSettings: _focusSettings,
           );
           llmDuration = DateTime.now().difference(llmStart);
           reply = result.message;
@@ -517,11 +616,24 @@ class ChatProvider extends ChangeNotifier {
           level: _userLevel,
           levelLabel: _userLevelLabel,
           currentTurn: turnNumber,
+          focusSettings: _focusSettings,
         );
         llmDuration = DateTime.now().difference(llmStart);
         reply = result.message;
         conversationComplete = result.conversationComplete;
       }
+
+      // Add bubble immediately so it appears before TTS starts, then enrich the
+      // same message with latency once TTS finishes.
+      final assistantIndex = _messages.length;
+      _messages.add(
+        ChatMessage(
+          role: reply.role,
+          content: reply.content,
+          correction: reply.correction,
+        ),
+      );
+      notifyListeners();
 
       // --- TTS ---
       if (_autoSpeak) {
@@ -555,7 +667,9 @@ class ChatProvider extends ChangeNotifier {
         correction: reply.correction,
         latency: latency,
       );
-      _messages.add(assistantMsg);
+      if (assistantIndex < _messages.length) {
+        _messages[assistantIndex] = assistantMsg;
+      }
 
       // Persist assistant message to backend
       if (_conversationId != null) {
