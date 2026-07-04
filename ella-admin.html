@@ -334,6 +334,17 @@
 
   const LEVEL_COLORS = { A1: '#f59e0b', A2: '#3b82f6', B1: '#10b981', B2: '#8b5cf6', C1: '#ec4899' };
 
+  function formatDate(isoString) {
+    if (!isoString) return '—';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '—';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  }
+
   function login() {
     BASE_URL = document.getElementById('api-url').value.trim().replace(/\/$/, '');
     ADMIN_KEY = document.getElementById('admin-key').value.trim();
@@ -436,7 +447,7 @@
         <td>${u.location || '—'}</td>
         <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
         <td>${u.level_label || '—'}</td>
-        <td>${new Date(u.created_at).toLocaleDateString()}</td>
+        <td>${formatDate(u.created_at)}</td>
         <td>${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">View</button>` : '—'}</td>
       </tr>
     `).join('') || '<tr><td colspan="7" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
@@ -449,7 +460,7 @@
         <td>${c.message_count}</td>
         <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
         <td><span class="badge ${c.completed ? 'badge-done' : 'badge-pending'}">${c.completed ? 'Done' : 'In progress'}</span></td>
-        <td>${new Date(c.created_at).toLocaleDateString()}</td>
+        <td>${formatDate(c.created_at)}</td>
         <td><button class="transcript-btn" onclick="viewTranscript('${c.id}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
       </tr>
     `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
