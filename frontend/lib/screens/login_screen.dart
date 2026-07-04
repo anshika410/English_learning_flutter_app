@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../services/api_service.dart';
 import 'welcome_screen.dart';
@@ -19,7 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: '931764403241-iemrp7q1bqcpm3jj6guocojvk305632f.apps.googleusercontent.com',
+        clientId: kIsWeb ? '778575174037-tg76ia7gf961rrqh8g2s3ptnnr5gkos4.apps.googleusercontent.com' : null,
+        serverClientId: kIsWeb ? null : '778575174037-tg76ia7gf961rrqh8g2s3ptnnr5gkos4.apps.googleusercontent.com',
       );
       final GoogleSignInAccount? account = await googleSignIn.signIn();
       if (account != null) {

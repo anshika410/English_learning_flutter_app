@@ -141,7 +141,7 @@ async def request_magic_link(
     body: MagicLinkRequest,
 ):
     email = body.email.lower().strip()
-    token = create_magic_token(email, device_id=body.device_id)
+    token = create_magic_token(email, device_id=body.device_id, redirect_url=body.redirect_url)
     send_magic_link_email(email, token)
     return {"message": "Email sent"}
 
@@ -155,6 +155,7 @@ async def verify_magic_link(
     payload = decode_magic_token(token)
     email = payload["email"]
     device_id = payload.get("device_id")
+    redirect_url = payload.get("redirect_url")
 
     user, is_new = await _handle_login_and_merge(email, device_id, db)
     
@@ -171,9 +172,12 @@ async def verify_magic_link(
     db.add(session)
     await db.commit()
 
-    # Pass both tokens via magic_token parameter, separated by a comma (or just pass both as URL params)
-    # The frontend will parse them
-    return RedirectResponse(url=f"http://localhost:3000/?access_token={access_token}&refresh_token={refresh_token}")
+    base_url = redirect_url if redirect_url else settings.frontend_url
+    # If the base URL already has parameters, append with &, otherwise ?
+    separator = "&" if "?" in base_url else "?"
+    final_url = f"{base_url}{separator}access_token={access_token}&refresh_token={refresh_token}"
+
+    return RedirectResponse(url=final_url)
 
 
 @router.post("/refresh", response_model=TokenResponse)
