@@ -133,11 +133,10 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         starters = t.get("starters", [])
         topic_id = t.get("id", "")
         icon_file = TOPIC_ICON_MAP.get(topic_id)
-        icon_url = f"{ICON_BASE_URL}/{icon_file}.svg" if icon_file else None
         return {
             "name": t["name"],
             "label": _make_label(t["name"]),
-            "icon": icon_url,
+            "icon": icon_file,
             "starter": starters[0] if starters else None,
         }
 

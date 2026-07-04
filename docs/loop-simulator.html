@@ -1899,6 +1899,14 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
           </pre>
         );
       }
+      if (col === 'next_topics') {
+        if (!val) return <span style={{ color: 'var(--grey)', fontFamily: 'monospace', fontSize: '11px' }}>null</span>;
+        return (
+          <pre style={{ margin: 0, padding: '4px 6px', background: '#f4f1ea', borderRadius: '4px', border: '1px solid var(--rule)', overflowX: 'auto', fontSize: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.4', fontFamily: 'monospace' }}>
+            {JSON.stringify(val, null, 2)}
+          </pre>
+        );
+      }
       if (col === 'profile') {
         const prof = val || { name: '—', age: null, city: '—', grade: null };
         return (
