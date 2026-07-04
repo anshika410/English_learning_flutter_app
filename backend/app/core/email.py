@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 resend.api_key = os.environ.get("RESEND_API_KEY")
+SENDER_EMAIL = os.environ.get("RESEND_SENDER_EMAIL", "Ella <hello@ella.navgurukul.org>")
 
 def send_magic_link_email(to_email: str, token: str):
     if not resend.api_key:
@@ -52,7 +53,8 @@ def send_magic_link_email(to_email: str, token: str):
 
     try:
         r = resend.Emails.send({
-            "from": "onboarding@resend.dev", # Using the testing domain
+            "from": SENDER_EMAIL,
+
             "to": to_email,
             "subject": "Log in to Ella",
             "html": html_content
