@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
-import '../models/focus_settings.dart';
 import '../models/latency_info.dart';
 import '../services/llm_service.dart';
 import '../services/llm_service_base.dart';

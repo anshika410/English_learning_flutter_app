@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../models/focus_settings.dart';
 import '../theme/ella_theme.dart';
 import '../theme/ella_responsive.dart';
 import '../models/chat_message.dart';

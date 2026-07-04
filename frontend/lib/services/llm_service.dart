@@ -4,7 +4,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
-import '../models/focus_settings.dart';
 import '../models/placement_result.dart';
 import 'llm_service_base.dart';
 
