@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../theme/ella_theme.dart';
 import '../theme/ella_responsive.dart';
 import '../models/chat_message.dart';
+import '../models/focus_options.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/waveform_icon.dart';
 import '../widgets/offline_banner.dart';

@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/focus_options.dart';
 
 /// Persists user profile and settings to SharedPreferences.
 class UserPrefsService {
@@ -8,6 +9,9 @@ class UserPrefsService {
   static const _keyLevel = 'user_level';
   static const _keyLevelLabel = 'user_level_label';
   static const _keyFirstSessionDone = 'first_session_done';
+  static const _keyFocusGrammar = 'focus_grammar';
+  static const _keyFocusVocab = 'focus_vocabulary';
+  static const _keyFocusFluency = 'focus_fluency';
 
   static SharedPreferences? _sharedPrefs;
 
@@ -53,6 +57,40 @@ class UserPrefsService {
     await _prefs.setBool(_keyFirstSessionDone, true);
   }
 
+  // ── Focus Settings ───────────────────────────────────────────────────────
+
+  FocusSettings get focusSettings {
+    final grammarStr = _prefs.getString(_keyFocusGrammar) ?? 'balanced';
+    final vocabStr = _prefs.getString(_keyFocusVocab) ?? 'balanced';
+    final fluencyStr = _prefs.getString(_keyFocusFluency) ?? 'balanced';
+
+    final grammar = GrammarFocus.values.firstWhere(
+      (e) => e.name == grammarStr,
+      orElse: () => GrammarFocus.balanced,
+    );
+    final vocabulary = VocabFocus.values.firstWhere(
+      (e) => e.name == vocabStr,
+      orElse: () => VocabFocus.balanced,
+    );
+    final fluency = FluencyFocus.values.firstWhere(
+      (e) => e.name == fluencyStr,
+      orElse: () => FluencyFocus.balanced,
+    );
+
+    return FocusSettings(
+      grammar: grammar,
+      vocabulary: vocabulary,
+      fluency: fluency,
+    );
+  }
+
+  Future<void> saveFocusSettings(FocusSettings settings) async {
+    await init();
+    await _prefs.setString(_keyFocusGrammar, settings.grammar.name);
+    await _prefs.setString(_keyFocusVocab, settings.vocabulary.name);
+    await _prefs.setString(_keyFocusFluency, settings.fluency.name);
+  }
+
 
 
   bool get hasCompletedPlacement => _prefs.getString(_keyLevel) != null;
@@ -65,5 +103,8 @@ class UserPrefsService {
     await _prefs.remove(_keyLevel);
     await _prefs.remove(_keyLevelLabel);
     await _prefs.remove(_keyFirstSessionDone);
+    await _prefs.remove(_keyFocusGrammar);
+    await _prefs.remove(_keyFocusVocab);
+    await _prefs.remove(_keyFocusFluency);
   }
 }

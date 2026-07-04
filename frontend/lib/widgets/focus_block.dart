@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/focus_options.dart';
 import '../theme/ella_theme.dart';
 
 /// Generic focus-area chip selector block.

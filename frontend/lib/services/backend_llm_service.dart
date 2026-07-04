@@ -1,5 +1,6 @@
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
+import '../models/focus_options.dart';
 import 'api_service.dart';
 
 /// LLM service that routes all calls through the backend proxy.
@@ -29,6 +30,7 @@ class BackendLlmService {
     String level = 'A2',
     String levelLabel = 'Finding My Voice',
     int currentTurn = 1,
+    FocusSettings? focusSettings,
   }) async {
     final messages = history
         .where((m) => m.role != MessageRole.system)

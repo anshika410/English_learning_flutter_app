@@ -1,5 +1,6 @@
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
+import '../models/focus_options.dart';
 import 'llm_service.dart';
 
 /// Abstract interface for LLM operations.

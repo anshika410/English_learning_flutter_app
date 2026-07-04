@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 
+import '../models/focus_options.dart';
 import '../providers/chat_provider.dart';
 import '../theme/ella_responsive.dart';
 import '../theme/ella_theme.dart';

@@ -1,5 +1,6 @@
 import '../models/chat_message.dart';
 import '../models/end_result_analysis.dart';
+import '../models/focus_options.dart';
 import '../services/llm_service.dart';
 import '../services/llm_service_base.dart';
 
