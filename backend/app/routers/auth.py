@@ -110,8 +110,12 @@ async def google_auth(
         # Check if the token is an ID Token (JWT) or an Access Token
         if body.token.count('.') == 2:
             # Verify the ID token with Google
+            # We accept both Web and Android client IDs as valid audiences depending on how the frontend requested it.
+            valid_audiences = [
+                aud for aud in [settings.google_web_client_id, settings.google_android_client_id] if aud
+            ]
             idinfo = id_token.verify_oauth2_token(
-                body.token, google_requests.Request(), settings.google_client_id
+                body.token, google_requests.Request(), valid_audiences
             )
             email = idinfo.get("email")
         else:

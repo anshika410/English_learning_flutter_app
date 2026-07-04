@@ -1878,6 +1878,7 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
       { col: 'owned', type: 'JSON', val: dbMemory.owned || [] },
       { col: 'emerging', type: 'JSON', val: dbMemory.emerging || [] },
       { col: 'due_next', type: 'JSON', val: dbMemory.due_next || {} },
+      { col: 'next_topics', type: 'JSON', val: dbMemory.next_topics || null },
       { col: 'units', type: 'JSON', val: dbMemory.units || dbMemory.last_topics || [] },
       { col: 'last_topics', type: 'JSON', val: dbMemory.last_topics || [] },
       { col: 'interests', type: 'VARCHAR(200)', val: dbMemory.interests && dbMemory.interests.length > 0 ? dbMemory.interests.join(',') : '' },
@@ -1891,6 +1892,14 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
 
     const renderValueCell = (col, val) => {
       if (col === 'placement') {
+        if (!val) return <span style={{ color: 'var(--grey)', fontFamily: 'monospace', fontSize: '11px' }}>null</span>;
+        return (
+          <pre style={{ margin: 0, padding: '4px 6px', background: '#f4f1ea', borderRadius: '4px', border: '1px solid var(--rule)', overflowX: 'auto', fontSize: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.4', fontFamily: 'monospace' }}>
+            {JSON.stringify(val, null, 2)}
+          </pre>
+        );
+      }
+      if (col === 'next_topics') {
         if (!val) return <span style={{ color: 'var(--grey)', fontFamily: 'monospace', fontSize: '11px' }}>null</span>;
         return (
           <pre style={{ margin: 0, padding: '4px 6px', background: '#f4f1ea', borderRadius: '4px', border: '1px solid var(--rule)', overflowX: 'auto', fontSize: '10px', whiteSpace: 'pre-wrap', lineHeight: '1.4', fontFamily: 'monospace' }}>

@@ -68,9 +68,15 @@ class PlacementSubResponse(BaseModel):
     created_at: str
 
 
+class NextTopicItem(BaseModel):
+    name: str
+    label: str
+    starter: str | None = None
+
+
 class NextTopics(BaseModel):
-    recommended: str
-    alternatives: list[str] = []
+    recommended: NextTopicItem
+    alternatives: list[NextTopicItem] = []
 
 
 class UserMemoryResponse(BaseModel):
