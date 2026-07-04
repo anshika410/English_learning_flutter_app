@@ -315,3 +315,100 @@ The front-end client reads the API payload and translates it to visual layout at
         
         ![Bloomed Raised Bed](/logo/garden_bloomed.png)
     *   *Logic:* The user has successfully demonstrated and passed these skills, earning mastery status.
+
+
+---
+
+## 5. Placement Garden (Pre-Conversation Growth)
+
+The Placement Garden is a **separate visual system** from the conversation-based garden above. It rewards the student for completing (or attempting) the placement screening — before any topic-based conversations begin.
+
+### Design Principle
+
+The placement garden is **not tied to skill sightings**. It represents "showing up and trying" — a reward for completing onboarding, not for demonstrating mastery.
+
+### Three States
+
+The placement garden has exactly three visual states, determined by the quality of the placement conversation:
+
+| Scenario | Condition | `placement_garden.stage` | UI Visual |
+|---|---|---|---|
+| **Cancelled/Skipped** | User pressed cancel mid-placement, or never started | `"soil"` | 🟤 Bare soil tile — empty, nothing planted |
+| **Partial evidence** | Some conversation happened but level confidence is low | `"seed"` | 🌱 Small sprout on tile — something started growing |
+| **Full placement** | Good conversation, level confidently identified | `"bloom"` | 🌺 Full flower on tile — celebration moment |
+
+### Backend Logic
+
+The stage is derived from the `placement` record on the user:
+
+```python
+def get_placement_garden_stage(user):
+    if user.placement is None:
+        return "soil"
+    
+    confidence = user.placement.confidence  # "high", "medium", "low"
+    
+    if confidence in ("high", "medium"):
+        return "bloom"
+    else:
+        return "seed"
+```
+
+### API Response
+
+Returned as part of `GET /users/me/memory`:
+
+```json
+{
+  "placement_garden": {
+    "stage": "bloom",
+    "level": "A0",
+    "confidence": "high"
+  }
+}
+```
+
+When no placement exists:
+```json
+{
+  "placement_garden": null
+}
+```
+
+### Client-Side Mapping
+
+| `stage` | Asset to show | Animation |
+|---|---|---|
+| `"soil"` | Bare tile with empty soil | None — static |
+| `"seed"` | Tile with small sprout emerging | Gentle sway animation |
+| `"bloom"` | Tile with full flower (celebration) | Growth animation on first view, then static |
+
+### Flow in the App
+
+```
+1. User completes login
+2. No placement → show empty garden tile ("soil")
+3. User starts placement conversation with Zoe
+4. If cancelled → stays "soil"
+5. If partial (low confidence) → "seed" (sprout appears)
+6. If full (high/medium confidence) → "bloom" (full flower, celebration screen)
+7. After placement → next_topics appear, user transitions to home
+8. First real conversation → conversation garden takes over (Section 3 above)
+```
+
+### Separation from Conversation Garden
+
+| Aspect | Placement Garden | Conversation Garden |
+|---|---|---|
+| **Driven by** | Placement completion quality | Skill sightings from conversations |
+| **Number of plants** | 1 (single tile, single plant) | Multiple (one per skill per unit) |
+| **Growth stages** | 3 (soil → seed → bloom) | 4 (soil → sprout → bud → bloom) |
+| **When shown** | Onboarding / first-time screen | Home screen after first session |
+| **Data source** | `placement` record confidence | `skills_progress` sightings |
+
+### Visual Reference
+
+- **Bare soil** — Empty raised bed tile, no growth
+- **Seed/Sprout** — Single small green sprout on the tile center
+- **Full bloom** — Complete flower on tile with leaves (celebration moment before transitioning to home)
+
