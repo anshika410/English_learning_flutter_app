@@ -13,8 +13,8 @@ def send_magic_link_email(to_email: str, token: str):
         return
 
     # In production, this should be the actual frontend or backend domain.
-    # We will use the backend verification endpoint which then redirects to the frontend.
-    magic_url = f"http://localhost:8000/auth/magic-link/verify?token={token}"
+    backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000").rstrip("/")
+    magic_url = f"{backend_url}/auth/magic-link/verify?token={token}"
 
     html_content = f"""
     <!DOCTYPE html>
