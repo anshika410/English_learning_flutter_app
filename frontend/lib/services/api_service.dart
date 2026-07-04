@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -9,13 +10,15 @@ import 'package:uuid/uuid.dart';
 class ApiService {
   static String get _baseUrl {
     final envUrl = dotenv.maybeGet('BACKEND_URL');
-    if (envUrl != null && envUrl.isNotEmpty && !envUrl.startsWith('http://localhost')) {
+    if (envUrl != null && envUrl.isNotEmpty) {
       return envUrl;
     }
-    return 'https://ella-api.navgurukul.org';
+    // Default to localhost for local web development
+    return 'http://localhost:8000';
   }
 
   static const String _keyToken = 'api_token';
+  static const String _keyRefreshToken = 'refresh_token';
   static const String _keyDeviceId = 'device_id';
   static const String _keyUserId = 'user_id';
 
@@ -24,6 +27,7 @@ class ApiService {
   ApiService._();
 
   SharedPreferences? _prefs;
+  final _secureStorage = const FlutterSecureStorage();
 
   Future<SharedPreferences> get _sharedPrefs async {
     _prefs ??= await SharedPreferences.getInstance();
@@ -33,13 +37,25 @@ class ApiService {
   // ── Token management ────────────────────────────────────────────────────
 
   Future<String?> getToken() async {
-    final prefs = await _sharedPrefs;
-    return prefs.getString(_keyToken);
+    return _secureStorage.read(key: _keyToken);
+  }
+  
+  Future<String?> getRefreshToken() async {
+    return _secureStorage.read(key: _keyRefreshToken);
   }
 
-  Future<void> _saveToken(String token) async {
+  Future<void> _saveTokens(String token, String? refreshToken) async {
+    await _secureStorage.write(key: _keyToken, value: token);
+    if (refreshToken != null) {
+      await _secureStorage.write(key: _keyRefreshToken, value: refreshToken);
+    }
+  }
+
+  Future<void> clearTokens() async {
+    await _secureStorage.delete(key: _keyToken);
+    await _secureStorage.delete(key: _keyRefreshToken);
     final prefs = await _sharedPrefs;
-    await prefs.setString(_keyToken, token);
+    await prefs.remove(_keyUserId);
   }
 
   Future<String> _getOrCreateDeviceId() async {
@@ -62,36 +78,104 @@ class ApiService {
   Future<bool> ensureAuthenticated() async {
     final token = await getToken();
     if (token != null) return true;
-    return _anonymousAuth();
+    return false;
   }
 
-  Future<bool> _anonymousAuth() async {
+  Future<bool> loginWithGoogle(String idToken) async {
     try {
       final deviceId = await _getOrCreateDeviceId();
-      debugPrint('🔐 Auth: calling /auth/anonymous with device_id: $deviceId');
       final response = await http
           .post(
-            Uri.parse('$_baseUrl/auth/anonymous'),
+            Uri.parse('$_baseUrl/auth/google'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'device_id': deviceId}),
+            body: jsonEncode({'token': idToken, 'device_id': deviceId}),
           )
           .timeout(const Duration(seconds: 10));
 
-      debugPrint('🔐 Auth response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        await _saveToken(data['access_token'] as String);
+        await _saveTokens(data['access_token'] as String, data['refresh_token'] as String?);
         final prefs = await _sharedPrefs;
         await prefs.setString(_keyUserId, data['user_id'] as String);
-        debugPrint('✅ Auth successful');
         return true;
       }
-      debugPrint('❌ Auth failed: ${response.body}');
       return false;
     } catch (e) {
-      debugPrint('❌ Auth error: $e');
+      debugPrint('❌ Google Auth error: $e');
       return false;
     }
+  }
+
+  Future<bool> requestMagicLink(String email) async {
+    try {
+      final deviceId = await _getOrCreateDeviceId();
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/magic-link/request'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'device_id': deviceId}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('❌ Magic Link Request error: $e');
+      return false;
+    }
+  }
+
+  Future<void> saveTokensFromMagicLink(String token, String? refreshToken) async {
+    await _saveTokens(token, refreshToken);
+    final profile = await getMyProfile();
+    if (profile != null) {
+      final prefs = await _sharedPrefs;
+      await prefs.setString(_keyUserId, profile['id'] as String);
+    }
+  }
+
+  Future<bool> _refreshSession() async {
+    try {
+      final refreshToken = await getRefreshToken();
+      if (refreshToken == null) return false;
+
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/refresh'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': refreshToken}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await _saveTokens(data['access_token'] as String, data['refresh_token'] as String?);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('❌ Refresh session error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> logout() async {
+    try {
+      final refreshToken = await getRefreshToken();
+      if (refreshToken != null) {
+        await http
+            .post(
+              Uri.parse('$_baseUrl/auth/logout'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'refresh_token': refreshToken}),
+            )
+            .timeout(const Duration(seconds: 10));
+      }
+    } catch (e) {
+      debugPrint('❌ Logout error: $e');
+    } finally {
+      await clearTokens();
+    }
+    return true;
   }
 
   // ── HTTP helpers ────────────────────────────────────────────────────────
@@ -103,29 +187,54 @@ class ApiService {
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
+  
+  /// Helper to handle 401 Unauthorized by refreshing token and retrying
+  Future<http.Response> _executeWithRetry(
+    Future<http.Response> Function() requestFn,
+  ) async {
+    http.Response response = await requestFn();
+    
+    // If unauthorized, try to refresh and retry ONCE
+    if (response.statusCode == 401) {
+      final success = await _refreshSession();
+      if (success) {
+        response = await requestFn();
+      } else {
+        // If refresh fails, they are fully logged out
+        await clearTokens();
+      }
+    }
+    return response;
+  }
 
   Future<http.Response> _get(String path) async {
-    return http.get(
-      Uri.parse('$_baseUrl$path'),
-      headers: await _authHeaders(),
-    ).timeout(const Duration(seconds: 10));
+    return _executeWithRetry(() async {
+      return http.get(
+        Uri.parse('$_baseUrl$path'),
+        headers: await _authHeaders(),
+      ).timeout(const Duration(seconds: 10));
+    });
   }
 
   Future<http.Response> _post(String path, Map<String, dynamic> body,
       {Duration timeout = const Duration(seconds: 30)}) async {
-    return http.post(
-      Uri.parse('$_baseUrl$path'),
-      headers: await _authHeaders(),
-      body: jsonEncode(body),
-    ).timeout(timeout);
+    return _executeWithRetry(() async {
+      return http.post(
+        Uri.parse('$_baseUrl$path'),
+        headers: await _authHeaders(),
+        body: jsonEncode(body),
+      ).timeout(timeout);
+    });
   }
 
   Future<http.Response> _put(String path, Map<String, dynamic> body) async {
-    return http.put(
-      Uri.parse('$_baseUrl$path'),
-      headers: await _authHeaders(),
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 10));
+    return _executeWithRetry(() async {
+      return http.put(
+        Uri.parse('$_baseUrl$path'),
+        headers: await _authHeaders(),
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 10));
+    });
   }
 
   // ── Users ───────────────────────────────────────────────────────────────

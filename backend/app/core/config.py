@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./zoe.db"
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 43200
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 30
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     deepseek_model: str = "deepseek-chat"
@@ -18,10 +19,13 @@ class Settings(BaseSettings):
     docs_enabled: bool = False
     # Admin dashboard secret key — set in .env
     admin_secret_key: str = "change-me-admin-key"
-    # Set to true in production if reverse proxy (like Nginx) already handles CORS
+    # Reverse Proxy CORS Toggle
+    # Set to True if Nginx/Cloudflare already adds 'Access-Control-Allow-Origin' to avoid duplicate headers in production
     disable_cors: bool = False
+    
+    google_client_id: str = ""
 
-    model_config = {"env_file": "backend/.env", "extra": "ignore"}
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 @lru_cache
