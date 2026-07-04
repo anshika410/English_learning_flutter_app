@@ -75,6 +75,7 @@ class UserMemoryResponse(BaseModel):
     level: str | None = None
     first_session_done: bool = False
     interests: list[str] = []
+    last_time_recap: str | None = None
     placement: PlacementSubResponse | None = None
     owned: list[str] = []
     emerging: list[str] = []

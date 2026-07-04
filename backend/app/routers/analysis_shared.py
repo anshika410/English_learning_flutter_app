@@ -169,6 +169,7 @@ async def run_and_save_session_analysis(
     sa.courage_content = courage.get("content")
     sa.try_next_skill = try_next.get("skill")
     sa.try_next_example = try_next.get("example")
+    sa.zoe_recap = analysis.get("zoe_recap")
     sa.transcript_notes_json = json.dumps(notes)
 
     # Save grading checklist details

@@ -1882,6 +1882,7 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
       { col: 'last_topics', type: 'JSON', val: dbMemory.last_topics || [] },
       { col: 'interests', type: 'VARCHAR(200)', val: dbMemory.interests && dbMemory.interests.length > 0 ? dbMemory.interests.join(',') : '' },
       { col: 'placement', type: 'JSON', val: dbMemory.placement || null },
+      { col: 'last_time_recap', type: 'VARCHAR(200)', val: dbMemory.last_time_recap || '—' },
       { col: 'effort', type: 'JSON', val: dbMemory.effort || { times_spoken_total: 0 } },
       { col: 'sightings', type: 'JSON', val: dbMemory.sightings || {} },
       { col: 'strength', type: 'JSON', val: dbMemory.strength || {} },

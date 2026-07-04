@@ -10,7 +10,7 @@ from ..core.curriculum_data import UNITS, active_step, unit_complete, bucket_of
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-def _to_memory_response(user: User) -> UserMemoryResponse:
+def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserMemoryResponse:
     persona = user.persona_memory or {}
     progress = user.skills_progress or {}
     due = user.due_next or {}
@@ -52,6 +52,7 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
         level=user.level,
         first_session_done=user.first_session_done,
         interests=user.interests.split(",") if user.interests else [],
+        last_time_recap=last_time_recap,
         placement=placement_data,
         owned=progress.get("owned", []),
         emerging=progress.get("emerging", []),
@@ -66,9 +67,37 @@ def _to_memory_response(user: User) -> UserMemoryResponse:
     )
 
 
+async def _get_last_time_recap(user_id: str, db: AsyncSession) -> str | None:
+    from ..models.conversation import Conversation
+    from ..models.session_analysis import SessionAnalysis
+    from sqlalchemy import select, desc
+    try:
+        conv_result = await db.execute(
+            select(Conversation)
+            .where(Conversation.user_id == user_id, Conversation.completed == True)
+            .order_by(desc(Conversation.created_at))
+            .limit(1)
+        )
+        latest_conv = conv_result.scalar_one_or_none()
+        if latest_conv:
+            sa_result = await db.execute(
+                select(SessionAnalysis).where(SessionAnalysis.conversation_id == latest_conv.id)
+            )
+            sa = sa_result.scalar_one_or_none()
+            if sa:
+                return sa.zoe_recap
+    except Exception:
+        pass
+    return None
+
+
 @router.get("/me", response_model=UserMemoryResponse)
-async def get_profile(user: User = Depends(get_current_user)):
-    return _to_memory_response(user)
+async def get_profile(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    recap = await _get_last_time_recap(user.id, db)
+    return _to_memory_response(user, recap)
 
 
 @router.put("/me", response_model=UserMemoryResponse)
@@ -92,18 +121,21 @@ async def update_profile(
         
     db.add(user)
     await db.flush()
-    return _to_memory_response(user)
+    recap = await _get_last_time_recap(user.id, db)
+    return _to_memory_response(user, recap)
 
 
 @router.get("/me/memory", response_model=UserMemoryResponse)
 async def get_user_memory(
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Returns the student's full learning memory as a unified object.
     Combines profile, persona facts, skills progress, and next targets.
     """
-    return _to_memory_response(user)
+    recap = await _get_last_time_recap(user.id, db)
+    return _to_memory_response(user, recap)
 
 
 @router.put("/me/memory")

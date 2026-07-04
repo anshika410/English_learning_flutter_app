@@ -175,6 +175,7 @@ class SessionAnalysisResponse(BaseModel):
     best_moment: dict | None = None
     courage_or_motivation: dict | None = None
     try_next_time: dict | None = None
+    zoe_recap: str | None = None
     extracted_memory_facts: list[str] = []
     transcript_notes: list[TranscriptNote] = []
     aimed_at: list[str] = []

@@ -20,6 +20,7 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
 
 {
 "overall": "good" | "okay" | "struggling",
+"zoe_recap": "<A friendly, warm 1-sentence recap of a specific detail the student shared about themselves in this chat, written in Zoe's voice starting with 'You told me...' (max 15 words, e.g., 'You told me your favorite animal was a dolphin!'). If no personal facts were shared, write a brief warm greeting.>",
 
 "best_moment": {
 "quote": "<exact words the student said>",

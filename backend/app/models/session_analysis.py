@@ -25,6 +25,7 @@ class SessionAnalysis(Base):
     courage_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     try_next_skill: Mapped[str | None] = mapped_column(Text, nullable=True)
     try_next_example: Mapped[str | None] = mapped_column(Text, nullable=True)
+    zoe_recap: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript_notes_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Structured CEFR grading and progress columns
