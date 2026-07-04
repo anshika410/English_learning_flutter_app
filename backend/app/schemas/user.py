@@ -68,6 +68,11 @@ class PlacementSubResponse(BaseModel):
     created_at: str
 
 
+class NextTopics(BaseModel):
+    recommended: str
+    alternatives: list[str] = []
+
+
 class UserMemoryResponse(BaseModel):
     id: str
     device_id: str
@@ -80,6 +85,7 @@ class UserMemoryResponse(BaseModel):
     owned: list[str] = []
     emerging: list[str] = []
     due_next: dict = {}
+    next_topics: NextTopics | None = None
     effort: dict = {"times_spoken_total": 0}
     sightings: dict = {}
     strength: dict = {}

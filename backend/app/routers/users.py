@@ -45,6 +45,23 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
             created_at=latest_placement.created_at.isoformat(),
         )
 
+    # Compute suggested next topics (avoid recently used)
+    from ..core.curriculum_data import LEVEL_TOPICS
+    level_code = (user.level or "A0").upper()
+    all_topics = LEVEL_TOPICS.get(level_code, [])
+    valid_topics = [t for t in all_topics if t.get("name")]
+    used = set(last_topics_list)
+    fresh = [t["name"] for t in valid_topics if t["name"] not in used]
+    if not fresh:
+        fresh = [t["name"] for t in valid_topics]
+    import random
+    random.shuffle(fresh)
+    recommended = fresh[0] if fresh else None
+    alternatives = fresh[1:4] if len(fresh) > 1 else []
+
+    from ..schemas.user import NextTopics
+    next_topics_obj = NextTopics(recommended=recommended, alternatives=alternatives) if recommended else None
+
     return UserMemoryResponse(
         id=user.id,
         device_id=user.device_id,
@@ -57,6 +74,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         owned=progress.get("owned", []),
         emerging=progress.get("emerging", []),
         due_next=due,
+        next_topics=next_topics_obj,
         effort=progress.get("effort", {"times_spoken_total": 0}),
         sightings=progress.get("sightings", {}),
         strength=progress.get("strength", {}),
