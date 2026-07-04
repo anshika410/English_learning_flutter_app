@@ -3,11 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import '../services/api_service.dart';
+import '../services/continuous_stt_service.dart';
 import '../services/native_stt_service.dart';
 import '../services/backend_llm_service.dart';
 import '../services/tts_manager.dart';
 import '../theme/ella_theme.dart';
-import '../theme/ella_responsive.dart';
 import '../widgets/waveform_icon.dart';
 import '../widgets/offline_banner.dart';
 import 'result_screen.dart';
@@ -21,13 +21,8 @@ enum _MascotState { speaking, listening, thinking }
 class _PlacementBubbleEntry {
   final String text;
   final bool isElla;
-  final DateTime createdAt;
 
-  const _PlacementBubbleEntry({
-    required this.text,
-    required this.isElla,
-    required this.createdAt,
-  });
+  const _PlacementBubbleEntry({required this.text, required this.isElla});
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -40,8 +35,6 @@ class PlacementScreen extends StatefulWidget {
 }
 
 class _PlacementScreenState extends State<PlacementScreen> {
-  static const String _mascotHeroTag = 'zoe-onboarding-placement-mascot';
-
   static const String _openingLine =
       'Hey, I am Zoe and I love a good conversation. What name should I call you with?';
 
@@ -84,10 +77,6 @@ class _PlacementScreenState extends State<PlacementScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_didPrecacheMascotImages) return;
-    // Grab any name/age already set by OnboardingScreen
-    final provider = context.read<ChatProvider>();
-    _userName = provider.userName;
-    _userAge = provider.userAge;
     precacheImage(
       const AssetImage('assets/mascot-animations/speaking.webp'),
       context,
@@ -135,11 +124,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
 
     setState(() {
       _history.add(
-        _PlacementBubbleEntry(
-          text: _openingLine,
-          isElla: true,
-          createdAt: DateTime.now(),
-        ),
+        const _PlacementBubbleEntry(text: _openingLine, isElla: true),
       );
       _mascotState = _MascotState.speaking;
       _isZoeSpeaking = true;
@@ -167,13 +152,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
     _textCtrl.clear();
 
     setState(() {
-      _history.add(
-        _PlacementBubbleEntry(
-          text: trimmed,
-          isElla: false,
-          createdAt: DateTime.now(),
-        ),
-      );
+      _history.add(_PlacementBubbleEntry(text: trimmed, isElla: false));
       _isListening = false;
       _currentTranscript = '';
       _isKeyboardMode = false;
@@ -197,34 +176,20 @@ class _PlacementScreenState extends State<PlacementScreen> {
     });
 
     try {
-      final result = await _llm.sendPlacementTurn(
-        messages: _apiMessages,
-        name: _userName,
-        age: int.tryParse(_userAge ?? ''),
-      );
+      final result = await _llm.sendPlacementTurn(messages: _apiMessages);
 
       if (!mounted) return;
       if (result == null) return;
 
       if (result.isComplete) {
-        // Keep onboarding as the source of truth. Placement extraction can fill
-        // blanks, but it should not replace the name the student already typed.
-        if ((_userName == null || _userName!.trim().isEmpty) &&
-            result.extractedName != null &&
-            result.extractedName!.trim().isNotEmpty) {
-          _userName = result.extractedName;
-        }
-        if ((_userAge == null || _userAge!.trim().isEmpty) &&
-            result.extractedAge != null &&
-            result.extractedAge!.trim().isNotEmpty) {
-          _userAge = result.extractedAge;
-        }
+        // Extract student info from LLM final assessment before navigating
+        if (result.extractedName != null) _userName = result.extractedName;
+        if (result.extractedAge != null) _userAge = result.extractedAge;
         // LLM has assessed the student — navigate to result
         await _goToResult(
           levelCode: result.levelCode ?? 'A2',
           levelName: result.levelName,
-          levelDescription:
-              result.levelDescription ?? result.evidenceSummary,
+          levelDescription: result.levelDescription,
           confidence: result.confidence,
           interests: result.interests,
         );
@@ -237,13 +202,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
       // Add Zoe's reply to both histories
       _apiMessages.add({'role': 'model', 'content': reply});
       setState(() {
-        _history.add(
-          _PlacementBubbleEntry(
-            text: reply,
-            isElla: true,
-            createdAt: DateTime.now(),
-          ),
-        );
+        _history.add(_PlacementBubbleEntry(text: reply, isElla: true));
         _mascotState = _MascotState.speaking;
         _isZoeSpeaking = true;
         _isLlmThinking = false;
@@ -267,11 +226,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
       _apiMessages.add({'role': 'model', 'content': fallback});
       setState(() {
         _history.add(
-          _PlacementBubbleEntry(
-            text: fallback,
-            isElla: true,
-            createdAt: DateTime.now(),
-          ),
+          const _PlacementBubbleEntry(text: fallback, isElla: true),
         );
         _mascotState = _MascotState.listening;
         _isZoeSpeaking = false;
@@ -304,30 +259,21 @@ class _PlacementScreenState extends State<PlacementScreen> {
         'You expressed yourself clearly and stayed engaged throughout the check.';
 
     if (!mounted) return;
-    final provider = context.read<ChatProvider>();
-    final profileName = provider.userName?.trim().isNotEmpty == true
-        ? provider.userName
-        : _userName;
-    final profileAge = provider.userAge?.trim().isNotEmpty == true
-        ? provider.userAge
-        : _userAge;
-
     // Save profile into ChatProvider for use across the app
-    provider.setUserProfile(
-      name: profileName,
-      age: profileAge,
+    context.read<ChatProvider>().setUserProfile(
+      name: _userName,
+      age: _userAge,
       location: _userLocation,
       level: level,
       levelLabel: resolvedLevelLabel,
-      interests: interests,
     );
 
     // Persist to backend (fire-and-forget — don't block navigation on failure)
     final api = ApiService.instance;
     api.ensureAuthenticated().then((_) {
       api.updateProfile(
-        name: profileName,
-        age: profileAge,
+        name: _userName,
+        age: _userAge,
         location: _userLocation,
       );
       api.savePlacement(
@@ -344,9 +290,10 @@ class _PlacementScreenState extends State<PlacementScreen> {
         pageBuilder: (context, animation, secondaryAnimation) => ResultScreen(
           level: fallbackLabels.containsKey(level) ? level : 'A2',
           levelName: resolvedLevelLabel,
-          name: profileName ?? 'there',
+          highlight: highlight,
+          name: _userName ?? 'there',
           city: _userLocation,
-          interests: interests,
+          age: _userAge,
         ),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -415,67 +362,9 @@ class _PlacementScreenState extends State<PlacementScreen> {
     }
   }
 
-  void _showQuitSheet(BuildContext context) {
-    void onExit(BuildContext ctx) {
-      Navigator.of(ctx).pop();
-      Navigator.of(context).pop();
-    }
-
-    if (EllaResponsive.isWide(context)) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: _QuitSheetContent(
-                showDragHandle: false,
-                onExit: () => onExit(ctx),
-                onKeepGoing: () => Navigator.of(ctx).pop(),
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => Container(
-          decoration: const BoxDecoration(
-            color: EllaColors.neutralBg,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-          child: SafeArea(
-            top: false,
-            child: _QuitSheetContent(
-              showDragHandle: true,
-              onExit: () => onExit(ctx),
-              onKeepGoing: () => Navigator.of(ctx).pop(),
-            ),
-          ),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isWide = EllaResponsive.isWide(context);
-
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _showQuitSheet(context);
-      },
-      child: Scaffold(
+    return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: EllaColors.neutralBg,
       body: Column(
@@ -484,26 +373,37 @@ class _PlacementScreenState extends State<PlacementScreen> {
           Expanded(
             child: SafeArea(
               top: false,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final fullHeight = constraints.maxHeight;
-                  final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-                  // On web, keyboard mode doesn't trigger mascot shrink
-                  // (no OS keyboard pops up); only shrink if a real inset appears.
-                  final shrinkMascot = isWide
-                      ? bottomInset > 0
-                      : (bottomInset > 0 || _isKeyboardMode);
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fullHeight = constraints.maxHeight;
+            // Shrink mascot whenever keyboard is visible (reactive to MediaQuery)
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+            final shrinkMascot = bottomInset > 0 || _isKeyboardMode;
 
-                  final contentColumn = Column(
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: Stack(
+                children: [
+                  // Layer 1: Dashed grid background
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(painter: _DashedGridPainter()),
+                    ),
+                  ),
+
+                  // Layer 2: Main content
+                  Column(
                     children: [
-                      // ── Subtitle header ──
+                      // ── Subtitle header (replaces "Placement Test") ──
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                         child: Text(
                           "Zoe wants to understand what's your current English level",
                           textAlign: TextAlign.center,
                           style: GoogleFonts.inconsolata(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w500,
                             color: EllaColors.neutralSecondary,
                             height: 1.4,
@@ -511,22 +411,17 @@ class _PlacementScreenState extends State<PlacementScreen> {
                         ),
                       ),
 
-                      // ── Mascot zone ──
+                      // ── Mascot zone: 40% normally, 25% when keyboard open ──
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 420),
+                        duration: const Duration(milliseconds: 200),
                         curve: Curves.easeOut,
                         height: shrinkMascot
                             ? fullHeight * 0.25
                             : fullHeight * 0.40,
                         child: Center(
-                          child: Hero(
-                            tag: _mascotHeroTag,
-                            createRectTween: (begin, end) =>
-                                MaterialRectArcTween(begin: begin, end: end),
-                            child: _PlacementMascot(
-                              mascotState: _mascotState,
-                              shrink: shrinkMascot,
-                            ),
+                          child: _PlacementMascot(
+                            mascotState: _mascotState,
+                            shrink: shrinkMascot,
                           ),
                         ),
                       ),
@@ -553,34 +448,22 @@ class _PlacementScreenState extends State<PlacementScreen> {
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                               ),
-                              child: Scrollbar(
+                              child: ListView.separated(
                                 controller: _scrollCtrl,
-                                thumbVisibility: false,
-                                child: ListView.separated(
-                                  controller: _scrollCtrl,
-                                  padding: const EdgeInsets.only(
-                                    top: 8,
-                                    bottom: 16,
-                                  ),
-                                  itemCount: _history.length,
-                                  separatorBuilder: (_, index) =>
-                                      const SizedBox(height: 10),
-                                  itemBuilder: (context, index) {
-                                    final entry = _history[index];
-                                    final hasUserReply = _history.any(
-                                      (item) => !item.isElla,
-                                    );
-                                    return _PlacementCaption(
-                                      key: ValueKey(entry.createdAt),
-                                      text: entry.text,
-                                      isElla: entry.isElla,
-                                      isCentered: isWide &&
-                                          entry.isElla &&
-                                          index == 0 &&
-                                          !hasUserReply,
-                                    );
-                                  },
+                                padding: const EdgeInsets.only(
+                                  top: 8,
+                                  bottom: 16,
                                 ),
+                                itemCount: _history.length,
+                                separatorBuilder: (_, index) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final entry = _history[index];
+                                  return _PlacementCaption(
+                                    text: entry.text,
+                                    isElla: entry.isElla,
+                                  );
+                                },
                               ),
                             ),
                           ),
@@ -594,316 +477,263 @@ class _PlacementScreenState extends State<PlacementScreen> {
                           child: _PlacementCaption(
                             text: _currentTranscript,
                             isElla: false,
-                            animateIn: false,
+                          ),
+                        ),
+
+                      // ── LLM thinking indicator ──
+                      if (_isLlmThinking)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Zoe is thinking…',
+                            style: GoogleFonts.inconsolata(
+                              fontSize: 12,
+                              color: EllaColors.neutralMuted,
+                            ),
                           ),
                         ),
 
                       // ── Bottom input bar ──
-                      _buildInputBar(isWide),
+                      _buildInputBar(),
                     ],
-                  );
-
-                  return AnimatedPadding(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    padding: EdgeInsets.only(bottom: bottomInset),
-                    child: Stack(
-                      children: [
-                        // Layer 1: Dashed grid background (full viewport)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: CustomPaint(painter: _DashedGridPainter()),
-                          ),
-                        ),
-
-                        // Layer 2: Main content, constrained to 768px on wide
-                        isWide
-                            ? Center(
-                                child: SizedBox(
-                                  width: 768,
-                                  child: contentColumn,
-                                ),
-                              )
-                            : contentColumn,
-                      ],
-                    ),
-                  );
-                },
+                  ),
+                ],
               ),
-            ),
-          ),
+            );
+          },
+        ),
+      ),    // SafeArea
+          ), // Expanded
         ],
-      ),
-      ),   // Scaffold
-    );     // PopScope
+      ),    // Column
+    );
   }
 
-  Widget _buildInputBar(bool isWide) {
+  Widget _buildInputBar() {
     return Container(
-      padding: EdgeInsets.fromLTRB(isWide ? 24 : 20, 10, isWide ? 24 : 20, 24),
-      child: _isKeyboardMode ? _buildKeyboardRow(isWide) : _buildMicRow(isWide),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+      child: _isKeyboardMode ? _buildKeyboardRow() : _buildMicRow(),
     );
   }
 
-  Widget _buildMicRow(bool isWide) {
+  Widget _buildMicRow() {
     final bool blocked = _isLlmThinking;
-
-    final keyboardIcon = GestureDetector(
-      onTap: blocked
-          ? null
-          : () {
-              setState(() => _isKeyboardMode = true);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _scrollToBottom();
-              });
-              Future.delayed(const Duration(milliseconds: 50), () {
-                if (mounted) _textFocusNode.requestFocus();
-              });
-            },
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: EllaColors.neutralSurface,
-          border: Border.all(
-            color: EllaColors.neutralBorder,
-            width: 1.5,
-          ),
-        ),
-        child: const Icon(
-          Icons.keyboard_alt_outlined,
-          size: 22,
-          color: EllaColors.neutralSecondary,
-        ),
-      ),
-    );
-
-    final micButton = GestureDetector(
-      onTap: blocked ? null : _toggleMicListening,
-      child: SizedBox(
-        width: 100,
-        height: 100,
-        child: Center(
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              if (_isListening && _isRecognizing)
-                const _MicPulseRing(color: EllaColors.mangoMain),
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: blocked
-                      ? EllaColors.neutralBorder
-                      : (_isListening && _isRecognizing
-                            ? EllaColors.mangoDark
-                            : EllaColors.mangoMain),
-                  border: Border.all(
-                    color: blocked
-                        ? EllaColors.neutralSecondary
-                        : EllaColors.mangoDark,
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: blocked
-                          ? EllaColors.neutralSecondary
-                          : EllaColors.mangoDark,
-                      offset: _isListening && _isRecognizing
-                          ? const Offset(0, 1)
-                          : const Offset(0, 5),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
-                child: _isListening && _isRecognizing
-                    ? const WaveformIcon()
-                    : Icon(
-                        Icons.mic_rounded,
-                        size: 28,
-                        color: blocked
-                            ? EllaColors.neutralSecondary
-                            : EllaColors.neutralPrimary,
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    final label = Text(
-      _isListening
-          ? (_isRecognizing ? 'Listening...' : 'Tap to Speak')
-          : 'Tap to Speak',
-      style: GoogleFonts.baloo2(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: _isListening ? EllaColors.mangoDark : EllaColors.neutralMuted,
-      ),
-    );
-
-    if (isWide) {
-      // On wide: mic centered independently; keyboard icon 48px to its left via Stack
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          label,
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 100,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Center(child: micButton),
-                Center(
-                  child: Transform.translate(
-                    // keyboard icon right edge 48px from mic center:
-                    // -(48px gap + 24px half-icon-width) = -72px
-                    offset: const Offset(-72, 0),
-                    child: keyboardIcon,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Mobile: original Stack layout
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        label,
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 64,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: keyboardIcon,
-              ),
-              Center(child: micButton),
-            ],
+        Text(
+          _isListening
+              ? (_isRecognizing ? 'Listening...' : 'Tap to speak')
+              : 'Tap to speak',
+          style: GoogleFonts.baloo2(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: _isListening
+                ? EllaColors.mangoDark
+                : EllaColors.neutralMuted,
           ),
         ),
+        const SizedBox(height: 8),
+        SizedBox(
+      height: 64,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: blocked
+                  ? null
+                  : () {
+                      setState(() => _isKeyboardMode = true);
+                      Future.delayed(const Duration(milliseconds: 50), () {
+                        if (mounted) _textFocusNode.requestFocus();
+                      });
+                    },
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: EllaColors.neutralSurface,
+                  border: Border.all(
+                    color: EllaColors.neutralBorder,
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.keyboard_alt_outlined,
+                  size: 22,
+                  color: EllaColors.neutralSecondary,
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: GestureDetector(
+              onTap: blocked ? null : _toggleMicListening,
+              child: SizedBox(
+                width: 100,
+                height: 100,
+                child: Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (_isListening && _isRecognizing)
+                        const _MicPulseRing(color: EllaColors.mangoMain),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: blocked
+                              ? EllaColors.neutralBorder
+                              : (_isListening && _isRecognizing
+                                    ? EllaColors.mangoDark
+                                    : EllaColors.mangoMain),
+                          border: Border.all(
+                            color: blocked
+                                ? EllaColors.neutralSecondary
+                                : EllaColors.mangoDark,
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: blocked
+                                  ? EllaColors.neutralSecondary
+                                  : EllaColors.mangoDark,
+                              offset: _isListening && _isRecognizing
+                                  ? const Offset(0, 1)
+                                  : const Offset(0, 5),
+                              blurRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: _isListening && _isRecognizing
+                            ? const WaveformIcon()
+                            : Icon(
+                                Icons.mic_rounded,
+                                size: 28,
+                                color: blocked
+                                    ? EllaColors.neutralSecondary
+                                    : EllaColors.neutralPrimary,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
       ],
     );
   }
 
-  Widget _buildKeyboardRow(bool isWide) {
-    final backButton = GestureDetector(
-      onTap: () {
-        setState(() => _isKeyboardMode = false);
-        _textFocusNode.unfocus();
-      },
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: EllaColors.neutralSurface,
-          border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
-        ),
-        child: const Icon(
-          Icons.arrow_back_rounded,
-          size: 22,
-          color: EllaColors.neutralSecondary,
-        ),
-      ),
-    );
-
-    final sendButton = GestureDetector(
-      onTap: (_isZoeSpeaking || _isLlmThinking)
-          ? null
-          : () => _handleUserResponse(_textCtrl.text),
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: EllaColors.mangoMain,
-          border: Border.all(color: EllaColors.mangoDark, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: EllaColors.mangoDark,
-              offset: Offset(0, 5),
-              blurRadius: 0,
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.send_rounded,
-          size: 20,
-          color: EllaColors.neutralPrimary,
-        ),
-      ),
-    );
-
-    final textField = TextField(
-      controller: _textCtrl,
-      focusNode: _textFocusNode,
-      textInputAction: TextInputAction.send,
-      autofocus: true,
-      onSubmitted: _handleUserResponse,
-      style: GoogleFonts.baloo2(
-        fontSize: 15,
-        fontWeight: FontWeight.w500,
-        color: EllaColors.neutralPrimary,
-      ),
-      decoration: InputDecoration(
-        hintText: 'Type your reply…',
-        hintStyle: GoogleFonts.baloo2(
-          fontSize: 15,
-          color: EllaColors.neutralMuted,
-        ),
-        filled: true,
-        fillColor: EllaColors.neutralSurface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(
-            color: EllaColors.neutralBorder,
-            width: 1.5,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(
-            color: EllaColors.neutralBorder,
-            width: 1.5,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(
-            color: EllaColors.skyMain,
-            width: 1.5,
-          ),
-        ),
-      ),
-    );
-
-    final row = Row(
+  Widget _buildKeyboardRow() {
+    return Row(
       children: [
-        backButton,
+        GestureDetector(
+          onTap: () {
+            setState(() => _isKeyboardMode = false);
+            _textFocusNode.unfocus();
+          },
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: EllaColors.neutralSurface,
+              border: Border.all(color: EllaColors.neutralBorder, width: 1.5),
+            ),
+            child: const Icon(
+              Icons.arrow_back_rounded,
+              size: 22,
+              color: EllaColors.neutralSecondary,
+            ),
+          ),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: textField),
+        Expanded(
+          child: TextField(
+            controller: _textCtrl,
+            focusNode: _textFocusNode,
+            textInputAction: TextInputAction.send,
+            autofocus: true,
+            onSubmitted: _handleUserResponse,
+            style: GoogleFonts.baloo2(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: EllaColors.neutralPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Type your reply…',
+              hintStyle: GoogleFonts.baloo2(
+                fontSize: 15,
+                color: EllaColors.neutralMuted,
+              ),
+              filled: true,
+              fillColor: EllaColors.neutralSurface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(
+                  color: EllaColors.neutralBorder,
+                  width: 1.5,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(
+                  color: EllaColors.neutralBorder,
+                  width: 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(
+                  color: EllaColors.skyMain,
+                  width: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
         const SizedBox(width: 8),
-        sendButton,
+        GestureDetector(
+          onTap: (_isZoeSpeaking || _isLlmThinking)
+              ? null
+              : () => _handleUserResponse(_textCtrl.text),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: EllaColors.mangoMain,
+              border: Border.all(color: EllaColors.mangoDark, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: EllaColors.mangoDark,
+                  offset: Offset(0, 5),
+                  blurRadius: 0,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.send_rounded,
+              size: 20,
+              color: EllaColors.neutralPrimary,
+            ),
+          ),
+        ),
       ],
     );
-
-    return row;
   }
 }
 
@@ -972,22 +802,16 @@ class _PlacementMascot extends StatelessWidget {
 class _PlacementCaption extends StatelessWidget {
   final String text;
   final bool isElla;
-  final bool isCentered;
-  final bool animateIn;
 
-  const _PlacementCaption({
-    super.key,
-    required this.text,
-    required this.isElla,
-    this.isCentered = false,
-    this.animateIn = true,
-  });
+  const _PlacementCaption({required this.text, required this.isElla});
 
   @override
   Widget build(BuildContext context) {
-    final bubble = ConstrainedBox(
+    return Align(
+      alignment: isElla ? Alignment.centerLeft : Alignment.centerRight,
+      child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: (EllaResponsive.isWide(context) ? 768.0 : MediaQuery.of(context).size.width) * 0.80,
+          maxWidth: MediaQuery.of(context).size.width * 0.80,
         ),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -1051,42 +875,7 @@ class _PlacementCaption extends StatelessWidget {
             ],
           ),
         ),
-      );
-
-    final alignment = isCentered
-        ? Alignment.center
-        : (isElla ? Alignment.centerLeft : Alignment.centerRight);
-
-    if (!animateIn) {
-      return AnimatedAlign(
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeInOutCubic,
-        alignment: alignment,
-        child: bubble,
-      );
-    }
-
-    return TweenAnimationBuilder<double>(
-      key: key,
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOut,
-      builder: (context, value, child) {
-        final slideX = isCentered ? 0.0 : (isElla ? -1 : 1) * (1 - value) * 40;
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(slideX, 10 * (1 - value)),
-            child: AnimatedAlign(
-              duration: const Duration(milliseconds: 320),
-              curve: Curves.easeInOutCubic,
-              alignment: alignment,
-              child: child,
-            ),
-          ),
-        );
-      },
-      child: bubble,
+      ),
     );
   }
 }
@@ -1213,135 +1002,4 @@ class _DashedGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedGridPainter old) => false;
-}
-
-// ─── Quit Sheet ───────────────────────────────────────────────────────────────
-
-class _QuitSheetContent extends StatelessWidget {
-  final bool showDragHandle;
-  final VoidCallback onExit;
-  final VoidCallback onKeepGoing;
-
-  const _QuitSheetContent({
-    required this.showDragHandle,
-    required this.onExit,
-    required this.onKeepGoing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showDragHandle) ...[
-          const SizedBox(height: 12),
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: EllaColors.neutralBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ] else
-          const SizedBox(height: 4),
-        const Text(
-          'Exit early?',
-          style: TextStyle(
-            fontFamily: 'Chillax',
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: EllaColors.neutralPrimary,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          "Your progress won't be saved — you'll start the placement check again next time.",
-          style: GoogleFonts.baloo2(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: EllaColors.neutralSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            GestureDetector(
-              onTap: onExit,
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  color: EllaColors.error,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(20),
-                    bottomRight: Radius.circular(4),
-                    bottomLeft: Radius.circular(20),
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: EllaColors.roseDark,
-                      offset: Offset(0, 4),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    'EXIT',
-                    style: GoogleFonts.baloo2(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: onKeepGoing,
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(4),
-                    bottomRight: Radius.circular(20),
-                    bottomLeft: Radius.circular(4),
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: EllaColors.neutralBorder,
-                      offset: Offset(0, 4),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    'KEEP GOING',
-                    style: GoogleFonts.baloo2(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: EllaColors.neutralSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 }
