@@ -1,9 +1,9 @@
-- [ ] Update LLM Judge prompt in `frontend/assets/prompts/end-result-prompt.md`
-- [ ] Add `zoe_recap` column to `backend/app/models/session_analysis.py`
-- [ ] Update `llm.py` and `user.py` Schemas
-- [ ] Save `zoe_recap` in `backend/app/routers/analysis_shared.py`
-- [ ] Retrieve and expose `last_time_recap` in `backend/app/routers/users.py`
-- [ ] Update loop simulator `docs/loop-simulator.html` to show `last_time_recap` in Memory Tab
-- [ ] Test compile checks locally
-- [ ] Commit, push, and deploy updates to the production server
-- [ ] Verify that zoe_recap is generated at the end of a conversation
+- [x] Update LLM Judge prompt in `frontend/assets/prompts/end-result-prompt.md`
+- [x] Add `zoe_recap` column to `backend/app/models/session_analysis.py`
+- [x] Update `llm.py` and `user.py` Schemas
+- [x] Save `zoe_recap` in `backend/app/routers/analysis_shared.py`
+- [x] Retrieve and expose `last_time_recap` in `backend/app/routers/users.py`
+- [x] Update loop simulator `docs/loop-simulator.html` to show `last_time_recap` in Memory Tab
+- [x] Test compile checks locally
+- [x] Commit, push, and deploy updates to the production server
+- [x] Verify that zoe_recap is generated at the end of a conversation
