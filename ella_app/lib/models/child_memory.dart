@@ -67,6 +67,68 @@ class DueNext {
   Map<String, dynamic> toJson() => {'primary': primary, 'watching': watching};
 }
 
+/// A single home-screen topic suggestion. `name` is the full topic sent to the
+/// backend (`POST /session`); `label` is the short chip/CTA text shown to the
+/// child. `icon` is a slug (asset name, may be unmapped) and `starter` is Zoe's
+/// opening line for the topic (informational — the server issues its own).
+class TopicChoice {
+  final String name;
+  final String label;
+  final String icon;
+  final String starter;
+
+  const TopicChoice({
+    required this.name,
+    this.label = '',
+    this.icon = '',
+    this.starter = '',
+  });
+
+  /// The text to show on chips / the CTA — the short label, or the full name
+  /// when no label was provided.
+  String get display => label.isNotEmpty ? label : name;
+
+  factory TopicChoice.fromJson(Map<String, dynamic> j) => TopicChoice(
+    name: j['name'] as String? ?? '',
+    label: j['label'] as String? ?? '',
+    icon: j['icon'] as String? ?? '',
+    starter: j['starter'] as String? ?? '',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'label': label,
+    'icon': icon,
+    'starter': starter,
+  };
+}
+
+class NextTopics {
+  final TopicChoice? recommended;
+  final List<TopicChoice> alternatives;
+
+  const NextTopics({this.recommended, this.alternatives = const []});
+
+  static const NextTopics empty = NextTopics();
+
+  factory NextTopics.fromJson(Map<String, dynamic> j) => NextTopics(
+    recommended: j['recommended'] is Map
+        ? TopicChoice.fromJson(
+            Map<String, dynamic>.from(j['recommended'] as Map),
+          )
+        : null,
+    alternatives: [
+      for (final item in (j['alternatives'] as List?) ?? const [])
+        TopicChoice.fromJson(Map<String, dynamic>.from(item as Map)),
+    ],
+  );
+
+  Map<String, dynamic> toJson() => {
+    'recommended': recommended?.toJson(),
+    'alternatives': [for (final a in alternatives) a.toJson()],
+  };
+}
+
 class MemoryState {
   final String childId;
   final String level; // 'A1'..'C2'
@@ -76,6 +138,7 @@ class MemoryState {
   final DueNext dueNext;
   final List<String> lastTopics; // ring buffer, max 5
   final String lastTimeRecap; // server-authored recap line for the home screen
+  final NextTopics nextTopics; // recommended + alternative topics for home
   final String interests; // free-text, feeds topic picker
   final Map<String, int> sightings; // per-skill qualifying count
   final Map<String, int> strength; // per-skill unprompted count
@@ -93,6 +156,7 @@ class MemoryState {
     this.dueNext = const DueNext(),
     this.lastTopics = const [],
     this.lastTimeRecap = '',
+    this.nextTopics = NextTopics.empty,
     this.interests = '',
     this.sightings = const {},
     this.strength = const {},
@@ -111,6 +175,7 @@ class MemoryState {
     DueNext? dueNext,
     List<String>? lastTopics,
     String? lastTimeRecap,
+    NextTopics? nextTopics,
     String? interests,
     Map<String, int>? sightings,
     Map<String, int>? strength,
@@ -127,6 +192,7 @@ class MemoryState {
     dueNext: dueNext ?? this.dueNext,
     lastTopics: lastTopics ?? this.lastTopics,
     lastTimeRecap: lastTimeRecap ?? this.lastTimeRecap,
+    nextTopics: nextTopics ?? this.nextTopics,
     interests: interests ?? this.interests,
     sightings: sightings ?? this.sightings,
     strength: strength ?? this.strength,
@@ -154,6 +220,11 @@ class MemoryState {
       dueNext: due,
       lastTopics: List<String>.from((j['last_topics'] as List?) ?? []),
       lastTimeRecap: j['last_time_recap'] as String? ?? '',
+      nextTopics: j['next_topics'] is Map
+          ? NextTopics.fromJson(
+              Map<String, dynamic>.from(j['next_topics'] as Map),
+            )
+          : NextTopics.empty,
       interests: j['interests'] as String? ?? '',
       sightings: Map<String, int>.from(
         (j['sightings'] as Map?)?.map(
@@ -188,6 +259,7 @@ class MemoryState {
     'emerging': emerging,
     'due_next': dueNext.toJson(),
     'last_topics': lastTopics,
+    'next_topics': nextTopics.toJson(),
     'sightings': sightings,
     'strength': strength,
     'last_seen': lastSeen,

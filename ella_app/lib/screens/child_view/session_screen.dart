@@ -8,10 +8,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/service_providers.dart';
+import '../../services/audio_service.dart';
 import 'widgets/conversation_view.dart';
 import 'widgets/garden_sky_background.dart';
 
@@ -94,14 +97,69 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     unawaited(notifier.endChat().catchError(_snack));
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
+    // Pop this screen, then open the garden on the NEXT frame. Popping and
+    // pushing in the same callback reparents internal (GlobalKey) elements in a
+    // bad order — the framework's inactive-element tracking corrupts and later
+    // trips `_elements.contains(element)` when the garden is popped (back).
+    final onEnded = widget.onEnded;
     Navigator.of(context).pop();
-    widget.onEnded?.call();
+    if (onEnded != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => onEnded());
+    }
   }
 
   void _snack(Object e) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
+  }
+
+  /// Whether a real conversation is under way (at least one non-system turn and
+  /// not already finishing) — the case where backing out needs a confirmation.
+  bool _hasActiveChat(ChatState s) =>
+      !_ending &&
+      !s.sessionEnded &&
+      s.messages.any((m) => m.sender != MessageSender.system);
+
+  /// Back pressed mid-chat: confirm, then discard the in-progress chat (no
+  /// scoring) so any topic picked next starts a fresh session, and leave.
+  Future<void> _confirmExit() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: EllaColors.surface,
+        title: Text('Leave this chat?', style: EllaTextStyles.titleSmall),
+        content: Text(
+          "If you go back now, this chat won't be saved.",
+          style: EllaTextStyles.bodyBase,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              playTapClick();
+              Navigator.of(dialogContext).pop(false);
+            },
+            child: Text(
+              'Keep talking',
+              style: EllaTextStyles.button.copyWith(color: EllaColors.greenDeep),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              playTapClick();
+              Navigator.of(dialogContext).pop(true);
+            },
+            child: Text(
+              'Leave',
+              style: EllaTextStyles.button.copyWith(color: EllaColors.berryDark),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (leave != true || !mounted) return;
+    await ref.read(chatProvider.notifier).abandonSession();
+    if (mounted) Navigator.of(context).pop();
   }
 
   // ── ChatState → display mapping ──────────────────────────────────────────────
@@ -128,25 +186,35 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartSession());
 
     final chatAsync = ref.watch(chatProvider);
+    final s = chatAsync.asData?.value;
+    final active = s != null && _hasActiveChat(s);
 
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: EllaColors.surfaceVariant,
-      body: chatAsync.when(
-        loading: () => const GardenSkyBackground(
-          child: Center(
-            child: CircularProgressIndicator(color: EllaColors.berryDark),
-          ),
-        ),
-        error: (e, _) => GardenSkyBackground(
-          child: Center(
-            child: Text(
-              'Error: $e',
-              style: const TextStyle(color: EllaColors.ink),
+    return PopScope(
+      // Block system/predictive back mid-chat so we can confirm first. The End
+      // button and the confirmed-exit path pop imperatively, which is unaffected.
+      canPop: !active,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit();
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: EllaColors.surfaceVariant,
+        body: chatAsync.when(
+          loading: () => const GardenSkyBackground(
+            child: Center(
+              child: CircularProgressIndicator(color: EllaColors.berryDark),
             ),
           ),
+          error: (e, _) => GardenSkyBackground(
+            child: Center(
+              child: Text(
+                'Error: $e',
+                style: const TextStyle(color: EllaColors.ink),
+              ),
+            ),
+          ),
+          data: (s) => _view(s),
         ),
-        data: (s) => _view(s),
       ),
     );
   }
@@ -196,7 +264,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       zoeLine: zoeLine,
       studentLine: studentLine,
       studentLive: studentLive,
-      zoeIsReading: s.status == ChatStatus.zoeSpeaking,
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,
@@ -204,6 +271,19 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       onToggleKeyboard: _toggleKeyboard,
       onSend: _sendTyped,
       onEnd: _endConversation,
+      onSpeakAgain:
+          (zoeLine != null && zoeLine.trim().isNotEmpty)
+          ? () => _speakLine(zoeLine)
+          : null,
     );
+  }
+
+  /// Replays a Zoe line via TTS — the "Speak Again" control on her bubble.
+  Future<void> _speakLine(String text) async {
+    final notifier = ref.read(chatProvider.notifier);
+    await notifier.stopSpeaking();
+    try {
+      await ref.read(ttsProvider).speak(text);
+    } catch (_) {}
   }
 }

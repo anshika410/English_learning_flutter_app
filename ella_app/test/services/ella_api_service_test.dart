@@ -1,7 +1,7 @@
-// Tests for the two home-screen additions to EllaApiService: getTopics()
-// (GET /users/me/topics, returned as a bare JSON array) and last_time_recap
-// parsing in getUserMemory (GET /users/me/memory). A mock http.Client feeds
-// canned responses; a seeded token skips the anonymous-auth round-trip.
+// Tests for the home-screen fields EllaApiService parses out of
+// GET /users/me/memory: last_time_recap and next_topics {recommended,
+// alternatives}. A mock http.Client feeds canned responses; a seeded token
+// skips the anonymous-auth round-trip.
 
 import 'dart:convert';
 
@@ -38,25 +38,43 @@ void main() {
     return EllaApiService(client: client);
   }
 
-  test('getTopics parses a bare JSON array of topic cards', () async {
-    final api = serviceReturning('/users/me/topics', [
-      {
-        'id': 'my_family',
-        'name': 'My family',
-        'theme': 'Self',
-        'description': 'Talk about your family.',
-        'icon': '👨‍👩‍👧',
-        'color': '#E0EDFF',
+  test('getUserMemory parses next_topics (recommended + alternatives)', () async {
+    final api = serviceReturning('/users/me/memory', {
+      'id': 'user-1',
+      'level': 'A1',
+      'next_topics': {
+        'recommended': {
+          'name': 'Food I like',
+          'label': 'Food',
+          'icon': 'a1-04-food-i-like',
+          'starter': 'What is your favourite food?',
+        },
+        'alternatives': [
+          {'name': 'My family', 'label': 'Family', 'icon': 'a1-02-my-family'},
+          {'name': 'My school', 'label': 'School'},
+        ],
       },
-      {'id': 'my_school', 'name': 'My school'},
-    ]);
+    });
 
-    final topics = await api.getTopics();
-    expect(topics, hasLength(2));
-    expect(topics.first.name, 'My family');
-    expect(topics.first.icon, '👨‍👩‍👧');
-    expect(topics.first.color, '#E0EDFF');
-    expect(topics[1].name, 'My school');
+    final memory = await api.getUserMemory();
+    expect(memory.nextTopics.recommended?.name, 'Food I like');
+    expect(memory.nextTopics.recommended?.label, 'Food');
+    expect(memory.nextTopics.recommended?.starter, 'What is your favourite food?');
+    expect(memory.nextTopics.alternatives, hasLength(2));
+    expect(memory.nextTopics.alternatives.first.name, 'My family');
+    expect(memory.nextTopics.alternatives.first.label, 'Family');
+    expect(memory.nextTopics.alternatives[1].display, 'School');
+  });
+
+  test('getUserMemory defaults next_topics to empty when absent', () async {
+    final api = serviceReturning('/users/me/memory', {
+      'id': 'user-1',
+      'level': 'A1',
+    });
+
+    final memory = await api.getUserMemory();
+    expect(memory.nextTopics.recommended, isNull);
+    expect(memory.nextTopics.alternatives, isEmpty);
   });
 
   test('getUserMemory reads last_time_recap', () async {

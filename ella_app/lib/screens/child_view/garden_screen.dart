@@ -24,6 +24,7 @@ import '../../services/sounds.dart';
 import 'session_screen.dart';
 import 'session_intro.dart';
 import 'widgets/garden_dialogs.dart';
+import 'widgets/zoe_mascot.dart';
 
 // Botanical Berry garden palette: environment sky easing into the garden-field
 // ground ramp (fieldLight → fieldMain → fieldDark).
@@ -174,7 +175,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () => ref.invalidate(gardenProvider),
+                  onPressed: withTapClick(() => ref.invalidate(gardenProvider)),
                   child: const Text('Retry'),
                 ),
               ],
@@ -271,10 +272,23 @@ class _GardenView extends ConsumerWidget {
             right: 0,
             bottom: 0,
             child: _LetsTalkBar(
-              // Same greeting as the Home screen, derived from memory.
-              text: buildHomeGreeting(
-                ref.watch(chatProvider).valueOrNull?.memory,
-              ),
+              // Same CTA copy as the Home button: "Let's Talk About {topic}",
+              // using the server's recommended topic (short label).
+              text: () {
+                final label = ref
+                    .watch(chatProvider)
+                    .valueOrNull
+                    ?.memory
+                    .nextTopics
+                    .recommended
+                    ?.display;
+                final topic = (label != null && label.isNotEmpty)
+                    ? label
+                    : data.recommendedTopic;
+                return topic.isNotEmpty
+                    ? "Let's Talk About $topic"
+                    : "Let's Talk";
+              }(),
               onTalk: () => _letsTalk(context, ref),
             ),
           ),
@@ -333,7 +347,7 @@ class _SkyHills extends StatelessWidget {
             left: 20,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
+              onTap: withTapClick(() => Navigator.of(context).maybePop()),
               child: Container(
                 padding: const EdgeInsets.only(
                   left: 10,
@@ -506,7 +520,7 @@ class _UnitLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: withTapClick(onTap),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -659,7 +673,7 @@ class _SkillTile extends StatelessWidget {
       bottom: spot.bottom,
       left: spot.left,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: withTapClick(onTap),
         behavior: HitTestBehavior.translucent,
         child: SvgPicture.asset(tileAsset, width: _tileW, height: _tileH),
       ),
@@ -779,7 +793,7 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
     if (asset.isEmpty) return const SizedBox.shrink();
 
     final art = GestureDetector(
-      onTap: widget.onTap,
+      onTap: withTapClick(widget.onTap),
       behavior: HitTestBehavior.opaque,
       child: SvgPicture.asset(asset, height: height, fit: BoxFit.contain),
     );
@@ -907,27 +921,19 @@ class _LetsTalkBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: EllaColors.greenLight,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  'assets/mascot-animations/juggling.webp',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
+              ZoeMascot(
+                mode: ZoeMascotMode.listening,
+                size: 44,
+                reducedMotion: MediaQuery.of(context).disableAnimations,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   line,
-                  style: EllaTextStyles.bodySmall.copyWith(
+                  style: EllaTextStyles.button.copyWith(
+                    fontSize: 15,
                     height: 1.2,
-                    color: EllaColors.textSecondary,
+                    color: EllaColors.ink,
                   ),
                 ),
               ),

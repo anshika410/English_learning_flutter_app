@@ -664,6 +664,31 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     await startSession(topicOverride: topicOverride);
   }
 
+  // ── Abandon (discard an in-progress chat without scoring) ─────────────────
+
+  /// Drops the current conversation without running the judge or touching
+  /// memory — used when the child backs out of a session mid-chat. Clears the
+  /// transcript and active session so the next topic starts a fresh session.
+  Future<void> abandonSession() async {
+    final cur = state.requireValue;
+    if (cur.messages.isEmpty && !cur.sessionEnded) return; // nothing to abandon
+    await stopSpeaking();
+    await stopListening();
+    state = AsyncValue.data(
+      cur.copyWith(
+        messages: const [],
+        turnCount: 0,
+        sessionEnded: false,
+        autoStep: 0,
+        clearTopic: true,
+        clearActiveSessionId: true,
+        clearChanges: true,
+        clearPartialStt: true,
+        status: ChatStatus.idle,
+      ),
+    );
+  }
+
   // ── Reset (in-memory only — does NOT touch Supabase) ──────────────────────
 
   Future<void> resetAll() async {

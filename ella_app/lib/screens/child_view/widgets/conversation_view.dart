@@ -12,7 +12,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
+import '../../../services/audio_service.dart';
 import 'garden_sky_background.dart';
+import 'speak_again_label.dart';
 import 'zoe_mascot.dart';
 
 enum ConvPhase { prepare, talking, ending }
@@ -29,7 +31,6 @@ class ConversationView extends StatelessWidget {
   final String? zoeLine;
   final String? studentLine;
   final bool studentLive; // student is mid-speech (live partial)
-  final bool zoeIsReading; // TTS playing → speaker glyph on Zoe's bubble
 
   final MicState micState;
   final bool textMode;
@@ -40,6 +41,10 @@ class ConversationView extends StatelessWidget {
   final VoidCallback? onSend;
   final VoidCallback? onEnd;
 
+  /// Replays Zoe's current line via TTS — powers the "Speak Again" control on
+  /// her bubble (shown for every Zoe line, including the goodbye).
+  final VoidCallback? onSpeakAgain;
+
   const ConversationView({
     super.key,
     required this.phase,
@@ -48,7 +53,6 @@ class ConversationView extends StatelessWidget {
     this.zoeLine,
     this.studentLine,
     this.studentLive = false,
-    this.zoeIsReading = false,
     this.micState = MicState.idle,
     this.textMode = false,
     this.textController,
@@ -56,6 +60,7 @@ class ConversationView extends StatelessWidget {
     this.onToggleKeyboard,
     this.onSend,
     this.onEnd,
+    this.onSpeakAgain,
   });
 
   @override
@@ -88,7 +93,7 @@ class ConversationView extends StatelessWidget {
                 _Bubbles(
                   zoeLine: zoeLine,
                   studentLine: studentLine,
-                  zoeIsReading: zoeIsReading,
+                  onSpeakAgain: onSpeakAgain,
                   maxWidth: bubbleMaxWidth,
                 ),
               const Spacer(),
@@ -123,13 +128,13 @@ class ConversationView extends StatelessWidget {
 class _Bubbles extends StatelessWidget {
   final String? zoeLine;
   final String? studentLine;
-  final bool zoeIsReading;
+  final VoidCallback? onSpeakAgain;
   final double maxWidth;
 
   const _Bubbles({
     required this.zoeLine,
     required this.studentLine,
-    required this.zoeIsReading,
+    required this.onSpeakAgain,
     required this.maxWidth,
   });
 
@@ -143,7 +148,7 @@ class _Bubbles extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
-              child: _ZoeBubble(text: zoeLine!, showSpeaker: zoeIsReading),
+              child: _ZoeBubble(text: zoeLine!, onSpeakAgain: onSpeakAgain),
             ),
           ),
         if (studentLine != null) ...[
@@ -163,8 +168,12 @@ class _Bubbles extends StatelessWidget {
 
 class _ZoeBubble extends StatelessWidget {
   final String text;
-  final bool showSpeaker;
-  const _ZoeBubble({required this.text, required this.showSpeaker});
+
+  /// Replays this line via TTS. When set, a "Speak Again" affordance shows above
+  /// the text (shown for every Zoe line, including the goodbye after end-chat).
+  final VoidCallback? onSpeakAgain;
+
+  const _ZoeBubble({required this.text, required this.onSpeakAgain});
 
   @override
   Widget build(BuildContext context) {
@@ -181,32 +190,15 @@ class _ZoeBubble extends StatelessWidget {
         ),
         border: Border.all(color: EllaColors.info, width: 2.5),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The icon's slot is always reserved (maintainSize) so toggling it
-          // when TTS starts/stops never reflows the bubble or the text.
-          Padding(
-            padding: const EdgeInsets.only(top: 2, right: 6),
-            child: Visibility(
-              visible: showSpeaker,
-              maintainSize: true,
-              maintainAnimation: true,
-              maintainState: true,
-              child: const Icon(
-                Icons.volume_up_rounded,
-                size: 16,
-                color: EllaColors.environmentDeep,
-              ),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              text,
-              style: EllaTextStyles.bodySemibold,
-            ),
-          ),
+          if (onSpeakAgain != null) ...[
+            SpeakAgainLabel(onTap: onSpeakAgain!),
+            const SizedBox(height: 4),
+          ],
+          Text(text, style: EllaTextStyles.bodySemibold),
         ],
       ),
     );
@@ -392,7 +384,7 @@ class _DockCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: withTapClick(onTap),
       child: Container(
         width: size,
         height: size,
@@ -434,7 +426,7 @@ class _MicButton extends StatelessWidget {
     final edge = busy ? EllaColors.textTertiary : EllaColors.berryDeep;
 
     return GestureDetector(
-      onTap: busy ? null : onTap,
+      onTap: busy ? null : withTapClick(onTap),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: size,
@@ -510,7 +502,7 @@ class _TextDock extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             GestureDetector(
-              onTap: onSend,
+              onTap: withTapClick(onSend),
               child: Container(
                 width: 48,
                 height: 48,
@@ -532,7 +524,7 @@ class _TextDock extends StatelessWidget {
         const SizedBox(height: 12),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: onSwitchToSpeaking,
+          onTap: withTapClick(onSwitchToSpeaking),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
