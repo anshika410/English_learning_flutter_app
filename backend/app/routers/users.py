@@ -3,11 +3,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
-from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse, PlacementSubResponse
+from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse, PlacementSubResponse, PlacementGardenResponse
 from ..core.curriculum_data import UNITS, active_step, unit_complete, bucket_of
 
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _compute_placement_garden(user: User) -> PlacementGardenResponse | None:
+    """
+    Compute placement garden stage from the user's latest placement confidence.
+    Returns None if no placement exists (client treats as "soil" state).
+    """
+    if not user.placements:
+        return None
+    latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+    confidence = latest_placement.confidence  # "high", "medium", "low", or None
+    if confidence in ("high", "medium"):
+        stage = "bloom"
+    else:
+        stage = "seed"  # "low" or unknown confidence → seed
+    return PlacementGardenResponse(
+        stage=stage,
+        level=latest_placement.level,
+        confidence=confidence,
+    )
 
 
 def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserMemoryResponse:
@@ -142,7 +162,8 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
 
     from ..schemas.user import NextTopics, NextTopicItem
     next_topics_obj = None
-    if fresh:
+    has_completed_onboarding = user.first_session_done or bool(user.placements)
+    if fresh and has_completed_onboarding:
         rec = _topic_item(fresh[0])
         alts = [_topic_item(t) for t in fresh[1:4]]
         next_topics_obj = NextTopics(
@@ -159,6 +180,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         interests=user.interests.split(",") if user.interests else [],
         last_time_recap=last_time_recap,
         placement=placement_data,
+        placement_garden=_compute_placement_garden(user),
         owned=progress.get("owned", []),
         emerging=progress.get("emerging", []),
         due_next=due,
@@ -173,7 +195,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     )
 
 
-async def _get_last_time_recap(user_id: str, db: AsyncSession) -> str | None:
+async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None) -> str | None:
     from ..models.conversation import Conversation
     from ..models.session_analysis import SessionAnalysis
     from sqlalchemy import select, desc
@@ -194,6 +216,13 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession) -> str | None:
                 return sa.zoe_recap
     except Exception:
         pass
+    
+    # Fallback: if no conversation recap exists but placement was done, use placement highlight
+    if user and user.placements:
+        latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+        if latest_placement.highlight:
+            return latest_placement.highlight
+    
     return None
 
 
@@ -202,7 +231,7 @@ async def get_profile(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    recap = await _get_last_time_recap(user.id, db)
+    recap = await _get_last_time_recap(user.id, db, user)
     return _to_memory_response(user, recap)
 
 
@@ -227,7 +256,7 @@ async def update_profile(
         
     db.add(user)
     await db.flush()
-    recap = await _get_last_time_recap(user.id, db)
+    recap = await _get_last_time_recap(user.id, db, user)
     return _to_memory_response(user, recap)
 
 
@@ -240,7 +269,7 @@ async def get_user_memory(
     Returns the student's full learning memory as a unified object.
     Combines profile, persona facts, skills progress, and next targets.
     """
-    recap = await _get_last_time_recap(user.id, db)
+    recap = await _get_last_time_recap(user.id, db, user)
     return _to_memory_response(user, recap)
 
 
@@ -338,10 +367,29 @@ async def get_user_garden(user: User = Depends(get_current_user)):
                 recommended_topic = plan["question"]
         except Exception:
             pass
+
+    # Compute placement garden stage (soil / seed / bloom)
+    placement_garden_data = None
+    if user.placements:
+        latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+        confidence = latest_placement.confidence  # "high", "medium", "low", or None
+        if confidence in ("high", "medium"):
+            stage = "bloom"
+        elif confidence == "low":
+            stage = "seed"
+        else:
+            stage = "seed"  # has placement but unknown confidence → treat as seed
+        placement_garden_data = PlacementGardenResponse(
+            stage=stage,
+            level=latest_placement.level,
+            confidence=confidence,
+        )
+    # No placement at all → stage is "soil" (returned as None / absent from response)
  
     return {
         "level": level,
         "recommended_topic": recommended_topic,
+        "placement_garden": placement_garden_data,
         "units": units_data
     }
 
@@ -374,6 +422,189 @@ async def get_primary_target(user: User = Depends(get_current_user)):
     skill_text = get_skill_text(primary_id, user.level)
     
     return PrimaryTargetResponse(id=primary_id, text=skill_text)
+
+
+class TodayRecapSuperSentence(BaseModel):
+    quote: str | None = None
+    note: str | None = None
+
+class TodayRecapCorrection(BaseModel):
+    student_said: str | None = None
+    corrected: str | None = None
+    highlight_word: str | None = None
+
+class TodayRecapResponse(BaseModel):
+    talks_today: int = 0
+    topic_name: str | None = None
+    topic_emoji: str | None = None
+    words_spoken_today: int = 0
+    super_sentence: TodayRecapSuperSentence | None = None
+    correction_highlight: TodayRecapCorrection | None = None
+
+
+# Topic → emoji mapping
+_TOPIC_EMOJI_MAP = {
+    "dog": "🐶", "animal": "🐶", "pet": "🐶",
+    "food": "🍕", "eat": "🍕", "cook": "🍕", "restaurant": "🍕", "lunch": "🍕", "breakfast": "🍕",
+    "school": "📚", "class": "📚", "study": "📚", "education": "📚",
+    "cricket": "🏏", "sport": "🏏", "game": "🏏",
+    "family": "👨‍👩‍👧", "mother": "👨‍👩‍👧", "father": "👨‍👩‍👧", "sister": "👨‍👩‍👧", "brother": "👨‍👩‍👧",
+    "city": "🏘️", "village": "🏘️", "town": "🏘️",
+    "music": "🎵", "song": "🎵", "dance": "🎵",
+    "film": "🎬", "movie": "🎬", "tv": "🎬", "cartoon": "🎬",
+    "travel": "✈️", "trip": "✈️", "holiday": "✈️",
+    "weather": "☀️", "rain": "☀️", "sun": "☀️",
+    "friend": "🤝", "friendship": "🤝",
+    "hobby": "🎨", "free time": "🎨",
+    "technology": "📱", "social media": "📱", "phone": "📱",
+    "nature": "🌳", "environment": "🌳", "pollution": "🌳",
+    "health": "💪", "exercise": "💪",
+}
+
+def _topic_to_emoji(topic_name: str | None) -> str:
+    if not topic_name:
+        return "💬"
+    lower = topic_name.lower()
+    for keyword, emoji in _TOPIC_EMOJI_MAP.items():
+        if keyword in lower:
+            return emoji
+    return "💬"
+
+
+@router.get("/me/today-recap", response_model=TodayRecapResponse)
+async def get_today_recap(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns a daily recap card: talks count, words spoken, best sentence, and correction highlight.
+    """
+    from ..models.conversation import Conversation
+    from ..models.message import Message
+    from ..models.session_analysis import SessionAnalysis
+    from sqlalchemy import select, desc, func
+    from datetime import datetime, timezone, timedelta
+
+    # Get today's date range (UTC)
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # 1. Get today's completed conversations
+    conv_result = await db.execute(
+        select(Conversation)
+        .where(
+            Conversation.user_id == user.id,
+            Conversation.completed == True,
+            Conversation.completed_at >= today_start,
+        )
+        .order_by(desc(Conversation.completed_at))
+    )
+    today_convs = conv_result.scalars().all()
+    talks_today = len(today_convs)
+
+    if talks_today == 0:
+        return TodayRecapResponse()
+
+    # 2. Get topic from most recent conversation
+    latest_conv = today_convs[0]
+    topic_name = latest_conv.header_title or latest_conv.topic
+    topic_emoji = _topic_to_emoji(topic_name)
+
+    # 3. Count words spoken today (all user messages from today's conversations)
+    conv_ids = [c.id for c in today_convs]
+    msg_result = await db.execute(
+        select(Message.content)
+        .where(
+            Message.conversation_id.in_(conv_ids),
+            Message.role.in_(["user", "learner", "me"]),
+        )
+    )
+    user_messages = msg_result.scalars().all()
+    words_spoken_today = sum(len(content.split()) for content in user_messages if content)
+
+    # 4. Get super sentence (best_moment_quote from today's analyses)
+    super_sentence = None
+    analysis_result = await db.execute(
+        select(SessionAnalysis)
+        .where(SessionAnalysis.conversation_id.in_(conv_ids))
+        .order_by(desc(SessionAnalysis.created_at))
+    )
+    analyses = analysis_result.scalars().all()
+    
+    for sa in analyses:
+        if sa.best_moment_quote and sa.best_moment_quote.strip():
+            super_sentence = TodayRecapSuperSentence(
+                quote=sa.best_moment_quote,
+                note=sa.best_moment_note,
+            )
+            break
+
+    # 5. Get correction highlight
+    correction_highlight = None
+    
+    # Primary source: correction_highlight from session analysis (LLM judge extracts it)
+    for sa in analyses:
+        if sa.correction_highlight and isinstance(sa.correction_highlight, dict):
+            ch = sa.correction_highlight
+            if ch.get("student_said") and ch.get("corrected"):
+                correction_highlight = TodayRecapCorrection(
+                    student_said=ch["student_said"],
+                    corrected=ch["corrected"],
+                    highlight_word=ch.get("highlight_word"),
+                )
+                break
+
+    # Fallback 1: per-message corrections
+    if not correction_highlight:
+        correction_msg_result = await db.execute(
+            select(Message)
+            .where(
+                Message.conversation_id.in_(conv_ids),
+                Message.correction != None,
+                Message.role.in_(["assistant", "zoe"]),
+            )
+            .order_by(desc(Message.created_at))
+            .limit(1)
+        )
+        correction_msg = correction_msg_result.scalar_one_or_none()
+        
+        if correction_msg and correction_msg.correction:
+            prev_msg_result = await db.execute(
+                select(Message.content)
+                .where(
+                    Message.conversation_id == correction_msg.conversation_id,
+                    Message.role.in_(["user", "learner", "me"]),
+                    Message.turn_number <= correction_msg.turn_number,
+                )
+                .order_by(desc(Message.turn_number))
+                .limit(1)
+            )
+            prev_content = prev_msg_result.scalar_one_or_none()
+            correction_highlight = TodayRecapCorrection(
+                student_said=prev_content[:80] if prev_content else None,
+                corrected=correction_msg.correction[:100],
+                highlight_word=None,
+            )
+    
+    # Fallback 2: use try_next_skill/example from session analysis
+    if not correction_highlight:
+        for sa in analyses:
+            if sa.try_next_skill and sa.try_next_skill.strip():
+                correction_highlight = TodayRecapCorrection(
+                    student_said=sa.try_next_skill,
+                    corrected=sa.try_next_example,
+                    highlight_word=None,
+                )
+                break
+
+    return TodayRecapResponse(
+        talks_today=talks_today,
+        topic_name=topic_name,
+        topic_emoji=topic_emoji,
+        words_spoken_today=words_spoken_today,
+        super_sentence=super_sentence,
+        correction_highlight=correction_highlight,
+    )
 
 
 

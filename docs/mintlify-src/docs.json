@@ -24,6 +24,7 @@
         "group": "Getting Started",
         "pages": [
           "readme",
+          "hosting-routes",
           "system-architecture",
           "conversation-flow-simulator"
         ]
@@ -39,7 +40,15 @@
       {
         "group": "Gamification",
         "pages": [
+          "placement-garden",
           "garden-progress-system"
+        ]
+      },
+      {
+        "group": "Conversation",
+        "pages": [
+          "today-recap",
+          "next-topics-logic"
         ]
       },
       {

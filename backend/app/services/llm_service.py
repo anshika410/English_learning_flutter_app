@@ -67,7 +67,7 @@ async def _chat_completion(
     temperature: float = 0.75,
 ) -> str:
     settings = get_settings()
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
             f"{settings.deepseek_base_url}/chat/completions",
             headers={
@@ -90,6 +90,63 @@ async def _chat_completion(
         if not text or not text.strip():
             raise ValueError("LLM returned empty content")
         return text.strip()
+
+
+# ── Correction Highlight Extraction (separate focused call) ───────────────────
+
+async def extract_correction_highlight(messages: list[dict]) -> dict | None:
+    """
+    Separate LLM call that finds the single best grammar/vocab error in the
+    student's speech and returns a before/after correction pair.
+    """
+    transcript = "\n".join(
+        f"{'STUDENT' if m['role'] == 'user' else 'ZOE'}: {m['content']}"
+        for m in messages
+    )
+
+    prompt = f"""Look at this conversation transcript between a student and their English tutor Zoe.
+
+TRANSCRIPT:
+{transcript}
+
+Find ONE grammar or vocabulary error the student made. Return ONLY valid JSON:
+
+{{
+  "student_said": "<COPY the student's exact words that contain the error — must be from the transcript above>",
+  "corrected": "<the corrected version>",
+  "highlight_word": "<the 1-2 key words that changed>"
+}}
+
+RULES:
+- student_said MUST be copied exactly from the STUDENT lines above. Example: "my mother make daal chawal"
+- student_said must NOT be a description or tip. WRONG: "using past tense". RIGHT: "I no play good"
+- corrected is the fixed version. Example: "my mother makes daal chawal"
+- highlight_word is what changed. Example: "makes"
+- If the student made no errors at all, return: null
+
+Return ONLY the JSON object or null. No explanation."""
+
+    try:
+        raw = await _chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.2,
+        )
+        json_str = _extract_json(raw)
+        if not json_str or json_str.strip().lower() == "null":
+            return None
+        data = json.loads(json_str)
+        # Validate it's a real quote, not a tip
+        if data and data.get("student_said"):
+            said = data["student_said"].lower()
+            # Reject if it looks like a tip instead of a quote
+            tip_words = ["using", "adding", "try to", "practice", "remember to"]
+            if any(said.startswith(w) for w in tip_words):
+                return None
+            return data
+        return None
+    except Exception:
+        return None
 
 
 # ── Conversation Starter ──────────────────────────────────────────────────────
@@ -369,7 +426,7 @@ async def analyze_and_grade_session(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Analyze the transcript, extract facts, grade targeted skills, and return the combined JSON report."},
             ],
-            max_tokens=1500,
+            max_tokens=2500,
             temperature=0.4,
         )
         json_str = _extract_json(raw)

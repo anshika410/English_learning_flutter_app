@@ -1,135 +1,82 @@
 ---
-title: "Garden Progress System"
-sidebarTitle: "Garden System"
-description: "Architecture, database specs, API structures, and visual progression logic for the level-aware Garden."
+title: "Conversation Garden System"
+sidebarTitle: "Conversation Garden"
+description: "How plants grow from conversations — skill progression, visual mapping, and API reference."
 ---
 
-This document outlines the database schema, API responses, backend progression logic, and visual mapping specifications for the level-aware Garden Map progress experience.
+The Conversation Garden is the main gamification layer. Each time a student speaks with Zoe, the backend grades their speech against curriculum skills. Confident demonstrations grow plants in the garden.
 
-## 1. Database Architecture (Zero-Migration Schema)
+---
 
-The garden progress system is built on top of the existing SQLite/PostgreSQL `users` table. Instead of creating new database tables, it stores all dynamic checklists, mastery levels, and sightings counts in a single JSON column named `skills_progress`.
+## How It Works (Quick Summary)
 
-### Column Definitions
-*   **`level`** (`VARCHAR(5)`): Determines which CEFR syllabus map is loaded (e.g. `'A1'`, `'A2'`).
-*   **`skills_progress`** (`JSON`): Stores the user's progress arrays and sighting counts.
+```
+Student speaks → LLM grades skill usage → sightings count goes up → plant grows
+```
 
-### JSON Schema
+| Sightings | Plant Stage | What happened |
+|:-:|---|---|
+| 0 | 🟤 Bare Soil | Skill not yet demonstrated |
+| 1 | 🌱 Sprout | First confident use (≥ 0.70) |
+| 2 | 🌷 Bud | Second confident use |
+| 3+ | 🌸 Bloom | Mastery achieved |
+
+---
+
+## Database Schema
+
+All garden state lives in a single JSON column on the `users` table:
+
+- **`level`** (`VARCHAR(5)`) — which CEFR map to load (`A0`, `A1`, `A2`, etc.)
+- **`skills_progress`** (`JSON`) — everything below:
+
 ```json
 {
-  "owned": [
-    "U1-VOC-01",
-    "U1-GRA-01"
-  ],
-  "emerging": [
-    "U1-FLU-01",
-    "U2-VOC-01"
-  ],
-  "sightings": {
-    "U1-VOC-01": 2,
-    "U1-GRA-01": 3,
-    "U1-FLU-01": 1
-  },
-  "strength": {
-    "U1-VOC-01": 1,
-    "U1-GRA-01": 2
-  },
-  "last_seen": {
-    "U1-VOC-01": "2026-06-24",
-    "U1-GRA-01": "2026-06-25"
-  },
+  "owned": ["U1-VOC-01", "U1-GRA-01"],
+  "emerging": ["U1-FLU-01", "U2-VOC-01"],
+  "sightings": { "U1-VOC-01": 2, "U1-GRA-01": 3 },
+  "strength": { "U1-VOC-01": 1, "U1-GRA-01": 2 },
+  "last_seen": { "U1-VOC-01": "2026-06-24" },
   "evidence": {
     "U1-VOC-01": [
-      {
-        "evidence": "I am happy today.",
-        "confidence": 0.75,
-        "prompted": false
-      },
-      {
-        "evidence": "My mother is a doctor.",
-        "confidence": 0.85,
-        "prompted": true
-      }
-    ],
-    "U1-GRA-01": [
-      {
-        "evidence": "She is running now.",
-        "confidence": 0.78,
-        "prompted": false
-      }
+      { "evidence": "I am happy today.", "confidence": 0.75, "prompted": false },
+      { "evidence": "My mother is a doctor.", "confidence": 0.85, "prompted": true }
     ]
   },
-  "effort": {
-    "times_spoken_total": 42
-  }
+  "effort": { "times_spoken_total": 42 }
 }
 ```
 
 ---
 
-## 2. API Specification (`GET /users/me/garden`)
+## API: `GET /users/me/garden`
 
-The mobile client fetches the garden layout via this endpoint. The backend processes the raw database checklists on the fly and returns a pre-computed layout payload.
+Returns the full garden layout for the mobile client.
 
-*   **Method**: `GET`
-*   **Route**: `/users/me/garden`
-*   **Headers**: `Authorization: Bearer JWT_ACCESS_TOKEN`
+**Headers:** `Authorization: Bearer JWT_ACCESS_TOKEN`
 
-### Response Payload
+### Response Example
+
 ```json
 {
   "level": "A1",
-  "level_label": "First Words",
-  "theme": "The Clearing",
-  "active_step_index": 1,
   "recommended_topic": "What did you do yesterday? Tell me two things.",
+  "placement_garden": { "stage": "bloom", "level": "A0", "confidence": "high" },
   "units": [
     {
       "unit": 1,
       "name": "Describing the world",
       "focus": "Moving from naming things to describing them.",
-      "is_completed": false,
       "skills": [
         {
           "id": "U1-VOC-01",
           "strand": "VOC",
-          "text": "I can describe what people look like and how they feel using simple adjectives.",
+          "text": "I can describe what people look like using simple adjectives.",
           "status": "owned",
           "sightings": 2,
           "evidence": [
-            {
-              "evidence": "I am happy today.",
-              "confidence": 0.75,
-              "prompted": false
-            },
-            {
-              "evidence": "My mother is a doctor.",
-              "confidence": 0.85,
-              "prompted": true
-            }
+            { "evidence": "I am happy today.", "confidence": 0.75, "prompted": false }
           ]
-        },
-        {
-          "id": "U1-GRA-01",
-          "strand": "GRA",
-          "text": "I can use the present continuous to describe what is happening now — She is running.",
-          "status": "emerging",
-          "sightings": 1,
-          "evidence": [
-            {
-              "evidence": "She is running now.",
-              "confidence": 0.78,
-              "prompted": false
-            }
-          ]
-        },
-        {
-          "id": "U1-FLU-01",
-          "strand": "FLU",
-          "text": "I can describe a picture or a place using 3–4 connected sentences.",
-          "status": "locked",
-          "sightings": 0,
-          "evidence": []
         }
       ]
     }
@@ -137,181 +84,95 @@ The mobile client fetches the garden layout via this endpoint. The backend proce
 }
 ```
 
-### Response Field Reference (Dart Class Models)
+---
 
-Here is the exact field hierarchy and data types represented as ready-to-use Dart classes for the Flutter mobile client:
+## Progression Rules
 
-```dart
-class GardenResponse {
-  final String level;
-  final String levelLabel;
-  final String theme;
-  final int activeStepIndex;
-  final String recommendedTopic;
-  final List<GardenUnit> units;
+### Skill Status
 
-  GardenResponse({
-    required this.level,
-    required this.levelLabel,
-    required this.theme,
-    required this.activeStepIndex,
-    required this.recommendedTopic,
-    required this.units,
-  });
-}
+| Status | Meaning |
+|---|---|
+| `locked` | Not in `owned` or `emerging` arrays |
+| `emerging` | In `emerging` array (1–2 sightings) |
+| `owned` | In `owned` array (3+ sightings) |
 
-class GardenUnit {
-  final int unit;
-  final String name;
-  final String focus;
-  final bool isCompleted;
-  final List<GardenSkill> skills;
+### Promotion Thresholds
 
-  GardenUnit({
-    required this.unit,
-    required this.name,
-    required this.focus,
-    required this.isCompleted,
-    required this.skills,
-  });
-}
-
-class GardenSkill {
-  final String id;
-  final String strand;
-  final String text;
-  final String status; // "owned" | "emerging" | "locked"
-  final int sightings;
-  final List<GardenEvidence> evidence;
-
-  GardenSkill({
-    required this.id,
-    required this.strand,
-    required this.text,
-    required this.status,
-    required this.sightings,
-    required this.evidence,
-  });
-}
-
-class GardenEvidence {
-  final String evidence; // Verbatim quote
-  final double confidence; // LLM match confidence (0.0 to 1.0)
-  final bool prompted; // Spontaneous (false) vs elicited (true)
-
-  GardenEvidence({
-    required this.evidence,
-    required this.confidence,
-    required this.prompted,
-  });
-}
-```
+- **Confidence floor:** All sightings require LLM confidence **≥ 0.70**. Below that is ignored.
+- **Locked → Emerging:** 1st confident sighting
+- **Emerging → Owned:** 3rd confident sighting
 
 ---
 
-## 3. Pure Backend Progression Logic
+## Evidence Storage
 
-The backend calculates all user states and unit transitions dynamically using three rules:
+When a skill is evidenced during conversation grading:
 
-### A. Skill Mastery Status
-For each skill ID in the active level's curriculum, the backend checks the database arrays:
-*   **`"owned"`**: The skill ID exists in `progress["owned"]`.
-*   **`"emerging"`**: The skill ID exists in `progress["emerging"]` but not in `owned`.
-*   **`"locked"`**: The skill ID is in neither array.
+- Only stored if confidence **≥ 0.70**
+- Max **3 evidence quotes** per skill (most recent kept)
+- Each record contains:
 
-#### Promotion Rules (Simplified Sighting-Based Path)
+| Field | Type | Description |
+|---|---|---|
+| `evidence` | string | Verbatim student quote |
+| `confidence` | float | LLM match score (0.0–1.0) |
+| `prompted` | bool | `true` if Zoe set it up, `false` if spontaneous |
+| `topic` | string | Conversation topic where it happened |
+| `created_at` | string | ISO UTC timestamp |
 
-*   **Floor Threshold**: All progression, evidence logging, and state transitions require a confidence grading of **$\ge 0.70$**. Any attempts below `0.70` are ignored.
-*   **Locked $\rightarrow$ Emerging**: A skill transitions to `emerging` on its **1st confident sighting** ($\ge 0.70$).
-*   **Emerging $\rightarrow$ Owned (Mastery)**: A skill transitions to `owned` on its **3rd confident sighting** ($\ge 0.70$).
+---
 
-### B. Sightings & Plant Growth Stages
+## Plant Visuals by Strand
 
-The client maps the combination of **`status`** and **`sightings`** directly to the visual asset of the plant in its grid slot:
+| Strand | Sprout (1) | Bud (2) | Bloom (3+) |
+|:---|:---:|:---:|:---:|
+| **Fluency** | ![](/logo/fluency-sprout.png) | ![](/logo/fluency-mid-grown.png) | ![](/logo/fluency-fully-bloom.png) |
+| **Grammar** | ![](/logo/fluency-sprout.png) | ![](/logo/grammar-mid.png) | ![](/logo/grammar-fully-bloom.png) |
+| **Vocabulary** | ![](/logo/fluency-sprout.png) | ![](/logo/vocabulary-mid.png) | ![](/logo/vocabulary-fully-bloom.png) |
 
-| Status | Sightings | Visual Plant on Map | What it means |
-| :--- | :--- | :--- | :--- |
-| **`locked`** | `0` | **Bare Soil** | Locked state. No attempts or only low-confidence attempts. |
-| **`emerging`** | `1` | **Tiny Sprout 🌱** | Sprout appears on Grass! The student used the skill once with confidence $\ge 0.70$. |
-| **`emerging`** | `2` | **Closed Bud 🌷** | Closed Bud appears on Grass! The student used the skill twice with confidence $\ge 0.70$. |
-| **`owned`** | `3+` | **Bloomed Flower 🌸** | Fully Bloomed Flower! The student achieved three or more confident sightings. |
+---
 
-| Strand / Stage | Sprout (1 Sighting) | Mid-Grown Bud (2 Sightings) | Fully Bloomed (3+ Sightings) |
-| :--- | :---: | :---: | :---: |
-| **Fluency (FLU)** | ![Fluency Sprout](/logo/fluency-sprout.png) | ![Fluency Mid-Grown](/logo/fluency-mid-grown.png) | ![Fluency Fully Bloomed](/logo/fluency-fully-bloom.png) |
-| **Grammar (GRA)** | ![Grammar Sprout](/logo/fluency-sprout.png) | ![Grammar Mid-Grown](/logo/grammar-mid.png) | ![Grammar Fully Bloomed](/logo/grammar-fully-bloom.png) |
-| **Vocabulary (VOC)** | ![Vocabulary Sprout](/logo/fluency-sprout.png) | ![Vocabulary Mid-Grown](/logo/vocabulary-mid.png) | ![Vocabulary Fully Bloomed](/logo/vocabulary-fully-bloom.png) |
+## Visual Layout Rules
 
-### C. Evidence Storage Rule
-For any skill evidenced during chat analysis:
-*   **Threshold**: If the match confidence is **`0.70` or above** (matching the grading floor), the verbatim phrase or sentence spoken by the user is recorded.
-*   **Structure**: Instead of saving raw strings, the engine stores a structured object:
-    *   `evidence` (`string`): The verbatim quote spoken by the student.
-    *   `confidence` (`float`): The LLM confidence score (`0.0` to `1.0`) of the match.
-    *   `prompted` (`boolean`): `true` if Zoe set the student up to use this skill; `false` if used spontaneously.
-    *   `topic` (`string`): The topic of the conversation session where the match happened.
-    *   `created_at` (`string`): The full ISO UTC timestamp of the session grading.
-*   **Cap**: A maximum of **3 evidence quotes** are stored per skill card (the 3 most recent).
-*   **UI Placement**: Evidence objects are returned for the student to review their natural versus prompted speaking performance on the skill card details popup.
+### Theme
+- Level `A1` → "The Clearing" (light meadow) ![](/logo/tile-turf-grass.png)
+- Other levels → "The Young Garden" (dense forest)
 
-### D. Dynamic Isometric Grid Sizing (Free-Form Farm)
+### Grid
+- Each unit gets a **2×2 raised bed** (or 3 slots if only 3 skills)
+- Even-index units render on the **left** of the path, odd on the **right**
+- Slot mapping: Back-Left, Back-Right, Front-Left, Front-Right
 
-The garden map operates as a **non-linear, free-form farm** where all unit grids are open from day one.
-*   **No linear locks**: Students can talk about anything, and plants grow dynamically in the corresponding unit plots.
-*   **Dynamic Grid Sizing**: The isometric layout adjusts dynamically to match the exact number of skills defined for that unit:
-    *   If a unit has **3 skills** (e.g. *Unit 1: Describing the world*), only **3 slots** are rendered in the grid (leaving the 4th corner empty).
-    *   If a unit has **4 skills** (e.g. *Unit 4: Talking about plans*), all **4 slots** are rendered in the grid.
+### Status Visuals
 
-### E. Dynamic Topic Recommendation
-To keep the conversation aligned with the student's current target path, the `"recommended_topic"` is computed dynamically on the fly:
-1. **Target Identification**: The API inspects the student's active target skill (e.g., `"U2-VOC-01"` inside `user.due_next.primary`).
-2. **Elicitation Fetching**: It fetches the corresponding friendly prompt question from the curriculum database (e.g., `"What did you do yesterday? Tell me two things."`).
-3. **Fallback Default**: If no active targets are available, it defaults to the elicitation question of the first unowned skill in the curriculum levels.
+| Status | Visual | Example |
+|---|---|---|
+| `locked` | Bare soil bed | ![](/logo/garden.png) |
+| `emerging` | Sprouts and buds | Growing plants |
+| `owned` | Full blooms | ![](/logo/garden_bloomed.png) |
 
-### F. target_selector due_next Mechanics
-The target selection algorithm gathers unmastered skills inside the student's active unit to display and prompt during conversations:
-1. **due_next Collection**: Contains all skills inside the active unit step that are not yet marked as `"owned"`.
-2. **Primary Target (`primary`)**: The first un-owned skill in the active unit. Zoe actively attempts to elicit this skill from the student using the structured Teacher Invisible Plan questions.
-3. **Watching Targets (`watching`)**: The other un-owned skills in the active unit step. The grading engine monitors these and records sightings if they are used spontaneously, but the tutor does not prompt for them.
+### Strand Colors
+- **FLU** → Rose (Pink)
+- **VOC** → Marigold (Orange)
+- **GRA** → Purple
 
-## 4. Visual Mapping Specifications
+---
 
-The front-end client reads the API payload and translates it to visual layout attributes:
+## Topic Recommendation
 
-*   **Theme Background**:
-    *   If `level == "A1"`, load `"The Clearing"` layout (light green meadow theme).
-        
-        ![Meadow Grass Tile](/logo/tile-turf-grass.png)
-    *   If `level != "A1"`, load `"The Young Garden"` layout (densely forested garden theme).
-*   **Alternating Path**:
-    *   For unit index $i$ ($0$ to $3$):
-        *   If $i$ is even $\rightarrow$ Render raised bed on the **left** side of the winding path.
-        *   If $i$ is odd $\rightarrow$ Render raised bed on the **right** side of the winding path.
-*   **2x2 Slot Layout**:
-    *   Map `skills[i]` to `Slot i+1` of the bed's 2x2 grid:
-        *   Slot 1: Back-Left
-        *   Slot 2: Back-Right
-        *   Slot 3: Front-Left
-        *   Slot 4: Front-Right
-    *   Render the corresponding plant asset based on `sightings` (Empty Soil $\rightarrow$ Sprout $\rightarrow$ Bud $\rightarrow$ Flower).
-        
-        ![Empty Soil Tile](/logo/empty-tile.png)
-*   **Strand Colors**:
-    *   `FLU` $\rightarrow$ Rose (Pink) Flower
-    *   `VOC` $\rightarrow$ Marigold (Orange) Flower
-    *   `GRA` $\rightarrow$ Purple Flower
+The `recommended_topic` field is computed dynamically:
 
-### Status UI Translation Rules
-*   **`"locked"` Status $\rightarrow$ Slatted Bare Soil Tiles (e.g. Units 3, 4)**:
-    *   *Visual:* The raised bed is rendered as a clean, wooden-slatted flat bed of soil with no plants.
-        
-        ![Bare Soil Raised Bed](/logo/garden.png)
-    *   *Logic:* All skills inside these units have `status == "locked"` and `sightings == 0`.
-*   **`"emerging"` Status $\rightarrow$ Buds and Sprouts (e.g. Unit 2)**:
-    *   *Visual:* The bed contains young plants. Slots display a tiny green sprout (`sightings == 1`) or a green stem topped with a closed, colored bud (`sightings == 2`).
-    *   *Logic:* The user is actively practicing these skills in conversation but has not yet reached mastery thresholds.
-*   **`"owned"` Status $\rightarrow$ Open Bloomed Flowers (e.g. Unit 1)**:
-    *   *Visual:* The slots display tall green stems with fully bloomed, open petals colored according to the strand theme.
-        
-        ![Bloomed Raised Bed](/logo/garden_bloomed.png)
-    *   *Logic:* The user has successfully demonstrated and passed these skills, earning mastery status.
+1. Look at `user.due_next.primary` (active target skill)
+2. Fetch its elicitation question from curriculum
+3. Fallback: first unowned skill's question
+
+---
+
+## Target Selection (`due_next`)
+
+| Field | Role |
+|---|---|
+| `primary` | First un-owned skill in active unit — Zoe actively prompts for this |
+| `watching` | Other un-owned skills — graded passively if used spontaneously |
+
+The garden is **non-linear** — all units are open. Students talk freely, plants grow wherever skills are demonstrated.

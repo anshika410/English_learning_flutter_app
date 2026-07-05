@@ -79,6 +79,12 @@ class NextTopics(BaseModel):
     alternatives: list[NextTopicItem] = []
 
 
+class PlacementGardenResponse(BaseModel):
+    stage: str  # "soil", "seed", "bloom"
+    level: str | None = None
+    confidence: str | None = None
+
+
 class UserMemoryResponse(BaseModel):
     id: str
     device_id: str
@@ -88,6 +94,7 @@ class UserMemoryResponse(BaseModel):
     interests: list[str] = []
     last_time_recap: str | None = None
     placement: PlacementSubResponse | None = None
+    placement_garden: PlacementGardenResponse | None = None
     owned: list[str] = []
     emerging: list[str] = []
     due_next: dict = {}
@@ -129,6 +136,7 @@ class GardenUnit(BaseModel):
 class GardenResponse(BaseModel):
     level: str
     recommended_topic: str
+    placement_garden: PlacementGardenResponse | None = None
     units: list[GardenUnit]
 
 

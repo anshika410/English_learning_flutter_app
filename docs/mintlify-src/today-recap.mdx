@@ -1,0 +1,257 @@
+---
+title: "Today with Zoe Recap"
+sidebarTitle: "Today Recap"
+description: "Daily summary card — talks count, words spoken, super sentence, and correction highlight."
+---
+
+The "Today with Zoe" recap card shows on the home screen after the student completes at least one conversation. It gives a quick, encouraging summary of the day's speaking practice.
+
+---
+
+## Two UI States
+
+### Empty State (no talks today)
+```
+TODAY'S TALKS
+No talks yet — say hi to Zoe!
+```
+
+### After Conversation(s)
+```
+Today with Zoe
+1 TALK · 🏏
+
+You said 43 English words today!
+
+⭐ SUPER SENTENCE
+"My clock... black. Big clock."
+
+🌱 MAKE IT GROW
+You said: "Alarm not work."
+Zoe says: "Alarm doesn't work."
+highlight: "doesn't work"
+```
+
+---
+
+## API: `GET /users/me/today-recap`
+
+**Headers:** `Authorization: Bearer JWT_ACCESS_TOKEN`
+
+### Response (after conversations)
+
+```json
+{
+  "talks_today": 1,
+  "topic_name": "My daily routine",
+  "topic_emoji": "💬",
+  "words_spoken_today": 43,
+  "super_sentence": {
+    "quote": "My clock... black. Big clock.",
+    "note": "Strong naming of object and colour with clear pronunciation."
+  },
+  "correction_highlight": {
+    "student_said": "Alarm not work.",
+    "corrected": "Alarm doesn't work.",
+    "highlight_word": "doesn't work"
+  }
+}
+```
+
+### Response (no talks today)
+
+```json
+{
+  "talks_today": 0,
+  "topic_name": null,
+  "topic_emoji": null,
+  "words_spoken_today": 0,
+  "super_sentence": null,
+  "correction_highlight": null
+}
+```
+
+---
+
+## How Each Field is Populated
+
+### `talks_today` and `topic_name`
+- Source: `conversations` table
+- Query: count WHERE `completed = true` AND `completed_at >= today 00:00 UTC`
+- `topic_name` comes from `conversations.header_title` of the most recent session
+
+### `words_spoken_today`
+- Source: `messages` table
+- Query: all user messages (`role = 'user'`) from today's conversations
+- Logic: `sum(len(msg.content.split()) for msg in user_messages)`
+- Stored by: `POST /session/{id}/turn` (each turn saves both user + zoe messages)
+
+### `super_sentence`
+- Source: `session_analyses.best_moment_quote` + `best_moment_note`
+- Written by: `POST /llm/judge` — the main judge prompt asks for the best verbatim student quote
+- Picks the most recent non-empty quote from today's sessions
+
+### `correction_highlight` ⭐
+- Source: `session_analyses.correction_highlight` (JSONB column)
+- Written by: A **separate focused LLM call** that runs after the main judge completes
+
+---
+
+## How `correction_highlight` Works (Separate LLM Call)
+
+This was the hardest part to get right. The main judge prompt (which handles grading, skills, courage, etc.) kept returning tips instead of actual transcript quotes. So we use a **dedicated second LLM call** with a single focused task.
+
+### The Flow
+
+```
+Conversation ends
+    │
+    ▼
+POST /llm/judge
+    │
+    ├── 1. Main judge call (analyze + grade skills)
+    │       → saves best_moment, try_next, skills_evidenced, etc.
+    │
+    └── 2. Separate correction extraction call ← NEW
+            → saves correction_highlight
+```
+
+### The Prompt (in `backend/app/services/llm_service.py`)
+
+```python
+async def extract_correction_highlight(messages: list[dict]) -> dict | None:
+    prompt = f"""Look at this conversation transcript.
+
+    TRANSCRIPT:
+    {transcript}
+
+    Find ONE grammar or vocabulary error the student made. Return ONLY valid JSON:
+
+    {{
+      "student_said": "<COPY exact words from transcript>",
+      "corrected": "<the corrected version>",
+      "highlight_word": "<the key words that changed>"
+    }}
+
+    RULES:
+    - student_said MUST be copied exactly from the STUDENT lines
+    - WRONG: "using past tense". RIGHT: "I no play good"
+    - If no errors at all, return: null
+    """
+```
+
+### Why a Separate Call?
+
+| Approach | Result |
+|---|---|
+| Combined in main judge prompt | ❌ LLM returned tips like "using 'a' before nouns" instead of actual quotes |
+| Separate focused call | ✅ LLM correctly returns "Alarm not work." → "Alarm doesn't work." |
+
+The key insight: when you give an LLM one simple task with explicit examples, it performs much better than when mixing it into a complex multi-field prompt.
+
+### Validation
+
+The code also validates the response — if `student_said` starts with tip-like words ("using", "adding", "try to"), it's rejected and returns `null`:
+
+```python
+tip_words = ["using", "adding", "try to", "practice", "remember to"]
+if any(said.startswith(w) for w in tip_words):
+    return None  # reject, it's a tip not a quote
+```
+
+---
+
+## Data Source Diagram
+
+```
+POST /session/{id}/turn (during conversation)
+    │
+    └── messages table → words_spoken_today
+
+POST /llm/judge (after conversation ends)
+    │
+    ├── Main LLM call → session_analyses:
+    │     ├── best_moment_quote → super_sentence.quote
+    │     ├── best_moment_note → super_sentence.note
+    │     └── (skills, courage, etc.)
+    │
+    └── Correction LLM call → session_analyses:
+          └── correction_highlight → {student_said, corrected, highlight_word}
+
+conversations table:
+    ├── completed_at (today?) → talks_today
+    └── header_title → topic_name → topic_emoji
+
+GET /users/me/today-recap ← reads all of the above for today's date
+```
+
+---
+
+## Database
+
+One column was added to `session_analyses`:
+
+```sql
+ALTER TABLE session_analyses ADD COLUMN correction_highlight JSONB;
+```
+
+Nullable — old rows have `null`, new sessions get populated.
+
+---
+
+## Topic Emoji Mapping
+
+Static keyword lookup in `backend/app/routers/users.py`:
+
+| Topic contains | Emoji |
+|---|---|
+| dog, animal, pet | 🐶 |
+| food, eat, cook, restaurant | 🍕 |
+| school, class, study | 📚 |
+| cricket, sport, game | 🏏 |
+| family, mother, father | 👨‍👩‍👧 |
+| city, village, town | 🏘️ |
+| music, song, dance | 🎵 |
+| film, movie, TV | 🎬 |
+| travel, trip, holiday | ✈️ |
+| weather, rain, sun | ☀️ |
+| *default* | 💬 |
+
+---
+
+## Backward Compatibility
+
+| Concern | Status |
+|---|---|
+| Existing clients calling `/llm/judge` | ✅ Safe — correction_highlight is additive |
+| Old session_analyses rows | ✅ Safe — nullable column, returns `null` |
+| LLM sometimes fails extraction | ✅ Safe — falls back to `null`, card just doesn't show |
+| Other developers' code | ✅ No breaking changes |
+
+---
+
+## App Flow
+
+```
+1. App opens → GET /users/me/today-recap
+2. If talks_today == 0 → show "No talks yet — say hi to Zoe!"
+3. If talks_today >= 1 → show full recap card:
+   - "Today with Zoe" header + talk count + topic emoji
+   - "You said X English words today!"
+   - Super Sentence card (⭐) — if available
+   - Make It Grow card (🌱) — if correction_highlight exists
+4. Card evolves with each conversation (cumulative daily count)
+5. Below recap → "Next Session" button with recommended topic
+```
+
+---
+
+## Files Involved
+
+| File | What it does |
+|---|---|
+| `backend/app/services/llm_service.py` → `extract_correction_highlight()` | The separate focused LLM call |
+| `backend/app/routers/analysis_shared.py` → `run_and_save_session_analysis()` | Calls extraction after judge, saves to DB |
+| `backend/app/routers/users.py` → `get_today_recap()` | The endpoint that reads and returns today's data |
+| `backend/app/models/session_analysis.py` | Has the `correction_highlight` JSONB column |
+| `backend/app/prompts/end-result-prompt.md` | Main judge prompt (super_sentence comes from here) |

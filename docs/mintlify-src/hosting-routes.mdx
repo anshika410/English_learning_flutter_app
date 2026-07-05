@@ -1,0 +1,144 @@
+---
+title: "Hosting & Routes"
+sidebarTitle: "Hosting Routes"
+description: "What's deployed where on ella.navgurukul.org — build types, source folders, and deploy commands."
+---
+
+All routes are served by **Nginx** on a single AWS EC2 instance (t3.micro, Ubuntu 24.04, ap-south-1).  
+HTTPS via Let's Encrypt. Domain: `ella.navgurukul.org`.
+
+Server root: `/var/www/ella/`
+
+---
+
+## Route Map
+
+| URL | Type | Source | Description |
+|---|---|---|---|
+| `/` | Static HTML | `index.html` (root) | Landing page / redirect |
+| `/v1/` | Flutter Web | `frontend/` project | Product v1 — original Flutter web app |
+| `/v2/` | Flutter Web | `ella_app/` project | Product v2 — new Ella app (home, garden, conversation) |
+| `/v2/conversation-flow/` | Static HTML | `docs/loop-simulator.html` | Loop Simulator — standalone dev tool for testing conversation flow |
+| `/docs/` | Mintlify Static Export | `docs/mintlify-src/` | Documentation site (API reference, architecture, systems) |
+| `/api/` | FastAPI (Docker) | `backend/` project | Backend API — proxied via Nginx to port 8000 |
+| `/admin/` | Static HTML | `ella-admin.html` | Pilot Dashboard — screening results viewer |
+| `/design/` | Static HTML | `ella-design-v1.html` | Design system reference page |
+| `/ella.apk` | Binary | Built from `frontend/` | Release APK download (v1) |
+| `/ella-v2-debug.apk` | Binary | Built from `ella_app/` | Debug APK download (v2) |
+
+---
+
+## Build & Deploy Commands
+
+### Backend API (`/api/`)
+
+```bash
+# On the EC2 server:
+cd ~/ella_flutter/backend
+docker compose down && docker compose up -d --build
+```
+
+Source: `backend/` — Dockerfile copies source, runs Alembic migrations, starts Uvicorn.
+
+---
+
+### Product v1 (`/v1/`) — Flutter Web
+
+```bash
+# Local build:
+cd frontend
+flutter build web --base-href /ella_flutter/ella-v1/
+
+# Deploy: handled by GitHub Actions (.github/workflows/deploy-web.yml)
+# Or manual: zip build/web/ → scp → unzip to /var/www/ella/v1/
+```
+
+Source: `frontend/` project.
+
+---
+
+### Product v2 (`/v2/`) — Flutter Web
+
+```bash
+# Local build:
+cd ella_app
+flutter build web --base-href /v2/
+
+# Deploy:
+# Zip build/web/, scp to server, unzip to /var/www/ella/v2/
+# (See team wiki for SSH access details)
+```
+
+Source: `ella_app/` project. Remember to keep `/v2/conversation-flow/` intact after deploying.
+
+---
+
+### Loop Simulator (`/v2/conversation-flow/`) — Static HTML
+
+```bash
+# Deploy:
+# Copy docs/loop-simulator.html to /var/www/ella/v2/conversation-flow/index.html on the server
+# (See team wiki for SSH access details)
+```
+
+Source: `docs/loop-simulator.html` — single self-contained HTML file with embedded JS. No build step.
+
+---
+
+### Documentation (`/docs/`) — Mintlify
+
+```bash
+# Build:
+cd docs/mintlify-src
+npx mintlify@latest export
+# Produces export.zip
+
+# Deploy:
+# Upload export.zip to server, unzip to /var/www/ella/docs/
+# (See team wiki for SSH access details)
+```
+
+Source: `docs/mintlify-src/` — MDX pages + `docs.json` config. Pre-rendered static Next.js export.
+
+---
+
+### APK Builds
+
+```bash
+# v1 (frontend):
+cd frontend && flutter build apk --debug
+# Output: frontend/build/app/outputs/flutter-apk/app-debug.apk
+# Upload to /var/www/ella/ella.apk
+
+# v2 (ella_app):
+cd ella_app && flutter build apk --debug
+# Output: ella_app/build/app/outputs/flutter-apk/app-debug.apk
+# Upload to /var/www/ella/ella-v2-debug.apk
+```
+
+---
+
+## Server Directory Layout
+
+```
+/var/www/ella/
+├── index.html                    ← Landing page
+├── v1/                           ← Flutter web (frontend/ project)
+├── v2/                           ← Flutter web (ella_app/ project)
+│   └── conversation-flow/        ← Loop Simulator (static HTML)
+├── docs/                         ← Mintlify static export
+├── admin/                        ← Pilot dashboard (static HTML)
+├── design/                       ← Design reference (static HTML)
+├── ella.apk                      ← v1 APK download
+├── ella-v2-debug.apk             ← v2 debug APK download
+└── (Nginx proxies /api/ → localhost:8000)
+```
+
+---
+
+## Key Notes
+
+- After deploying v2 web, **re-deploy the simulator** separately to `/v2/conversation-flow/` (it gets wiped by the v2 deploy).
+- The Mintlify docs require `npx mintlify export` to regenerate — editing `.mdx` files alone won't update the live site.
+- Backend deploys require Docker rebuild. Code changes need to be on the server first (git pull or scp).
+- SSH access details are kept private. Ask a team member for the key and connection info.

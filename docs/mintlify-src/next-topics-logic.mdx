@@ -1,0 +1,150 @@
+---
+title: "Next Topics Logic"
+sidebarTitle: "Next Topics"
+description: "How topic suggestions are computed and when they appear on the home screen."
+---
+
+The `next_topics` field in `GET /users/me/memory` drives the home screen's "Talk about: X" button and topic alternatives. Here's how it works.
+
+---
+
+## When Does a User See Topics?
+
+Two conditions must **both** be true:
+
+1. **Topics exist for their level** — fresh (unused) topics available in their CEFR level bank
+2. **They've completed onboarding** — past the placement stage
+
+### What Counts as "Completed Onboarding"?
+
+```python
+has_completed_onboarding = user.first_session_done OR user.placements exists
+```
+
+| Condition | Set by | When |
+|---|---|---|
+| `first_session_done = True` | `POST /llm/judge` (analysis_shared.py) | After first conversation is graded |
+| `user.placements` exists | `POST /placements` | After placement screening completes |
+
+Either one is enough. This handles both:
+- **New users** — placement sets it immediately
+- **Old users** — who did placement before the fix was deployed
+
+---
+
+## Decision Tree
+
+```
+User opens app → GET /users/me/memory
+    │
+    ├─ No placement AND first_session_done = false?
+    │     → next_topics = null
+    │     → Home shows: "Do your placement first"
+    │
+    ├─ Has placement OR first_session_done = true?
+    │     │
+    │     ├─ Fresh topics available for their level?
+    │     │     → next_topics = { recommended, alternatives }
+    │     │     → Home shows: "Talk about: Dogs" + alternatives
+    │     │
+    │     └─ No topics for this level?
+    │           → next_topics = null
+    │
+    └─ (User journey continues with conversations)
+```
+
+---
+
+## How Topics Are Selected
+
+```python
+# 1. Load all topics for user's CEFR level
+all_topics = LEVEL_TOPICS[user.level]  # e.g. 12 topics for A1
+
+# 2. Remove topics already used (stored in persona_memory.last_topics)
+used = set(user.last_topics)
+fresh = [t for t in all_topics if t.name not in used]
+
+# 3. If all topics used, reset the pool
+if not fresh:
+    fresh = all_topics
+
+# 4. Shuffle for variety
+random.shuffle(fresh)
+
+# 5. Pick recommended + 3 alternatives
+recommended = fresh[0]
+alternatives = fresh[1:4]
+```
+
+---
+
+## Response Format
+
+```json
+{
+  "next_topics": {
+    "recommended": {
+      "name": "City life vs. village life",
+      "label": "City",
+      "starter": "Would you prefer to live in a big city or a quiet village?"
+    },
+    "alternatives": [
+      { "name": "Cricket and sport in India", "label": "Cricket", "starter": "Why is cricket so popular in India?" },
+      { "name": "My ambitions and future plans", "label": "Ambitions", "starter": "What do you want to do after school?" },
+      { "name": "Social media and technology", "label": "Social", "starter": "How much time do you spend on social media?" }
+    ]
+  }
+}
+```
+
+When empty:
+```json
+{
+  "next_topics": null
+}
+```
+
+---
+
+## Topic Banks by Level
+
+Each CEFR level has its own set of conversational topics:
+
+| Level | Example Topics | Count |
+|---|---|---|
+| A0 | My name, My family, Food I like, Animals | ~11 |
+| A1 | My hobbies, Shopping, Weather, A trip | ~12 |
+| A2 | Ambitions, Education, Social media, Cricket | ~12 |
+| B1 | Culture, Gender equality, AI, Climate change | ~12 |
+
+Topics are defined in `backend/app/core/curriculum_data.py` → `LEVEL_TOPICS` dict.
+
+---
+
+## How Topics Get Marked as "Used"
+
+When a conversation is graded (`POST /llm/judge`), the session's topic name is appended to `persona_memory.last_topics`:
+
+```python
+# In analysis_shared.py, after judge completes:
+last_topics_list = persona.get("last_topics", [])
+if topic_name not in last_topics_list:
+    last_topics_list.append(topic_name)
+    # Keep max 20
+    if len(last_topics_list) > 20:
+        last_topics_list = last_topics_list[-20:]
+```
+
+This ensures the same topic isn't recommended repeatedly.
+
+---
+
+## Where in the Code
+
+| File | What it does |
+|---|---|
+| `backend/app/routers/users.py` → `_to_memory_response()` | Computes `next_topics` from fresh topics |
+| `backend/app/core/curriculum_data.py` → `LEVEL_TOPICS` | Stores all topic banks per level |
+| `backend/app/routers/analysis_shared.py` | Appends used topics to `last_topics` after grading |
+| `backend/app/routers/placements.py` | Sets `first_session_done = True` on new placements |

@@ -713,6 +713,7 @@ function App(){
   const [apiLogs, setApiLogs] = useState([]);
   const [sessionType, setSessionType] = useState('standard'); // 'standard' | 'placement'
   const [placementAssessment, setPlacementAssessment] = useState(null);
+  const [todayRecap, setTodayRecap] = useState(null);
 
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs]);
 
@@ -1241,6 +1242,13 @@ function App(){
           console.error("Failed to fetch garden data after judge:", ge);
         }
 
+        try {
+          const recapData = await callEllaAPI('/users/me/today-recap');
+          setTodayRecap(recapData || null);
+        } catch (re) {
+          console.error("Failed to fetch today recap:", re);
+        }
+
         const prof = memoryData.profile || {};
         const merged = freshMemory(memoryData.level || level);
         merged.name = prof.name === '—' ? '' : (prof.name || '');
@@ -1684,12 +1692,13 @@ function App(){
         </select>
       </div>
       <div className="tabs">
-        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
+        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['recap','📋 Today'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='recap')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
           <div key={k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{lab}</div>))}
       </div>
       <div className="panel">
         {tab==='readme'&&<ReadmeView/>}
         {tab==='garden'&&<GardenView mem={mem} dbGarden={dbGarden}/>}
+        {tab==='recap'&&<TodayRecapView recap={todayRecap} callEllaAPI={callEllaAPI} setTodayRecap={setTodayRecap}/>}
         {tab==='memory'&&<MemoryView mem={mem} hl={hl} changes={changes} snapshots={snapshots} dbMemory={dbMemory} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='judge'&&<JudgeView scores={judgeOut} debug={judgeDebug} backendAnalysis={backendAnalysis} isApiMode={LLM_CONFIG.mode==='api'} level={level}/>}
         {tab==='apicalls'&&<ApiCallsView logs={apiLogs} onClear={()=>setApiLogs([])}/>}
@@ -2041,6 +2050,10 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
     {snapshots.length>0&&<div><div className="lbl">memory after each chat</div>
       {snapshots.map((s,i)=><div className="hist" key={i}><b>after chat {s.chat}</b> ({s.model}) · owned {s.owned.length} · emerging {s.emerging.length}<br/><span style={{fontFamily:'monospace',fontSize:'10px',color:'#5b50c4'}}>due → {s.due.join(', ')}</span></div>)}</div>}
     <small className="note">owned/emerging hold buckets; confidence is NOT stored here (see Session log). Snapshots show how memory evolved chat by chat.</small>
+    {isApiMode&&<div style={{marginTop:16,padding:12,border:'1.5px dashed var(--rust)',borderRadius:8,background:'#fff5f5'}}>
+      <div style={{fontSize:12,fontWeight:700,color:'var(--rust)',marginBottom:6}}>⚠️ Danger Zone</div>
+      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)'}} onClick={()=>{if(confirm('This will delete your token and create a fresh user. All progress will be lost. Continue?')){localStorage.removeItem('ella_access_token');localStorage.removeItem('ella_device_id');window.location.reload();}}}>🗑️ Delete & Start Fresh (new user for placement test)</button>
+    </div>}
   </div>);
 }
 function JudgeView({scores,debug,backendAnalysis,isApiMode,level}){
@@ -3037,6 +3050,49 @@ function getEndpointMeta(path, method) {
     };
   }
   return null;
+}
+function TodayRecapView({recap, callEllaAPI, setTodayRecap}){
+  const [loading, setLoading] = React.useState(false);
+  async function refresh(){
+    setLoading(true);
+    try{
+      const data = await callEllaAPI('/users/me/today-recap');
+      setTodayRecap(data || null);
+    }catch(e){ console.error(e); }
+    setLoading(false);
+  }
+  if(!recap) return(<div>
+    <div style={{color:'#8a8678',marginBottom:12}}>No today recap data yet. Complete a conversation to see it here.</div>
+    <button className="ghost" onClick={refresh} disabled={loading}>{loading?'Loading...':'🔄 Fetch Today Recap'}</button>
+  </div>);
+  return(<div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <div className="lbl" style={{margin:0}}>TODAY WITH ZOE</div>
+      <button className="ghost" onClick={refresh} disabled={loading} style={{fontSize:11}}>{loading?'...':'🔄 Refresh'}</button>
+    </div>
+    <div style={{background:'#eaf7ed',border:'1.5px solid #3aa655',borderRadius:10,padding:12,marginBottom:12}}>
+      <div style={{fontWeight:700,fontSize:16}}>{recap.topic_emoji||'💬'} {recap.talks_today} talk{recap.talks_today!==1?'s':''} today</div>
+      {recap.topic_name&&<div style={{fontSize:12,color:'#4a443c',marginTop:2}}>Topic: {recap.topic_name}</div>}
+      <div style={{marginTop:8,background:'#fff',borderRadius:8,padding:8,border:'1px solid #c8e6c9'}}>
+        <span style={{fontWeight:700,color:'#2e7d32'}}>You said {recap.words_spoken_today} English words today!</span>
+      </div>
+    </div>
+    {recap.super_sentence&&<div style={{border:'2px solid #c8861a',borderRadius:10,padding:12,marginBottom:12,background:'#faf7ef'}}>
+      <div style={{fontWeight:700,color:'#c8861a',fontSize:12,marginBottom:4}}>⭐ SUPER SENTENCE</div>
+      <div style={{fontStyle:'italic',fontSize:14}}>"{recap.super_sentence.quote}"</div>
+      {recap.super_sentence.note&&<div style={{fontSize:11,color:'#6b6257',marginTop:4}}>{recap.super_sentence.note}</div>}
+    </div>}
+    {recap.correction_highlight&&<div style={{border:'2px solid #3aa655',borderRadius:10,padding:12,marginBottom:12,background:'#f0faf2'}}>
+      <div style={{fontWeight:700,color:'#3aa655',fontSize:12,marginBottom:4}}>🌱 MAKE IT GROW</div>
+      {recap.correction_highlight.student_said&&<div style={{fontSize:13,color:'#8a8678'}}>You said: <i>"{recap.correction_highlight.student_said}"</i></div>}
+      {recap.correction_highlight.corrected&&<div style={{fontSize:13,marginTop:4}}>Zoe says: "{recap.correction_highlight.corrected}"</div>}
+    </div>}
+    {!recap.super_sentence&&!recap.correction_highlight&&<div style={{color:'#8a8678',fontSize:12}}>Session analysis didn't return detailed highlights this time. Try another conversation!</div>}
+    <div style={{marginTop:12,borderTop:'1px solid #d8cfbe',paddingTop:8}}>
+      <div className="lbl">RAW API RESPONSE (GET /users/me/today-recap)</div>
+      <pre className="mono" style={{background:'#24292e',color:'#e1e4e8',padding:10,borderRadius:8,fontSize:11,overflowX:'auto'}}>{JSON.stringify(recap,null,2)}</pre>
+    </div>
+  </div>);
 }
 function ApiCallsView({logs, onClear}){
   const [openId, setOpenId] = React.useState(null);

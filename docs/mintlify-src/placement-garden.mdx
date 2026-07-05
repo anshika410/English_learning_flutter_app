@@ -1,0 +1,111 @@
+---
+title: "Placement Garden System"
+sidebarTitle: "Placement Garden"
+description: "How the single placement tile grows based on the screening test result."
+---
+
+The Placement Garden is a **separate visual system** from the conversation garden. It rewards the student for completing the placement screening — before any topic-based conversations begin.
+
+---
+
+## Key Difference from Conversation Garden
+
+| | Placement Garden | Conversation Garden |
+|---|---|---|
+| **Driven by** | Placement test quality | Skill sightings from daily conversations |
+| **Plants** | 1 single tile | Multiple (one per skill per unit) |
+| **Growth stages** | 3 (soil → seed → bloom) | 4 (soil → sprout → bud → bloom) |
+| **When shown** | Onboarding / first-time | Home screen after first session |
+| **Data source** | `placement` record confidence | `skills_progress` sightings |
+
+---
+
+## Three States
+
+| Scenario | Condition | Stage | Visual |
+|---|---|---|---|
+| **Skipped / Never started** | No placement record exists | `"soil"` | 🟤 Bare soil — empty |
+| **Partial conversation** | Low confidence placement | `"seed"` | 🌱 Small sprout — something started |
+| **Full placement** | High/medium confidence | `"bloom"` | 🌺 Full flower — celebration |
+
+---
+
+## Visual Reference
+
+| Stage | Image |
+|---|---|
+| **Seed/Sprout** | ![Placement Plant](/logo/placement-plant.png) |
+| **Both states compared** | ![Placement Plant Both](/logo/placement-plant-both.png) |
+| **Full bloom** | ![Placement Garden](/logo/placement-garden.png) |
+
+---
+
+## Backend Logic
+
+Implemented in `backend/app/routers/users.py`:
+
+```python
+def _compute_placement_garden(user) -> PlacementGardenResponse | None:
+    """
+    Returns None if no placement exists (client shows "soil").
+    """
+    if not user.placements:
+        return None
+
+    latest = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+    confidence = latest.confidence  # "high", "medium", "low", or None
+
+    if confidence in ("high", "medium"):
+        stage = "bloom"
+    else:
+        stage = "seed"
+
+    return PlacementGardenResponse(
+        stage=stage,
+        level=latest.level,
+        confidence=confidence,
+    )
+```
+
+---
+
+## API Response
+
+Returned in both `GET /users/me/garden` and `GET /users/me/memory`:
+
+```json
+{
+  "placement_garden": {
+    "stage": "bloom",
+    "level": "A0",
+    "confidence": "high"
+  }
+}
+```
+
+When no placement exists → `placement_garden` is `null` (client treats as soil).
+
+---
+
+## Client-Side Mapping
+
+| Stage | Asset | Animation |
+|---|---|---|
+| `"soil"` | Bare tile with empty soil | None — static |
+| `"seed"` | Tile with small sprout | Gentle sway |
+| `"bloom"` | Tile with full flower | Growth animation on first view, then static |
+
+---
+
+## App Flow
+
+```
+1. User logs in
+2. No placement → empty soil tile shown
+3. User starts placement conversation with Zoe
+4. If cancelled → stays "soil"
+5. If partial (low confidence) → "seed" (sprout appears)
+6. If full (high/medium confidence) → "bloom" (celebration)
+7. After placement → topics appear, user goes to home
+8. First real conversation → conversation garden takes over
+```
