@@ -3,11 +3,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
-from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse, PlacementSubResponse
+from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse, PlacementSubResponse, PlacementGardenResponse
 from ..core.curriculum_data import UNITS, active_step, unit_complete, bucket_of
 
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _compute_placement_garden(user: User) -> PlacementGardenResponse | None:
+    """
+    Compute placement garden stage from the user's latest placement confidence.
+    Returns None if no placement exists (client treats as "soil" state).
+    """
+    if not user.placements:
+        return None
+    latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+    confidence = latest_placement.confidence  # "high", "medium", "low", or None
+    if confidence in ("high", "medium"):
+        stage = "bloom"
+    else:
+        stage = "seed"  # "low" or unknown confidence → seed
+    return PlacementGardenResponse(
+        stage=stage,
+        level=latest_placement.level,
+        confidence=confidence,
+    )
 
 
 def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserMemoryResponse:
@@ -159,6 +179,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         interests=user.interests.split(",") if user.interests else [],
         last_time_recap=last_time_recap,
         placement=placement_data,
+        placement_garden=_compute_placement_garden(user),
         owned=progress.get("owned", []),
         emerging=progress.get("emerging", []),
         due_next=due,
@@ -338,10 +359,29 @@ async def get_user_garden(user: User = Depends(get_current_user)):
                 recommended_topic = plan["question"]
         except Exception:
             pass
+
+    # Compute placement garden stage (soil / seed / bloom)
+    placement_garden_data = None
+    if user.placements:
+        latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+        confidence = latest_placement.confidence  # "high", "medium", "low", or None
+        if confidence in ("high", "medium"):
+            stage = "bloom"
+        elif confidence == "low":
+            stage = "seed"
+        else:
+            stage = "seed"  # has placement but unknown confidence → treat as seed
+        placement_garden_data = PlacementGardenResponse(
+            stage=stage,
+            level=latest_placement.level,
+            confidence=confidence,
+        )
+    # No placement at all → stage is "soil" (returned as None / absent from response)
  
     return {
         "level": level,
         "recommended_topic": recommended_topic,
+        "placement_garden": placement_garden_data,
         "units": units_data
     }
 

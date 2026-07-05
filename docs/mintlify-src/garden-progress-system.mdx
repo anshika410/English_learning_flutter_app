@@ -339,25 +339,48 @@ The placement garden has exactly three visual states, determined by the quality 
 
 ### Backend Logic
 
-The stage is derived from the `placement` record on the user:
+The stage is derived from the user's latest `placement` record confidence. Implemented in `backend/app/routers/users.py`:
 
 ```python
-def get_placement_garden_stage(user):
-    if user.placement is None:
-        return "soil"
-    
-    confidence = user.placement.confidence  # "high", "medium", "low"
-    
+def _compute_placement_garden(user) -> PlacementGardenResponse | None:
+    """
+    Compute placement garden stage from the user's latest placement confidence.
+    Returns None if no placement exists (client treats as "soil" state).
+    """
+    if not user.placements:
+        return None
+    latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+    confidence = latest_placement.confidence  # "high", "medium", "low", or None
     if confidence in ("high", "medium"):
-        return "bloom"
+        stage = "bloom"
     else:
-        return "seed"
+        stage = "seed"  # "low" or unknown confidence → seed
+    return PlacementGardenResponse(
+        stage=stage,
+        level=latest_placement.level,
+        confidence=confidence,
+    )
 ```
 
 ### API Response
 
-Returned as part of `GET /users/me/memory`:
+Returned as part of both `GET /users/me/garden` and `GET /users/me/memory`:
 
+**In `GET /users/me/garden`:**
+```json
+{
+  "level": "A0",
+  "recommended_topic": "...",
+  "placement_garden": {
+    "stage": "bloom",
+    "level": "A0",
+    "confidence": "high"
+  },
+  "units": [...]
+}
+```
+
+**In `GET /users/me/memory`:**
 ```json
 {
   "placement_garden": {
@@ -368,12 +391,7 @@ Returned as part of `GET /users/me/memory`:
 }
 ```
 
-When no placement exists:
-```json
-{
-  "placement_garden": null
-}
-```
+When no placement exists, `placement_garden` is `null` (client treats as `"soil"` state).
 
 ### Client-Side Mapping
 
@@ -408,7 +426,9 @@ When no placement exists:
 
 ### Visual Reference
 
-- **Bare soil** — Empty raised bed tile, no growth
-- **Seed/Sprout** — Single small green sprout on the tile center
-- **Full bloom** — Complete flower on tile with leaves (celebration moment before transitioning to home)
+| Stage | Visual |
+|---|---|
+| **Seed/Sprout** — Single small green sprout on the tile center | ![Placement Plant](/logo/placement-plant.png) |
+| **Both states** — Side-by-side comparison of seed and bloom | ![Placement Plant Both](/logo/placement-plant-both.png) |
+| **Full bloom** — Complete flower on tile (celebration moment) | ![Placement Garden](/logo/placement-garden.png) |
 
