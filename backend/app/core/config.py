@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./zoe.db"
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 15
+    access_token_expire_minutes: int = 10080
     refresh_token_expire_days: int = 30
     frontend_url: str = "http://localhost:3000"
     deepseek_api_key: str = ""

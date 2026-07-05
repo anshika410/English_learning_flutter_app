@@ -9,6 +9,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../providers/service_providers.dart';
+import '../../services/ella_api_service.dart';
+
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +24,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late bool _musicOn;
   late bool _sfxOn;
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -27,6 +32,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final audio = ref.read(audioProvider);
     _musicOn = audio.musicEnabled;
     _sfxOn = audio.sfxEnabled;
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = 'v${packageInfo.version}';
+      });
+    }
   }
 
   @override
@@ -34,8 +49,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       color: EllaColors.canvas,
       child: SafeArea(
-        child: Center(
-          child: Column(
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SvgPicture.asset(
@@ -57,12 +74,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 28),
               _soundControls(),
-            ],
+              const SizedBox(height: 48),
+              TextButton.icon(
+                onPressed: () async {
+                  await EllaApiService().logout();
+                  try {
+                    await GoogleSignIn.instance.signOut();
+                  } catch (_) {}
+                  if (context.mounted) {
+                    Navigator.of(context, rootNavigator: true)
+                        .pushNamedAndRemoveUntil('/login', (route) => false);
+                  }
+                },
+                icon: const Icon(Icons.logout, color: EllaColors.berryMain),
+                label: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: EllaColors.berryMain,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: const BorderSide(color: EllaColors.berryMain, width: 2),
+                  ),
+                ),
+              ),
+              ],
+            ),
           ),
-        ),
+          if (_appVersion.isNotEmpty)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: Text(
+                  _appVersion,
+                  style: const TextStyle(
+                    color: EllaColors.textTertiary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _soundControls() {
     return ConstrainedBox(

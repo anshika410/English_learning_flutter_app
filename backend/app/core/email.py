@@ -22,24 +22,26 @@ def send_magic_link_email(to_email: str, token: str):
     <head>
     <meta charset="utf-8">
     <style>
-      body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 0; }}
-      .container {{ max-width: 500px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; padding: 40px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }}
-      .logo {{ font-size: 28px; font-weight: 800; color: #111827; text-align: center; margin-bottom: 24px; letter-spacing: -0.5px; }}
-      .title {{ font-size: 20px; font-weight: 600; color: #111827; margin-bottom: 16px; text-align: center; }}
-      .text {{ font-size: 16px; color: #4b5563; line-height: 1.5; margin-bottom: 32px; text-align: center; }}
+      body {{ font-family: 'Amulya', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F0FAFA; margin: 0; padding: 0; }}
+      .container {{ max-width: 500px; margin: 40px auto; background-color: #FFFDF5; border-radius: 24px; padding: 40px; border: 2px solid #5A9BB1; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }}
+      .logo {{ font-size: 32px; font-weight: 800; color: #2C3E3A; text-align: center; margin-bottom: 8px; letter-spacing: -0.5px; }}
+      .subtitle {{ font-size: 16px; font-weight: 700; color: #4A5D58; text-align: center; margin-bottom: 32px; }}
+      .title {{ font-size: 24px; font-weight: 700; color: #2C3E3A; margin-bottom: 16px; text-align: center; }}
+      .text {{ font-size: 16px; color: #4A5D58; line-height: 1.5; margin-bottom: 32px; text-align: center; }}
       .button-container {{ text-align: center; margin-bottom: 32px; }}
-      .button {{ display: inline-block; background-color: #4f46e5; color: #ffffff !important; font-weight: 600; font-size: 16px; text-decoration: none; padding: 14px 28px; border-radius: 8px; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3); }}
-      .footer {{ font-size: 13px; color: #9ca3af; text-align: center; line-height: 1.5; border-top: 1px solid #f3f4f6; padding-top: 24px; }}
-      .footer-link {{ color: #6b7280; text-decoration: underline; word-break: break-all; margin-top: 8px; display: inline-block; }}
+      .button {{ display: inline-block; background-color: #E54E87; color: #ffffff !important; font-weight: 700; font-size: 16px; text-decoration: none; padding: 16px 32px; border-radius: 30px; box-shadow: 0 2px 4px rgba(229, 78, 135, 0.3); }}
+      .footer {{ font-size: 13px; color: #4A5D58; text-align: center; line-height: 1.5; border-top: 1px solid #88D9C0; padding-top: 24px; }}
+      .footer-link {{ color: #E54E87; text-decoration: underline; word-break: break-all; margin-top: 8px; display: inline-block; }}
     </style>
     </head>
     <body>
       <div class="container">
-        <div class="logo">Ella</div>
+        <div class="logo">ZoSpeak</div>
+        <div class="subtitle">Talk More. Grow Your English</div>
         <div class="title">Log in to your account</div>
-        <div class="text">Click the button below to securely log into your Ella account. This magic link will expire shortly.</div>
+        <div class="text">Click the button below to securely log into your account. No password needed.</div>
         <div class="button-container">
-          <a href="{magic_url}" class="button">Log In to Ella</a>
+          <a href="{magic_url}" class="button">Log In to ZoSpeak</a>
         </div>
         <div class="footer">
           If you did not request this email, you can safely ignore it.<br><br>
@@ -54,9 +56,8 @@ def send_magic_link_email(to_email: str, token: str):
     try:
         r = resend.Emails.send({
             "from": SENDER_EMAIL,
-
             "to": to_email,
-            "subject": "Log in to Ella",
+            "subject": "Log in to ZoSpeak",
             "html": html_content
         })
         print(f"Sent email to {to_email}: {r}")

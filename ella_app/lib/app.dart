@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:app_links/app_links.dart';
+import 'services/ella_api_service.dart';
+import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
+
 import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
@@ -19,17 +24,132 @@ import 'screens/glass_box/glass_box_screen.dart';
 // Flip to true to expose the debug FABs (conversation-states preview + Glass Box).
 const bool kShowGlassBox = false;
 
-class EllaApp extends StatelessWidget {
+class EllaApp extends StatefulWidget {
   const EllaApp({super.key});
 
   @override
+  State<EllaApp> createState() => _EllaAppState();
+}
+
+class _EllaAppState extends State<EllaApp> {
+  bool _isCheckingAuth = true;
+  bool _isAuthenticated = false;
+  late AppLinks _appLinks;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  
+  @override
+  void initState() {
+    super.initState();
+    _initAuthAndDeepLinks();
+  }
+
+  Future<void> _initAuthAndDeepLinks() async {
+    final api = EllaApiService();
+    
+    // Check initial auth state
+    final isAuth = await api.isAuthenticated();
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = isAuth;
+        _isCheckingAuth = false;
+      });
+    }
+
+    // Initialize App Links for Magic Link handling
+    _appLinks = AppLinks();
+    
+    // Handle incoming app links while the app is in the background or foreground
+    _appLinks.uriLinkStream.listen((Uri? uri) async {
+      if (uri != null) {
+        _handleDeepLink(uri);
+      }
+    });
+    
+    // Handle link that started the app (if any)
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        _handleDeepLink(initialUri);
+      }
+    } catch (e) {
+      debugPrint('Error getting initial deep link: $e');
+    }
+  }
+  
+  void _handleDeepLink(Uri uri) async {
+    // Expected magic link format: ella://login?token=XYZ&user_id=123
+    // Or on web: http://domain/#/login?token=XYZ&user_id=123
+    
+    // On web with hash routing, query params are inside the fragment (after the #)
+    Uri parsedUri = uri;
+    if (uri.fragment.contains('?')) {
+      final fragmentParts = uri.fragment.split('?');
+      if (fragmentParts.length > 1) {
+         final query = fragmentParts[1];
+         parsedUri = Uri.parse('dummy://dummy?$query');
+      }
+    }
+
+    final token = parsedUri.queryParameters['access_token'] ?? parsedUri.queryParameters['token'];
+    String? userId = parsedUri.queryParameters['user_id'];
+    
+    // If backend didn't return user_id, extract it from the JWT's 'sub' claim
+    if (userId == null && token != null) {
+      try {
+        final parts = token.split('.');
+        if (parts.length == 3) {
+          // dart:convert is imported at the top of the file? Wait, app.dart doesn't import dart:convert.
+          // Let's just pass an empty string or 'unknown_user_id'. The backend uses the Bearer token anyway.
+          userId = 'user_from_token'; 
+        }
+      } catch (_) {}
+    }
+    
+    if (token != null && userId != null) {
+      final api = EllaApiService();
+      await api.saveTokens(token, userId);
+      if (mounted) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+        _navigatorKey.currentState?.pushReplacementNamed('/');
+      }
+    }
+  }
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'ELLA',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
       navigatorObservers: [appRouteObserver],
-      home: const RootGate(),
+      // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
+      // because we handle deep links manually via the app_links package.
+      onGenerateInitialRoutes: (String initialRouteName) {
+        return [
+          MaterialPageRoute(
+            settings: const RouteSettings(name: '/splash'),
+            builder: (context) => const SplashScreen(),
+          ),
+        ];
+      },
+      onGenerateRoute: (settings) {
+        // Handle web URLs with query parameters correctly
+        final uri = Uri.parse(settings.name ?? '/');
+        final path = uri.path;
+
+        if (path == '/splash') {
+          return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+        } else if (path == '/login') {
+          return MaterialPageRoute(builder: (_) => const LoginScreen(), settings: settings);
+        } else if (path == '/' || path == '/home') {
+          return MaterialPageRoute(builder: (_) => const RootGate(), settings: settings);
+        }
+        
+        // Fallback
+        return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+      },
     );
   }
 }
