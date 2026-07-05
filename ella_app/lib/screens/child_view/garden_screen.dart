@@ -21,8 +21,6 @@ import '../../providers/garden_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
-import 'session_screen.dart';
-import 'session_intro.dart';
 import 'widgets/garden_dialogs.dart';
 import 'widgets/zoe_mascot.dart';
 
@@ -211,27 +209,6 @@ class _GardenView extends ConsumerWidget {
   final VoidCallback? onConversationEnded;
   const _GardenView({required this.data, required this.onConversationEnded});
 
-  Future<void> _letsTalk(BuildContext context, WidgetRef ref) async {
-    // Ensure previous session state is reset before starting new session
-    final chatNotifier = ref.read(chatProvider.notifier);
-    final chatState = ref.read(chatProvider);
-
-    // If previous chat ended, reset for new session
-    if (chatState.hasValue && chatState.requireValue.sessionEnded) {
-      await chatNotifier.nextChat();
-    }
-    if (!context.mounted) return;
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SessionScreen(
-          introText: buildSessionIntroText(topicText: data.recommendedTopic),
-          onEnded: onConversationEnded,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SafeArea(
@@ -272,24 +249,10 @@ class _GardenView extends ConsumerWidget {
             right: 0,
             bottom: 0,
             child: _LetsTalkBar(
-              // Same CTA copy as the Home button: "Let's Talk About {topic}",
-              // using the server's recommended topic (short label).
-              text: () {
-                final label = ref
-                    .watch(chatProvider)
-                    .valueOrNull
-                    ?.memory
-                    .nextTopics
-                    .recommended
-                    ?.display;
-                final topic = (label != null && label.isNotEmpty)
-                    ? label
-                    : data.recommendedTopic;
-                return topic.isNotEmpty
-                    ? "Let's Talk About $topic"
-                    : "Let's Talk";
-              }(),
-              onTalk: () => _letsTalk(context, ref),
+              // The button returns to Home, where the child picks a topic and
+              // starts a session (the garden no longer starts one directly).
+              onTalk: () =>
+                  Navigator.of(context).popUntil((route) => route.isFirst),
             ),
           ),
         ],
@@ -894,13 +857,11 @@ class _ButterflyState extends State<_Butterfly>
 // ── Bottom "Let's Talk" bar ────────────────────────────────────────────────────
 
 class _LetsTalkBar extends StatelessWidget {
-  final String text;
   final VoidCallback onTalk;
-  const _LetsTalkBar({required this.text, required this.onTalk});
+  const _LetsTalkBar({required this.onTalk});
 
   @override
   Widget build(BuildContext context) {
-    final line = text;
     return Container(
       decoration: BoxDecoration(
         color: EllaColors.surface,
@@ -926,18 +887,7 @@ class _LetsTalkBar extends StatelessWidget {
                 size: 44,
                 reducedMotion: MediaQuery.of(context).disableAnimations,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  line,
-                  style: EllaTextStyles.button.copyWith(
-                    fontSize: 15,
-                    height: 1.2,
-                    color: EllaColors.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
+              const Spacer(),
               GestureDetector(
                 onTap: withTapClick(onTalk),
                 child: Container(

@@ -245,6 +245,40 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     );
   }
 
+  // ── Placement completion ──────────────────────────────────────────────────
+
+  /// Called after the first-run placement screening completes. The backend has
+  /// already persisted the placement (level + `placement` object), so re-fetch
+  /// memory, recompute due_next locally (engine rules are authoritative on the
+  /// frontend), update in-memory state, and invalidate the garden so it renders
+  /// at the new level. Best-effort: a failure just leaves the current state.
+  Future<void> refreshAfterPlacement() async {
+    if (!_online) return;
+    try {
+      final api = ref.read(ellaApiServiceProvider);
+      var mem = await api.getUserMemory();
+      mem = mem.copyWith(
+        dueNext: targetsListFor(mem, mem.progressionModel, mem.level),
+      );
+      final cur = state.requireValue;
+      state = AsyncValue.data(
+        cur.copyWith(
+          memory: mem,
+          chatNumber: mem.chatCount > 0 ? mem.chatCount + 1 : 1,
+          clearSyncError: true,
+        ),
+      );
+      // Garden tab reads gardenProvider — invalidate so it refetches at the new
+      // placement level the next time it's shown.
+      ref.invalidate(gardenProvider);
+    } catch (e) {
+      final cur = state.requireValue;
+      state = AsyncValue.data(
+        cur.copyWith(lastSyncError: 'Post-placement memory refresh failed: $e'),
+      );
+    }
+  }
+
   // ── Session start ────────────────────────────────────────────────────────
 
   Future<void> startSession({Topic? topicOverride}) async {

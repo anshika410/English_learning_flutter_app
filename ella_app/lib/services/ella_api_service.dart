@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/child_memory.dart';
 import '../models/garden.dart';
+import '../models/placement.dart';
 import '../models/session.dart';
 
 class EllaApiException implements Exception {
@@ -210,6 +211,29 @@ class EllaApiService {
       ],
       conversationComplete: data['conversation_complete'] as bool? ?? false,
     );
+  }
+
+  /// One turn of the voice placement screening — POST /llm/placement-turn.
+  /// The full running transcript is sent on every call (the endpoint is
+  /// stateless); the response is either Zoe's next question or, once enough
+  /// evidence is gathered, the final CEFR assessment (`is_complete: true`).
+  /// [name]/[age], if known from earlier turns, are threaded back so the LLM
+  /// keeps its context.
+  Future<PlacementTurnResult> placementTurn({
+    required List<Map<String, String>> messages,
+    String? name,
+    int? age,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/llm/placement-turn',
+      body: {
+        'messages': messages,
+        if (name != null && name.isNotEmpty) 'name': name,
+        'age': ?age,
+      },
+    );
+    return PlacementTurnResult.fromJson(data);
   }
 
   Future<String?> conversationStarter({String? topic}) async {
@@ -442,6 +466,11 @@ class EllaApiService {
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      placement: j['placement'] is Map
+          ? PlacementInfo.fromJson(
+              Map<String, dynamic>.from(j['placement'] as Map),
+            )
+          : null,
     );
   }
 

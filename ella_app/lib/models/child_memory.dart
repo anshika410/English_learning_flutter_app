@@ -1,6 +1,8 @@
 // Pure-Dart data classes used by the engine.
 // No Flutter imports. No network imports.
 
+import 'placement.dart';
+
 class SkillScore {
   final String id;
   final double confidence; // 0..1
@@ -146,6 +148,9 @@ class MemoryState {
   final int effortTimesSpoken; // lifetime total, only ever rises
   final int chatCount;
   final int updatedAfterChat;
+  // Server-owned placement result (null until the student has been levelled).
+  // Its presence gates the first-run placement flow. Read-only — not in toJson.
+  final PlacementInfo? placement;
 
   const MemoryState({
     required this.childId,
@@ -164,6 +169,7 @@ class MemoryState {
     this.effortTimesSpoken = 0,
     this.chatCount = 0,
     this.updatedAfterChat = 0,
+    this.placement,
   });
 
   MemoryState copyWith({
@@ -183,6 +189,7 @@ class MemoryState {
     int? effortTimesSpoken,
     int? chatCount,
     int? updatedAfterChat,
+    PlacementInfo? placement,
   }) => MemoryState(
     childId: childId ?? this.childId,
     level: level ?? this.level,
@@ -200,6 +207,7 @@ class MemoryState {
     effortTimesSpoken: effortTimesSpoken ?? this.effortTimesSpoken,
     chatCount: chatCount ?? this.chatCount,
     updatedAfterChat: updatedAfterChat ?? this.updatedAfterChat,
+    placement: placement ?? this.placement,
   );
 
   factory MemoryState.fresh(String level, {String childId = 'demo'}) =>
@@ -247,6 +255,11 @@ class MemoryState {
       effortTimesSpoken: (j['effort_times_spoken'] as num?)?.toInt() ?? 0,
       chatCount: (j['chat_count'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      placement: j['placement'] is Map
+          ? PlacementInfo.fromJson(
+              Map<String, dynamic>.from(j['placement'] as Map),
+            )
+          : null,
     );
   }
 
