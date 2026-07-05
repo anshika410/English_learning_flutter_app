@@ -47,7 +47,8 @@
       {
         "group": "Conversation",
         "pages": [
-          "today-recap"
+          "today-recap",
+          "next-topics-logic"
         ]
       },
       {
