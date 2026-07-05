@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150" width="150" height="150">
+  <defs>
+    <linearGradient id="frameG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7D5530"></stop>
+      <stop offset="100%" stop-color="#5A3820"></stop>
+    </linearGradient>
+    <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5AA6E0"></stop>
+      <stop offset="34%" stop-color="#86C2EC"></stop>
+      <stop offset="60%" stop-color="#B8E0E0"></stop>
+      <stop offset="76%" stop-color="#CDEBBC"></stop>
+      <stop offset="100%" stop-color="#A8DC8A"></stop>
+    </linearGradient>
+    <clipPath id="sky-clip"><circle cx="75" cy="75" r="66"></circle></clipPath>
+    <filter id="sun-glow"><feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur><feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>
+  </defs>
+  
+  <circle cx="75" cy="75" r="75" fill="#3A2010" opacity=".6"></circle>
+  
+  <circle cx="75" cy="75" r="73" fill="url(#frameG)"></circle>
+  
+  <circle cx="75" cy="75" r="66" fill="url(#skyG)"></circle>
+  
+  <circle cx="99" cy="31" r="11" fill="#FFF4C8" filter="url(#sun-glow)" clip-path="url(#sky-clip)"></circle>
+  <circle cx="99" cy="31" r="9" fill="#FFE08A" clip-path="url(#sky-clip)"></circle>
+  
+  <rect x="14" y="37" width="34" height="11" rx="8" fill="rgba(255,255,255,.92)" clip-path="url(#sky-clip)"></rect>
+  <rect x="24" y="31" width="20" height="13" rx="8" fill="rgba(255,255,255,.92)" clip-path="url(#sky-clip)"></rect>
+  
+  <ellipse cx="75" cy="110" rx="82" ry="38" fill="#7CC85A" clip-path="url(#sky-clip)"></ellipse>
+  
+  <ellipse cx="28" cy="128" rx="58" ry="42" fill="#5CB23E" clip-path="url(#sky-clip)"></ellipse>
+  <ellipse cx="122" cy="124" rx="58" ry="40" fill="#4DA033" clip-path="url(#sky-clip)"></ellipse>
+  
+  <rect x="110" y="84" width="5" height="20" fill="#7A4F2A" clip-path="url(#sky-clip)"></rect>
+  
+  <circle cx="113" cy="82" r="12" fill="#3E9A2E" clip-path="url(#sky-clip)"></circle>
+  <circle cx="116" cy="74" r="9" fill="#4DB23A" clip-path="url(#sky-clip)"></circle>
+  
+  <rect x="9" y="72.25" width="132" height="3.5" rx="2" fill="#5A3820" clip-path="url(#sky-clip)"></rect>
+  <rect x="72.25" y="9" width="3.5" height="132" rx="2" fill="#5A3820" clip-path="url(#sky-clip)"></rect>
+  
+  <circle cx="75" cy="75" r="66" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="8"></circle>
+</svg>
