@@ -171,7 +171,13 @@ async def run_and_save_session_analysis(
     sa.try_next_example = try_next.get("example")
     sa.zoe_recap = analysis.get("zoe_recap")
     sa.transcript_notes_json = json.dumps(notes)
-    sa.correction_highlight = analysis.get("correction_highlight")
+    
+    # Extract correction_highlight via separate focused LLM call
+    try:
+        correction_hl = await llm_service.extract_correction_highlight(messages)
+        sa.correction_highlight = correction_hl
+    except Exception:
+        sa.correction_highlight = analysis.get("correction_highlight")
 
     # Save grading checklist details
     hit = [sc["id"] for sc in scores if sc.get("confidence", 0.0) >= FLOOR]
