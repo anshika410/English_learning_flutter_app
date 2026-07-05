@@ -65,9 +65,8 @@ cd ella_app
 flutter build web --base-href /v2/
 
 # Deploy:
-cd build/web && zip -r /tmp/ella-v2.zip .
-scp -i ~/Downloads/ella-zoe-key.pem /tmp/ella-v2.zip ubuntu@ella.navgurukul.org:/tmp/
-ssh ubuntu@ella.navgurukul.org "sudo rm -rf /var/www/ella/v2/* && sudo unzip -o /tmp/ella-v2.zip -d /var/www/ella/v2/"
+# Zip build/web/, scp to server, unzip to /var/www/ella/v2/
+# (See team wiki for SSH access details)
 ```
 
 Source: `ella_app/` project. Remember to keep `/v2/conversation-flow/` intact after deploying.
@@ -78,8 +77,8 @@ Source: `ella_app/` project. Remember to keep `/v2/conversation-flow/` intact af
 
 ```bash
 # Deploy:
-scp docs/loop-simulator.html ubuntu@ella.navgurukul.org:/tmp/
-ssh ubuntu@ella.navgurukul.org "sudo mkdir -p /var/www/ella/v2/conversation-flow && sudo cp /tmp/loop-simulator.html /var/www/ella/v2/conversation-flow/index.html"
+# Copy docs/loop-simulator.html to /var/www/ella/v2/conversation-flow/index.html on the server
+# (See team wiki for SSH access details)
 ```
 
 Source: `docs/loop-simulator.html` — single self-contained HTML file with embedded JS. No build step.
@@ -95,8 +94,8 @@ npx mintlify@latest export
 # Produces export.zip
 
 # Deploy:
-scp export.zip ubuntu@ella.navgurukul.org:/tmp/ella-docs.zip
-ssh ubuntu@ella.navgurukul.org "sudo rm -rf /var/www/ella/docs/* && sudo unzip -o /tmp/ella-docs.zip -d /var/www/ella/docs/ && sudo chown -R www-data:www-data /var/www/ella/docs/"
+# Upload export.zip to server, unzip to /var/www/ella/docs/
+# (See team wiki for SSH access details)
 ```
 
 Source: `docs/mintlify-src/` — MDX pages + `docs.json` config. Pre-rendered static Next.js export.
@@ -142,4 +141,4 @@ cd ella_app && flutter build apk --debug
 - After deploying v2 web, **re-deploy the simulator** separately to `/v2/conversation-flow/` (it gets wiped by the v2 deploy).
 - The Mintlify docs require `npx mintlify export` to regenerate — editing `.mdx` files alone won't update the live site.
 - Backend deploys require Docker rebuild. Code changes need to be on the server first (git pull or scp).
-- SSH key: `~/Downloads/ella-zoe-key.pem` — connect as `ubuntu@ella.navgurukul.org`.
+- SSH access details are kept private. Ask a team member for the key and connection info.
