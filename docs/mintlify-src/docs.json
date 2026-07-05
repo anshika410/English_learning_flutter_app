@@ -24,6 +24,7 @@
         "group": "Getting Started",
         "pages": [
           "readme",
+          "hosting-routes",
           "system-architecture",
           "conversation-flow-simulator"
         ]
