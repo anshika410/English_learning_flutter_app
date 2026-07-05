@@ -62,32 +62,63 @@ class EllaApiService {
   final http.Client _client;
 
   EllaApiService({
-    this.baseUrl = 'https://ella.navgurukul.org/api',
+    this.baseUrl = 'http://192.168.1.7:8000',
     http.Client? client,
   }) : _client = client ?? http.Client();
 
-  Future<String> getOrCreateToken() async {
+  Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final existing = prefs.getString(_tokenKey);
-    if (existing != null && existing.isNotEmpty) return existing;
+    return prefs.getString(_tokenKey);
+  }
 
-    final deviceId = prefs.getString(_deviceIdKey) ?? _newDeviceId();
-    await prefs.setString(_deviceIdKey, deviceId);
+  Future<bool> isAuthenticated() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
 
-    final data = await _request(
-      'POST',
-      '/auth/anonymous',
-      auth: false,
-      body: {'device_id': deviceId},
-    );
-    final token = data['access_token'] as String?;
-    final userId = data['user_id'] as String?;
-    if (token == null || token.isEmpty || userId == null || userId.isEmpty) {
-      throw const EllaApiException('Anonymous auth returned an invalid token.');
-    }
+  Future<void> saveTokens(String token, String userId) async {
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userIdKey, userId);
-    return token;
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
+  }
+
+  Future<bool> loginWithGoogle(String idToken) async {
+    try {
+      final data = await _request('POST', '/auth/google', auth: false, body: {'token': idToken});
+      final accessToken = data['access_token'];
+      final userId = data['user_id'];
+      if (accessToken != null && userId != null) {
+        await saveTokens(accessToken, userId);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _log('Google Auth Error', e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> requestMagicLink(String email) async {
+    try {
+      // Create a URL scheme for returning to the app
+      final redirectUrl = 'ella://login';
+      await _request(
+        'POST', 
+        '/auth/magic-link/request', 
+        auth: false, 
+        body: {'email': email, 'redirect_url': redirectUrl}
+      );
+      return true;
+    } catch (e) {
+      _log('Magic Link Error', e.toString());
+      return false;
+    }
   }
 
   Future<String?> getCachedUserId() async {
@@ -340,7 +371,10 @@ class EllaApiService {
       if (body != null) 'Content-Type': 'application/json',
     };
     if (auth) {
-      headers['Authorization'] = 'Bearer ${await getOrCreateToken()}';
+      final token = await getToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
     }
 
     _log('REQUEST  $method $uri', body != null ? jsonEncode(body) : null);

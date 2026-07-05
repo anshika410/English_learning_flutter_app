@@ -17,7 +17,7 @@ final supabaseServiceProvider = Provider<SupabaseService>((ref) {
 final ellaApiServiceProvider = Provider<EllaApiService>((ref) {
   return EllaApiService(
     baseUrl:
-        dotenv.env['ELLA_API_BASE_URL'] ?? 'https://ella.navgurukul.org/api',
+        dotenv.env['ELLA_API_BASE_URL'] ?? 'http://192.168.1.7:8000',
   );
 });
 

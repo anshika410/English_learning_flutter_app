@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:app_links/app_links.dart';
+import 'services/ella_api_service.dart';
+import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
+
 import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
@@ -15,17 +20,101 @@ import 'screens/glass_box/glass_box_screen.dart';
 // Flip to true to expose the debug FABs (conversation-states preview + Glass Box).
 const bool kShowGlassBox = false;
 
-class EllaApp extends StatelessWidget {
+class EllaApp extends StatefulWidget {
   const EllaApp({super.key});
 
   @override
+  State<EllaApp> createState() => _EllaAppState();
+}
+
+class _EllaAppState extends State<EllaApp> {
+  bool _isCheckingAuth = true;
+  bool _isAuthenticated = false;
+  late AppLinks _appLinks;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  
+  @override
+  void initState() {
+    super.initState();
+    _initAuthAndDeepLinks();
+  }
+
+  Future<void> _initAuthAndDeepLinks() async {
+    final api = EllaApiService();
+    
+    // Check initial auth state
+    final isAuth = await api.isAuthenticated();
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = isAuth;
+        _isCheckingAuth = false;
+      });
+    }
+
+    // Initialize App Links for Magic Link handling
+    _appLinks = AppLinks();
+    
+    // Handle incoming app links while the app is in the background or foreground
+    _appLinks.uriLinkStream.listen((Uri? uri) async {
+      if (uri != null) {
+        _handleDeepLink(uri);
+      }
+    });
+    
+    // Handle link that started the app (if any)
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        _handleDeepLink(initialUri);
+      }
+    } catch (e) {
+      debugPrint('Error getting initial deep link: $e');
+    }
+  }
+  
+  void _handleDeepLink(Uri uri) async {
+    // Expected magic link format: ella://login?token=XYZ&user_id=123
+    if (uri.scheme == 'ella' && uri.host == 'login') {
+      // The backend redirect uses access_token, refresh_token, and user_id
+      final token = uri.queryParameters['access_token'] ?? uri.queryParameters['token'];
+      final userId = uri.queryParameters['user_id'];
+      
+      if (token != null && userId != null) {
+        final api = EllaApiService();
+        await api.saveTokens(token, userId);
+        if (mounted) {
+          setState(() {
+            _isAuthenticated = true;
+          });
+          _navigatorKey.currentState?.pushReplacementNamed('/');
+        }
+      }
+    }
+  }
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'ELLA',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
       navigatorObservers: [appRouteObserver],
-      home: const _EllaHome(),
+      // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
+      // because we handle deep links manually via the app_links package.
+      onGenerateInitialRoutes: (String initialRouteName) {
+        return [
+          MaterialPageRoute(
+            settings: const RouteSettings(name: '/splash'),
+            builder: (context) => const SplashScreen(),
+          ),
+        ];
+      },
+      routes: {
+        '/splash': (context) => const SplashScreen(),
+        '/': (context) => const _EllaHome(),
+        '/home': (context) => const _EllaHome(),
+        '/login': (context) => const LoginScreen(),
+      },
     );
   }
 }

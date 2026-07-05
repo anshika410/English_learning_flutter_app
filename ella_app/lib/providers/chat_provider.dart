@@ -194,18 +194,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     int nextChatNumber = 1;
 
     try {
-      // Anonymous sign-in — gives us an auth.uid() that the _TEST_ RLS
-      // policies can match against. Cached by supabase_flutter across
-      // app restarts via secure storage.
-      // NOTE: requires the "Anonymous Sign-Ins" provider to be enabled in
-      // Supabase → Authentication → Sign In / Up. If it's off, this throws
-      // AuthApiException(code: anonymous_provider_disabled) and we fall back
-      // to offline-only mode below.
-      await api.getOrCreateToken();
       _childId = await api.getCachedUserId() ?? _kOfflineChildId;
 
       // Make sure a `children` row exists for this uid (FK source).
-      // User creation is handled by POST /auth/anonymous.
+      // User creation is handled by POST /auth/google or magic link.
 
       // Canonical load order: auth → memory → garden (mirrors the server flow).
       // Resume memory from persisted state if any, else fresh.

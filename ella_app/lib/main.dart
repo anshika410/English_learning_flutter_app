@@ -1,14 +1,31 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('🔥🔥🔥 FLUTTER ERROR: ${details.exception}');
+    debugPrint('🔥🔥🔥 STACK TRACE: ${details.stack}');
+    FlutterError.presentError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('🔥🔥🔥 ASYNC ERROR: $error');
+    debugPrint('🔥🔥🔥 ASYNC STACK: $stack');
+    return true;
+  };
+
   await dotenv.load(fileName: '.env');
+  
+  await GoogleSignIn.instance.initialize(
+    serverClientId: dotenv.env['GOOGLE_CLIENT_ID'],
+  );
 
   // The Ella REST API is the single backend now; Supabase is only used by the
   // Glass Box (testing) tabs. Initialize it best-effort so a missing/blank
