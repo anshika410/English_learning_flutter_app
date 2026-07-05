@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     )..repeat(reverse: true);
     
     // Subtle rotation for a natural breathing/rocking feel
-    _listenAnim = Tween<double>(begin: -0.03, end: 0.03).animate(
+    _listenAnim = Tween<double>(begin: -0.015, end: 0.015).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOutSine),
     );
   }
@@ -141,8 +141,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0FAFA),
+    return PopScope(
+      canPop: !(_showEmailInput || _magicLinkSent),
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        setState(() {
+          _showEmailInput = false;
+          _magicLinkSent = false;
+          _emailController.clear();
+        });
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF0FAFA),
       body: Stack(
         children: [
           // Background Gradient (Peach to Cyan)
@@ -175,35 +185,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ),
           
-          // Back Button
-          if (_showEmailInput || _magicLinkSent)
-            Positioned(
-              top: 0,
-              left: 20,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _showEmailInput = false;
-                        _magicLinkSent = false;
-                        _emailController.clear();
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF2C3E3A),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
           // Main Scrollable Content
           SafeArea(
             child: CustomScrollView(
@@ -227,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               child: SizedBox(
                                 height: 140,
                                 child: SvgPicture.asset(
-                                  'assets/homescreen/new/mascot-open.svg',
+                                  _showEmailInput ? 'assets/homescreen/new/mascot-mouthclose.svg' : 'assets/homescreen/new/mascot-open.svg',
                                   placeholderBuilder: (context) => const Icon(
                                     Icons.eco, size: 100, color: Color(0xFF88D9C0)
                                   ),
@@ -239,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         
                         const SizedBox(height: 24),
                         
-                        if (!_magicLinkSent) ...[
+                        if (!_magicLinkSent && !_showEmailInput) ...[
                           const Text(
                             'ZoSpeak',
                             style: TextStyle(
@@ -260,96 +241,94 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 40),
                           
-                          if (!_showEmailInput) ...[
-                            // Google Login Button
-                            _buildButton(
-                              text: 'Continue With Google',
-                              color: const Color(0xFFE54E87),
-                              textColor: Colors.white,
-                              iconWidget: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: SvgPicture.string(
-                                  '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>''',
-                                  width: 24,
-                                  height: 24,
-                                ),
+                          // Google Login Button
+                          _buildButton(
+                            text: 'Continue With Google',
+                            color: const Color(0xFFE54E87),
+                            textColor: Colors.white,
+                            iconWidget: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
                               ),
-                              onPressed: _isLoading ? null : _handleGoogleSignIn,
-                              isLoading: _isLoading,
-                            ),
-                            const SizedBox(height: 16),
-                            
-                            // Email Login Button
-                            _buildButton(
-                              text: 'Continue With Email',
-                              color: Colors.white,
-                              textColor: const Color(0xFFE54E87),
-                              border: Border.all(color: const Color(0xFF6B1B3D), width: 2),
-                              iconWidget: const Icon(Icons.mail_outline, color: Color(0xFFE54E87)),
-                              onPressed: () {
-                                setState(() {
-                                  _showEmailInput = true;
-                                });
-                              },
-                            ),
-                          ] else ...[
-                            // Email Input State
-                            const Text(
-                              'Sign In With Email',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2C3E3A),
+                              child: SvgPicture.string(
+                                '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>''',
+                                width: 24,
+                                height: 24,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'We will send you a link. No password needed',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF4A5D58),
+                            onPressed: _isLoading ? null : _handleGoogleSignIn,
+                            isLoading: _isLoading,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Email Login Button
+                          _buildButton(
+                            text: 'Continue With Email',
+                            color: Colors.white,
+                            textColor: const Color(0xFFE54E87),
+                            border: Border.all(color: const Color(0xFF6B1B3D), width: 2),
+                            iconWidget: const Icon(Icons.mail_outline, color: Color(0xFFE54E87)),
+                            onPressed: () {
+                              setState(() {
+                                _showEmailInput = true;
+                              });
+                            },
+                          ),
+                        ] else if (_showEmailInput && !_magicLinkSent) ...[
+                          // Email Input State
+                          const Text(
+                            'Sign In With Email',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2C3E3A),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'We will send you a link. No password needed',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF4A5D58),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          TextField(
+                            controller: _emailController,
+                            focusNode: _emailFocusNode,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              hintText: 'Eg. xyz@gmail.com',
+                              hintStyle: const TextStyle(color: Color(0xFF9AA8A4), fontSize: 14),
+                              filled: true,
+                              fillColor: const Color(0xFFFFFDF5),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: Color(0xFFEAE5D9), width: 1),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: Color(0xFFEAE5D9), width: 1),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: Color(0xFFE54E87), width: 1.5),
                               ),
                             ),
-                            const SizedBox(height: 24),
-                            TextField(
-                              controller: _emailController,
-                              focusNode: _emailFocusNode,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                hintText: 'Eg. xyz@gmail.com',
-                                hintStyle: const TextStyle(color: Color(0xFF9AA8A4), fontSize: 14),
-                                filled: true,
-                                fillColor: const Color(0xFFFFFDF5),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(color: Color(0xFFEAE5D9), width: 1),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(color: Color(0xFFEAE5D9), width: 1),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(color: Color(0xFFE54E87), width: 1.5),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            _buildButton(
-                              text: 'Send Me a Link',
-                              color: const Color(0xFFE54E87),
-                              textColor: Colors.white,
-                              border: Border.all(color: const Color(0xFF6B1B3D), width: 2),
-                              iconWidget: const Icon(Icons.send, color: Colors.white, size: 20),
-                              onPressed: _isLoading ? null : _sendMagicLink,
-                              isLoading: _isLoading,
-                            ),
-                          ],
+                          ),
+                          const SizedBox(height: 24),
+                          _buildButton(
+                            text: 'Send Me a Link',
+                            color: const Color(0xFFE54E87),
+                            textColor: Colors.white,
+                            border: Border.all(color: const Color(0xFF6B1B3D), width: 2),
+                            iconWidget: const Icon(Icons.send, color: Colors.white, size: 20),
+                            onPressed: _isLoading ? null : _sendMagicLink,
+                            isLoading: _isLoading,
+                          ),
                         ] else ...[
                           // Magic Link Success State
                           Container(
@@ -450,8 +429,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ),
           
-          // Back Button for Success Screen
-          if (_magicLinkSent)
+          // Back Button for Email Input and Success Screen
+          if (_showEmailInput || _magicLinkSent)
             Positioned(
               top: MediaQuery.of(context).padding.top + 16,
               left: 16,
@@ -460,6 +439,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   setState(() {
                     _magicLinkSent = false;
                     _showEmailInput = false;
+                    _emailController.clear();
                   });
                 },
                 child: Container(
@@ -474,7 +454,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildButton({
