@@ -75,7 +75,6 @@ flutter:
     - .env
     - assets/mascot-animations/
     - assets/chillax/
-    - assets/bottom_tab/
     - assets/homescreen/
     - assets/homescreen/new/
     - assets/gardent-view/
