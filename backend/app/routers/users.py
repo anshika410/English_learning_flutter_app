@@ -162,7 +162,8 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
 
     from ..schemas.user import NextTopics, NextTopicItem
     next_topics_obj = None
-    if fresh and user.first_session_done:
+    has_completed_onboarding = user.first_session_done or bool(user.placements)
+    if fresh and has_completed_onboarding:
         rec = _topic_item(fresh[0])
         alts = [_topic_item(t) for t in fresh[1:4]]
         next_topics_obj = NextTopics(
