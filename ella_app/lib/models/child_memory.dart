@@ -1,6 +1,8 @@
 // Pure-Dart data classes used by the engine.
 // No Flutter imports. No network imports.
 
+import 'placement.dart';
+
 class SkillScore {
   final String id;
   final double confidence; // 0..1
@@ -67,6 +69,68 @@ class DueNext {
   Map<String, dynamic> toJson() => {'primary': primary, 'watching': watching};
 }
 
+/// A single home-screen topic suggestion. `name` is the full topic sent to the
+/// backend (`POST /session`); `label` is the short chip/CTA text shown to the
+/// child. `icon` is a slug (asset name, may be unmapped) and `starter` is Zoe's
+/// opening line for the topic (informational — the server issues its own).
+class TopicChoice {
+  final String name;
+  final String label;
+  final String icon;
+  final String starter;
+
+  const TopicChoice({
+    required this.name,
+    this.label = '',
+    this.icon = '',
+    this.starter = '',
+  });
+
+  /// The text to show on chips / the CTA — the short label, or the full name
+  /// when no label was provided.
+  String get display => label.isNotEmpty ? label : name;
+
+  factory TopicChoice.fromJson(Map<String, dynamic> j) => TopicChoice(
+    name: j['name'] as String? ?? '',
+    label: j['label'] as String? ?? '',
+    icon: j['icon'] as String? ?? '',
+    starter: j['starter'] as String? ?? '',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'label': label,
+    'icon': icon,
+    'starter': starter,
+  };
+}
+
+class NextTopics {
+  final TopicChoice? recommended;
+  final List<TopicChoice> alternatives;
+
+  const NextTopics({this.recommended, this.alternatives = const []});
+
+  static const NextTopics empty = NextTopics();
+
+  factory NextTopics.fromJson(Map<String, dynamic> j) => NextTopics(
+    recommended: j['recommended'] is Map
+        ? TopicChoice.fromJson(
+            Map<String, dynamic>.from(j['recommended'] as Map),
+          )
+        : null,
+    alternatives: [
+      for (final item in (j['alternatives'] as List?) ?? const [])
+        TopicChoice.fromJson(Map<String, dynamic>.from(item as Map)),
+    ],
+  );
+
+  Map<String, dynamic> toJson() => {
+    'recommended': recommended?.toJson(),
+    'alternatives': [for (final a in alternatives) a.toJson()],
+  };
+}
+
 class MemoryState {
   final String childId;
   final String level; // 'A1'..'C2'
@@ -76,6 +140,7 @@ class MemoryState {
   final DueNext dueNext;
   final List<String> lastTopics; // ring buffer, max 5
   final String lastTimeRecap; // server-authored recap line for the home screen
+  final NextTopics nextTopics; // recommended + alternative topics for home
   final String interests; // free-text, feeds topic picker
   final Map<String, int> sightings; // per-skill qualifying count
   final Map<String, int> strength; // per-skill unprompted count
@@ -83,6 +148,9 @@ class MemoryState {
   final int effortTimesSpoken; // lifetime total, only ever rises
   final int chatCount;
   final int updatedAfterChat;
+  // Server-owned placement result (null until the student has been levelled).
+  // Its presence gates the first-run placement flow. Read-only — not in toJson.
+  final PlacementInfo? placement;
 
   const MemoryState({
     required this.childId,
@@ -93,6 +161,7 @@ class MemoryState {
     this.dueNext = const DueNext(),
     this.lastTopics = const [],
     this.lastTimeRecap = '',
+    this.nextTopics = NextTopics.empty,
     this.interests = '',
     this.sightings = const {},
     this.strength = const {},
@@ -100,6 +169,7 @@ class MemoryState {
     this.effortTimesSpoken = 0,
     this.chatCount = 0,
     this.updatedAfterChat = 0,
+    this.placement,
   });
 
   MemoryState copyWith({
@@ -111,6 +181,7 @@ class MemoryState {
     DueNext? dueNext,
     List<String>? lastTopics,
     String? lastTimeRecap,
+    NextTopics? nextTopics,
     String? interests,
     Map<String, int>? sightings,
     Map<String, int>? strength,
@@ -118,6 +189,7 @@ class MemoryState {
     int? effortTimesSpoken,
     int? chatCount,
     int? updatedAfterChat,
+    PlacementInfo? placement,
   }) => MemoryState(
     childId: childId ?? this.childId,
     level: level ?? this.level,
@@ -127,6 +199,7 @@ class MemoryState {
     dueNext: dueNext ?? this.dueNext,
     lastTopics: lastTopics ?? this.lastTopics,
     lastTimeRecap: lastTimeRecap ?? this.lastTimeRecap,
+    nextTopics: nextTopics ?? this.nextTopics,
     interests: interests ?? this.interests,
     sightings: sightings ?? this.sightings,
     strength: strength ?? this.strength,
@@ -134,6 +207,7 @@ class MemoryState {
     effortTimesSpoken: effortTimesSpoken ?? this.effortTimesSpoken,
     chatCount: chatCount ?? this.chatCount,
     updatedAfterChat: updatedAfterChat ?? this.updatedAfterChat,
+    placement: placement ?? this.placement,
   );
 
   factory MemoryState.fresh(String level, {String childId = 'demo'}) =>
@@ -154,6 +228,11 @@ class MemoryState {
       dueNext: due,
       lastTopics: List<String>.from((j['last_topics'] as List?) ?? []),
       lastTimeRecap: j['last_time_recap'] as String? ?? '',
+      nextTopics: j['next_topics'] is Map
+          ? NextTopics.fromJson(
+              Map<String, dynamic>.from(j['next_topics'] as Map),
+            )
+          : NextTopics.empty,
       interests: j['interests'] as String? ?? '',
       sightings: Map<String, int>.from(
         (j['sightings'] as Map?)?.map(
@@ -176,6 +255,11 @@ class MemoryState {
       effortTimesSpoken: (j['effort_times_spoken'] as num?)?.toInt() ?? 0,
       chatCount: (j['chat_count'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      placement: j['placement'] is Map
+          ? PlacementInfo.fromJson(
+              Map<String, dynamic>.from(j['placement'] as Map),
+            )
+          : null,
     );
   }
 
@@ -188,6 +272,7 @@ class MemoryState {
     'emerging': emerging,
     'due_next': dueNext.toJson(),
     'last_topics': lastTopics,
+    'next_topics': nextTopics.toJson(),
     'sightings': sightings,
     'strength': strength,
     'last_seen': lastSeen,

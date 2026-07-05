@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../models/garden.dart';
+import '../../../services/audio_service.dart';
 
 // Botanical Berry: the parchment sheet becomes an elevated botanical surface.
 const Color _parchment = EllaColors.surfaceElevated;
@@ -371,7 +372,7 @@ class _SkillRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: withTapClick(onTap),
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.all(10),

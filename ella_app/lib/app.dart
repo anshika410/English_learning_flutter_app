@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app_links/app_links.dart';
 import 'services/ella_api_service.dart';
@@ -8,10 +9,13 @@ import 'screens/splash_screen.dart';
 import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
+import 'providers/chat_provider.dart';
 import 'screens/child_view/home_screen.dart';
 import 'screens/child_view/garden_screen.dart';
+import 'screens/child_view/placement_intro_screen.dart';
 import 'screens/child_view/profile_screen.dart';
 import 'screens/child_view/conversation_states_preview.dart';
+import 'screens/child_view/widgets/garden_sky_background.dart';
 import 'screens/glass_box/glass_box_screen.dart';
 
 // kShowGlassBox: flip to true to expose the Glass Box (engine testing) screen
@@ -140,11 +144,47 @@ class _EllaAppState extends State<EllaApp> {
         } else if (path == '/login') {
           return MaterialPageRoute(builder: (_) => const LoginScreen(), settings: settings);
         } else if (path == '/' || path == '/home') {
-          return MaterialPageRoute(builder: (_) => const _EllaHome(), settings: settings);
+          return MaterialPageRoute(builder: (_) => const RootGate(), settings: settings);
         }
         
         // Fallback
         return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+      },
+    );
+  }
+}
+
+/// First-run gate. A student with no `placement` in memory is routed into the
+/// placement screening before the normal topic Home; once placed (or if we're
+/// offline and can't place), the regular Home shows. Watching chatProvider means
+/// the switch happens automatically the moment ChatNotifier.refreshAfterPlacement
+/// lands the new memory after the screening completes.
+class RootGate extends ConsumerWidget {
+  const RootGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatAsync = ref.watch(chatProvider);
+    return chatAsync.when(
+      loading: () => const GardenSkyBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: CircularProgressIndicator(color: EllaColors.berryDark),
+          ),
+        ),
+      ),
+      // On error, don't trap the user on a spinner — fall through to Home.
+      error: (_, _) => const _EllaHome(),
+      data: (s) {
+        final online = ref.read(chatProvider.notifier).online;
+        final needsPlacement = online && s.memory.placement == null;
+        return needsPlacement
+            ? const Scaffold(
+                backgroundColor: Colors.transparent,
+                body: PlacementIntroScreen(),
+              )
+            : const _EllaHome();
       },
     );
   }

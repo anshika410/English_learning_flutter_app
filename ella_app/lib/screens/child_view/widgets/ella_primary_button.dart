@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
+import '../../../services/audio_service.dart';
 
 enum EllaButtonVariant { primary, secondary }
 
@@ -72,6 +73,7 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
       onTapUp: enabled
           ? (_) {
               setState(() => _pressed = false);
+              playTapClick();
               widget.onTap?.call();
             }
           : null,
@@ -157,6 +159,7 @@ class _EllaIconButtonState extends State<EllaIconButton> {
       onTapUp: enabled
           ? (_) {
               setState(() => _pressed = false);
+              playTapClick();
               widget.onTap?.call();
             }
           : null,

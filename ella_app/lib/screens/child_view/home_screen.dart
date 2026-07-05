@@ -1,26 +1,28 @@
 // Home / Talk screen — Figma "Learning Flow — Homescreen".
 // An outdoor garden scene: sky + sun + rolling hills (GardenSkyBackground), the
 // sprout mascot "Zoe", a greeting header with profile/garden shortcuts, a
-// "Last time" recall card, the proposed-topic CTA ("Let's Talk About …"), and
-// three pick-your-own topic chips. Topic + recap are derived live from memory.
+// "Last time" recall card, the selected-topic CTA ("Let's Talk About …"), and
+// pick-your-own topic chips. Recap + topics come live from the memory API's
+// next_topics. The child selects a topic (chip / See More) — only the CTA starts
+// a session, sending the topic name to POST /session.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../core/engine.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
-import '../../models/home_topic.dart';
 import '../../providers/chat_provider.dart';
-import '../../providers/topics_provider.dart';
+import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import 'all_topics_screen.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/garden_sky_background.dart';
+import 'widgets/shake.dart';
+import 'widgets/speak_again_label.dart';
 import 'widgets/zoe_mascot.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
@@ -28,18 +30,13 @@ import 'widgets/zoe_mascot.dart';
 // real profile name is wired through.
 const String kHomeChildName = 'Maya';
 
-const String _kMascotAsset = 'assets/homescreen/new/mascot-open.svg';
-
-// Design-exported glyphs (Figma). Profile / family / school / see-more still use
-// Material stand-ins until those are exported too.
+// Design-exported glyphs (Figma). Profile / see-more still use Material
+// stand-ins until those are exported too.
 const String _kPlantIcon = 'assets/homescreen/new/Plant.svg'; // garden shortcut
-const String _kClockIcon =
-    'assets/homescreen/new/ClockClockwise.svg'; // "Last time"
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg'; // CTA
 
-// Mascot footprint from the Figma frame (150.55×180 in a 430-wide artboard).
+// Mascot footprint from the Figma frame (150.55-wide in a 430-wide artboard).
 const double _kMascotWidthFactor = 150.55 / 430;
-const double _kMascotAspect = 180 / 150.55;
 
 class HomeScreen extends ConsumerWidget {
   final VoidCallback? onConversationEnded;
@@ -99,30 +96,61 @@ class _HomeBody extends ConsumerStatefulWidget {
 }
 
 class _HomeBodyState extends ConsumerState<_HomeBody> {
-  // pickTopic() is random for the interest-less demo, so cache the chosen topic
-  // and only recompute when the relevant memory actually changes — otherwise the
-  // CTA label would flicker on every rebuild.
-  String? _topicSig;
-  String? _topic;
+  // The topic the CTA will start. Null means "use the server's recommended".
+  // Tapping an alternative chip or picking one in See More sets this; it never
+  // starts a session — only the CTA does.
+  TopicChoice? _selectedTopic;
 
   MemoryState? get _memory => widget.memory;
 
-  String? get _stableTopic {
-    final mem = _memory;
-    if (mem == null) return null;
-    final sig = '${mem.level}|${mem.lastTopics.join(",")}|${mem.interests}';
-    if (sig != _topicSig) {
-      _topicSig = sig;
-      _topic = pickTopic(mem)?.topic;
-    }
-    return _topic;
-  }
+  // Server recommendation and the alternatives shown as chips.
+  TopicChoice? get _recommended => _memory?.nextTopics.recommended;
+  List<TopicChoice> get _alternatives =>
+      _memory?.nextTopics.alternatives ?? const [];
+
+  // The effective selection driving the CTA (explicit pick, else recommended).
+  TopicChoice? get _selected => _selectedTopic ?? _recommended;
 
   // Server-authored recap line ("Last time…"), shown verbatim. Empty until the
   // API provides it, in which case the card shows its first-chat fallback.
   String get _recap => _memory?.lastTimeRecap ?? '';
 
-  Future<void> _startTalking() async {
+  void _selectTopic(TopicChoice topic) =>
+      setState(() => _selectedTopic = topic);
+
+  // Replays the "Last time" recap aloud. Speaks the same fallback line that the
+  // card shows when the server hasn't sent a recap yet.
+  Future<void> _speakRecap() async {
+    final text = _recap.trim().isNotEmpty
+        ? _recap.trim()
+        : "This is our first chat together — I can't wait!";
+    try {
+      await ref.read(ttsProvider).speak(text);
+    } catch (_) {}
+  }
+
+  Future<void> _openSeeMore() async {
+    final picked = await Navigator.of(context).push<TopicChoice>(
+      MaterialPageRoute(builder: (_) => const AllTopicsScreen()),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedTopic = picked);
+    }
+  }
+
+  Future<void> _startSelected() async {
+    final sel = _selected;
+    if (sel != null && sel.name.isNotEmpty) {
+      // The topic NAME (not the label) is what the backend expects.
+      await startTopicByName(
+        context,
+        ref,
+        sel.name,
+        onConversationEnded: widget.onConversationEnded,
+      );
+      return;
+    }
+    // No recommendation yet — fall back to the engine's own topic pick.
     final chatState = ref.read(chatProvider);
     if (chatState.hasValue && chatState.requireValue.sessionEnded) {
       await ref.read(chatProvider.notifier).nextChat();
@@ -138,16 +166,17 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   @override
   Widget build(BuildContext context) {
     // Keep the CTA tappable even while memory is still loading so it doesn't
-    // visibly flip from disabled→enabled on launch; _startTalking safely no-ops
+    // visibly flip from disabled→enabled on launch; _startSelected safely no-ops
     // until chatProvider has a value. The label fills in once the topic loads.
-    void onStart() => _startTalking();
-    final nextTopic = _stableTopic;
-    final topicTitle = nextTopic != null ? _titleCase(nextTopic) : null;
-    final ctaLabel = topicTitle != null
-        ? "Let's Talk About $topicTitle"
+    // The CTA shows the short label (server-authored) — the full name is only
+    // used for POST /session.
+    final selected = _selected;
+    final selectedLabel = selected?.display ?? '';
+    final ctaLabel = selectedLabel.isNotEmpty
+        ? "Let's Talk About $selectedLabel"
         : "Let's Talk";
-    final pickPrompt = topicTitle != null
-        ? 'Not the $topicTitle? Pick your own'
+    final pickPrompt = selectedLabel.isNotEmpty
+        ? 'Not the $selectedLabel? Pick your own'
         : 'Not this topic? Pick your own';
 
     final mascotW = (MediaQuery.of(context).size.width * _kMascotWidthFactor)
@@ -185,23 +214,28 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                             reducedMotion: MediaQuery.of(context).disableAnimations,
                           ),
                           const SizedBox(height: 20),
-                          _LastTimeCard(recap: _recap),
+                          _LastTimeCard(recap: _recap, onSpeak: _speakRecap),
                           const SizedBox(height: 16),
                           const _SectionDivider(label: 'Next Session'),
                           const SizedBox(height: 12),
-                          EllaPrimaryButton(
-                            label: ctaLabel,
-                            leading: SvgPicture.asset(
-                              _kVoiceIcon,
-                              width: 22,
-                              height: 22,
-                              colorFilter: const ColorFilter.mode(
-                                EllaColors.onPrimary,
-                                BlendMode.srcIn,
+                          // Short wobble whenever the selected topic changes.
+                          ShakeOnChange(
+                            trigger: selected?.name ?? '',
+                            child: EllaPrimaryButton(
+                              label: ctaLabel,
+                              leading: SvgPicture.asset(
+                                _kVoiceIcon,
+                                width: 22,
+                                height: 22,
+                                colorFilter: const ColorFilter.mode(
+                                  EllaColors.onPrimary,
+                                  BlendMode.srcIn,
+                                ),
                               ),
+                              height: 60,
+                              // EllaPrimaryButton plays the tap click itself.
+                              onTap: _startSelected,
                             ),
-                            height: 60,
-                            onTap: withTapClick(onStart),
                           ),
                         ],
                       ),
@@ -218,7 +252,12 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                 ),
               ),
               const SizedBox(height: 10),
-              _TopicChipsRow(onConversationEnded: widget.onConversationEnded),
+              _TopicChipsRow(
+                alternatives: _alternatives,
+                selected: _selectedTopic,
+                onSelect: _selectTopic,
+                onSeeMore: _openSeeMore,
+              ),
             ],
           ),
         ),
@@ -264,7 +303,7 @@ class _HeaderRow extends StatelessWidget {
               // TODO: swap for the exported profile glyph when available.
               glyph: const Icon(
                 Icons.person_rounded,
-                size: 24,
+                size: 30,
                 color: EllaColors.infoDark,
               ),
               fill: EllaColors.surfaceVariant,
@@ -273,7 +312,7 @@ class _HeaderRow extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _CircleIconButton(
-              glyph: SvgPicture.asset(_kPlantIcon, width: 26, height: 26),
+              glyph: SvgPicture.asset(_kPlantIcon, width: 32, height: 32),
               fill: EllaColors.greenLight,
               ring: EllaColors.greenDark,
               onTap: onOpenGarden,
@@ -304,8 +343,8 @@ class _CircleIconButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: withTapClick(onTap),
       child: Container(
-        width: 54,
-        height: 54,
+        width: 64,
+        height: 64,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: fill,
@@ -324,7 +363,12 @@ class _LastTimeCard extends StatelessWidget {
   // Server-authored recap text (memory.last_time_recap). Empty on a first chat
   // or before the API provides it, when the friendly fallback is shown instead.
   final String recap;
-  const _LastTimeCard({required this.recap});
+
+  /// Replays the recap aloud (TTS). Mirrors the "Speak Again" control in Zoe's
+  /// chat bubble.
+  final VoidCallback onSpeak;
+
+  const _LastTimeCard({required this.recap, required this.onSpeak});
 
   @override
   Widget build(BuildContext context) {
@@ -344,16 +388,7 @@ class _LastTimeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              SvgPicture.asset(_kClockIcon, width: 16, height: 16),
-              const SizedBox(width: 6),
-              Text(
-                'Last time',
-                style: EllaTextStyles.caption.copyWith(color: EllaColors.info),
-              ),
-            ],
-          ),
+          SpeakAgainLabel(onTap: onSpeak),
           const SizedBox(height: 6),
           Text(body, style: EllaTextStyles.bodySemibold),
         ],
@@ -389,33 +424,47 @@ class _SectionDivider extends StatelessWidget {
   }
 }
 
-// ── Pick-your-own topic chips (server-driven) ───────────────────────────────
+// ── Pick-your-own topic chips (select, don't start) ─────────────────────────
 
-// The first two topics from GET /users/me/topics, plus a "See More" chip that
-// opens the full list. Tapping a topic starts a session on it (POST /session)
-// via the shared startTopicSession flow. Empty slots stay as neutral
-// placeholders while the list loads so the row's layout doesn't jump.
-class _TopicChipsRow extends ConsumerWidget {
-  final VoidCallback? onConversationEnded;
-  const _TopicChipsRow({required this.onConversationEnded});
+// The next_topics.alternatives as chips + a "See More" chip. Tapping a topic
+// chip SELECTS it (highlight + reorder to front + CTA relabel) — it does not
+// start a session; only the CTA does. The explicitly-selected topic (if any) is
+// moved to the front and highlighted; a See-More pick that isn't among the
+// alternatives is prepended. Empty slots stay as neutral placeholders so the
+// row's layout doesn't jump before the topics load.
+class _TopicChipsRow extends StatelessWidget {
+  final List<TopicChoice> alternatives;
+  final TopicChoice? selected; // explicit pick (null = recommended, no highlight)
+  final ValueChanged<TopicChoice> onSelect;
+  final VoidCallback onSeeMore;
+
+  const _TopicChipsRow({
+    required this.alternatives,
+    required this.selected,
+    required this.onSelect,
+    required this.onSeeMore,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final topics = ref.watch(topicsProvider).asData?.value ?? const <HomeTopic>[];
-    final shown = topics.take(2).toList();
+  Widget build(BuildContext context) {
+    final ordered = <TopicChoice>[...alternatives];
+    final sel = selected;
+    if (sel != null && sel.name.isNotEmpty) {
+      // Move the explicit pick to the front (it may be one of the alternatives,
+      // or a See-More pick that isn't — prepend either way), highlighted.
+      ordered.removeWhere((t) => t.name == sel.name);
+      ordered.insert(0, sel);
+    }
+    final shown = ordered.take(2).toList();
 
     final slots = <Widget>[];
     for (final topic in shown) {
       slots.add(
         Expanded(
-          child: _ApiTopicChip(
-            topic: topic,
-            onTap: () => startTopicSession(
-              context,
-              ref,
-              topic,
-              onConversationEnded: onConversationEnded,
-            ),
+          child: _TopicChip(
+            label: topic.display,
+            selected: sel != null && topic.name == sel.name,
+            onTap: () => onSelect(topic),
           ),
         ),
       );
@@ -424,18 +473,7 @@ class _TopicChipsRow extends ConsumerWidget {
     for (var i = shown.length; i < 2; i++) {
       slots.add(const Expanded(child: _ChipPlaceholder()));
     }
-    slots.add(
-      Expanded(
-        child: _SeeMoreChip(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  AllTopicsScreen(onConversationEnded: onConversationEnded),
-            ),
-          ),
-        ),
-      ),
-    );
+    slots.add(Expanded(child: _SeeMoreChip(onTap: onSeeMore)));
 
     return Row(
       children: [
@@ -451,6 +489,7 @@ class _TopicChipsRow extends ConsumerWidget {
 class _ChipShell extends StatelessWidget {
   final Color fill;
   final Color outline;
+  final double outlineWidth;
   final Widget child;
   final VoidCallback? onTap;
 
@@ -458,21 +497,30 @@ class _ChipShell extends StatelessWidget {
     required this.fill,
     required this.outline,
     required this.child,
+    this.outlineWidth = 1.5,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tap = onTap;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      // Leaf gesture for every chip — play the tap click here so callers pass
+      // plain callbacks (no double click).
+      onTap: tap == null
+          ? null
+          : () {
+              playTapClick();
+              tap();
+            },
       child: Container(
         height: 74,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         decoration: BoxDecoration(
           color: fill,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: outline, width: 1.5),
+          border: Border.all(color: outline, width: outlineWidth),
         ),
         child: Center(child: child),
       ),
@@ -480,33 +528,41 @@ class _ChipShell extends StatelessWidget {
   }
 }
 
-class _ApiTopicChip extends StatelessWidget {
-  final HomeTopic topic;
+class _TopicChip extends StatelessWidget {
+  final String label;
+  final bool selected;
   final VoidCallback onTap;
 
-  const _ApiTopicChip({required this.topic, required this.onTap});
+  const _TopicChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final fill = parseCssColor(topic.color) ?? EllaColors.berryLight;
+    // Selected chips render their glyph + label in the highlight colour so the
+    // active choice reads clearly; unselected stay ink. A generic chat glyph
+    // stands in until the backend supplies per-topic icons.
+    final content = selected ? EllaColors.berryDark : EllaColors.ink;
     return _ChipShell(
-      fill: fill,
-      outline: EllaColors.ink.withValues(alpha: 0.2),
+      fill: selected ? EllaColors.berryLight : EllaColors.surface,
+      outline: selected
+          ? EllaColors.berryDark
+          : EllaColors.ink.withValues(alpha: 0.2),
+      outlineWidth: selected ? 2.5 : 1.5,
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (topic.icon.isNotEmpty)
-            Text(topic.icon, style: const TextStyle(fontSize: 22))
-          else
-            const Icon(Icons.chat_bubble_rounded, size: 22, color: EllaColors.ink),
+          Icon(Icons.chat_bubble_rounded, size: 22, color: content),
           const SizedBox(height: 6),
           Text(
-            topic.name,
+            label,
             maxLines: 2,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: EllaTextStyles.caption.copyWith(color: EllaColors.ink),
+            style: EllaTextStyles.caption.copyWith(color: content),
           ),
         ],
       ),
@@ -551,10 +607,3 @@ class _ChipPlaceholder extends StatelessWidget {
     child: const SizedBox.shrink(),
   );
 }
-
-// ── helpers ─────────────────────────────────────────────────────────────────
-
-String _titleCase(String s) => s
-    .split(' ')
-    .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
-    .join(' ');

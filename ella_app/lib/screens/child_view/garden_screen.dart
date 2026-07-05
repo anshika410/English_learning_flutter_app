@@ -21,9 +21,8 @@ import '../../providers/garden_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
-import 'session_screen.dart';
-import 'session_intro.dart';
 import 'widgets/garden_dialogs.dart';
+import 'widgets/zoe_mascot.dart';
 
 // Botanical Berry garden palette: environment sky easing into the garden-field
 // ground ramp (fieldLight → fieldMain → fieldDark).
@@ -174,7 +173,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () => ref.invalidate(gardenProvider),
+                  onPressed: withTapClick(() => ref.invalidate(gardenProvider)),
                   child: const Text('Retry'),
                 ),
               ],
@@ -209,27 +208,6 @@ class _GardenView extends ConsumerWidget {
   final GardenData data;
   final VoidCallback? onConversationEnded;
   const _GardenView({required this.data, required this.onConversationEnded});
-
-  Future<void> _letsTalk(BuildContext context, WidgetRef ref) async {
-    // Ensure previous session state is reset before starting new session
-    final chatNotifier = ref.read(chatProvider.notifier);
-    final chatState = ref.read(chatProvider);
-
-    // If previous chat ended, reset for new session
-    if (chatState.hasValue && chatState.requireValue.sessionEnded) {
-      await chatNotifier.nextChat();
-    }
-    if (!context.mounted) return;
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SessionScreen(
-          introText: buildSessionIntroText(topicText: data.recommendedTopic),
-          onEnded: onConversationEnded,
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -271,11 +249,10 @@ class _GardenView extends ConsumerWidget {
             right: 0,
             bottom: 0,
             child: _LetsTalkBar(
-              // Same greeting as the Home screen, derived from memory.
-              text: buildHomeGreeting(
-                ref.watch(chatProvider).valueOrNull?.memory,
-              ),
-              onTalk: () => _letsTalk(context, ref),
+              // The button returns to Home, where the child picks a topic and
+              // starts a session (the garden no longer starts one directly).
+              onTalk: () =>
+                  Navigator.of(context).popUntil((route) => route.isFirst),
             ),
           ),
         ],
@@ -333,7 +310,7 @@ class _SkyHills extends StatelessWidget {
             left: 20,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
+              onTap: withTapClick(() => Navigator.of(context).maybePop()),
               child: Container(
                 padding: const EdgeInsets.only(
                   left: 10,
@@ -506,7 +483,7 @@ class _UnitLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: withTapClick(onTap),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -659,7 +636,7 @@ class _SkillTile extends StatelessWidget {
       bottom: spot.bottom,
       left: spot.left,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: withTapClick(onTap),
         behavior: HitTestBehavior.translucent,
         child: SvgPicture.asset(tileAsset, width: _tileW, height: _tileH),
       ),
@@ -779,7 +756,7 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
     if (asset.isEmpty) return const SizedBox.shrink();
 
     final art = GestureDetector(
-      onTap: widget.onTap,
+      onTap: withTapClick(widget.onTap),
       behavior: HitTestBehavior.opaque,
       child: SvgPicture.asset(asset, height: height, fit: BoxFit.contain),
     );
@@ -880,13 +857,11 @@ class _ButterflyState extends State<_Butterfly>
 // ── Bottom "Let's Talk" bar ────────────────────────────────────────────────────
 
 class _LetsTalkBar extends StatelessWidget {
-  final String text;
   final VoidCallback onTalk;
-  const _LetsTalkBar({required this.text, required this.onTalk});
+  const _LetsTalkBar({required this.onTalk});
 
   @override
   Widget build(BuildContext context) {
-    final line = text;
     return Container(
       decoration: BoxDecoration(
         color: EllaColors.surface,
@@ -907,31 +882,12 @@ class _LetsTalkBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: EllaColors.greenLight,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  'assets/mascot-animations/juggling.webp',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
+              ZoeMascot(
+                mode: ZoeMascotMode.listening,
+                size: 44,
+                reducedMotion: MediaQuery.of(context).disableAnimations,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  line,
-                  style: EllaTextStyles.bodySmall.copyWith(
-                    height: 1.2,
-                    color: EllaColors.textSecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
+              const Spacer(),
               GestureDetector(
                 onTap: withTapClick(onTalk),
                 child: Container(

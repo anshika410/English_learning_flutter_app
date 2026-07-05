@@ -51,16 +51,104 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     all_topics = LEVEL_TOPICS.get(level_code, [])
     valid_topics = [t for t in all_topics if t.get("name")]
     used = set(last_topics_list)
-    fresh = [t["name"] for t in valid_topics if t["name"] not in used]
+    fresh = [t for t in valid_topics if t["name"] not in used]
     if not fresh:
-        fresh = [t["name"] for t in valid_topics]
+        fresh = list(valid_topics)
     import random
     random.shuffle(fresh)
-    recommended = fresh[0] if fresh else None
-    alternatives = fresh[1:4] if len(fresh) > 1 else []
 
-    from ..schemas.user import NextTopics
-    next_topics_obj = NextTopics(recommended=recommended, alternatives=alternatives) if recommended else None
+    def _make_label(name):
+        """Derive a short label from topic name."""
+        # Common patterns: "My family" → "Family", "Food I like" → "Food", "My school" → "School"
+        lower = name.lower()
+        if lower.startswith("my "):
+            return name[3:].split()[0].capitalize()
+        words = name.split()
+        if len(words) <= 2:
+            return words[0].capitalize()
+        # For longer names, use first noun-like word
+        skip = {"the", "a", "an", "and", "in", "of", "vs.", "i", "don't"}
+        for w in words:
+            if w.lower() not in skip and len(w) > 2:
+                return w.capitalize()
+        return words[0].capitalize()
+
+    # Topic icon mapping (topic_id → icon filename)
+    TOPIC_ICON_MAP = {
+        # A0 level topics → a1 icons
+        "my_name_and_where_i_m_from": "a1-01-my-name",
+        "my_family": "a1-02-my-family",
+        "my_school": "a1-03-my-school",
+        "food_i_like": "a1-04-food-i-like",
+        "my_daily_routine": "a1-05-my-daily-routine",
+        "things_i_like_and_don_t_like": "a1-06-likes-dontlikes",
+        "animals": "a1-07-animals",
+        "colours_numbers_and_shapes": "a1-08-colours-numbers-shapes",
+        "my_home": "a1-09-my-home",
+        "sports_and_games": "a1-10-sports-and-games",
+        "festivals_i_celebrate": "a1-11-festivals",
+        # A1 level topics → a2 icons
+        "my_hobbies_and_free_time": "a2-01-hobbies-free-time",
+        "my_friends": "a2-02-my-friends",
+        "a_typical_week": "a2-03-typical-week",
+        "shopping_and_markets": "a2-04-shopping-and-markets",
+        "food_and_restaurants": "a2-05-food-and-restaurants",
+        "my_city_or_town": "a2-06-my-city-or-town",
+        "weather_and_seasons": "a2-07-weather-and-seasons",
+        "transport_and_travel": "a2-08-transport-and-travel",
+        "a_trip_or_holiday": "a2-09-a-trip-or-holiday",
+        "films_and_tv_shows": "a2-10-films-and-tv-shows",
+        "celebrations_and_special_days": "a2-11-celebrations",
+        "school_subjects_likes_and_dislikes": "a2-12-school-subjects",
+        # A2 level topics → b1 icons
+        "my_ambitions_and_future_plans": "b1-01-ambitions-future-plans",
+        "my_personality_and_values": "b1-02-personality-and-values",
+        "education_in_india": "b1-03-education-in-india",
+        "social_media_and_technology": "b1-04-social-media-technology",
+        "city_life_vs_village_life": "b1-05-city-vs-village",
+        "festivals_and_traditions": "b1-06-festivals-and-traditions",
+        "the_environment_and_pollution": "b1-07-environment-pollution",
+        "health_and_lifestyle": "b1-08-health-and-lifestyle",
+        "indian_cinema_and_music": "b1-09-indian-cinema-music",
+        "friendship_and_trust": "b1-10-friendship-and-trust",
+        "news_and_current_events": "b1-11-news-current-events",
+        "cricket_and_sport_in_india": "b1-12-cricket-and-sport",
+        # B1 level topics → b2 icons
+        "culture_and_identity": "b2-01-culture-and-identity",
+        "gender_equality_in_india": "b2-02-gender-equality",
+        "education_and_success": "b2-03-education-and-success",
+        "artificial_intelligence_and_the_future_of_work": "b2-04-ai-future-of-work",
+        "social_media_mental_health_and_young_people": "b2-05-social-media-mental-health",
+        "climate_change_and_india_s_responsibility": "b2-06-climate-change-india",
+        "migration_and_opportunity": "b2-07-migration-and-opportunity",
+        "tradition_vs_modernity": "b2-08-tradition-vs-modernity",
+        "fake_news_and_media_literacy": "b2-09-fake-news-media-literacy",
+        "entrepreneurship_and_startups": "b2-10-entrepreneurship-startups",
+        "indian_literature_and_storytelling": "b2-11-indian-literature-storytelling",
+        "privilege_and_opportunity": "b2-12-privilege-and-opportunity",
+    }
+    ICON_BASE_URL = "https://ella.navgurukul.org/assets/topic-icons"
+
+    def _topic_item(t):
+        starters = t.get("starters", [])
+        topic_id = t.get("id", "")
+        icon_file = TOPIC_ICON_MAP.get(topic_id)
+        return {
+            "name": t["name"],
+            "label": _make_label(t["name"]),
+            "icon": icon_file,
+            "starter": starters[0] if starters else None,
+        }
+
+    from ..schemas.user import NextTopics, NextTopicItem
+    next_topics_obj = None
+    if fresh:
+        rec = _topic_item(fresh[0])
+        alts = [_topic_item(t) for t in fresh[1:4]]
+        next_topics_obj = NextTopics(
+            recommended=NextTopicItem(**rec),
+            alternatives=[NextTopicItem(**a) for a in alts]
+        )
 
     return UserMemoryResponse(
         id=user.id,
