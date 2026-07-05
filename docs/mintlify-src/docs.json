@@ -39,7 +39,8 @@
       {
         "group": "Gamification",
         "pages": [
-          "garden-progress-system"
+          "garden-progress-system",
+          "placement-garden"
         ]
       },
       {
