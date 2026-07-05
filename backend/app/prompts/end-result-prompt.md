@@ -23,9 +23,9 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
 },
 
 "correction_highlight": {
-"student_said": "<a short phrase the student said with a grammar or vocabulary error — verbatim from transcript>",
-"corrected": "<the corrected version Zoe gave or would give>",
-"highlight_word": "<the 1-2 key words that changed in the correction>"
+"student_said": "<COPY the student's exact words from the transcript that contain a grammar or vocabulary error — e.g. 'I no play good'>",
+"corrected": "<the corrected version — e.g. 'I don't play well'>",
+"highlight_word": "<the 1-2 key words that changed — e.g. 'don't'>"
 },
 
 "courage_or_motivation": {
@@ -60,7 +60,7 @@ ANALYSIS RULES
 - overall = "struggling": student had repeated breakdowns, produced very little output, or showed distress signals
 
 - best_moment quote MUST be a verbatim extract from the transcript. Do not paraphrase. Pick the single most impressive sentence the student said.
-- correction_highlight: pick the single most educational error. student_said must be verbatim from transcript. corrected is what Zoe said or would say. highlight_word is what changed. If no errors exist (perfect conversation), set correction_highlight to null.
+- correction_highlight: pick the single most educational error. student_said MUST be the student's EXACT words copied directly from the transcript (e.g. "I no play good") — NOT a description or tip like "using past tense". corrected is the fixed version (e.g. "I don't play well"). highlight_word is the key word(s) that changed (e.g. "don't"). If no errors exist, set correction_highlight to null.
 - transcript_notes for A1/A2 students: focus notes on what they attempted and what they got right.
   Corrections should be framed as "could also say: X" — never "wrong" or "incorrect."
 - transcript_notes for B1+ students: include grammar and vocabulary observations matching their coaching settings.
