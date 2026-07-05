@@ -62,7 +62,7 @@ class EllaApiService {
   final http.Client _client;
 
   EllaApiService({
-    this.baseUrl = 'http://192.168.1.7:8000',
+    this.baseUrl = 'https://ella.navgurukul.org/api',
     http.Client? client,
   }) : _client = client ?? http.Client();
 
@@ -107,7 +107,14 @@ class EllaApiService {
   Future<bool> requestMagicLink(String email) async {
     try {
       // Create a URL scheme for returning to the app
-      final redirectUrl = 'ella://login';
+      String redirectUrl;
+      if (kIsWeb) {
+        // Use the current web origin (e.g. http://localhost:3000)
+        redirectUrl = '${Uri.base.origin}/#/login'; 
+      } else {
+        redirectUrl = 'ella://login';
+      }
+      
       await _request(
         'POST', 
         '/auth/magic-link/request', 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
@@ -24,7 +25,8 @@ Future<void> main() async {
   await dotenv.load(fileName: '.env');
   
   await GoogleSignIn.instance.initialize(
-    serverClientId: dotenv.env['GOOGLE_CLIENT_ID'],
+    clientId: kIsWeb ? dotenv.env['GOOGLE_CLIENT_ID'] : null,
+    serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_CLIENT_ID'],
   );
 
   // The Ella REST API is the single backend now; Supabase is only used by the
