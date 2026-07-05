@@ -194,7 +194,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     )
 
 
-async def _get_last_time_recap(user_id: str, db: AsyncSession) -> str | None:
+async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None) -> str | None:
     from ..models.conversation import Conversation
     from ..models.session_analysis import SessionAnalysis
     from sqlalchemy import select, desc
@@ -215,6 +215,13 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession) -> str | None:
                 return sa.zoe_recap
     except Exception:
         pass
+    
+    # Fallback: if no conversation recap exists but placement was done, use placement highlight
+    if user and user.placements:
+        latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+        if latest_placement.highlight:
+            return latest_placement.highlight
+    
     return None
 
 
@@ -223,7 +230,7 @@ async def get_profile(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    recap = await _get_last_time_recap(user.id, db)
+    recap = await _get_last_time_recap(user.id, db, user)
     return _to_memory_response(user, recap)
 
 
@@ -248,7 +255,7 @@ async def update_profile(
         
     db.add(user)
     await db.flush()
-    recap = await _get_last_time_recap(user.id, db)
+    recap = await _get_last_time_recap(user.id, db, user)
     return _to_memory_response(user, recap)
 
 
@@ -261,7 +268,7 @@ async def get_user_memory(
     Returns the student's full learning memory as a unified object.
     Combines profile, persona facts, skills progress, and next targets.
     """
-    recap = await _get_last_time_recap(user.id, db)
+    recap = await _get_last_time_recap(user.id, db, user)
     return _to_memory_response(user, recap)
 
 

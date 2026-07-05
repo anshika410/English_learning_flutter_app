@@ -39,6 +39,11 @@ async def create_placement(
     user.unit_label = body.unit_label
     if body.interests:
         user.interests = ",".join(body.interests)
+    
+    # Mark first_session_done so next_topics start showing immediately after placement
+    if not user.first_session_done:
+        user.first_session_done = True
+
     db.add(user)
 
     await db.flush()
