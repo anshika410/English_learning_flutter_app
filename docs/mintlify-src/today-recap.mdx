@@ -1,0 +1,226 @@
+---
+title: "Today with Zoe Recap"
+sidebarTitle: "Today Recap"
+description: "Daily summary card — talks count, words spoken, super sentence, and correction highlight."
+---
+
+The "Today with Zoe" recap card shows on the home screen after the student completes at least one conversation. It gives a quick, encouraging summary of the day's speaking practice.
+
+---
+
+## Two UI States
+
+### Empty State (no talks today)
+```
+TODAY'S TALKS
+No talks yet — say hi to Zoe!
+```
+
+### After Conversation(s)
+```
+Today with Zoe
+1 TALK · 🐶
+
+You said 16 English words today!
+
+⭐ SUPER SENTENCE
+"I like dogs because they are funny"
+
+🌱 MAKE IT GROW
+You said: "Dog is eat food"
+Zoe says: "The dog is [eating] food"
+
+Best of today · older days in your garden 📖
+```
+
+---
+
+## API: `GET /users/me/today-recap`
+
+Returns the daily recap for the authenticated student.
+
+**Headers:** `Authorization: Bearer JWT_ACCESS_TOKEN`
+
+### Response (after conversations)
+
+```json
+{
+  "talks_today": 1,
+  "topic_name": "City life vs. village life",
+  "topic_emoji": "🏘️",
+  "words_spoken_today": 142,
+  "super_sentence": {
+    "quote": "I am sitting under a tree, drinking tea... peaceful, like everything is slow and nice.",
+    "note": "Beautiful description — you used present continuous and a feeling word together."
+  },
+  "correction_highlight": {
+    "student_said": "I sit on a bench, near big tree",
+    "corrected": "I am sitting on a bench, near a big tree",
+    "highlight_word": "am sitting"
+  }
+}
+```
+
+### Response (no talks today)
+
+```json
+{
+  "talks_today": 0,
+  "topic_name": null,
+  "topic_emoji": null,
+  "words_spoken_today": 0,
+  "super_sentence": null,
+  "correction_highlight": null
+}
+```
+
+---
+
+## Field Reference
+
+| Field | Type | Source | Description |
+|---|---|---|---|
+| `talks_today` | int | `conversations` table | Count of completed conversations today |
+| `topic_name` | string \| null | `conversations.header_title` | Topic of the most recent session today |
+| `topic_emoji` | string \| null | Static lookup from topic name | Emoji representing the topic |
+| `words_spoken_today` | int | `messages.content` WHERE `role='user'` | Sum of word counts across all user messages today |
+| `super_sentence` | object \| null | `session_analyses.best_moment_quote` + `best_moment_note` | Best thing the student said today (verbatim) |
+| `correction_highlight` | object \| null | `session_analyses.correction_highlight` (new field) | A correction Zoe gave — what student said vs. the fix |
+
+---
+
+## Where Does Each Field Come From?
+
+### `talks_today` and `topic_name`
+```sql
+SELECT COUNT(*), header_title FROM conversations
+WHERE user_id = :uid AND DATE(completed_at) = today AND completed = true
+```
+
+### `words_spoken_today`
+```python
+# Fetch all user messages from today's completed conversations
+total_words = sum(len(msg.content.split()) for msg in today_user_messages)
+```
+
+### `super_sentence`
+Already stored in `session_analyses`:
+- `best_moment_quote` — verbatim student quote (from LLM judge)
+- `best_moment_note` — why it was good
+
+Pick from the most recent (or best quality) session today.
+
+### `correction_highlight` (new)
+A new field added to the LLM judge response and stored in `session_analyses`.
+
+---
+
+## Implementation: Adding `correction_highlight`
+
+### Step 1: Update LLM Judge Prompt
+
+Add to `backend/app/prompts/end-result-prompt.md`:
+
+```json
+"correction_highlight": {
+  "student_said": "<exact short phrase the student said with an error>",
+  "corrected": "<the corrected version Zoe gave or would give>",
+  "highlight_word": "<the key word(s) that changed — what makes the correction>"
+}
+```
+
+**Rules for the LLM:**
+- Pick the single most educational correction from the conversation
+- `student_said` must be a short phrase (not the full sentence), verbatim from transcript
+- `corrected` is what Zoe said or would say
+- `highlight_word` is the specific word(s) that changed (used for bold/highlight in UI)
+- If no correction opportunity exists (perfect conversation), return `null`
+
+### Step 2: Store in Database
+
+Add a nullable JSON column to `session_analyses`:
+```python
+correction_highlight: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+```
+
+Or store inside the existing `SessionAnalysis` model without migration by saving it in a JSON field.
+
+### Step 3: Save in `analysis_shared.py`
+
+In `run_and_save_session_analysis()`, after saving other fields:
+```python
+sa.correction_highlight = analysis.get("correction_highlight")
+```
+
+### Step 4: Return in Response
+
+Add to `SessionAnalysisResponse`:
+```python
+correction_highlight: dict | None = None
+```
+
+---
+
+## Backward Compatibility
+
+| Concern | Status |
+|---|---|
+| Existing clients calling `/llm/judge` | ✅ Safe — `correction_highlight` is a new optional field, ignored if not consumed |
+| Old session_analyses rows (no correction_highlight) | ✅ Safe — nullable column, returns `null` |
+| LLM sometimes doesn't return it | ✅ Safe — handled as `None` |
+| Other developers' code | ✅ No breaking changes — purely additive |
+
+---
+
+## Topic Emoji Mapping (Static)
+
+A small server-side lookup maps `header_title` to an emoji:
+
+| Topic contains | Emoji |
+|---|---|
+| dog, animal, pet | 🐶 |
+| food, eat, cook, restaurant | 🍕 |
+| school, class, study | 📚 |
+| cricket, sport, game | 🏏 |
+| family, mother, father | 👨‍👩‍👧 |
+| city, village, town | 🏘️ |
+| music, song, dance | 🎵 |
+| film, movie, TV | 🎬 |
+| travel, trip, holiday | ✈️ |
+| weather, rain, sun | ☀️ |
+| *default* | 💬 |
+
+---
+
+## App Flow
+
+```
+1. App opens → GET /users/me/today-recap
+2. If talks_today == 0 → show "No talks yet — say hi to Zoe!"
+3. If talks_today >= 1 → show full recap card:
+   - "Today with Zoe" header + talk count + topic emoji
+   - "You said X English words today!"
+   - Super Sentence card (orange border, ⭐)
+   - Make It Grow card (green border, 🌱) — only if correction_highlight exists
+4. Below recap → "Next Session" button with recommended topic
+```
+
+---
+
+## Dependencies
+
+| What | Depends on |
+|---|---|
+| `super_sentence` working | LLM judge returning `best_moment_quote` (existing, sometimes fails) |
+| `correction_highlight` working | LLM judge prompt update (new) |
+| `words_spoken_today` | Messages being stored in DB (already happens via `/session/{id}/turn`) |
+| `talks_today` | Conversations being marked completed (already happens via `/llm/judge`) |
+
+---
+
+## What NOT to Change
+
+- The `/session/{id}/turn` endpoint — no changes needed
+- The conversation prompt — Zoe already naturally gives corrections in her replies
+- The `messages.correction` column — keep it unused for now (future per-turn corrections)
+- The existing `/llm/judge` response fields — all stay the same, we only ADD `correction_highlight`

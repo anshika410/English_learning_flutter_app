@@ -41,7 +41,8 @@
         "group": "Gamification",
         "pages": [
           "placement-garden",
-          "garden-progress-system"
+          "garden-progress-system",
+          "today-recap"
         ]
       },
       {
