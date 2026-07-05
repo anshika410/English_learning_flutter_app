@@ -539,42 +539,54 @@ async def get_today_recap(
             )
             break
 
-    # 5. Get correction highlight (try_next_skill + try_next_example as fallback)
+    # 5. Get correction highlight
     correction_highlight = None
     
-    # First try: look for per-message corrections
-    correction_msg_result = await db.execute(
-        select(Message)
-        .where(
-            Message.conversation_id.in_(conv_ids),
-            Message.correction != None,
-            Message.role.in_(["assistant", "zoe"]),
-        )
-        .order_by(desc(Message.created_at))
-        .limit(1)
-    )
-    correction_msg = correction_msg_result.scalar_one_or_none()
-    
-    if correction_msg and correction_msg.correction:
-        # Find the preceding user message for context
-        prev_msg_result = await db.execute(
-            select(Message.content)
+    # Primary source: correction_highlight from session analysis (LLM judge extracts it)
+    for sa in analyses:
+        if sa.correction_highlight and isinstance(sa.correction_highlight, dict):
+            ch = sa.correction_highlight
+            if ch.get("student_said") and ch.get("corrected"):
+                correction_highlight = TodayRecapCorrection(
+                    student_said=ch["student_said"],
+                    corrected=ch["corrected"],
+                    highlight_word=ch.get("highlight_word"),
+                )
+                break
+
+    # Fallback 1: per-message corrections
+    if not correction_highlight:
+        correction_msg_result = await db.execute(
+            select(Message)
             .where(
-                Message.conversation_id == correction_msg.conversation_id,
-                Message.role.in_(["user", "learner", "me"]),
-                Message.turn_number <= correction_msg.turn_number,
+                Message.conversation_id.in_(conv_ids),
+                Message.correction != None,
+                Message.role.in_(["assistant", "zoe"]),
             )
-            .order_by(desc(Message.turn_number))
+            .order_by(desc(Message.created_at))
             .limit(1)
         )
-        prev_content = prev_msg_result.scalar_one_or_none()
-        correction_highlight = TodayRecapCorrection(
-            student_said=prev_content[:80] if prev_content else None,
-            corrected=correction_msg.correction[:100],
-            highlight_word=None,
-        )
+        correction_msg = correction_msg_result.scalar_one_or_none()
+        
+        if correction_msg and correction_msg.correction:
+            prev_msg_result = await db.execute(
+                select(Message.content)
+                .where(
+                    Message.conversation_id == correction_msg.conversation_id,
+                    Message.role.in_(["user", "learner", "me"]),
+                    Message.turn_number <= correction_msg.turn_number,
+                )
+                .order_by(desc(Message.turn_number))
+                .limit(1)
+            )
+            prev_content = prev_msg_result.scalar_one_or_none()
+            correction_highlight = TodayRecapCorrection(
+                student_said=prev_content[:80] if prev_content else None,
+                corrected=correction_msg.correction[:100],
+                highlight_word=None,
+            )
     
-    # Fallback: use try_next_skill/example from session analysis
+    # Fallback 2: use try_next_skill/example from session analysis
     if not correction_highlight:
         for sa in analyses:
             if sa.try_next_skill and sa.try_next_skill.strip():

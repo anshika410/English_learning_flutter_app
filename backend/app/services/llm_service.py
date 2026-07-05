@@ -67,7 +67,7 @@ async def _chat_completion(
     temperature: float = 0.75,
 ) -> str:
     settings = get_settings()
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
             f"{settings.deepseek_base_url}/chat/completions",
             headers={
@@ -369,7 +369,7 @@ async def analyze_and_grade_session(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Analyze the transcript, extract facts, grade targeted skills, and return the combined JSON report."},
             ],
-            max_tokens=1500,
+            max_tokens=2500,
             temperature=0.4,
         )
         json_str = _extract_json(raw)

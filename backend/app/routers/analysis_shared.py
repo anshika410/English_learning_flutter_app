@@ -171,6 +171,7 @@ async def run_and_save_session_analysis(
     sa.try_next_example = try_next.get("example")
     sa.zoe_recap = analysis.get("zoe_recap")
     sa.transcript_notes_json = json.dumps(notes)
+    sa.correction_highlight = analysis.get("correction_highlight")
 
     # Save grading checklist details
     hit = [sc["id"] for sc in scores if sc.get("confidence", 0.0) >= FLOOR]

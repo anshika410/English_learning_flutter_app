@@ -18,8 +18,14 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
 "overall": "good" | "okay" | "struggling",
 
 "best_moment": {
-"quote": "<exact words the student said>",
+"quote": "<exact words the student said — verbatim from transcript, at least 5 words>",
 "note": "<1 sentence: why this was strong — specific, not generic>"
+},
+
+"correction_highlight": {
+"student_said": "<a short phrase the student said with a grammar or vocabulary error — verbatim from transcript>",
+"corrected": "<the corrected version Zoe gave or would give>",
+"highlight_word": "<the 1-2 key words that changed in the correction>"
 },
 
 "courage_or_motivation": {
@@ -53,8 +59,9 @@ ANALYSIS RULES
 - overall = "okay": student communicated but with significant hesitation, errors that blocked meaning, or very short responses
 - overall = "struggling": student had repeated breakdowns, produced very little output, or showed distress signals
 
+- best_moment quote MUST be a verbatim extract from the transcript. Do not paraphrase. Pick the single most impressive sentence the student said.
+- correction_highlight: pick the single most educational error. student_said must be verbatim from transcript. corrected is what Zoe said or would say. highlight_word is what changed. If no errors exist (perfect conversation), set correction_highlight to null.
 - transcript_notes for A1/A2 students: focus notes on what they attempted and what they got right.
   Corrections should be framed as "could also say: X" — never "wrong" or "incorrect."
 - transcript_notes for B1+ students: include grammar and vocabulary observations matching their coaching settings.
-- best_moment quote must be a verbatim extract from the transcript. Do not paraphrase.
 - Never use the word "incorrect" or "wrong" in any field.

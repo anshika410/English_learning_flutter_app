@@ -33,5 +33,6 @@ class SessionAnalysis(Base):
     hit_targets: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
     skills_evidenced: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
     state_changes: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    correction_highlight: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
