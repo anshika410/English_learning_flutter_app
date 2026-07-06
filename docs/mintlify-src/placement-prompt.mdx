@@ -162,9 +162,25 @@ After save:
 
 | Scenario | Result |
 |---|---|
-| User presses End before LLM completes | No level assigned. No record saved. User stays unplaced. |
-| App shows | "Let's try again when you're ready" |
-| Placement garden | "soil" (null) |
+| User presses End before LLM completes | App calls `POST /placements` with A0 + low confidence |
+| Level assigned | A0 (Pre-Beginner) |
+| Placement garden | "seed" 🌱 (low confidence) |
+| User can retake? | Yes, anytime — new placement overwrites |
+
+### What the client sends on cancel:
+
+```json
+POST /placements
+{
+  "level": "A0",
+  "unit_label": "Pre-Beginner",
+  "confidence": "low",
+  "highlight": "Placement cancelled by user before completion.",
+  "interests": []
+}
+```
+
+This saves a placement record, sets `user.level = "A0"`, and allows the app to proceed with topics and conversations at the easiest level.
 
 ---
 
