@@ -208,3 +208,45 @@ POST /llm/placement-turn
 **LLM:** DeepSeek (`deepseek-chat`)  
 **Max tokens:** 600  
 **Temperature:** 0.7
+
+
+---
+
+## Dev Tools: Reset User for Testing
+
+### `DELETE /admin/reset-user/{device_id}`
+
+Resets a user to fresh state — useful for re-testing placement from scratch.
+
+**What it clears:**
+- All placement records
+- Level → `null`
+- `first_session_done` → `false`
+- `skills_progress` → `{}`
+- `due_next` → `{}`
+- `interests` → `null`
+- `persona_memory` → `{}`
+
+**Usage:**
+
+```bash
+curl -X DELETE https://ella.navgurukul.org/api/admin/reset-user/dev_6fxb1a7zar8
+```
+
+**Response:**
+```json
+{
+  "status": "reset",
+  "device_id": "dev_6fxb1a7zar8",
+  "user_id": "581c20df-b060-4ab3-992f-6e8f095215a0",
+  "message": "All placements deleted. Level, skills, memory reset to fresh state."
+}
+```
+
+### From Simulator
+
+Go to https://ella.navgurukul.org/v2/conversation-flow/ → **Memory tab** → scroll to **Danger Zone** → click **🔄 Reset User**
+
+### From Swagger
+
+Go to https://ella.navgurukul.org/api/docs → `DELETE /admin/reset-user/{device_id}` → enter device_id → Execute
