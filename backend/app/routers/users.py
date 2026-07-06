@@ -219,9 +219,7 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None
     
     # Fallback: if no conversation recap exists but placement was done, show friendly message
     if user and user.placements:
-        latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
-        if latest_placement.level:
-            return f"We just met! I placed you at {latest_placement.level} — let's start talking!"
+        return "Nice to meet you! Let's start our first chat together."
     
     return None
 
