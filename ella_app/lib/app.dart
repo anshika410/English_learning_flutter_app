@@ -5,6 +5,7 @@ import 'package:app_links/app_links.dart';
 import 'services/ella_api_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/privacy_policy_screen.dart';
 
 import 'route_observer.dart';
 import 'core/theme_colors.dart';
@@ -143,6 +144,8 @@ class _EllaAppState extends State<EllaApp> {
           return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
         } else if (path == '/login') {
           return MaterialPageRoute(builder: (_) => const LoginScreen(), settings: settings);
+        } else if (path == '/privacy-policy') {
+          return MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen(), settings: settings);
         } else if (path == '/' || path == '/home') {
           return MaterialPageRoute(builder: (_) => const RootGate(), settings: settings);
         }

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../services/ella_api_service.dart';
+import 'google_sign_in_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,8 +25,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final FocusNode _emailFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   
-  late AnimationController _animController;
-  late Animation<double> _listenAnim;
+  late final AnimationController _animController;
+  late final Animation<double> _listenAnim;
+  late final StreamSubscription<gsi.GoogleSignInAuthenticationEvent> _googleSignInSubscription;
 
   @override
   void initState() {
@@ -39,10 +43,62 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _listenAnim = Tween<double>(begin: -0.015, end: 0.015).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOutSine),
     );
+
+    // Listen to Google Sign-In account changes (crucial for Web iframe button clicks)
+    _googleSignInSubscription = gsi.GoogleSignIn.instance.authenticationEvents.listen((gsi.GoogleSignInAuthenticationEvent event) async {
+      if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
+        final account = event.user;
+        try {
+          final gsi.GoogleSignInAuthentication googleAuth = account.authentication;
+          final String? idToken = googleAuth.idToken;
+          if (idToken != null) {
+            final success = await _api.loginWithGoogle(idToken);
+            if (success && mounted) {
+              Navigator.of(context).pushReplacementNamed('/');
+            } else {
+              _showError('Google Login failed on backend.');
+            }
+          } else {
+            _showError('Google Login failed: no idToken.');
+          }
+        } catch (e) {
+          _showError('Google Login Error: $e');
+        }
+      }
+    });
+
+    // Automatically prompt Google One Tap / FedCM when visiting the site
+    Future.microtask(() async {
+      try {
+        final lightweightAuth = gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+        if (lightweightAuth != null) {
+          final googleUser = await lightweightAuth;
+          if (googleUser != null) {
+            final auth = googleUser.authentication;
+            final idToken = auth.idToken;
+            if (idToken != null) {
+              final success = await _api.loginWithGoogle(idToken);
+              if (success && mounted) {
+                Navigator.of(context).pushReplacementNamed('/');
+              } else {
+                _showError('One Tap Login failed on backend.');
+              }
+            } else {
+              _showError('One Tap failed: no idToken.');
+            }
+          } else {
+            _showError('One Tap failed: googleUser is null.');
+          }
+        }
+      } catch (e) {
+        _showError('One Tap Error: $e');
+      }
+    });
   }
 
   @override
   void dispose() {
+    _googleSignInSubscription.cancel();
     _animController.dispose();
     _emailFocusNode.removeListener(_onFocusChange);
     _emailFocusNode.dispose();
@@ -68,27 +124,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
     try {
+      // Force account picker on mobile by clearing any existing session
+      if (!kIsWeb) {
+        await gsi.GoogleSignIn.instance.signOut();
+      }
+
       gsi.GoogleSignInAccount? googleUser;
       
-      // Try the seamless Credential Manager (One Tap) first
-      final lightweightAuth = gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
-      if (lightweightAuth != null) {
-        try {
-          googleUser = await lightweightAuth;
-          if (googleUser == null) {
-            // User likely cancelled (e.g., swiped down). Do not fallback.
-            if (mounted) setState(() => _isLoading = false);
-            return;
-          }
-        } catch (e) {
-          // Throws if user cancels/closes the bottom sheet. Do not fallback.
-          if (mounted) setState(() => _isLoading = false);
-          return;
-        }
-      } else {
-        // If it isn't supported by the OS, fallback to full interactive sign in
-        googleUser = await gsi.GoogleSignIn.instance.authenticate();
-      }
+      // For manual button taps on mobile, we use the standard interactive authentication
+      // to ensure all device accounts and "Add another account" are shown.
+      googleUser = await gsi.GoogleSignIn.instance.authenticate();
 
       if (googleUser == null) {
         if (mounted) setState(() => _isLoading = false);
@@ -242,25 +287,33 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 40),
                           
                           // Google Login Button
-                          _buildButton(
-                            text: 'Continue With Google',
-                            color: const Color(0xFFE54E87),
-                            textColor: Colors.white,
-                            iconWidget: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
+                          if (kIsWeb)
+                            Container(
+                              width: double.infinity,
+                              constraints: const BoxConstraints(maxWidth: 320),
+                              height: 56,
+                              child: getGoogleSignInButton(),
+                            )
+                          else
+                            _buildButton(
+                              text: 'Continue With Google',
+                              color: const Color(0xFFE54E87),
+                              textColor: Colors.white,
+                              iconWidget: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: SvgPicture.string(
+                                  '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>''',
+                                  width: 24,
+                                  height: 24,
+                                ),
                               ),
-                              child: SvgPicture.string(
-                                '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>''',
-                                width: 24,
-                                height: 24,
-                              ),
+                              onPressed: _isLoading ? null : _handleGoogleSignIn,
+                              isLoading: _isLoading,
                             ),
-                            onPressed: _isLoading ? null : _handleGoogleSignIn,
-                            isLoading: _isLoading,
-                          ),
                           const SizedBox(height: 16),
                           
                           // Email Login Button
@@ -408,14 +461,34 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   padding: const EdgeInsets.all(4),
                                   child: const Icon(Icons.check, color: Colors.white, size: 14),
                                 ),
-                                const Expanded(
-                                  child: Text(
-                                    'Your learning data stays private and is never shared with anyone',
-                                    style: TextStyle(
-                                      color: Color(0xFF4A5D58),
-                                      fontSize: 14,
-                                      height: 1.4,
-                                    ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Your learning data stays private and is never shared with anyone',
+                                        style: TextStyle(
+                                          color: Color(0xFF4A5D58),
+                                          fontSize: 14,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      InkWell(
+                                        onTap: () {
+                                          Navigator.of(context).pushNamed('/privacy-policy');
+                                        },
+                                        child: const Text(
+                                          'Read Privacy Policy',
+                                          style: TextStyle(
+                                            color: Color(0xFFE54E87),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -468,6 +541,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }) {
     return Container(
       width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 320),
       height: 56,
       decoration: BoxDecoration(
         color: color,
