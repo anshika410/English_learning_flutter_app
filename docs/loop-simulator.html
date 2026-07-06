@@ -1532,10 +1532,6 @@ function App(){
               <>
                 <p style={{fontSize:13.5,margin:'4px 0'}}>Assessed Level: <b>{placementAssessment.level} - {placementAssessment.unit_name || placementAssessment.level_name || placementAssessment.unit_label}</b></p>
                 <p style={{fontSize:12.5,color:'#3b7a3e',margin:'4px 0'}}>Confidence: {placementAssessment.confidence || 'medium'}</p>
-                <p style={{fontSize:12.5,margin:'8px 0',lineHeight:1.4}}><i>{placementAssessment.evidence_summary}</i></p>
-                {placementAssessment.interests && placementAssessment.interests.length > 0 && (
-                  <p style={{fontSize:12.5,margin:'4px 0'}}>Interests: {placementAssessment.interests.join(', ')}</p>
-                )}
               </>
             ) : (
               <>
