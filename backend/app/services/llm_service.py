@@ -452,6 +452,7 @@ def _build_placement_result(data: dict) -> dict:
         "confidence": data.get("confidence"),
         "possible_higher": data.get("possible_higher"),
         "evidence_summary": data.get("evidence_summary"),
+        "zoe_recap": data.get("zoe_recap"),
         "probe_targets_covered": data.get("probe_targets_covered"),
         "turns_taken": data.get("turns_taken"),
         "code_switch_observed": data.get("code_switch_observed"),
