@@ -160,27 +160,43 @@ After save:
 
 ## User Cancel Behavior
 
-| Scenario | Result |
-|---|---|
-| User presses End before LLM completes | App calls `POST /placements` with A0 + low confidence |
-| Level assigned | A0 (Pre-Beginner) |
-| Placement garden | "seed" 🌱 (low confidence) |
-| User can retake? | Yes, anytime — new placement overwrites |
-
-### What the client sends on cancel:
+When user presses "End Placement" at any turn, the client calls:
 
 ```json
-POST /placements
+POST /llm/placement-turn
 {
-  "level": "A0",
-  "unit_label": "Pre-Beginner",
-  "confidence": "low",
-  "highlight": "Placement cancelled by user before completion.",
-  "interests": []
+  "messages": [],
+  "name": null,
+  "age": null,
+  "cancel": true
 }
 ```
 
-This saves a placement record, sets `user.level = "A0"`, and allows the app to proceed with topics and conversations at the easiest level.
+**Server returns:**
+```json
+{
+  "is_complete": true,
+  "level": null,
+  "confidence": null,
+  "evidence_summary": "Placement cancelled by user.",
+  "level_description": "Placement cancelled. You can retake anytime.",
+  "turns_taken": 0
+}
+```
+
+| Field | Value |
+|---|---|
+| `level` | `null` — no level assigned |
+| `confidence` | `null` |
+| `placement_garden` | stays `null` ("soil") |
+| `next_topics` | won't show (no level) |
+
+**What the app does:**
+- Show "No level assigned. Take the test again when ready."
+- Show "Retake Placement Test" button
+- User can retake anytime — fresh start
+
+**Key point:** The `cancel: true` flag is sent on the same `/llm/placement-turn` endpoint. No separate cancel API needed. The server skips the LLM call entirely and returns immediately.
 
 ---
 
