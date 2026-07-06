@@ -274,3 +274,43 @@ async def get_admin_prompts():
         raise HTTPException(
             status_code=500, detail=f"Failed to read prompt templates: {e}"
         )
+
+
+@router.delete("/reset-user/{device_id}")
+async def reset_user(
+    device_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    DEV ONLY — Deletes all placement records for a user and resets their level to null.
+    Use this to re-test placement flow from scratch.
+    """
+    result = await db.execute(select(User).where(User.device_id == device_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User with device_id '{device_id}' not found")
+
+    # Delete placements
+    await db.execute(
+        select(Placement).where(Placement.user_id == user.id)
+    )
+    from sqlalchemy import delete
+    await db.execute(delete(Placement).where(Placement.user_id == user.id))
+
+    # Reset user fields
+    user.level = None
+    user.level_label = None
+    user.first_session_done = False
+    user.skills_progress = {}
+    user.due_next = {}
+    user.interests = None
+    user.persona_memory = {}
+    db.add(user)
+    await db.flush()
+
+    return {
+        "status": "reset",
+        "device_id": device_id,
+        "user_id": user.id,
+        "message": "All placements deleted. Level, skills, memory reset to fresh state."
+    }
