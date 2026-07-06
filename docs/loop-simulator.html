@@ -2226,79 +2226,62 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
         {error && <div style={{ color: 'var(--rust)', padding: 20 }}>Error: {error}</div>}
         {serverPrompts && (
           <>
-            <div style={{ marginBottom: 20, padding: '10px 14px', background: '#fff5f5', border: '1.5px solid var(--rust)', borderRadius: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--rust)', marginBottom: 4 }}>📝 PLACEMENT PROMPTS</div>
-              <div style={{ fontSize: 11, color: '#7a5a13' }}>Used during POST /llm/placement-turn — screening test to assess CEFR level</div>
-            </div>
+            <div className="lbl">Placement</div>
             <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Placement Diagnostic Prompt (placement-check-prompt.md)</div>
+              <div className="lbl" style={{fontSize:9}}>placement-check-prompt.md</div>
               <textarea 
                 value={serverPrompts.placement} 
                 readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 300 }}
+                style={{ background: '#f4f1ea', cursor: 'default', height: 220 }}
               />
             </div>
 
-            <div style={{ marginBottom: 20, marginTop: 30, padding: '10px 14px', background: '#eaf5ea', border: '1.5px solid var(--green)', borderRadius: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--green-dk)', marginBottom: 4 }}>💬 CONVERSATION PROMPTS</div>
-              <div style={{ fontSize: 11, color: '#3b6b3e' }}>Used during POST /session/{'{id}'}/turn — assembled from modular blocks</div>
-            </div>
+            <div className="lbl" style={{marginTop:20}}>Conversation — Base (shared)</div>
             <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Base Prompt (Zoe personality + rules)</div>
               <textarea 
                 value={serverPrompts.base} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 150 }}
+              />
+            </div>
+
+            <div className="lbl">Conversation — Level Profiles</div>
+            {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => (
+              <div key={lvl} style={{ marginBottom: 6 }}>
+                <div style={{ fontWeight: 700, fontSize: 10, color: 'var(--purple)', marginBottom: 2 }}>Profile · {lvl}</div>
+                <textarea 
+                  value={txt} 
+                  readOnly={true} 
+                  style={{ background: '#f4f1ea', cursor: 'default', height: 50, fontSize: 11 }}
+                />
+              </div>
+            ))}
+
+            <div className="lbl" style={{marginTop:16}}>Conversation — Unit Framing</div>
+            <div style={{ marginBottom: 14 }}>
+              <textarea 
+                value={serverPrompts.conv_unit_framing} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 140 }}
+              />
+            </div>
+
+            <div className="lbl" style={{marginTop:16}}>Judge (post-session)</div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl" style={{fontSize:9}}>end-result-prompt.md</div>
+              <textarea 
+                value={serverPrompts.judge} 
                 readOnly={true} 
                 style={{ background: '#f4f1ea', cursor: 'default', height: 200 }}
               />
             </div>
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Level Profiles (one selected per student level)</div>
-              {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => (
-                <div key={lvl} style={{ marginBottom: 8 }}>
-                  <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--purple)' }}>{lvl}</div>
-                  <textarea 
-                    value={txt} 
-                    readOnly={true} 
-                    style={{ background: '#f4f1ea', cursor: 'default', height: 60, fontSize: 11 }}
-                  />
-                </div>
-              ))}
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Unit Conversation Framing (theme-led)</div>
-              <textarea 
-                value={serverPrompts.conv_unit_framing} 
-                readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 180 }}
-              />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Full Assembled Template (conversation-prompt.md)</div>
-              <textarea 
-                value={serverPrompts.conversation} 
-                readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
-              />
-            </div>
 
-            <div style={{ marginBottom: 20, marginTop: 30, padding: '10px 14px', background: '#eef0fb', border: '1.5px solid var(--purple)', borderRadius: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--purple)', marginBottom: 4 }}>⚖️ POST-SESSION PROMPTS</div>
-              <div style={{ fontSize: 11, color: '#4a4080' }}>Used after conversation ends — grading and correction extraction</div>
-            </div>
+            <div className="lbl">Correction Extraction (separate call)</div>
             <div style={{ marginBottom: 14 }}>
-              <div className="lbl">LLM Judge Prompt (end-result-prompt.md)</div>
-              <textarea 
-                value={serverPrompts.judge} 
-                readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
-              />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Correction Extraction Prompt (separate LLM call)</div>
               <textarea 
                 value={serverPrompts.correction_extraction} 
                 readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 180 }}
+                style={{ background: '#f4f1ea', cursor: 'default', height: 120 }}
               />
             </div>
           </>
