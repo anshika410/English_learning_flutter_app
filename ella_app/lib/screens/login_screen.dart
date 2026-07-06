@@ -67,33 +67,35 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       }
     });
 
-    // Automatically prompt Google One Tap / FedCM when visiting the site
-    Future.microtask(() async {
-      try {
-        final lightweightAuth = gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
-        if (lightweightAuth != null) {
-          final googleUser = await lightweightAuth;
-          if (googleUser != null) {
-            final auth = googleUser.authentication;
-            final idToken = auth.idToken;
-            if (idToken != null) {
-              final success = await _api.loginWithGoogle(idToken);
-              if (success && mounted) {
-                Navigator.of(context).pushReplacementNamed('/');
+    // Automatically prompt Google One Tap / FedCM when visiting the site (Web only)
+    if (kIsWeb) {
+      Future.microtask(() async {
+        try {
+          final lightweightAuth = gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+          if (lightweightAuth != null) {
+            final googleUser = await lightweightAuth;
+            if (googleUser != null) {
+              final auth = googleUser.authentication;
+              final idToken = auth.idToken;
+              if (idToken != null) {
+                final success = await _api.loginWithGoogle(idToken);
+                if (success && mounted) {
+                  Navigator.of(context).pushReplacementNamed('/');
+                } else {
+                  _showError('One Tap Login failed on backend.');
+                }
               } else {
-                _showError('One Tap Login failed on backend.');
+                _showError('One Tap failed: no idToken.');
               }
             } else {
-              _showError('One Tap failed: no idToken.');
+              _showError('One Tap failed: googleUser is null.');
             }
-          } else {
-            _showError('One Tap failed: googleUser is null.');
           }
+        } catch (e) {
+          _showError('One Tap Error: $e');
         }
-      } catch (e) {
-        _showError('One Tap Error: $e');
-      }
-    });
+      });
+    }
   }
 
   @override
@@ -124,16 +126,41 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
     try {
-      // Force account picker on mobile by clearing any existing session
-      if (!kIsWeb) {
-        await gsi.GoogleSignIn.instance.signOut();
-      }
-
       gsi.GoogleSignInAccount? googleUser;
       
-      // For manual button taps on mobile, we use the standard interactive authentication
-      // to ensure all device accounts and "Add another account" are shown.
-      googleUser = await gsi.GoogleSignIn.instance.authenticate();
+      try {
+        final lightweightAuth = gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+        if (lightweightAuth != null) {
+          googleUser = await lightweightAuth;
+        }
+      } catch (e) {
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('cancel')) {
+          // User dismissed the lightweight bottom sheet. We can safely ignore this
+          // and fall through to standard interactive auth.
+          googleUser = null;
+        } else {
+          rethrow;
+        }
+      }
+
+      if (googleUser == null) {
+        // Fallback to standard interactive authentication
+        if (!kIsWeb) {
+          await gsi.GoogleSignIn.instance.signOut();
+        }
+        try {
+          googleUser = await gsi.GoogleSignIn.instance.authenticate();
+        } catch (e) {
+          final errorStr = e.toString().toLowerCase();
+          if (errorStr.contains('cancel')) {
+            // User cancelled the standard account picker. Quietly return.
+            if (mounted) setState(() => _isLoading = false);
+            return;
+          }
+          rethrow;
+        }
+      }
 
       if (googleUser == null) {
         if (mounted) setState(() => _isLoading = false);
@@ -329,6 +356,36 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               });
                             },
                           ),
+                          const SizedBox(height: 24),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Your learning data stays private and is never shared with anyone',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFF4A5D58),
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              InkWell(
+                                onTap: () {
+                                  Navigator.of(context).pushNamed('/privacy-policy');
+                                },
+                                child: const Text(
+                                  'Read Privacy Policy',
+                                  style: TextStyle(
+                                    color: Color(0xFFE54E87),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ] else if (_showEmailInput && !_magicLinkSent) ...[
                           // Email Input State
                           const Text(
@@ -444,56 +501,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ],
                         
                         const Spacer(),
-                        
-                        // Footer
-                        if (!_magicLinkSent && !_showEmailInput)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 24.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  margin: const EdgeInsets.only(top: 2, right: 12),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF7CD4A9),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  padding: const EdgeInsets.all(4),
-                                  child: const Icon(Icons.check, color: Colors.white, size: 14),
-                                ),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Your learning data stays private and is never shared with anyone',
-                                        style: TextStyle(
-                                          color: Color(0xFF4A5D58),
-                                          fontSize: 14,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      InkWell(
-                                        onTap: () {
-                                          Navigator.of(context).pushNamed('/privacy-policy');
-                                        },
-                                        child: const Text(
-                                          'Read Privacy Policy',
-                                          style: TextStyle(
-                                            color: Color(0xFFE54E87),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                       ],
                     ),
                   ),

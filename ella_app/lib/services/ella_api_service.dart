@@ -90,7 +90,11 @@ class EllaApiService {
 
   Future<bool> loginWithGoogle(String idToken) async {
     try {
-      final data = await _request('POST', '/auth/google', auth: false, body: {'token': idToken});
+      final deviceId = await getDeviceId();
+      final data = await _request('POST', '/auth/google', auth: false, body: {
+        'token': idToken,
+        'device_id': deviceId,
+      });
       final accessToken = data['access_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
@@ -115,11 +119,16 @@ class EllaApiService {
         redirectUrl = 'ella://login';
       }
       
+      final deviceId = await getDeviceId();
       await _request(
         'POST', 
         '/auth/magic-link/request', 
         auth: false, 
-        body: {'email': email, 'redirect_url': redirectUrl}
+        body: {
+          'email': email, 
+          'redirect_url': redirectUrl,
+          'device_id': deviceId,
+        }
       );
       return true;
     } catch (e) {
@@ -478,9 +487,15 @@ class EllaApiService {
     await prefs.remove(_userIdKey);
   }
 
-  static String _newDeviceId() {
-    final now = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
-    return 'ella-flutter-$now';
+  Future<String> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    var did = prefs.getString(_deviceIdKey);
+    if (did == null) {
+      final now = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
+      did = 'ella-flutter-$now';
+      await prefs.setString(_deviceIdKey, did);
+    }
+    return did;
   }
 
   static MemoryState _memoryFromApi(Map<String, dynamic> j) {
