@@ -17,6 +17,8 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
 {
 "overall": "good" | "okay" | "struggling",
 
+"zoe_recap": "<A warm, friendly 1-2 sentence recap that Zoe would say next time she sees the student. Reference something specific they talked about. Example: 'You told me about your village and a big clock!' or 'Last time you said you love cricket — that was fun!' Keep it short, personal, and encouraging. Max 120 characters.>",
+
 "best_moment": {
 "quote": "<exact words the student said — verbatim from transcript, at least 5 words>",
 "note": "<1 sentence: why this was strong — specific, not generic>"
