@@ -1,5 +1,1 @@
-import 'package:flutter/material.dart';
-
-void main() {
-  print("ok");
-}
+void main() {}

@@ -34,11 +34,9 @@ class EllaApp extends StatefulWidget {
 }
 
 class _EllaAppState extends State<EllaApp> {
-  bool _isCheckingAuth = true;
-  bool _isAuthenticated = false;
   late AppLinks _appLinks;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,26 +45,20 @@ class _EllaAppState extends State<EllaApp> {
 
   Future<void> _initAuthAndDeepLinks() async {
     final api = EllaApiService();
-    
+
     // Check initial auth state
-    final isAuth = await api.isAuthenticated();
-    if (mounted) {
-      setState(() {
-        _isAuthenticated = isAuth;
-        _isCheckingAuth = false;
-      });
-    }
+    await api.isAuthenticated();
 
     // Initialize App Links for Magic Link handling
     _appLinks = AppLinks();
-    
+
     // Handle incoming app links while the app is in the background or foreground
     _appLinks.uriLinkStream.listen((Uri? uri) async {
       if (uri != null) {
         _handleDeepLink(uri);
       }
     });
-    
+
     // Handle link that started the app (if any)
     try {
       final initialUri = await _appLinks.getInitialLink();
@@ -77,24 +69,26 @@ class _EllaAppState extends State<EllaApp> {
       debugPrint('Error getting initial deep link: $e');
     }
   }
-  
+
   void _handleDeepLink(Uri uri) async {
     // Expected magic link format: ella://login?token=XYZ&user_id=123
     // Or on web: http://domain/#/login?token=XYZ&user_id=123
-    
+
     // On web with hash routing, query params are inside the fragment (after the #)
     Uri parsedUri = uri;
     if (uri.fragment.contains('?')) {
       final fragmentParts = uri.fragment.split('?');
       if (fragmentParts.length > 1) {
-         final query = fragmentParts[1];
-         parsedUri = Uri.parse('dummy://dummy?$query');
+        final query = fragmentParts[1];
+        parsedUri = Uri.parse('dummy://dummy?$query');
       }
     }
 
-    final token = parsedUri.queryParameters['access_token'] ?? parsedUri.queryParameters['token'];
+    final token =
+        parsedUri.queryParameters['access_token'] ??
+        parsedUri.queryParameters['token'];
     String? userId = parsedUri.queryParameters['user_id'];
-    
+
     // If backend didn't return user_id, extract it from the JWT's 'sub' claim
     if (userId == null && token != null) {
       try {
@@ -102,18 +96,15 @@ class _EllaAppState extends State<EllaApp> {
         if (parts.length == 3) {
           // dart:convert is imported at the top of the file? Wait, app.dart doesn't import dart:convert.
           // Let's just pass an empty string or 'unknown_user_id'. The backend uses the Bearer token anyway.
-          userId = 'user_from_token'; 
+          userId = 'user_from_token';
         }
       } catch (_) {}
     }
-    
+
     if (token != null && userId != null) {
       final api = EllaApiService();
       await api.saveTokens(token, userId);
       if (mounted) {
-        setState(() {
-          _isAuthenticated = true;
-        });
         // Clear the auth screens so Back can't return to login/email.
         _navigatorKey.currentState?.pushNamedAndRemoveUntil(
           '/',
@@ -122,6 +113,7 @@ class _EllaAppState extends State<EllaApp> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -146,15 +138,27 @@ class _EllaAppState extends State<EllaApp> {
         final path = uri.path;
 
         if (path == '/splash') {
-          return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+          return MaterialPageRoute(
+            builder: (_) => const SplashScreen(),
+            settings: settings,
+          );
         } else if (path == '/login') {
-          return MaterialPageRoute(builder: (_) => const LoginScreen(), settings: settings);
+          return MaterialPageRoute(
+            builder: (_) => const LoginScreen(),
+            settings: settings,
+          );
         } else if (path == '/' || path == '/home') {
-          return MaterialPageRoute(builder: (_) => const RootGate(), settings: settings);
+          return MaterialPageRoute(
+            builder: (_) => const RootGate(),
+            settings: settings,
+          );
         }
-        
+
         // Fallback
-        return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => const SplashScreen(),
+          settings: settings,
+        );
       },
     );
   }
@@ -289,9 +293,9 @@ class _EllaHomeState extends State<_EllaHome> {
   }
 
   void _openConversationPreview() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ConversationStatesPreview()));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ConversationStatesPreview()),
+    );
   }
 
   @override

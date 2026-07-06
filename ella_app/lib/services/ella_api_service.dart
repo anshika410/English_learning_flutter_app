@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/child_memory.dart';
 import '../models/garden.dart';
+import '../models/home_topic.dart';
 import '../models/placement.dart';
 import '../models/session.dart';
 
@@ -56,7 +57,6 @@ class SessionAnalysisApiResult {
 class EllaApiService {
   static const _tokenKey = 'ella_api_access_token';
   static const _userIdKey = 'ella_api_user_id';
-  static const _deviceIdKey = 'ella_api_device_id';
 
   // First-run onboarding (name/age) cache. `_onboardingDoneKey` gates the
   // onboarding flow so it runs once; name/age are cached for the greeting and
@@ -97,7 +97,12 @@ class EllaApiService {
 
   Future<bool> loginWithGoogle(String idToken) async {
     try {
-      final data = await _request('POST', '/auth/google', auth: false, body: {'token': idToken});
+      final data = await _request(
+        'POST',
+        '/auth/google',
+        auth: false,
+        body: {'token': idToken},
+      );
       final accessToken = data['access_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
@@ -117,16 +122,16 @@ class EllaApiService {
       String redirectUrl;
       if (kIsWeb) {
         // Use the current web origin (e.g. http://localhost:3000)
-        redirectUrl = '${Uri.base.origin}/#/login'; 
+        redirectUrl = '${Uri.base.origin}/#/login';
       } else {
         redirectUrl = 'ella://login';
       }
-      
+
       await _request(
-        'POST', 
-        '/auth/magic-link/request', 
-        auth: false, 
-        body: {'email': email, 'redirect_url': redirectUrl}
+        'POST',
+        '/auth/magic-link/request',
+        auth: false,
+        body: {'email': email, 'redirect_url': redirectUrl},
       );
       return true;
     } catch (e) {
@@ -184,6 +189,15 @@ class EllaApiService {
     return garden;
   }
 
+  Future<List<HomeTopic>> getTopics() async {
+    final data = await _request('GET', '/users/me/topics');
+    final rows = data['_list'] as List? ?? data['topics'] as List? ?? const [];
+    return [
+      for (final topic in rows)
+        HomeTopic.fromJson(Map<String, dynamic>.from(topic as Map)),
+    ];
+  }
+
   Future<void> updatePersonaMemory(Map<String, dynamic> personaMemory) async {
     await _request(
       'PUT',
@@ -212,10 +226,7 @@ class EllaApiService {
     );
   }
 
-  Future<void> saveOnboarding({
-    required String name,
-    required int age,
-  }) async {
+  Future<void> saveOnboarding({required String name, required int age}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_childNameKey, name);
     await prefs.setInt(_childAgeKey, age);
@@ -525,11 +536,6 @@ class EllaApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
-  }
-
-  static String _newDeviceId() {
-    final now = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
-    return 'ella-flutter-$now';
   }
 
   static MemoryState _memoryFromApi(Map<String, dynamic> j) {
