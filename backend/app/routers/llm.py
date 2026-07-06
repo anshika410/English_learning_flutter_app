@@ -131,7 +131,7 @@ async def placement_turn(
                 level=level,
                 unit_label=unit_name,
                 confidence=result.get("confidence"),
-                highlight=result.get("evidence_summary"),
+                highlight=result.get("zoe_recap") or result.get("evidence_summary"),
                 transcript_json=json.dumps(messages) if messages else None,
             )
             db.add(placement)

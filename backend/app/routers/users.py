@@ -217,8 +217,11 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None
     except Exception:
         pass
     
-    # Fallback: if no conversation recap exists but placement was done, show friendly message
+    # Fallback: if no conversation recap exists but placement was done, use placement recap
     if user and user.placements:
+        latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
+        if latest_placement.highlight:
+            return latest_placement.highlight
         return "Nice to meet you! Let's start our first chat together."
     
     return None

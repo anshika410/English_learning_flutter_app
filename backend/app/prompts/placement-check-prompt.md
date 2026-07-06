@@ -179,8 +179,10 @@ When you finish, output ONLY this JSON (no REPLY prefix, no other text):
   "confidence": "low|medium|high",
   "possible_higher": true|false,
   "evidence_summary": "One sentence citing a specific utterance or pattern.",
+  "zoe_recap": "A warm 1-line recap referencing something specific the student said — e.g. 'You told me you love cricket and eat daal chawal!' Max 100 characters.",
   "probe_targets_covered": ["concrete_self","past_narrative","opinion_reason","extended_description"],
   "turns_taken": <number>,
   "code_switch_observed": true|false,
-  "notes_for_first_session": "Optional one-line hint for the next session."
+  "interests": ["up to 3 interests the student mentioned naturally — e.g. cricket, music, cooking. Empty array if none detected."],
+  "notes_for_first_session": "One-line hint for the next session — include their interests if detected."
 }
