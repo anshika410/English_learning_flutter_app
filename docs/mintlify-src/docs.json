@@ -41,7 +41,8 @@
         "group": "Prompts",
         "pages": [
           "prompts-reference",
-          "prompt-assembly"
+          "prompt-assembly",
+          "placement-prompt"
         ]
       },
       {
