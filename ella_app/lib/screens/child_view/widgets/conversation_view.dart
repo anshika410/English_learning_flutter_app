@@ -43,7 +43,8 @@ class ConversationView extends StatelessWidget {
 
   /// Toggles TTS for Zoe's current line — powers the speaker dot straddling
   /// her bubble's top-right border (shown for every Zoe line, including the
-  /// goodbye). Callers replay when idle and stop while she's speaking.
+  /// goodbye). Callers replay when idle and stop while she's speaking. The
+  /// student bubble has no such control (by design — only Zoe's lines replay).
   final VoidCallback? onSpeakAgain;
 
   const ConversationView({
@@ -77,6 +78,8 @@ class ConversationView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
+              // Mascot stays fixed at the top — only the bubbles below it
+              // scroll.
               const SizedBox(height: 28),
               ZoeMascot(
                 mode: mascotSpeaking
@@ -88,17 +91,39 @@ class ConversationView extends StatelessWidget {
                 reducedMotion: MediaQuery.of(context).disableAnimations,
               ),
               const SizedBox(height: 18),
-              if (phase == ConvPhase.prepare)
-                const _PrepareCard()
-              else
-                _Bubbles(
-                  zoeLine: zoeLine,
-                  studentLine: studentLine,
-                  onSpeakAgain: onSpeakAgain,
-                  speaking: mascotSpeaking,
-                  maxWidth: bubbleMaxWidth,
+              // Latest-turn bubbles live in a scroll region so a long turn can't
+              // overflow the screen (or get clipped when the keyboard is up).
+              // `reverse: true` pins the newest bubble just above the dock and
+              // lets the older text scroll up and disappear under the fixed
+              // mascot; the minHeight box keeps short turns top-aligned (right
+              // under the mascot) exactly as before.
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    reverse: true,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Column(
+                        children: [
+                          if (phase == ConvPhase.prepare)
+                            const _PrepareCard()
+                          else
+                            _Bubbles(
+                              zoeLine: zoeLine,
+                              studentLine: studentLine,
+                              onSpeakAgain: onSpeakAgain,
+                              speaking: mascotSpeaking,
+                              maxWidth: bubbleMaxWidth,
+                            ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              const Spacer(),
+              ),
               if (phase == ConvPhase.talking)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 18),

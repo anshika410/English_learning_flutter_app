@@ -26,13 +26,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _name = '';
   int _age = 0;
 
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
     final audio = ref.read(audioProvider);
     _musicOn = audio.musicEnabled;
     _sfxOn = audio.sfxEnabled;
+    _loadAppVersion();
     _loadProfile();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = 'v${packageInfo.version}';
+      });
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -392,6 +404,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 32),
+                        if (_appVersion.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 24.0),
+                            child: Text(
+                              _appVersion,
+                              style: const TextStyle(
+                                color: EllaColors.textTertiary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

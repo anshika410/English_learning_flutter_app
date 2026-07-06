@@ -13,6 +13,7 @@ import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
 import '../../services/audio_service.dart';
 import 'widgets/garden_sky_background.dart';
+import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 
 class AllTopicsScreen extends ConsumerWidget {
@@ -177,10 +178,10 @@ class _TopicCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.chat_bubble_rounded,
-              size: 26,
-              color: EllaColors.ink,
+            TopicIcon(
+              icon: topic.icon,
+              size: 32,
+              fallbackColor: EllaColors.ink,
             ),
             const SizedBox(height: 8),
             Text(
