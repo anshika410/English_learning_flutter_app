@@ -21,14 +21,19 @@ class PlacementGardenHeader extends StatelessWidget {
   final VoidCallback? onBack;
 
   /// Berry sound button on the right (hidden when null) — e.g. replays Zoe's
-  /// nudge line aloud.
+  /// nudge line aloud. Ignored when [trailing] is provided.
   final VoidCallback? onSound;
+
+  /// Custom widget for the right slot (e.g. the garden mute toggle). Takes
+  /// precedence over [onSound].
+  final Widget? trailing;
 
   const PlacementGardenHeader({
     super.key,
     required this.name,
     this.onBack,
     this.onSound,
+    this.trailing,
   });
 
   @override
@@ -80,7 +85,9 @@ class PlacementGardenHeader extends StatelessWidget {
                 ),
               ),
             ),
-            if (onSound != null)
+            if (trailing != null)
+              trailing!
+            else if (onSound != null)
               _CircleControl(
                 fill: EllaColors.berryMain,
                 ring: EllaColors.berryDeep,

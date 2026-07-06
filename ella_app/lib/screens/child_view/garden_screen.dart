@@ -23,6 +23,7 @@ import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import 'widgets/garden_dialogs.dart';
+import 'widgets/garden_sound_button.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
 
@@ -346,6 +347,9 @@ class _GardenView extends ConsumerWidget {
               ],
             ),
           ),
+          // Mute/unmute the garden ambient loop — fixed top-right control so it
+          // stays put while the plots scroll.
+          const Positioned(top: 16, right: 20, child: GardenSoundButton()),
           Positioned(
             left: 0,
             right: 0,

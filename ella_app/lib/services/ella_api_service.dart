@@ -194,8 +194,36 @@ class EllaApiService {
 
   /// Persist the child's profile collected during onboarding. Mirrors
   /// [updatePersonaMemory]'s PUT-to-/users/me shape.
+  ///
+  /// The backend's UpdateProfileRequest types `age` as a STRING (it's stored in
+  /// a text column), and Pydantic v2 rejects an int there with a 422 — which
+  /// silently dropped the whole update. So age is sent as its string form.
   Future<void> updateProfile({required String name, required int age}) async {
-    await _request('PUT', '/users/me', body: {'name': name, 'age': age});
+    await _request(
+      'PUT',
+      '/users/me',
+      body: {'name': name, 'age': age.toString()},
+    );
+  }
+
+  /// The signed-in child's saved profile — GET /users/me (the same endpoint the
+  /// dashboard's get-profile uses). Name/age live under the `profile` object;
+  /// age comes back as an int (the server casts the stored string), but we
+  /// parse defensively in case it arrives as a numeric string.
+  Future<({String? name, int? age})> getProfile() async {
+    final data = await _request('GET', '/users/me');
+    final profile = data['profile'];
+    if (profile is! Map) return (name: null, age: null);
+    final p = Map<String, dynamic>.from(profile);
+    final name = (p['name'] as String?)?.trim();
+    final ageRaw = p['age'];
+    final age = switch (ageRaw) {
+      final int v => v,
+      final num v => v.toInt(),
+      final String v => int.tryParse(v.trim()),
+      _ => null,
+    };
+    return (name: (name != null && name.isEmpty) ? null : name, age: age);
   }
 
   // ── Onboarding cache (local) ────────────────────────────────────────────────

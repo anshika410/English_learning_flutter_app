@@ -46,6 +46,11 @@ class ConversationView extends StatelessWidget {
   /// goodbye). Callers replay when idle and stop while she's speaking.
   final VoidCallback? onSpeakAgain;
 
+  /// Replays the student's line via TTS — the speaker dot on the student
+  /// bubble (mirrors [onSpeakAgain]; placement-flow behavior). Callers pass
+  /// null while the line is still a live partial.
+  final VoidCallback? onSpeakStudent;
+
   const ConversationView({
     super.key,
     required this.phase,
@@ -62,6 +67,7 @@ class ConversationView extends StatelessWidget {
     this.onSend,
     this.onEnd,
     this.onSpeakAgain,
+    this.onSpeakStudent,
   });
 
   @override
@@ -95,6 +101,7 @@ class ConversationView extends StatelessWidget {
                   zoeLine: zoeLine,
                   studentLine: studentLine,
                   onSpeakAgain: onSpeakAgain,
+                  onSpeakStudent: onSpeakStudent,
                   speaking: mascotSpeaking,
                   maxWidth: bubbleMaxWidth,
                 ),
@@ -131,6 +138,7 @@ class _Bubbles extends StatelessWidget {
   final String? zoeLine;
   final String? studentLine;
   final VoidCallback? onSpeakAgain;
+  final VoidCallback? onSpeakStudent;
   final bool speaking;
   final double maxWidth;
 
@@ -138,6 +146,7 @@ class _Bubbles extends StatelessWidget {
     required this.zoeLine,
     required this.studentLine,
     required this.onSpeakAgain,
+    required this.onSpeakStudent,
     required this.speaking,
     required this.maxWidth,
   });
@@ -165,7 +174,11 @@ class _Bubbles extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
-              child: _StudentBubble(text: studentLine!),
+              child: _StudentBubble(
+                text: studentLine!,
+                onSpeak: onSpeakStudent,
+                speaking: speaking,
+              ),
             ),
           ),
         ],
@@ -227,11 +240,22 @@ class _ZoeBubble extends StatelessWidget {
 
 class _StudentBubble extends StatelessWidget {
   final String text;
-  const _StudentBubble({required this.text});
+
+  /// Replays this line via TTS. When set, a speaker dot straddles the bubble's
+  /// top-left border (mirroring Zoe's top-right dot): replay when idle, ignore
+  /// taps while TTS is [speaking].
+  final VoidCallback? onSpeak;
+  final bool speaking;
+
+  const _StudentBubble({
+    required this.text,
+    this.onSpeak,
+    this.speaking = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         // Pale pink (#FFF2F7) with a berryDark border and squared bottom-right
@@ -247,6 +271,21 @@ class _StudentBubble extends StatelessWidget {
       ),
       // Same font/weight as every other line (no italic, even while live).
       child: Text(text, style: EllaTextStyles.bodySemibold),
+    );
+
+    if (onSpeak == null) return bubble;
+
+    // Same headroom trick as _ZoeBubble so the overhanging dot stays tappable.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(padding: const EdgeInsets.only(top: 14), child: bubble),
+        Positioned(
+          top: 0,
+          left: 10,
+          child: SpeakerDotButton(active: speaking, onTap: onSpeak),
+        ),
+      ],
     );
   }
 }

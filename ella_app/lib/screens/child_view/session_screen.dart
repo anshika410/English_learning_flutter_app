@@ -276,6 +276,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
           ? () => _speakLine(zoeLine)
           : null,
+      // Speaker dot on the student's bubble — same replay behavior; hidden
+      // while the line is still a live partial.
+      onSpeakStudent:
+          (studentLine != null && studentLine.trim().isNotEmpty && !studentLive)
+          ? () => _speakLine(studentLine!)
+          : null,
     );
   }
 

@@ -85,6 +85,7 @@ flutter:
     - assets/information-box/
     - assets/sounds/sfx/
     - assets/sounds/music/
+    - assets/topic-icons/
 
   fonts:
     - family: Chillax

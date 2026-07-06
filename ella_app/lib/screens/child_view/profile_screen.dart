@@ -26,6 +26,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late bool _sfxOn;
   String _appVersion = '';
 
+  // Saved profile (name/age) fetched from GET /users/me. Null while loading;
+  // falls back to the local onboarding cache if the network call fails.
+  String? _name;
+  int? _age;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +38,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _musicOn = audio.musicEnabled;
     _sfxOn = audio.sfxEnabled;
     _loadAppVersion();
+    _loadProfile();
   }
 
   Future<void> _loadAppVersion() async {
@@ -41,6 +47,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() {
         _appVersion = 'v${packageInfo.version}';
       });
+    }
+  }
+
+  Future<void> _loadProfile() async {
+    final api = ref.read(ellaApiServiceProvider);
+    // Seed instantly from the local onboarding cache so the card isn't blank
+    // while the network call is in flight.
+    final cached = await api.getOnboardingState();
+    if (mounted) {
+      setState(() {
+        _name = cached.name;
+        _age = cached.age;
+      });
+    }
+    // Then refresh from the server (the source of truth) — best-effort.
+    try {
+      final profile = await api.getProfile();
+      if (mounted && (profile.name != null || profile.age != null)) {
+        setState(() {
+          _name = profile.name ?? _name;
+          _age = profile.age ?? _age;
+        });
+      }
+    } catch (_) {
+      // Keep the cached values on a network hiccup.
     }
   }
 
@@ -64,10 +95,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text('Profile', style: EllaTextStyles.titleMedium),
+              Text(
+                (_name != null && _name!.isNotEmpty) ? _name! : 'Profile',
+                style: EllaTextStyles.titleMedium,
+              ),
               const SizedBox(height: 6),
               Text(
-                'Coming soon',
+                _age != null ? 'Age $_age' : ' ',
                 style: EllaTextStyles.bodySmall.copyWith(
                   color: EllaColors.textTertiary,
                 ),
