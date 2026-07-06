@@ -58,6 +58,12 @@
         ]
       },
       {
+        "group": "Prompts",
+        "pages": [
+          "prompts-reference"
+        ]
+      },
+      {
         "group": "Architecture & Latency",
         "pages": [
           "memory_feature_feasibility"
