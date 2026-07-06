@@ -80,6 +80,9 @@ flutter:
     - assets/homescreen/new/
     - assets/gardent-view/
     - assets/garden/plants/
+    - assets/garden/props/
+    - assets/garden/ambient/
+    - assets/garden/tiles/
     - assets/information-box/
     - assets/sounds/sfx/
     - assets/sounds/music/

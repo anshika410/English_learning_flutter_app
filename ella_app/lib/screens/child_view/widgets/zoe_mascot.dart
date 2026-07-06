@@ -177,7 +177,10 @@ class _ZoeMascotState extends State<ZoeMascot>
 
   @override
   Widget build(BuildContext context) {
-    final artSize = widget.size.clamp(96.0, 320.0);
+    // Lower bound only guards against degenerate sizes — compact placements
+    // (e.g. the 44px mascot beside the garden "Let's Talk" pill) must render
+    // at their requested size, not get bumped up.
+    final artSize = widget.size.clamp(32.0, 320.0);
 
     final content = SizedBox(
       width: artSize,

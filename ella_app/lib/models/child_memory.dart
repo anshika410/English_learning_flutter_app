@@ -134,6 +134,10 @@ class NextTopics {
 class MemoryState {
   final String childId;
   final String level; // 'A1'..'C2'
+  // Whether the server actually returned a level. `level` falls back to 'A1'
+  // when absent so the engine always has one; this flag distinguishes a real
+  // placement level from that fallback (drives the bloom vs sprout garden).
+  final bool hasLevel;
   final String progressionModel; // 'micro-skill' | 'units'
   final List<String> owned;
   final List<String> emerging;
@@ -155,6 +159,7 @@ class MemoryState {
   const MemoryState({
     required this.childId,
     required this.level,
+    this.hasLevel = true,
     this.progressionModel = 'units',
     this.owned = const [],
     this.emerging = const [],
@@ -175,6 +180,7 @@ class MemoryState {
   MemoryState copyWith({
     String? childId,
     String? level,
+    bool? hasLevel,
     String? progressionModel,
     List<String>? owned,
     List<String>? emerging,
@@ -193,6 +199,7 @@ class MemoryState {
   }) => MemoryState(
     childId: childId ?? this.childId,
     level: level ?? this.level,
+    hasLevel: hasLevel ?? this.hasLevel,
     progressionModel: progressionModel ?? this.progressionModel,
     owned: owned ?? this.owned,
     emerging: emerging ?? this.emerging,
@@ -222,6 +229,7 @@ class MemoryState {
     return MemoryState(
       childId: childId,
       level: j['level'] as String? ?? 'A1',
+      hasLevel: (j['level'] as String?)?.isNotEmpty ?? false,
       progressionModel: j['progression_model'] as String? ?? 'units',
       owned: List<String>.from((j['owned'] as List?) ?? []),
       emerging: List<String>.from((j['emerging'] as List?) ?? []),

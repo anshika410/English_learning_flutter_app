@@ -58,6 +58,13 @@ class EllaApiService {
   static const _userIdKey = 'ella_api_user_id';
   static const _deviceIdKey = 'ella_api_device_id';
 
+  // First-run onboarding (name/age) cache. `_onboardingDoneKey` gates the
+  // onboarding flow so it runs once; name/age are cached for the greeting and
+  // to seed the placement flow without a network round-trip.
+  static const _onboardingDoneKey = 'ella_onboarding_done';
+  static const _childNameKey = 'ella_child_name';
+  static const _childAgeKey = 'ella_child_age';
+
   final String baseUrl;
   final http.Client _client;
 
@@ -192,6 +199,48 @@ class EllaApiService {
       '/users/me/memory',
       body: {'persona_memory': personaMemory},
     );
+  }
+
+  /// Persist the child's profile collected during onboarding. Mirrors
+  /// [updatePersonaMemory]'s PUT-to-/users/me shape.
+  Future<void> updateProfile({required String name, required int age}) async {
+    await _request('PUT', '/users/me', body: {'name': name, 'age': age});
+  }
+
+  // ── Onboarding cache (local) ────────────────────────────────────────────────
+  // Gates the first-run onboarding flow and remembers the child's name/age for
+  // the greeting + placement seeding. Stored in the same SharedPreferences this
+  // service already owns for auth tokens.
+
+  Future<({bool done, String? name, int? age})> getOnboardingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      done: prefs.getBool(_onboardingDoneKey) ?? false,
+      name: prefs.getString(_childNameKey),
+      age: prefs.getInt(_childAgeKey),
+    );
+  }
+
+  Future<void> saveOnboarding({
+    required String name,
+    required int age,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_childNameKey, name);
+    await prefs.setInt(_childAgeKey, age);
+    await prefs.setBool(_onboardingDoneKey, true);
+  }
+
+  /// Cache just the name/age (onboarding NOT yet done) — written the moment
+  /// the child answers, so a relaunch resumes at the first-sprout garden
+  /// instead of re-asking name and age.
+  Future<void> saveOnboardingProfile({
+    required String name,
+    required int age,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_childNameKey, name);
+    await prefs.setInt(_childAgeKey, age);
   }
 
   Future<List<SessionLog>> listSessions({
@@ -505,6 +554,7 @@ class EllaApiService {
     return MemoryState(
       childId: id,
       level: j['level'] as String? ?? 'A1',
+      hasLevel: (j['level'] as String?)?.isNotEmpty ?? false,
       owned: List<String>.from((j['owned'] as List?) ?? const []),
       emerging: List<String>.from((j['emerging'] as List?) ?? const []),
       dueNext: j['due_next'] is Map
