@@ -2089,7 +2089,8 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
     <small className="note">owned/emerging hold buckets; confidence is NOT stored here (see Session log). Snapshots show how memory evolved chat by chat.</small>
     {isApiMode&&<div style={{marginTop:16,padding:12,border:'1.5px dashed var(--rust)',borderRadius:8,background:'#fff5f5'}}>
       <div style={{fontSize:12,fontWeight:700,color:'var(--rust)',marginBottom:6}}>⚠️ Danger Zone</div>
-      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)'}} onClick={()=>{if(confirm('This will delete your token and create a fresh user. All progress will be lost. Continue?')){localStorage.removeItem('ella_access_token');localStorage.removeItem('ella_device_id');window.location.reload();}}}>🗑️ Delete & Start Fresh (new user for placement test)</button>
+      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)',marginBottom:6}} onClick={async ()=>{if(confirm('This will RESET your current user — delete placements, level, skills. Continue?')){try{const did=localStorage.getItem('ella_device_id');if(did){await callEllaAPI(`/admin/reset-user/${did}`,'DELETE');} }catch(e){console.error(e);}window.location.reload();}}}>🔄 Reset User (keep device, clear all progress)</button>
+      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)'}} onClick={()=>{if(confirm('This will create a BRAND NEW user. All progress lost. Continue?')){localStorage.removeItem('ella_access_token');localStorage.removeItem('ella_device_id');window.location.reload();}}}>🗑️ Delete & Start Fresh (new user)</button>
     </div>}
   </div>);
 }
