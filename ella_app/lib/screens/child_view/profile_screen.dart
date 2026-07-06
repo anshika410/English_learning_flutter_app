@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme_colors.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../providers/chat_provider.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -63,7 +64,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           if (_name.isEmpty) _name = fallbackName;
           if (_name.isEmpty) _name = 'Student';
           
-          _age = (profMap['age'] as num?)?.toInt() ?? fallbackAge;
+          final ageVal = profMap['age'];
+          if (ageVal is num) {
+            _age = ageVal.toInt();
+          } else if (ageVal is String) {
+            _age = int.tryParse(ageVal) ?? fallbackAge;
+          } else {
+            _age = fallbackAge;
+          }
           if (_age == 0) _age = fallbackAge;
           
           _isLoading = false;
@@ -114,6 +122,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SnackBar(content: Text('Memory deleted successfully.')),
         );
         
+        // Invalidate the chat provider so RootGate sees the fresh memory state
+        ref.invalidate(chatProvider);
+
         // Force a restart of the app flow
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       } catch (e) {

@@ -233,7 +233,28 @@ class EllaApiService {
 
   Future<void> resetUserMemory() async {
     final deviceId = await getDeviceId();
-    await _request('DELETE', '/admin/reset-user/$deviceId');
+    
+    // First fetch the anonymous token using the device ID as requested
+    final authData = await _request('POST', '/auth/anonymous', auth: false, body: {
+      'device_id': deviceId,
+    });
+    final anonToken = authData['access_token'];
+
+    // Now call the reset endpoint using this token directly
+    final uri = Uri.parse('$baseUrl/admin/reset-user/$deviceId');
+    final response = await _client.delete(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $anonToken',
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw EllaApiException(
+        'HTTP ${response.statusCode}: ${response.body}',
+      );
+    }
   }
 
   Future<List<HomeTopic>> getTopics() async {
