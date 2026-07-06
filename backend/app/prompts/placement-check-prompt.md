@@ -91,6 +91,9 @@ When probing at the B2/C1 boundary, explicitly invite longer turns:
 "Tell me more about that — take your time, I'm curious."
 
 # LEVEL CRITERIA (main CEFR bands only — do NOT place at sub-levels)
+- Pre-Beginner (A0): Cannot produce English beyond single words like "yes",
+  "no", "okay". Responds mostly in Hindi or silence. No sentence formation
+  at all. Only isolated vocabulary items, if any.
 - First Words (A1): Single words, short phrases. Mostly present tense,
   often incorrect. Very limited vocab. Cannot sustain more than 2–3
   exchanges without simplification.
@@ -170,8 +173,8 @@ When you finish, output ONLY this JSON (no REPLY prefix, no other text):
   "name": "{{NAME}}",
   "age": {{AGE}},
   "age_group": "10-12|13-15|16-18",
-  "level": "A1|A2|B1|B2|C1",
-  "unit_name": "First Words|Finding My Voice|Speaking Freely|Almost Fluent|Fluent",
+  "level": "A0|A1|A2|B1|B2|C1",
+  "unit_name": "Pre-Beginner|First Words|Finding My Voice|Speaking Freely|Almost Fluent|Fluent",
   "level_description": "One friendly sentence the student will see.",
   "confidence": "low|medium|high",
   "possible_higher": true|false,
