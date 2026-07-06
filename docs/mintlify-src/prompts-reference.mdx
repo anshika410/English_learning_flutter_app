@@ -89,9 +89,53 @@ Runs an adaptive screening interview to determine the student's CEFR level. Zoe 
 ### Key Rules
 - Never reveal it's a test
 - Adapt probe difficulty based on responses
-- Minimum 5 turns, maximum 9
 - Don't judge pronunciation or regional accents
 - Indian English features are NOT errors
+
+### Server-Side Turn Guards (Confidence Gates)
+
+The server enforces placement completion rules regardless of what the LLM tries to do:
+
+| Student Turns | Rule | Accepted Confidence |
+|---|---|---|
+| **1–4** | Never complete | ❌ All rejected — too early |
+| **5–8** | Only if very sure | ✅ `"high"` only |
+| **9–11** | Accept good evidence | ✅ `"high"` or `"medium"` |
+| **12** | Force complete | ✅ Any (forced assessment) |
+
+**How it works:**
+
+```
+Turn 1-4:  LLM says "complete" → Server ignores → returns fallback question
+Turn 5-8:  LLM says "complete, high" → Server accepts → level saved
+Turn 5-8:  LLM says "complete, medium" → Server rejects → asks more questions
+Turn 9-11: LLM says "complete, medium" → Server accepts → level saved
+Turn 9-11: LLM says "complete, low" → Server rejects → pushes to turn 12
+Turn 12:   Server forces LLM → "ASSESS NOW" → level saved regardless
+```
+
+**Why these ranges:**
+- **Turn 1-4 blocked:** Student anxiety on first turns can hide real ability. A nervous B1 student might give A0-like one-word answers initially.
+- **Turn 5-8 high only:** Strong students (B1+) can be confidently identified early. Weaker students need more probing.
+- **Turn 9-11 medium OK:** By 9+ turns there's plenty of evidence. Medium confidence = "likely A2, possibly A1" — good enough.
+- **Turn 12 forced:** Nobody stuck forever. Even low confidence after 12 turns gives a starting level.
+
+### What Happens When User Cancels
+
+If user presses "End" before placement completes:
+- No API call to the server
+- No level assigned
+- No placement record saved
+- User stays unplaced (placement_garden = "soil")
+- App should show: "Let's try again when you're ready"
+
+### Placement Garden Mapping
+
+| Completion scenario | `confidence` | Garden stage |
+|---|---|---|
+| Completed with high/medium confidence | `"high"` / `"medium"` | `"bloom"` 🌺 |
+| Completed with low confidence (forced at turn 12) | `"low"` | `"seed"` 🌱 |
+| User cancelled / never started | — | `"soil"` 🟤 (null) |
 
 ---
 
