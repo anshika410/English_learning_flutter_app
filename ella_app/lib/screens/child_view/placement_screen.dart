@@ -170,16 +170,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 onEnd: _exit,
                 // Speaker dot on Zoe's bubble: replays the line when idle.
                 // While she's already talking the tap is a no-op (never stops
-                // or restarts her).
+                // or restarts her). Only Zoe's lines get the control.
                 onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
                     ? () => _speakLine(zoeLine)
-                    : null,
-                // Speaker dot on the student's bubble — same replay behavior;
-                // hidden while the line is still a live partial.
-                onSpeakStudent: (studentLine != null &&
-                        studentLine.trim().isNotEmpty &&
-                        !studentLive)
-                    ? () => _speakLine(studentLine!)
                     : null,
               ),
       ),
