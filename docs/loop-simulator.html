@@ -1666,7 +1666,7 @@ function App(){
       <div className="inrow" style={{borderTop:'none',paddingTop:0}}>
         <button className="ghost" onClick={()=>setAuto(a=>!a)}>{auto?'✋ manual':'🤖 auto'}</button>
         {sessionType === 'placement' ? (
-          <button className="act" style={{background:'var(--rust)',cursor:'not-allowed'}} disabled={true}>Placement Active</button>
+          <button className="act" style={{background:'var(--rust)'}} disabled={busy||!!placementAssessment} onClick={()=>{setSessionType('standard');setMsgs(m=>[...m,{role:'sys',text:'Placement ended manually.'}]);}}>End Placement ✕</button>
         ) : (
           <button className="act" disabled={busy||!!judgeOut} onClick={endChat}>End chat & judge ⚖️</button>
         )}
