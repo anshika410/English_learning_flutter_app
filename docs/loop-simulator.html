@@ -1666,7 +1666,33 @@ function App(){
       <div className="inrow" style={{borderTop:'none',paddingTop:0}}>
         <button className="ghost" onClick={()=>setAuto(a=>!a)}>{auto?'✋ manual':'🤖 auto'}</button>
         {sessionType === 'placement' ? (
-          <button className="act" style={{background:'var(--rust)'}} disabled={busy||!!placementAssessment} onClick={()=>{setSessionType('standard');setMsgs(m=>[...m,{role:'sys',text:'Placement ended manually.'}]);}}>End Placement ✕</button>
+          <button className="act" style={{background:'var(--rust)'}} disabled={busy||!!placementAssessment} onClick={async ()=>{
+            setBusy(true);
+            try {
+              if (LLM_CONFIG.mode === 'api') {
+                await callEllaAPI('/placements', 'POST', {
+                  level: 'A0',
+                  unit_label: 'Pre-Beginner',
+                  confidence: 'low',
+                  highlight: 'Placement cancelled by user before completion.',
+                  interests: []
+                });
+                const memoryData = await callEllaAPI('/users/me/memory');
+                setDbMemory(memoryData || {});
+                try {
+                  const gardenData = await callEllaAPI('/users/me/garden');
+                  setDbGarden(gardenData || null);
+                } catch(e) {}
+              }
+              setSessionType('standard');
+              setPlacementAssessment({ is_complete: true, level: 'A0', unit_name: 'Pre-Beginner', confidence: 'low' });
+              setMsgs(m=>[...m,{role:'sys',text:'Placement cancelled — assigned A0 (Pre-Beginner) with low confidence. You can retake anytime.'}]);
+            } catch(err) {
+              setMsgs(m=>[...m,{role:'sys',text:'Error ending placement: ' + (err.message || String(err))}]);
+            } finally {
+              setBusy(false);
+            }
+          }}>End Placement ✕</button>
         ) : (
           <button className="act" disabled={busy||!!judgeOut} onClick={endChat}>End chat & judge ⚖️</button>
         )}
