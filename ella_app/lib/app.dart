@@ -10,8 +10,10 @@ import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
 import 'providers/chat_provider.dart';
+import 'providers/onboarding_provider.dart';
 import 'screens/child_view/home_screen.dart';
 import 'screens/child_view/garden_screen.dart';
+import 'screens/child_view/onboarding/onboarding_flow.dart';
 import 'screens/child_view/placement_intro_screen.dart';
 import 'screens/child_view/profile_screen.dart';
 import 'screens/child_view/conversation_states_preview.dart';
@@ -112,7 +114,11 @@ class _EllaAppState extends State<EllaApp> {
         setState(() {
           _isAuthenticated = true;
         });
-        _navigatorKey.currentState?.pushReplacementNamed('/');
+        // Clear the auth screens so Back can't return to login/email.
+        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/',
+          (route) => false,
+        );
       }
     }
   }
@@ -179,12 +185,30 @@ class RootGate extends ConsumerWidget {
       data: (s) {
         final online = ref.read(chatProvider.notifier).online;
         final needsPlacement = online && s.memory.placement == null;
-        return needsPlacement
-            ? const Scaffold(
-                backgroundColor: Colors.transparent,
-                body: PlacementIntroScreen(),
-              )
-            : const _EllaHome();
+        if (!needsPlacement) return const _EllaHome();
+        // Before the placement screening, collect name/age once via onboarding.
+        // Watching onboardingProvider means the final "Let's Talk" flips the gate
+        // and this rebuilds straight into PlacementIntroScreen — no manual nav.
+        // While the cached flag is still loading, hold on the spinner so a
+        // returning (onboarded-but-unplaced) child doesn't flash the flow.
+        final onboarding = ref.watch(onboardingProvider);
+        if (onboarding.isLoading) {
+          return const GardenSkyBackground(
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Center(
+                child: CircularProgressIndicator(color: EllaColors.berryDark),
+              ),
+            ),
+          );
+        }
+        final onboardingDone = onboarding.valueOrNull?.done ?? false;
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: onboardingDone
+              ? const PlacementIntroScreen()
+              : const OnboardingFlow(),
+        );
       },
     );
   }

@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/service_providers.dart';
 import 'home_screen.dart' show kHomeChildName;
@@ -62,6 +63,10 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
       128.0,
       168.0,
     );
+    // Prefer the name the child typed during onboarding; fall back to the demo
+    // placeholder if it isn't cached yet.
+    final childName =
+        ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
 
     return GardenSkyBackground(
       child: SafeArea(
@@ -74,7 +79,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Hi, $kHomeChildName!',
+                    'Hi, $childName!',
                     style: EllaTextStyles.headline,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

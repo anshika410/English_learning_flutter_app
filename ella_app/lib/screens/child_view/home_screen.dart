@@ -14,6 +14,7 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import 'all_topics_screen.dart';
@@ -189,7 +190,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           child: Column(
             children: [
               _HeaderRow(
-                name: kHomeChildName,
+                name:
+                    ref.watch(onboardingProvider).valueOrNull?.name ??
+                    kHomeChildName,
                 onOpenProfile: widget.onOpenProfile,
                 onOpenGarden: widget.onOpenGarden,
               ),

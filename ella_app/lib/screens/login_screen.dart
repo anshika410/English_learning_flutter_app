@@ -28,8 +28,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
+    // If this screen is reached while already authenticated (e.g. the web
+    // browser Back button lands on /login after sign-in), bounce straight to
+    // the root gate instead of showing the email form again.
+    _redirectIfAuthenticated();
     _emailFocusNode.addListener(_onFocusChange);
-    
+
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3), // slower for a natural, relaxed feel
@@ -49,6 +53,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _emailController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _redirectIfAuthenticated() async {
+    if (await _api.isAuthenticated()) {
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    }
   }
 
   void _onFocusChange() {
@@ -101,8 +112,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (idToken != null) {
         final success = await _api.loginWithGoogle(idToken);
         if (success && mounted) {
-          // Restart app to pick up auth state
-          Navigator.of(context).pushReplacementNamed('/');
+          // Land on the root gate and clear the auth screens from the stack so
+          // Back (system / browser) can't return to the login/email screen.
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/', (route) => false);
         } else {
           _showError('Google login failed on backend.');
         }

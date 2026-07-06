@@ -68,6 +68,14 @@ class PlacementNotifier extends Notifier<PlacementState> {
   @override
   PlacementState build() => const PlacementState();
 
+  /// Seed the name/age collected during onboarding so the very first
+  /// placement-turn request carries them and Zoe doesn't re-ask. LLM turns may
+  /// still refine these later (see [_turn]).
+  void seedProfile({String? name, int? age}) {
+    if (name != null && name.isNotEmpty) _name = name;
+    if (age != null) _age = age;
+  }
+
   // ── Transcript shaping ──────────────────────────────────────────────────────
 
   /// The running transcript in the API's shape ({role, content}), zoe→assistant
@@ -90,6 +98,15 @@ class PlacementNotifier extends Notifier<PlacementState> {
     state = state.copyWith(started: true, status: ChatStatus.zoeThinking);
 
     final api = ref.read(ellaApiServiceProvider);
+
+    // Seed name/age from the onboarding cache so the LLM doesn't re-ask. This
+    // survives PlacementIntroScreen invalidating the provider before start (an
+    // in-session seedProfile() would be discarded by that invalidate).
+    try {
+      final cached = await api.getOnboardingState();
+      _name ??= cached.name;
+      _age ??= cached.age;
+    } catch (_) {}
 
     // Per the documented placement sequence, open a session record first. The
     // /llm/placement-turn endpoint itself is stateless (no session_id), so this
