@@ -129,37 +129,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       gsi.GoogleSignInAccount? googleUser;
       
       try {
-        final lightweightAuth = gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
-        if (lightweightAuth != null) {
-          googleUser = await lightweightAuth;
-        }
+        googleUser = await gsi.GoogleSignIn.instance.authenticate();
       } catch (e) {
         final errorStr = e.toString().toLowerCase();
         if (errorStr.contains('cancel')) {
-          // User dismissed the lightweight bottom sheet. We can safely ignore this
-          // and fall through to standard interactive auth.
-          googleUser = null;
-        } else {
-          rethrow;
+          // User cancelled the standard account picker. Quietly return.
+          if (mounted) setState(() => _isLoading = false);
+          return;
         }
-      }
-
-      if (googleUser == null) {
-        // Fallback to standard interactive authentication
-        if (!kIsWeb) {
-          await gsi.GoogleSignIn.instance.signOut();
-        }
-        try {
-          googleUser = await gsi.GoogleSignIn.instance.authenticate();
-        } catch (e) {
-          final errorStr = e.toString().toLowerCase();
-          if (errorStr.contains('cancel')) {
-            // User cancelled the standard account picker. Quietly return.
-            if (mounted) setState(() => _isLoading = false);
-            return;
-          }
-          rethrow;
-        }
+        rethrow;
       }
 
       if (googleUser == null) {
