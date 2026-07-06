@@ -38,6 +38,13 @@
         ]
       },
       {
+        "group": "Prompts",
+        "pages": [
+          "prompts-reference",
+          "prompt-assembly"
+        ]
+      },
+      {
         "group": "Gamification",
         "pages": [
           "placement-garden",
@@ -55,13 +62,6 @@
         "group": "Placement",
         "pages": [
           "voice-placement-system"
-        ]
-      },
-      {
-        "group": "Prompts",
-        "pages": [
-          "prompts-reference",
-          "prompt-assembly"
         ]
       },
       {
