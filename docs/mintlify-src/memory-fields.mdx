@@ -1,0 +1,145 @@
+---
+title: "Memory Fields"
+sidebarTitle: "Memory Fields"
+description: "Every field in GET /users/me/memory — where it's stored, what writes it, and when it updates."
+---
+
+The Memory response (`GET /users/me/memory`) is the single source of truth for a student's state. Every field maps to a database column or is computed from one.
+
+---
+
+## API Endpoint
+
+```
+GET /users/me/memory
+Authorization: Bearer JWT_ACCESS_TOKEN
+```
+
+---
+
+## Field Map
+
+| Field | Type | DB Table.Column | Written by | When it updates |
+|---|---|---|---|---|
+| `id` | string | `users.id` | Auth | On first login |
+| `device_id` | string | `users.device_id` | Auth | On first login |
+| `profile.name` | string | `users.name` | Placement / Profile update | After placement or PUT /users/me |
+| `profile.age` | int | `users.age` | Placement / Profile update | After placement or PUT /users/me |
+| `profile.city` | string | `users.location` | Profile update | PUT /users/me |
+| `level` | string | `users.level` | Placement / Judge | After placement or level-up |
+| `first_session_done` | bool | `users.first_session_done` | Placement / Judge | After first placement or conversation |
+| `interests` | list | `users.interests` | Placement | After placement (comma-separated in DB) |
+| `last_time_recap` | string | Computed | Placement highlight OR session_analyses.zoe_recap | After placement or conversation judge |
+| `placement` | object | `placements` table | POST /llm/placement-turn | After placement completes |
+| `placement_garden` | object | Computed from `placements.confidence` | Placement | After placement completes |
+| `owned` | list | `users.skills_progress["owned"]` | Judge | After conversation grading |
+| `emerging` | list | `users.skills_progress["emerging"]` | Judge | After conversation grading |
+| `due_next` | object | `users.due_next` | Judge | After conversation grading |
+| `next_topics` | object | Computed from LEVEL_TOPICS | On read | Every time memory is fetched |
+| `effort` | object | `users.skills_progress["effort"]` | Judge | After conversation grading |
+| `sightings` | object | `users.skills_progress["sightings"]` | Judge | After conversation grading |
+| `strength` | object | `users.skills_progress["strength"]` | Judge | After conversation grading |
+| `updated_after_chat` | int | `users.skills_progress["updated_after_chat"]` | Judge | After conversation grading |
+| `units` | list | `users.persona_memory["units"]` | Judge | After conversation grading |
+| `last_topics` | list | `users.persona_memory["last_topics"]` | Judge | After conversation grading |
+| `persona_memory` | object | `users.persona_memory` | Judge | After conversation (facts extracted) |
+
+---
+
+## What Writes Each Field
+
+### After Placement (`POST /llm/placement-turn` completes)
+- `level` ← LLM assessment
+- `interests` ← LLM detected interests
+- `placement` ← record created
+- `placement_garden` ← computed from confidence
+- `last_time_recap` ← friendly recap from interests
+- `first_session_done` ← set true (via POST /placements)
+
+### After Conversation Judge (`POST /llm/judge`)
+- `owned`, `emerging` ← skills that progressed
+- `sightings`, `strength` ← evidence counts
+- `due_next` ← next target skills computed
+- `effort.times_spoken_total` ← incremented by turn count
+- `units`, `last_topics` ← topic added to history
+- `persona_memory` ← new facts extracted from conversation
+- `last_time_recap` ← zoe_recap from judge (overrides placement recap)
+
+### Computed on Read (not stored separately)
+- `next_topics` ← fresh topics from LEVEL_TOPICS minus already-used
+- `placement_garden` ← derived from latest placement confidence
+
+---
+
+## Database Tables Involved
+
+| Table | Fields stored |
+|---|---|
+| `users` | level, name, age, location, interests, skills_progress (JSON), due_next (JSON), persona_memory (JSON), first_session_done |
+| `placements` | level, unit_label, confidence, highlight, transcript_json, created_at |
+| `session_analyses` | zoe_recap, best_moment_quote, correction_highlight, skills_evidenced, etc. |
+| `conversations` | topic, header_title, completed, completed_at |
+| `messages` | role, content, correction, turn_number |
+
+---
+
+## Fresh User (no placement, no conversations)
+
+```json
+{
+  "level": null,
+  "first_session_done": false,
+  "interests": [],
+  "last_time_recap": null,
+  "placement": null,
+  "placement_garden": null,
+  "owned": [],
+  "emerging": [],
+  "due_next": {},
+  "next_topics": null,
+  "effort": {"times_spoken_total": 0},
+  "sightings": {},
+  "strength": {},
+  "units": [],
+  "last_topics": [],
+  "persona_memory": {}
+}
+```
+
+---
+
+## After Placement (no conversations yet)
+
+```json
+{
+  "level": "A1",
+  "first_session_done": false,
+  "interests": ["drawing", "Tom and Jerry"],
+  "last_time_recap": "You told me you love Tom and Jerry, eat daal chawal, and draw sun and trees!",
+  "placement": {"level": "A1", "confidence": "high", "highlight": "..."},
+  "placement_garden": {"stage": "bloom", "level": "A1", "confidence": "high"},
+  "next_topics": {"recommended": {...}, "alternatives": [...]},
+  "owned": [],
+  "emerging": [],
+  "due_next": {}
+}
+```
+
+---
+
+## After First Conversation + Judge
+
+```json
+{
+  "level": "A1",
+  "first_session_done": true,
+  "last_time_recap": "You told me about your village and a big clock!",
+  "owned": ["U1-VOC-01"],
+  "emerging": ["U1-FLU-01", "U1-VOC-02"],
+  "sightings": {"U1-VOC-01": 3, "U1-FLU-01": 1},
+  "due_next": {"primary": "U1-GRA-01", "watching": ["U1-FLU-01"]},
+  "effort": {"times_spoken_total": 6},
+  "units": ["First words"],
+  "last_topics": ["My daily routine"]
+}
+```

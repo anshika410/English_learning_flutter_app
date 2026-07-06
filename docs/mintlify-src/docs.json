@@ -34,7 +34,8 @@
         "pages": [
           "backend-readme",
           "existing_api_and_database_inventory",
-          "database_options_readme"
+          "database_options_readme",
+          "memory-fields"
         ]
       },
       {
