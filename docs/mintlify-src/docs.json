@@ -60,7 +60,8 @@
       {
         "group": "Prompts",
         "pages": [
-          "prompts-reference"
+          "prompts-reference",
+          "prompt-assembly"
         ]
       },
       {
