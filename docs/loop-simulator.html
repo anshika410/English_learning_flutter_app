@@ -1532,6 +1532,25 @@ function App(){
               <>
                 <p style={{fontSize:13.5,margin:'4px 0'}}>Assessed Level: <b>{placementAssessment.level} - {placementAssessment.unit_name || placementAssessment.level_name || placementAssessment.unit_label}</b></p>
                 <p style={{fontSize:12.5,color:'#3b7a3e',margin:'4px 0'}}>Confidence: {placementAssessment.confidence || 'medium'}</p>
+                {dbMemory && dbMemory.last_time_recap && (
+                  <div style={{marginTop:10,padding:'8px 12px',background:'#f0faf2',borderRadius:8,border:'1px solid #c8e6c9'}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'#3aa655',marginBottom:2}}>💬 RECAP</div>
+                    <div style={{fontSize:13}}>{dbMemory.last_time_recap}</div>
+                  </div>
+                )}
+                {dbMemory && dbMemory.next_topics && (
+                  <div style={{marginTop:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--blue)',marginBottom:4}}>NEXT TOPICS</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                      {dbMemory.next_topics.recommended && (
+                        <button className="act" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>{setPlacementAssessment(null);setSessionType('standard');startTopicConversation({topic:dbMemory.next_topics.recommended.name,name:dbMemory.next_topics.recommended.name,starters:[dbMemory.next_topics.recommended.starter]});}}>{dbMemory.next_topics.recommended.label || dbMemory.next_topics.recommended.name} →</button>
+                      )}
+                      {dbMemory.next_topics.alternatives && dbMemory.next_topics.alternatives.map((t,i) => (
+                        <button key={i} className="ghost" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>{setPlacementAssessment(null);setSessionType('standard');startTopicConversation({topic:t.name,name:t.name,starters:[t.starter]});}}>{t.label || t.name} →</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>
