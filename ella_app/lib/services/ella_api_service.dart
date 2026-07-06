@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/child_memory.dart';
 import '../models/garden.dart';
+import '../models/home_topic.dart';
 import '../models/placement.dart';
 import '../models/session.dart';
 
@@ -93,6 +94,25 @@ class EllaApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
+  }
+
+  Future<bool> loginAnonymous() async {
+    try {
+      final deviceId = await getDeviceId();
+      final data = await _request('POST', '/auth/anonymous', auth: false, body: {
+        'device_id': deviceId,
+      });
+      final accessToken = data['access_token'];
+      final userId = data['user_id'];
+      if (accessToken != null && userId != null) {
+        await saveTokens(accessToken, userId);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _log('Anonymous Auth Error', e.toString());
+      return false;
+    }
   }
 
   Future<bool> loginWithGoogle(String idToken) async {
@@ -204,7 +224,25 @@ class EllaApiService {
   /// Persist the child's profile collected during onboarding. Mirrors
   /// [updatePersonaMemory]'s PUT-to-/users/me shape.
   Future<void> updateProfile({required String name, required int age}) async {
-    await _request('PUT', '/users/me', body: {'name': name, 'age': age});
+    await _request('PUT', '/users/me', body: {'name': name, 'age': age.toString()});
+  }
+
+  Future<Map<String, dynamic>> getUserProfile() async {
+    return _request('GET', '/users/me');
+  }
+
+  Future<void> resetUserMemory() async {
+    final deviceId = await getDeviceId();
+    await _request('DELETE', '/admin/reset-user/$deviceId');
+  }
+
+  Future<List<HomeTopic>> getTopics() async {
+    final data = await _request('GET', '/users/me/topics');
+    final rows = data['_list'] as List? ?? const [];
+    return [
+      for (final row in rows)
+        HomeTopic.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
   }
 
   // ── Onboarding cache (local) ────────────────────────────────────────────────
@@ -229,6 +267,15 @@ class EllaApiService {
     await prefs.setString(_childNameKey, name);
     await prefs.setInt(_childAgeKey, age);
     await prefs.setBool(_onboardingDoneKey, true);
+  }
+
+  Future<void> clearOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_onboardingDoneKey);
+    await prefs.remove(_childNameKey);
+    await prefs.remove(_childAgeKey);
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
   }
 
   /// Cache just the name/age (onboarding NOT yet done) — written the moment
@@ -448,8 +495,13 @@ class EllaApiService {
       if (body != null) 'Content-Type': 'application/json',
     };
     if (auth) {
-      final token = await getToken();
-      if (token != null) {
+      var token = await getToken();
+      if (token == null || token.isEmpty) {
+        _log('AUTH', 'No token found, grabbing anonymous token for demo.');
+        await loginAnonymous();
+        token = await getToken();
+      }
+      if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
     }
@@ -464,6 +516,7 @@ class EllaApiService {
         body: jsonEncode(body ?? {}),
       ),
       'PUT' => _client.put(uri, headers: headers, body: jsonEncode(body ?? {})),
+      'DELETE' => _client.delete(uri, headers: headers),
       _ => throw EllaApiException('Unsupported method $method'),
     };
     final http.Response response;

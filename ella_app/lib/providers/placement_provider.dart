@@ -95,6 +95,14 @@ class PlacementNotifier extends Notifier<PlacementState> {
     if (age != null) _age = age;
   }
 
+  /// Reset state to a fresh instance
+  void reset() {
+    _name = null;
+    _age = null;
+    _inflight = null;
+    state = const PlacementState();
+  }
+
   // ── Transcript shaping ──────────────────────────────────────────────────────
 
   /// The running transcript in the API's shape ({role, content}), zoe→assistant
