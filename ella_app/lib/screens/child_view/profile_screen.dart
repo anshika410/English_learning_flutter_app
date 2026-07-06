@@ -6,6 +6,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'widgets/onboarding_scenery.dart';
 import 'widgets/edit_profile_dialog.dart';
@@ -103,17 +104,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) setState(() => _isLoading = true);
       try {
         await EllaApiService().resetUserMemory();
-        if (mounted) {
-          // Clear local memory (onboarding details & auth token)
-          await ref.read(onboardingProvider.notifier).reset();
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Memory deleted successfully.')),
-          );
-          
-          // Force a restart of the app flow
-          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-        }
+        if (!context.mounted) return;
+        
+        // Clear local memory (onboarding details & auth token)
+        await ref.read(onboardingProvider.notifier).reset();
+        
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Memory deleted successfully.')),
+        );
+        
+        // Force a restart of the app flow
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);

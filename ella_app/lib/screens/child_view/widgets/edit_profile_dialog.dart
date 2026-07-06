@@ -2,9 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/text_styles.dart';
-import '../../../core/theme_colors.dart';
 import '../../../providers/onboarding_provider.dart';
-import '../../../services/ella_api_service.dart';
 import 'ella_primary_button.dart';
 
 class EditProfileDialog extends ConsumerStatefulWidget {
