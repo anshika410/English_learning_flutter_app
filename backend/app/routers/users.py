@@ -222,8 +222,22 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None
         latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
         if latest_placement.highlight:
             return latest_placement.highlight
-        return "Nice to meet you! Let's start our first chat together."
     
+    # Double-check via direct DB query (in case relationship not loaded)
+    from ..models.placement import Placement as PlacementModel
+    try:
+        pl_result = await db.execute(
+            select(PlacementModel)
+            .where(PlacementModel.user_id == user_id)
+            .order_by(desc(PlacementModel.created_at))
+            .limit(1)
+        )
+        pl = pl_result.scalar_one_or_none()
+        if pl and pl.highlight:
+            return pl.highlight
+    except Exception:
+        pass
+
     return None
 
 
