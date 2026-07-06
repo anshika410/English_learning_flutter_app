@@ -6,6 +6,7 @@
 // bottom. Tapping a plant opens its Skill Sheet; tapping a plot/label opens the
 // Unit Sheet.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -22,6 +23,7 @@ import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import 'widgets/garden_dialogs.dart';
+import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
 
 // Botanical Berry garden palette: environment sky easing into the garden-field
@@ -47,10 +49,24 @@ const double _isoHalfH = _tileW / 105 * 22.5;
 const double _ellipseW = 204;
 const double _ellipseH = _ellipseW / 252 * 119;
 
+// First-time welcome copy (Figma "Shift to new garden and nudge to start
+// talking") — shown under a spotlight when arriving from placement.
+const String _kWelcomeText =
+    'Welcome to your garden! 💗\nEach time we talk, a new plant grows here. '
+    'Ready?';
+
 class GardenScreen extends ConsumerStatefulWidget {
   final VoidCallback? onConversationEnded;
 
-  const GardenScreen({super.key, this.onConversationEnded});
+  /// True when arriving from the placement bloom: shows a spotlight + Zoe's
+  /// "Welcome to your garden" nudge for a few seconds before the normal garden.
+  final bool firstTime;
+
+  const GardenScreen({
+    super.key,
+    this.onConversationEnded,
+    this.firstTime = false,
+  });
 
   @override
   ConsumerState<GardenScreen> createState() => _GardenScreenState();
@@ -66,6 +82,11 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
   late final AudioInterface _audio;
 
+  // First-time welcome spotlight (firstTime only): on while Zoe greets, then
+  // fades out leaving the normal garden.
+  bool _welcomeOn = false;
+  Timer? _welcomeTimer;
+
   @override
   void initState() {
     super.initState();
@@ -73,6 +94,16 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
     // Start on every mount so the loop is audible each time the garden opens
     // (not just the first time).
     _startMusic();
+    if (widget.firstTime) {
+      _welcomeOn = true;
+      // Best-effort: greet aloud while the spotlight is up.
+      try {
+        ref.read(ttsProvider).speak(_kWelcomeText.replaceAll('💗', ''));
+      } catch (_) {}
+      _welcomeTimer = Timer(const Duration(milliseconds: 2800), () {
+        if (mounted) setState(() => _welcomeOn = false);
+      });
+    }
   }
 
   @override
@@ -122,6 +153,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
 
   @override
   void dispose() {
+    _welcomeTimer?.cancel();
     appRouteObserver.unsubscribe(this);
     _stopMusic();
     super.dispose();
@@ -147,7 +179,8 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
       }
     });
     final gardenAsync = ref.watch(gardenProvider);
-    return Container(
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    final garden = Container(
       color: _meadowBottom,
       child: gardenAsync.when(
         data: (data) => _GardenView(
@@ -180,6 +213,75 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
             ),
           ),
         ),
+      ),
+    );
+    if (!widget.firstTime) return garden;
+
+    // First-time arrival from placement: spotlight + Zoe's welcome over the
+    // garden for a few seconds, then the normal garden remains.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        garden,
+        IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: _welcomeOn ? 1 : 0,
+            duration: Duration(milliseconds: reducedMotion ? 0 : 600),
+            child: const SpotlightOverlay(center: Alignment(0, 0)),
+          ),
+        ),
+        IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: _welcomeOn ? 1 : 0,
+            duration: Duration(milliseconds: reducedMotion ? 0 : 600),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ZoeMascot(
+                      mode: ZoeMascotMode.listening,
+                      size: 72,
+                      reducedMotion: reducedMotion,
+                    ),
+                    const SizedBox(height: 2),
+                    const _WelcomeBubble(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WelcomeBubble extends StatelessWidget {
+  const _WelcomeBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: EllaColors.info, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            offset: const Offset(0, 4),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Text(
+        _kWelcomeText,
+        style: EllaTextStyles.zoeVoice.copyWith(height: 1.4),
       ),
     );
   }
@@ -884,7 +986,7 @@ class _LetsTalkBar extends StatelessWidget {
             children: [
               ZoeMascot(
                 mode: ZoeMascotMode.listening,
-                size: 44,
+                size: 60,
                 reducedMotion: MediaQuery.of(context).disableAnimations,
               ),
               const Spacer(),

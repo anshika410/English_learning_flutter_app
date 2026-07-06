@@ -45,6 +45,26 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
     );
   }
 
+  /// Persist name/age the moment they're collected (done stays false), so
+  /// closing / backgrounding the app on the first-sprout garden resumes there
+  /// instead of re-asking. Backend sync is best-effort, same as [complete].
+  Future<void> saveProfile({required String name, required int age}) async {
+    final api = ref.read(ellaApiServiceProvider);
+
+    await api.saveOnboardingProfile(name: name, age: age);
+
+    try {
+      await api.updateProfile(name: name, age: age);
+    } catch (e) {
+      debugPrint('updateProfile failed (continuing): $e');
+    }
+
+    // Thread the known name/age into the placement screening.
+    ref.read(placementProvider.notifier).seedProfile(name: name, age: age);
+
+    state = AsyncData(OnboardingState(done: false, name: name, age: age));
+  }
+
   /// Finish onboarding: cache + persist the profile, seed placement, then flip
   /// `done` so RootGate swaps to the placement Home. Network failures are
   /// swallowed (the child is never blocked) — the local flag still advances.

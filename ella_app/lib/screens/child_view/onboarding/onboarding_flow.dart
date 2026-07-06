@@ -1,32 +1,50 @@
-// First-run onboarding — collects the child's name and age with text fields,
-// then plays the "First Sprout" reveal before handing off to the placement Home.
+// First-run onboarding — Figma "Onboarding" frames (Intro + Name → User says
+// name → Zoe asks age → User says age → Zoe congrats → First Sprout →
+// Spotlight → revert to garden).
 //
-// Shown by RootGate (app.dart) for an unplaced student who hasn't onboarded yet.
-// Four internal steps on the shared garden background:
-//   name → age → sprout (grows, auto-advances) → spotlight ("Let's Talk").
-// The spotlight "Let's Talk" calls onboardingProvider.complete(), which flips the
-// gate so RootGate reactively swaps to PlacementIntroScreen — no manual nav.
+// Shown by RootGate (app.dart) for an unplaced student who hasn't onboarded
+// yet. A chat-style conversation on the shared garden background: Zoe asks the
+// child's name and age (each prompt is spoken aloud via TTS, with a replay
+// sound button on the bubble), the child types a reply in the composer, then
+// Zoe congratulates and the First Sprout garden intro plays: the sprout grows
+// out of its tile under a spotlight, Zoe nudges toward the first conversation,
+// and after 5s without interaction the spotlight fades away leaving the sprout
+// in the garden. "Let's Talk" calls onboardingProvider.complete(), which flips
+// the gate so RootGate reactively swaps to PlacementIntroScreen — no manual nav.
 //
-// Matches the Figma onboarding frames but replaces the audio conversation with
-// text input, reusing GardenSkyBackground, ZoeMascot, SpeechBubble and the shared
-// EllaPrimaryButton so it reads as the same app.
+// The mascot mirrors the interaction state: speaking while TTS plays, thinking
+// while Zoe "processes" a reply, listening otherwise.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../providers/onboarding_provider.dart';
+import '../../../providers/service_providers.dart';
+import '../../../services/audio_service.dart';
+import '../../../services/stt_tts_service.dart';
 import '../widgets/ella_primary_button.dart';
 import '../widgets/garden_sky_background.dart';
-import '../widgets/speech_bubble.dart';
+import '../widgets/placement_garden_header.dart';
+import '../widgets/spotlight_overlay.dart';
 import '../widgets/zoe_mascot.dart';
 
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
 
-enum _Step { name, age, sprout, spotlight }
+// First-sprout garden art (Figma placement-garden frame).
+const String _kFirstPlant = 'assets/garden/plants/placement-plant-young.svg';
+const String _kFenceSegment = 'assets/garden/plants/fence-segment 8.svg';
+const String _kWildflowers = 'assets/garden/plants/wildflowers 2.svg';
+
+// Zoe's spotlight nudge (Figma copy) — shared by the flow state and the bubble.
+const String _kNudgeText =
+    'Look, your first plant 🌱\nEvery conversation grows something new here.';
+
+enum _Step { name, age, congrats, garden }
 
 class OnboardingFlow extends ConsumerStatefulWidget {
   const OnboardingFlow({super.key});
@@ -37,74 +55,199 @@ class OnboardingFlow extends ConsumerStatefulWidget {
 
 class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   _Step _step = _Step.name;
+  ZoeMascotMode _mascot = ZoeMascotMode.listening;
 
-  final TextEditingController _nameCtrl = TextEditingController();
-  final TextEditingController _ageCtrl = TextEditingController();
-  final FocusNode _nameFocus = FocusNode();
-  final FocusNode _ageFocus = FocusNode();
+  final TextEditingController _replyCtrl = TextEditingController();
+  final FocusNode _replyFocus = FocusNode();
 
+  /// The child's reply bubble currently on screen (exactly as typed).
+  String? _userReply;
   String? _fieldError;
+
+  String _name = '';
+  int? _age;
+
+  bool _busy = false; // guards the send button during step transitions
   bool _submitting = false;
+
+  // Captured in initState so dispose() never reads `ref` (unreliable while the
+  // element is deactivating — same pattern as GardenScreen's audio handle).
+  late final FlutterTtsService _tts;
+
+  // ── Zoe's script (Figma copy) ───────────────────────────────────────────────
+
+  static const String _introText =
+      "Hi, I'm Zoe 👋\nI'll help your English grow and want to know you "
+      'better. What is your name?';
+  String get _ageText =>
+      'Great, $_name. Next, I wanted to know what is your age?';
+  String get _congratsText =>
+      "Alright $_name. Your garden is ready! Let's plant something";
+
+  String get _zoeText => switch (_step) {
+        _Step.name => _introText,
+        _Step.age => _ageText,
+        _Step.congrats => _congratsText,
+        _Step.garden => _kNudgeText,
+      };
+
+  /// True when this launch resumed with a cached name/age (the child closed or
+  /// backgrounded the app on the first-sprout garden) — start settled on the
+  /// garden, without replaying the grow/spotlight intro or re-asking anything.
+  bool _resumed = false;
 
   @override
   void initState() {
     super.initState();
+    _tts = ref.read(ttsProvider);
+    // saveProfile persisted the name/age the moment they were collected; when
+    // they're already cached, resume straight on the first-sprout garden.
+    final cached = ref.read(onboardingProvider).valueOrNull;
+    final cachedName = cached?.name;
+    final cachedAge = cached?.age;
+    if (cachedName != null && cachedName.isNotEmpty && cachedAge != null) {
+      _name = cachedName;
+      _age = cachedAge;
+      _step = _Step.garden;
+      _resumed = true;
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _nameFocus.requestFocus();
+      if (!mounted) return;
+      _replyFocus.requestFocus();
+      _speak(_introText);
     });
   }
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _ageCtrl.dispose();
-    _nameFocus.dispose();
-    _ageFocus.dispose();
+    _replyCtrl.dispose();
+    _replyFocus.dispose();
+    // Cut Zoe off if the flow is left mid-utterance.
+    _tts.stop().catchError((_) {});
     super.dispose();
   }
 
-  String get _name => _nameCtrl.text.trim();
+  // ── TTS + mascot state ──────────────────────────────────────────────────────
+
+  /// Speaks [text] aloud, driving the mascot: speaking while the utterance
+  /// plays (speak() awaits real completion), listening after. TTS failures are
+  /// non-fatal — the bubble is on screen either way.
+  Future<void> _speak(String text) async {
+    final tts = ref.read(ttsProvider);
+    try {
+      await tts.stop();
+      if (!mounted) return;
+      setState(() => _mascot = ZoeMascotMode.speaking);
+      await tts.speak(text);
+    } catch (_) {}
+    if (mounted) setState(() => _mascot = ZoeMascotMode.listening);
+  }
+
+  /// Sound-button replays: a no-op while TTS is already speaking, so a tap can
+  /// never restart or stack the utterance.
+  Future<void> _replay(String text) async {
+    if (_tts.isSpeaking) return;
+    await _speak(text);
+  }
+
+  // ── Reply parsing ───────────────────────────────────────────────────────────
+  // The child may answer conversationally ("My name is Narendra", "I am 12
+  // years old") — the bubble shows their words verbatim, while the stored
+  // profile keeps just the name/age.
+
+  static String _extractName(String raw) {
+    var t = raw.trim().replaceAll(RegExp(r'[.!?]+$'), '');
+    final lower = t.toLowerCase();
+    for (final prefix in ['my name is ', 'i am ', "i'm ", 'name is ']) {
+      if (lower.startsWith(prefix)) {
+        t = t.substring(prefix.length).trim();
+        break;
+      }
+    }
+    if (t.isEmpty) return t;
+    return t[0].toUpperCase() + t.substring(1);
+  }
+
+  static int? _extractAge(String raw) {
+    final match = RegExp(r'\d{1,3}').firstMatch(raw);
+    if (match == null) return null;
+    final age = int.parse(match.group(0)!);
+    return age > 0 ? age : null;
+  }
 
   // ── Step transitions ────────────────────────────────────────────────────────
 
-  void _onNameNext() {
-    if (_name.isEmpty) {
-      setState(() => _fieldError = 'Please enter your name');
-      return;
+  Future<void> _onSend() async {
+    if (_busy) return;
+    final typed = _replyCtrl.text.trim();
+
+    if (_step == _Step.name) {
+      final name = _extractName(typed);
+      if (name.isEmpty) {
+        setState(() => _fieldError = 'Please tell me your name');
+        return;
+      }
+      _name = name;
+      await _advance(typed, next: _Step.age, prompt: _ageText);
+      if (mounted) _replyFocus.requestFocus();
+    } else if (_step == _Step.age) {
+      final age = _extractAge(typed);
+      if (age == null) {
+        setState(() => _fieldError = 'Please tell me your age');
+        return;
+      }
+      _age = age;
+      _replyFocus.unfocus();
+      // Persist name/age right away (done stays false) so closing the app on
+      // the upcoming garden screen resumes there instead of re-asking.
+      unawaited(
+        ref.read(onboardingProvider.notifier).saveProfile(
+              name: _name,
+              age: age,
+            ),
+      );
+      await _advance(typed, next: _Step.congrats, prompt: _congratsText);
+      // Give the congrats line a beat, then plant the first sprout.
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (mounted) setState(() => _step = _Step.garden);
     }
-    _nameFocus.unfocus();
-    setState(() {
-      _fieldError = null;
-      _step = _Step.age;
-    });
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (mounted) _ageFocus.requestFocus();
-    });
   }
 
-  void _onAgeNext() {
-    final age = int.tryParse(_ageCtrl.text.trim());
-    if (age == null || age <= 0) {
-      setState(() => _fieldError = 'Please enter your age');
-      return;
-    }
-    _ageFocus.unfocus();
+  /// Shows the child's reply, lets Zoe "think", then swaps to [next] and
+  /// speaks [prompt] (awaiting utterance completion).
+  Future<void> _advance(
+    String reply, {
+    required _Step next,
+    required String prompt,
+  }) async {
     setState(() {
+      _busy = true;
       _fieldError = null;
-      _step = _Step.sprout;
+      _userReply = reply;
+      _mascot = ZoeMascotMode.thinking;
+      _replyCtrl.clear();
     });
-    // Let the sprout grow in, then reveal the spotlight + CTA.
-    Future.delayed(const Duration(milliseconds: 1600), () {
-      if (mounted) setState(() => _step = _Step.spotlight);
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    setState(() {
+      _step = next;
+      _userReply = null;
+      _busy = false;
     });
+    await _speak(prompt);
   }
 
   Future<void> _onLetsTalk() async {
     if (_submitting) return;
-    final age = int.tryParse(_ageCtrl.text.trim());
+    final age = _age;
     if (age == null) return;
     setState(() => _submitting = true);
-    // complete() flips onboardingProvider → RootGate swaps to PlacementIntroScreen.
+    try {
+      await ref.read(ttsProvider).stop();
+    } catch (_) {}
+    // complete() flips onboardingProvider → RootGate swaps to
+    // PlacementIntroScreen.
     await ref
         .read(onboardingProvider.notifier)
         .complete(name: _name, age: age);
@@ -114,86 +257,71 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   @override
   Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
     return GardenSkyBackground(
       child: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 320),
           transitionBuilder: (child, anim) =>
               FadeTransition(opacity: anim, child: child),
-          child: switch (_step) {
-            _Step.name => _TextStep(
-              key: const ValueKey('name'),
-              question: 'What should I call you?',
-              controller: _nameCtrl,
-              focusNode: _nameFocus,
-              hint: 'Your name',
-              keyboardType: TextInputType.name,
-              textCapitalization: TextCapitalization.words,
-              inputAction: TextInputAction.next,
-              error: _fieldError,
-              onSubmitted: (_) => _onNameNext(),
-              onNext: _onNameNext,
-            ),
-            _Step.age => _TextStep(
-              key: const ValueKey('age'),
-              question: 'How old are you, $_name?',
-              controller: _ageCtrl,
-              focusNode: _ageFocus,
-              hint: 'Your age',
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(3),
-              ],
-              inputAction: TextInputAction.done,
-              error: _fieldError,
-              onSubmitted: (_) => _onAgeNext(),
-              onNext: _onAgeNext,
-            ),
-            _Step.sprout => const _SproutStep(
-              key: ValueKey('sprout'),
-              showSpotlight: false,
-            ),
-            _Step.spotlight => _SproutStep(
-              key: const ValueKey('spotlight'),
-              showSpotlight: true,
-              onLetsTalk: _onLetsTalk,
-            ),
-          },
+          child: _step == _Step.garden
+              ? _GardenIntro(
+                  key: const ValueKey('garden'),
+                  name: _name,
+                  mascotMode: _mascot,
+                  reducedMotion: reducedMotion,
+                  playIntro: !_resumed,
+                  onNudge: () => _replay(_kNudgeText),
+                  onLetsTalk: _onLetsTalk,
+                )
+              : _ChatStep(
+                  key: const ValueKey('chat'),
+                  zoeText: _zoeText,
+                  userReply: _userReply,
+                  mascotMode: _mascot,
+                  reducedMotion: reducedMotion,
+                  showComposer: _step != _Step.congrats,
+                  controller: _replyCtrl,
+                  focusNode: _replyFocus,
+                  error: _fieldError,
+                  sendEnabled: !_busy,
+                  onSend: _onSend,
+                  onReplay: () => _replay(_zoeText),
+                ),
         ),
       ),
     );
   }
 }
 
-// ── Name / age step ───────────────────────────────────────────────────────────
+// ── Chat step (name / age / congrats) ─────────────────────────────────────────
 
-class _TextStep extends StatelessWidget {
-  final String question;
+class _ChatStep extends StatelessWidget {
+  final String zoeText;
+  final String? userReply;
+  final ZoeMascotMode mascotMode;
+  final bool reducedMotion;
+  final bool showComposer;
   final TextEditingController controller;
   final FocusNode focusNode;
-  final String hint;
-  final TextInputType keyboardType;
-  final TextCapitalization textCapitalization;
-  final List<TextInputFormatter>? inputFormatters;
-  final TextInputAction inputAction;
   final String? error;
-  final ValueChanged<String> onSubmitted;
-  final VoidCallback onNext;
+  final bool sendEnabled;
+  final VoidCallback onSend;
+  final VoidCallback onReplay;
 
-  const _TextStep({
+  const _ChatStep({
     super.key,
-    required this.question,
+    required this.zoeText,
+    required this.userReply,
+    required this.mascotMode,
+    required this.reducedMotion,
+    required this.showComposer,
     required this.controller,
     required this.focusNode,
-    required this.hint,
-    required this.keyboardType,
-    this.textCapitalization = TextCapitalization.none,
-    this.inputFormatters,
-    required this.inputAction,
     required this.error,
-    required this.onSubmitted,
-    required this.onNext,
+    required this.sendEnabled,
+    required this.onSend,
+    required this.onReplay,
   });
 
   @override
@@ -207,187 +335,413 @@ class _TextStep extends StatelessWidget {
       child: Column(
         children: [
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ZoeMascot(
-                        mode: ZoeMascotMode.listening,
-                        size: mascotW,
-                        reducedMotion:
-                            MediaQuery.of(context).disableAnimations,
-                      ),
-                      const SizedBox(height: 20),
-                      SpeechBubble(text: question, showTail: true),
-                      const SizedBox(height: 20),
-                      _OnboardingField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        hint: hint,
-                        keyboardType: keyboardType,
-                        textCapitalization: textCapitalization,
-                        inputFormatters: inputFormatters,
-                        inputAction: inputAction,
-                        hasError: error != null,
-                        onSubmitted: onSubmitted,
-                      ),
-                      if (error != null) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            error!,
-                            style: EllaTextStyles.bodySmall.copyWith(
-                              color: EllaColors.error,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ZoeMascot(
+                    mode: mascotMode,
+                    size: mascotW,
+                    reducedMotion: reducedMotion,
+                  ),
+                  const SizedBox(height: 16),
+                  // Cross-fade when Zoe's line changes (name → age → congrats).
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    child: _ZoeBubble(
+                      key: ValueKey(zoeText),
+                      text: zoeText,
+                      onReplay: onReplay,
+                    ),
+                  ),
+                  if (userReply != null) ...[
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _UserBubble(text: userReply!),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (error != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  error!,
+                  style: EllaTextStyles.bodySmall.copyWith(
+                    color: EllaColors.error,
                   ),
                 ),
               ),
             ),
-          ),
-          // "Next" — shared button style, pinned to the bottom-right.
-          Align(
-            alignment: Alignment.bottomRight,
-            child: SizedBox(
-              width: 148,
-              child: EllaPrimaryButton(label: 'Next', onTap: onNext),
+          ],
+          if (showComposer)
+            _ReplyComposer(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: sendEnabled,
+              onSend: onSend,
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _OnboardingField extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final String hint;
-  final TextInputType keyboardType;
-  final TextCapitalization textCapitalization;
-  final List<TextInputFormatter>? inputFormatters;
-  final TextInputAction inputAction;
-  final bool hasError;
-  final ValueChanged<String> onSubmitted;
+// Zoe's bubble — same visual language as the placement/conversation _ZoeBubble
+// (surface fill, info border 2.5, squared top-left tail, bodySemibold text),
+// plus the berry sound button hanging off the top-right corner (replays the
+// prompt aloud), per the Figma name/age frames.
+class _ZoeBubble extends StatelessWidget {
+  final String text;
+  final VoidCallback onReplay;
 
-  const _OnboardingField({
-    required this.controller,
-    required this.focusNode,
-    required this.hint,
-    required this.keyboardType,
-    required this.textCapitalization,
-    required this.inputFormatters,
-    required this.inputAction,
-    required this.hasError,
-    required this.onSubmitted,
-  });
+  const _ZoeBubble({super.key, required this.text, required this.onReplay});
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      keyboardType: keyboardType,
-      textCapitalization: textCapitalization,
-      inputFormatters: inputFormatters,
-      textInputAction: inputAction,
-      onSubmitted: onSubmitted,
-      textAlign: TextAlign.center,
-      // Same type style as Zoe's question above it, so the child's answer reads
-      // as part of the same conversation (app Synonym family).
-      style: EllaTextStyles.zoeVoice.copyWith(color: EllaColors.ink),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: EllaTextStyles.zoeVoice.copyWith(
-          color: EllaColors.textTertiary,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(18, 16, 24, 16),
+          decoration: BoxDecoration(
+            color: EllaColors.surface,
+            // Squared top-left "tail" pointing at Zoe; blue info border —
+            // identical to the conversation screen's Zoe bubble.
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(4),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(18),
+              bottomRight: Radius.circular(18),
+            ),
+            border: Border.all(color: EllaColors.info, width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                offset: const Offset(0, 4),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Text(text, style: EllaTextStyles.bodySemibold),
         ),
-        filled: true,
-        fillColor: EllaColors.surface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 16,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: hasError ? EllaColors.error : EllaColors.border,
-            width: 1.5,
+        Positioned(
+          top: -14,
+          right: -6,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: withTapClick(onReplay),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: EllaColors.berryMain,
+                shape: BoxShape.circle,
+                border: Border.all(color: EllaColors.berryDeep, width: 2),
+              ),
+              child: const Icon(
+                Icons.volume_up_rounded,
+                size: 18,
+                color: EllaColors.onPrimary,
+              ),
+            ),
           ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: hasError ? EllaColors.error : EllaColors.berryDark,
-            width: 2,
-          ),
-        ),
-      ),
+      ],
     );
   }
 }
 
-// ── First Sprout (with optional spotlight + CTA) ──────────────────────────────
+// The child's reply, echoed verbatim — same visual language as the
+// conversation screen's _StudentBubble (pale pink fill, berryDark border 2.5,
+// squared bottom-right tail, bodySemibold text).
+class _UserBubble extends StatelessWidget {
+  final String text;
+  const _UserBubble({required this.text});
 
-class _SproutStep extends StatelessWidget {
-  final bool showSpotlight;
-  final VoidCallback? onLetsTalk;
+  // Student bubble fill from speaking.svg (paler than berryLight) — matches
+  // conversation_view.dart's _studentFill.
+  static const Color _fill = Color(0xFFFFF2F7);
 
-  const _SproutStep({
-    super.key,
-    required this.showSpotlight,
-    this.onLetsTalk,
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.72,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: _fill,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(4),
+        ),
+        border: Border.all(color: EllaColors.berryDark, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            offset: const Offset(0, 3),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Text(text, style: EllaTextStyles.bodySemibold),
+    );
+  }
+}
+
+// "Type your reply…" composer — rounded field + round berry arrow send button
+// (same flat/stamp treatment as the home-screen buttons via EllaIconButton).
+class _ReplyComposer extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool enabled;
+  final VoidCallback onSend;
+
+  const _ReplyComposer({
+    required this.controller,
+    required this.focusNode,
+    required this.enabled,
+    required this.onSend,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            textInputAction: TextInputAction.send,
+            textCapitalization: TextCapitalization.sentences,
+            onSubmitted: (_) => onSend(),
+            style: EllaTextStyles.bodyBase,
+            decoration: InputDecoration(
+              hintText: 'Type your reply...',
+              hintStyle: EllaTextStyles.bodyBase.copyWith(
+                color: EllaColors.textTertiary,
+              ),
+              filled: true,
+              fillColor: EllaColors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 14,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(999),
+                borderSide: const BorderSide(
+                  color: EllaColors.border,
+                  width: 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(999),
+                borderSide: const BorderSide(
+                  color: EllaColors.berryDark,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        EllaIconButton(
+          icon: Icons.arrow_forward_rounded,
+          size: 54,
+          onTap: enabled ? onSend : null,
+        ),
+      ],
+    );
+  }
+}
+
+// ── First Sprout garden intro (grow → spotlight → settled) ────────────────────
+
+enum _GardenPhase { grow, spotlight, settled }
+
+class _GardenIntro extends StatefulWidget {
+  final String name;
+  final ZoeMascotMode mascotMode;
+  final bool reducedMotion;
+
+  /// False when resuming a relaunch with cached name/age: the garden starts
+  /// settled (sprout already grown, no spotlight/nudge replay).
+  final bool playIntro;
+
+  /// Speaks the nudge line (spotlight reveal + the header sound button).
+  final VoidCallback onNudge;
+  final VoidCallback onLetsTalk;
+
+  const _GardenIntro({
+    super.key,
+    required this.name,
+    required this.mascotMode,
+    required this.reducedMotion,
+    required this.playIntro,
+    required this.onNudge,
+    required this.onLetsTalk,
+  });
+
+  @override
+  State<_GardenIntro> createState() => _GardenIntroState();
+}
+
+class _GardenIntroState extends State<_GardenIntro> {
+  late _GardenPhase _phase =
+      widget.playIntro ? _GardenPhase.grow : _GardenPhase.settled;
+  Timer? _spotlightTimer;
+  Timer? _revertTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.playIntro) return;
+    // Let the sprout grow out of its tile, then reveal the spotlight + nudge.
+    _spotlightTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (!mounted) return;
+      setState(() => _phase = _GardenPhase.spotlight);
+      widget.onNudge();
+      // Figma: revert to the plain garden after 5 seconds if no interaction —
+      // the spotlight and nudge fade away, the sprout stays.
+      _revertTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _phase = _GardenPhase.settled);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _spotlightTimer?.cancel();
+    _revertTimer?.cancel();
+    super.dispose();
+  }
+
+  bool get _spotlightOn => _phase == _GardenPhase.spotlight;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Dim the surroundings and glow the sprout once revealed.
-        if (showSpotlight) const IgnorePointer(child: _SpotlightOverlay()),
+        // Dim the surroundings while the spotlight is on; fades out on revert.
+        IgnorePointer(
+          child: AnimatedOpacity(
+            opacity: _spotlightOn ? 1 : 0,
+            duration: const Duration(milliseconds: 600),
+            child: const SpotlightOverlay(),
+          ),
+        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: Column(
             children: [
-              if (showSpotlight) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ZoeMascot(
-                    mode: ZoeMascotMode.speaking,
-                    size: 84,
-                    reducedMotion: MediaQuery.of(context).disableAnimations,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const SpeechBubble(
-                  text: 'Look, your first plant 🌱\n'
-                      'Every conversation grows something new here.',
-                ),
-              ],
-              const Expanded(child: Center(child: _GrowingSprout())),
-              if (showSpotlight)
-                EllaPrimaryButton(
-                  label: "Let's Talk",
-                  height: 64,
-                  leading: SvgPicture.asset(
-                    _kVoiceIcon,
-                    width: 22,
-                    height: 22,
-                    colorFilter: const ColorFilter.mode(
-                      EllaColors.onPrimary,
-                      BlendMode.srcIn,
+              PlacementGardenHeader(
+                name: widget.name,
+                // No-op at the root route; kept for the Figma header layout.
+                onBack: () => Navigator.of(context).maybePop(),
+                onSound: widget.onNudge,
+              ),
+              Expanded(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Plot (ellipse + tile + plant + fence) truly centred in
+                    // the space between header and CTA, per the Figma frame.
+                    Positioned.fill(
+                      child: Center(
+                        child: _GrowingSprout(animate: widget.playIntro),
+                      ),
                     ),
-                  ),
-                  onTap: onLetsTalk,
+                    // Wildflower accents dotted on the meadow (Figma).
+                    Positioned(
+                      right: 2,
+                      top: 60,
+                      child: SvgPicture.asset(_kWildflowers, width: 34),
+                    ),
+                    Positioned(
+                      left: 0,
+                      bottom: 24,
+                      child: SvgPicture.asset(_kWildflowers, width: 30),
+                    ),
+                    // Nudge — small Zoe over her bubble, only during the
+                    // spotlight, pinned above the plot.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: AnimatedOpacity(
+                        opacity: _spotlightOn ? 1 : 0,
+                        duration: const Duration(milliseconds: 600),
+                        child: IgnorePointer(
+                          ignoring: !_spotlightOn,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: ZoeMascot(
+                                  mode: widget.mascotMode,
+                                  size: 64,
+                                  reducedMotion: widget.reducedMotion,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              _NudgeBubble(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              // Bottom "Let's Talk" — small Zoe beside the compact CTA pill
+              // (Figma), shown once the sprout has grown; stays after the
+              // spotlight fades.
+              AnimatedOpacity(
+                opacity: _phase == _GardenPhase.grow ? 0 : 1,
+                duration: const Duration(milliseconds: 400),
+                child: IgnorePointer(
+                  ignoring: _phase == _GardenPhase.grow,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ZoeMascot(
+                        mode: widget.mascotMode,
+                        size: 44,
+                        reducedMotion: widget.reducedMotion,
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 164,
+                        child: EllaPrimaryButton(
+                          label: "Let's Talk",
+                          height: 44,
+                          leading: SvgPicture.asset(
+                            _kVoiceIcon,
+                            width: 17,
+                            height: 17,
+                            colorFilter: const ColorFilter.mode(
+                              EllaColors.onPrimary,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                          onTap: widget.onLetsTalk,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -396,10 +750,37 @@ class _SproutStep extends StatelessWidget {
   }
 }
 
-// The turf tile + sprout, scaling/fading in on first appearance (matches the
-// _SwayingFlower composition on placement_complete_screen.dart).
+class _NudgeBubble extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: EllaColors.info, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            offset: const Offset(0, 4),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Text(_kNudgeText, style: EllaTextStyles.bodySemibold),
+    );
+  }
+}
+
+// The plot: turf ellipse + tile + the placement young plant popping up from its
+// base (easeOutBack) over a warm spotlight glow, with the fence run beneath —
+// matching the Figma placement-garden frame. When [animate] is false (resumed
+// relaunch) everything starts at its final, fully-grown state.
 class _GrowingSprout extends StatefulWidget {
-  const _GrowingSprout();
+  final bool animate;
+
+  const _GrowingSprout({required this.animate});
 
   @override
   State<_GrowingSprout> createState() => _GrowingSproutState();
@@ -419,7 +800,11 @@ class _GrowingSproutState extends State<_GrowingSprout>
   @override
   void initState() {
     super.initState();
-    _grow.forward();
+    if (widget.animate) {
+      _grow.forward();
+    } else {
+      _grow.value = 1.0;
+    }
   }
 
   @override
@@ -437,66 +822,88 @@ class _GrowingSproutState extends State<_GrowingSprout>
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 260,
-      height: 250,
+      width: 320,
+      height: 330,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
+          // Warm spotlight glow pooled around the tile.
           Positioned(
-            bottom: 14,
-            child: SvgPicture.asset(
-              'assets/gardent-view/Ellipse.svg',
-              width: 220,
-            ),
-          ),
-          Positioned(
-            bottom: 44,
-            child: SvgPicture.asset(
-              'assets/gardent-view/tiles-turf.svg',
-              width: 132,
-            ),
-          ),
-          // The sprout pops up from its base as it grows in.
-          Positioned(
-            bottom: 78,
-            child: ScaleTransition(
-              scale: _scale,
-              alignment: Alignment.bottomCenter,
-              child: SvgPicture.asset(
-                'assets/gardent-view/plants-sprout.svg',
-                height: 130,
+            bottom: 20,
+            child: FadeTransition(
+              opacity: _scale,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Color(0x8CFFF3D4),
+                      Color(0x40FFF3D4),
+                      Color(0x00FFF3D4),
+                    ],
+                    stops: [0.0, 0.55, 1.0],
+                  ),
+                ),
               ),
             ),
           ),
+          Positioned(
+            bottom: 52,
+            child: SvgPicture.asset(
+              'assets/gardent-view/Ellipse.svg',
+              width: 300,
+            ),
+          ),
+          // Bush resting inside the turf ellipse (front-left, garden-screen).
+          Positioned(
+            bottom: 78,
+            left: 42,
+            child: SvgPicture.asset('assets/gardent-view/bush.svg', width: 30),
+          ),
+          Positioned(
+            bottom: 90,
+            child: SvgPicture.asset(
+              'assets/gardent-view/tiles-turf.svg',
+              width: 150,
+            ),
+          ),
+          // The young plant pops up from its base as it grows in.
+          Positioned(
+            bottom: 138,
+            child: ScaleTransition(
+              scale: _scale,
+              alignment: Alignment.bottomCenter,
+              child: SvgPicture.asset(_kFirstPlant, height: 140),
+            ),
+          ),
+          // Fence run below the plot (Figma placement garden).
+          const Positioned(left: 0, right: 0, bottom: 0, child: _FenceRow()),
         ],
       ),
     );
   }
 }
 
-// Radial vignette: transparent over the sprout, easing to a translucent dark
-// scrim at the edges — built fresh (no spotlight existed in the repo). Modelled
-// on the sun RadialGradient in garden_sky_background.dart.
-class _SpotlightOverlay extends StatelessWidget {
-  const _SpotlightOverlay();
+// A run of fence segments with a gentle stagger, per the Figma frame.
+class _FenceRow extends StatelessWidget {
+  const _FenceRow();
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(0, 0.25),
-          radius: 0.85,
-          colors: [
-            Color(0x00185E35),
-            Color(0x00185E35),
-            Color(0x66123B23),
-            Color(0x99102F1D),
-          ],
-          stops: [0.0, 0.35, 0.75, 1.0],
-        ),
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var i = 0; i < 7; i++)
+          Transform.translate(
+            offset: Offset(0, i.isEven ? 0 : 7),
+            child: SvgPicture.asset(_kFenceSegment, width: 38),
+          ),
+      ],
     );
   }
 }
+

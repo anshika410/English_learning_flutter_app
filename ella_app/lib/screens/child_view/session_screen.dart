@@ -271,19 +271,21 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       onToggleKeyboard: _toggleKeyboard,
       onSend: _sendTyped,
       onEnd: _endConversation,
-      onSpeakAgain:
-          (zoeLine != null && zoeLine.trim().isNotEmpty)
+      // Speaker dot on Zoe's bubble: replays the line when idle. While she's
+      // already talking the tap is a no-op (never stops or restarts her).
+      onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
           ? () => _speakLine(zoeLine)
           : null,
     );
   }
 
-  /// Replays a Zoe line via TTS — the "Speak Again" control on her bubble.
+  /// Replays a Zoe line via TTS — the speaker dot on her bubble. A no-op while
+  /// TTS is already speaking, so a tap can never restart or stack utterances.
   Future<void> _speakLine(String text) async {
-    final notifier = ref.read(chatProvider.notifier);
-    await notifier.stopSpeaking();
+    final tts = ref.read(ttsProvider);
+    if (tts.isSpeaking) return;
     try {
-      await ref.read(ttsProvider).speak(text);
+      await tts.speak(text);
     } catch (_) {}
   }
 }

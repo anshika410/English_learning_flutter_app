@@ -25,6 +25,15 @@ class PlacementState {
   final String? partialStt;
   final bool started;
   final bool isComplete;
+
+  /// True while the End flow is running (the "I want to end this conversation"
+  /// turn is in flight) — absorbs repeat End taps.
+  final bool ending;
+
+  /// Whether the backend assigned a CEFR level, resolved from the post-
+  /// completion memory refresh. Null until known; drives the bloom (true) vs
+  /// sprout (false) placement-garden branch.
+  final bool? levelAssigned;
   final PlacementTurnResult? result;
   final String? error;
 
@@ -34,6 +43,8 @@ class PlacementState {
     this.partialStt,
     this.started = false,
     this.isComplete = false,
+    this.ending = false,
+    this.levelAssigned,
     this.result,
     this.error,
   });
@@ -45,6 +56,8 @@ class PlacementState {
     bool clearPartialStt = false,
     bool? started,
     bool? isComplete,
+    bool? ending,
+    bool? levelAssigned,
     PlacementTurnResult? result,
     String? error,
     bool clearError = false,
@@ -54,6 +67,8 @@ class PlacementState {
     partialStt: clearPartialStt ? null : (partialStt ?? this.partialStt),
     started: started ?? this.started,
     isComplete: isComplete ?? this.isComplete,
+    ending: ending ?? this.ending,
+    levelAssigned: levelAssigned ?? this.levelAssigned,
     result: result ?? this.result,
     error: clearError ? null : (error ?? this.error),
   );
@@ -64,6 +79,10 @@ class PlacementNotifier extends Notifier<PlacementState> {
   // subsequent requests so it keeps its context.
   String? _name;
   int? _age;
+
+  // The turn currently in flight, so endConversation() can wait for it instead
+  // of posting the end message mid-turn.
+  Future<void>? _inflight;
 
   @override
   PlacementState build() => const PlacementState();
@@ -115,7 +134,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
       await api.createConversation();
     } catch (_) {}
 
-    await _turn();
+    await _trackedTurn();
   }
 
   // ── User turn ───────────────────────────────────────────────────────────────
@@ -135,7 +154,57 @@ class PlacementNotifier extends Notifier<PlacementState> {
       status: ChatStatus.zoeThinking,
       clearPartialStt: true,
     );
-    await _turn();
+    await _trackedTurn();
+  }
+
+  /// Runs [_turn] while exposing it via [_inflight] so the End flow can await
+  /// a round-trip that is already running.
+  Future<void> _trackedTurn() {
+    final turn = _turn().whenComplete(() => _inflight = null);
+    _inflight = turn;
+    return turn;
+  }
+
+  // ── End conversation (End button) ───────────────────────────────────────────
+
+  /// Ends the screening immediately (hard end) — no farewell turn is posted.
+  /// Stops voice in/out, lets any in-flight round-trip land, marks the test
+  /// complete, then refreshes memory and checks whether the backend persisted
+  /// a placement level: the placement garden branches on that (bloom when a
+  /// level exists, sprout otherwise).
+  Future<void> endConversation() async {
+    if (state.ending || state.isComplete) return;
+    state = state.copyWith(ending: true);
+
+    await stopListening();
+    await stopSpeaking();
+
+    // Let any running round-trip land first — its result may already have
+    // completed the screening (and persisted a level server-side).
+    final inflight = _inflight;
+    if (inflight != null) {
+      try {
+        await inflight;
+      } catch (_) {}
+    }
+
+    if (!state.isComplete) {
+      state = state.copyWith(isComplete: true, status: ChatStatus.idle);
+    }
+
+    // Hard check: pull the freshest memory and branch on placement level.
+    await ref.read(chatProvider.notifier).refreshAfterPlacement();
+    _resolveLevelAssigned();
+  }
+
+  /// Resolves [PlacementState.levelAssigned] from the freshest memory (after
+  /// refreshAfterPlacement), falling back to the turn result when the refresh
+  /// couldn't run (offline / failed).
+  void _resolveLevelAssigned() {
+    final mem = ref.read(chatProvider).valueOrNull?.memory;
+    final assigned =
+        (mem?.hasLevel ?? false) || (state.result?.level != null);
+    state = state.copyWith(levelAssigned: assigned);
   }
 
   /// One placement-turn round-trip: POST the running transcript, then speak
@@ -187,6 +256,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
         result: result,
       );
       await ref.read(chatProvider.notifier).refreshAfterPlacement();
+      _resolveLevelAssigned();
     } else {
       state = state.copyWith(status: ChatStatus.idle);
     }
@@ -234,6 +304,11 @@ class PlacementNotifier extends Notifier<PlacementState> {
     try {
       await ref.read(ttsProvider).stop();
     } catch (_) {}
+    // Some platforms don't fire the completion handler on stop(), which would
+    // leave the status stuck on zoeSpeaking (and the speaker toggle "active").
+    if (state.status == ChatStatus.zoeSpeaking) {
+      state = state.copyWith(status: ChatStatus.idle);
+    }
   }
 }
 

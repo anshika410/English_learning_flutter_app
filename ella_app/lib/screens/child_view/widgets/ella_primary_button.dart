@@ -6,6 +6,8 @@
 // Variants:
 //   • primary   — berryMain fill, berryDark stroke + shadow, onPrimary label.
 //   • secondary — greenMain fill, greenDark stroke + shadow, ink label.
+//   • outline   — surface fill, berryDeep stroke + shadow, berryDark label
+//                 (login "Continue With Email" per the onboarding Figma).
 //
 // A11y open item: onPrimary on berryMain = 3.55:1 (below AA 4.5:1 at 18px). This
 // matches the reference design; if flagged on-device, switch the primary fill to
@@ -18,7 +20,7 @@ import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../services/audio_service.dart';
 
-enum EllaButtonVariant { primary, secondary }
+enum EllaButtonVariant { primary, secondary, outline }
 
 class EllaPrimaryButton extends StatefulWidget {
   final String label;
@@ -52,13 +54,24 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
   bool _pressed = false;
 
   bool get _isPrimary => widget.variant == EllaButtonVariant.primary;
+  bool get _isOutline => widget.variant == EllaButtonVariant.outline;
 
-  Color get _fill => _isPrimary ? EllaColors.berryMain : EllaColors.greenMain;
+  Color get _fill => switch (widget.variant) {
+        EllaButtonVariant.primary => EllaColors.berryMain,
+        EllaButtonVariant.secondary => EllaColors.greenMain,
+        EllaButtonVariant.outline => EllaColors.surface,
+      };
   // Primary berry edge is berryDeep #7B163C at 3px (matches the mic button);
-  // secondary green keeps its greenDark 2px edge.
-  Color get _edge => _isPrimary ? EllaColors.berryDeep : EllaColors.greenDark;
+  // secondary green keeps its greenDark 2px edge. Outline shares the berryDeep
+  // edge so the two login CTAs read as one family.
+  Color get _edge =>
+      _isPrimary || _isOutline ? EllaColors.berryDeep : EllaColors.greenDark;
   double get _edgeWidth => _isPrimary ? 3 : 2;
-  Color get _labelColor => _isPrimary ? EllaColors.onPrimary : EllaColors.ink;
+  Color get _labelColor => switch (widget.variant) {
+        EllaButtonVariant.primary => EllaColors.onPrimary,
+        EllaButtonVariant.secondary => EllaColors.ink,
+        EllaButtonVariant.outline => EllaColors.berryDark,
+      };
 
   @override
   Widget build(BuildContext context) {

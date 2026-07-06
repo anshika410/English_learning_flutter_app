@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "778575174037",
+    "project_id": "ella-2020f",
+    "storage_bucket": "ella-2020f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:778575174037:android:6847fb691d2341c6eefe9c",
+        "android_client_info": {
+          "package_name": "org.navgurukul.ella"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "778575174037-36q5ktqi7qdp07f570qdfjcuvq89pj6q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "org.navgurukul.ella",
+            "certificate_hash": "0b1e02bf7882f38064acb4b72ac17565c8c0dc22"
+          }
+        },
+        {
+          "client_id": "778575174037-htcm6pdmlh2jl3iv9gilqn0u00eujpih.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "org.navgurukul.ella",
+            "certificate_hash": "3b4c031de6f31f6fee165672239c89bdb44eb867"
+          }
+        },
+        {
+          "client_id": "778575174037-tg76ia7gf961rrqh8g2s3ptnnr5gkos4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXycuOPu8Rul3jM2MTI4N_YXAXMNBXB_w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "778575174037-tg76ia7gf961rrqh8g2s3ptnnr5gkos4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

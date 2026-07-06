@@ -14,7 +14,7 @@ import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../services/audio_service.dart';
 import 'garden_sky_background.dart';
-import 'speak_again_label.dart';
+import 'speaker_dot_button.dart';
 import 'zoe_mascot.dart';
 
 enum ConvPhase { prepare, talking, ending }
@@ -41,8 +41,9 @@ class ConversationView extends StatelessWidget {
   final VoidCallback? onSend;
   final VoidCallback? onEnd;
 
-  /// Replays Zoe's current line via TTS — powers the "Speak Again" control on
-  /// her bubble (shown for every Zoe line, including the goodbye).
+  /// Toggles TTS for Zoe's current line — powers the speaker dot straddling
+  /// her bubble's top-right border (shown for every Zoe line, including the
+  /// goodbye). Callers replay when idle and stop while she's speaking.
   final VoidCallback? onSpeakAgain;
 
   const ConversationView({
@@ -94,6 +95,7 @@ class ConversationView extends StatelessWidget {
                   zoeLine: zoeLine,
                   studentLine: studentLine,
                   onSpeakAgain: onSpeakAgain,
+                  speaking: mascotSpeaking,
                   maxWidth: bubbleMaxWidth,
                 ),
               const Spacer(),
@@ -129,12 +131,14 @@ class _Bubbles extends StatelessWidget {
   final String? zoeLine;
   final String? studentLine;
   final VoidCallback? onSpeakAgain;
+  final bool speaking;
   final double maxWidth;
 
   const _Bubbles({
     required this.zoeLine,
     required this.studentLine,
     required this.onSpeakAgain,
+    required this.speaking,
     required this.maxWidth,
   });
 
@@ -148,7 +152,11 @@ class _Bubbles extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
-              child: _ZoeBubble(text: zoeLine!, onSpeakAgain: onSpeakAgain),
+              child: _ZoeBubble(
+                text: zoeLine!,
+                onSpeakAgain: onSpeakAgain,
+                speaking: speaking,
+              ),
             ),
           ),
         if (studentLine != null) ...[
@@ -169,15 +177,21 @@ class _Bubbles extends StatelessWidget {
 class _ZoeBubble extends StatelessWidget {
   final String text;
 
-  /// Replays this line via TTS. When set, a "Speak Again" affordance shows above
-  /// the text (shown for every Zoe line, including the goodbye after end-chat).
+  /// Toggles TTS for this line. When set, a speaker dot straddles the bubble's
+  /// top-right border (Figma placement flow): replay when idle, stop while
+  /// [speaking].
   final VoidCallback? onSpeakAgain;
+  final bool speaking;
 
-  const _ZoeBubble({required this.text, required this.onSpeakAgain});
+  const _ZoeBubble({
+    required this.text,
+    required this.onSpeakAgain,
+    this.speaking = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: EllaColors.surface,
@@ -190,17 +204,23 @@ class _ZoeBubble extends StatelessWidget {
         ),
         border: Border.all(color: EllaColors.info, width: 2.5),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (onSpeakAgain != null) ...[
-            SpeakAgainLabel(onTap: onSpeakAgain!),
-            const SizedBox(height: 4),
-          ],
-          Text(text, style: EllaTextStyles.bodySemibold),
-        ],
-      ),
+      child: Text(text, style: EllaTextStyles.bodySemibold),
+    );
+
+    if (onSpeakAgain == null) return bubble;
+
+    // Top padding gives the overhanging dot room inside the Stack's bounds so
+    // it stays tappable (hit tests outside a Stack's rect are dropped).
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(padding: const EdgeInsets.only(top: 14), child: bubble),
+        Positioned(
+          top: 0,
+          right: 10,
+          child: SpeakerDotButton(active: speaking, onTap: onSpeakAgain),
+        ),
+      ],
     );
   }
 }

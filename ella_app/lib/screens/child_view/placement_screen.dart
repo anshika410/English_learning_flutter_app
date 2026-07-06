@@ -1,7 +1,8 @@
 // Placement conversation — the voice screening turns (Figma "Placement Flow").
 // Thin wiring over ConversationView, mirroring SessionScreen but driven by
 // placementProvider instead of chatProvider. When the backend signals the test
-// is complete, it hands off to the bloom PlacementCompleteScreen.
+// is complete (or the child ends the chat), it hands off to the
+// PlacementGardenScreen, which resolves into the bloom or sprout branch.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,7 @@ import '../../models/message.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/chat_provider.dart' show ChatStatus;
 import '../../providers/service_providers.dart';
-import 'placement_complete_screen.dart';
+import 'placement_garden_screen.dart';
 import 'widgets/conversation_view.dart';
 import 'widgets/garden_sky_background.dart';
 
@@ -39,21 +40,21 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     if (!s.started) ref.read(placementProvider.notifier).start();
   }
 
-  // On completion, let the closing line land for a beat, then swap to the bloom
-  // screen (replace so back never returns into the finished test).
+  // On completion, let the closing line land for a beat, then swap to the
+  // placement garden (replace so back never returns into the finished test).
   void _maybeAdvance(PlacementState s) {
     if (!s.isComplete || _navigated) return;
     Future.delayed(const Duration(milliseconds: 1600), _goToComplete);
   }
 
-  // Swap to the bloom completion screen (guarded so it only runs once). Used by
+  // Swap to the placement garden screen (guarded so it only runs once). Used by
   // the auto-advance and by the End button when the screening is already done —
   // so ending a finished test never falls through to the home underneath.
   void _goToComplete() {
     if (_navigated || !mounted) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const PlacementCompleteScreen()),
+      MaterialPageRoute(builder: (_) => const PlacementGardenScreen()),
     );
   }
 
@@ -76,22 +77,25 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     ref.read(placementProvider.notifier).sendUserTurn(text).catchError(_snack);
   }
 
-  // End the placement screening: stop Zoe and leave the conversation, returning
-  // to the placement intro. The screening state is reset when the intro starts
-  // the next one (invalidating here would rebuild this screen mid-pop and
-  // auto-restart a turn). The child stays gated on the intro until they finish a
-  // placement.
+  // End the placement screening immediately (hard end — no farewell turn):
+  // the notifier stops voice, marks the test complete and refreshes memory to
+  // check whether a level was persisted, then we route straight to the
+  // placement garden, which branches on that level (bloom vs sprout). Repeat
+  // taps are absorbed by the notifier's `ending` guard + _navigated.
   Future<void> _exit() async {
-    // If the screening already finished, End means "go to my garden", not "drop
-    // back to the intro" — route to the bloom screen instead of popping.
+    // If the screening already finished, End means "go to my garden" — route to
+    // the placement garden instead of re-ending.
     if (ref.read(placementProvider).isComplete) {
       _goToComplete();
       return;
     }
-    final notifier = ref.read(placementProvider.notifier);
-    await notifier.stopSpeaking();
-    await notifier.stopListening();
-    if (mounted) Navigator.of(context).maybePop();
+    try {
+      await ref.read(placementProvider.notifier).endConversation();
+    } catch (e) {
+      _snack(e);
+    }
+    // No closing line to let land — advance right away.
+    _goToComplete();
   }
 
   void _snack(Object e) {
@@ -164,6 +168,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 onToggleKeyboard: _toggleKeyboard,
                 onSend: _sendTyped,
                 onEnd: _exit,
+                // Speaker dot on Zoe's bubble: replays the line when idle.
+                // While she's already talking the tap is a no-op (never stops
+                // or restarts her).
                 onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
                     ? () => _speakLine(zoeLine)
                     : null,
@@ -172,11 +179,13 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     );
   }
 
+  /// Replays a Zoe line via TTS. A no-op while TTS is already speaking, so a
+  /// tap can never restart or stack utterances.
   Future<void> _speakLine(String text) async {
-    final notifier = ref.read(placementProvider.notifier);
-    await notifier.stopSpeaking();
+    final tts = ref.read(ttsProvider);
+    if (tts.isSpeaking) return;
     try {
-      await ref.read(ttsProvider).speak(text);
+      await tts.speak(text);
     } catch (_) {}
   }
 }

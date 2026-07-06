@@ -222,6 +222,18 @@ class EllaApiService {
     await prefs.setBool(_onboardingDoneKey, true);
   }
 
+  /// Cache just the name/age (onboarding NOT yet done) — written the moment
+  /// the child answers, so a relaunch resumes at the first-sprout garden
+  /// instead of re-asking name and age.
+  Future<void> saveOnboardingProfile({
+    required String name,
+    required int age,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_childNameKey, name);
+    await prefs.setInt(_childAgeKey, age);
+  }
+
   Future<List<SessionLog>> listSessions({
     int limit = 20,
     int offset = 0,
@@ -527,6 +539,7 @@ class EllaApiService {
     return MemoryState(
       childId: id,
       level: j['level'] as String? ?? 'A1',
+      hasLevel: (j['level'] as String?)?.isNotEmpty ?? false,
       owned: List<String>.from((j['owned'] as List?) ?? const []),
       emerging: List<String>.from((j['emerging'] as List?) ?? const []),
       dueNext: j['due_next'] is Map

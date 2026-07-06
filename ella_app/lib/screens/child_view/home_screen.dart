@@ -20,6 +20,7 @@ import '../../services/audio_service.dart';
 import 'all_topics_screen.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
+import 'widgets/circle_icon_button.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/garden_sky_background.dart';
 import 'widgets/shake.dart';
@@ -302,7 +303,7 @@ class _HeaderRow extends StatelessWidget {
         ),
         Column(
           children: [
-            _CircleIconButton(
+            EllaCircleIconButton(
               // TODO: swap for the exported profile glyph when available.
               glyph: const Icon(
                 Icons.person_rounded,
@@ -311,51 +312,22 @@ class _HeaderRow extends StatelessWidget {
               ),
               fill: EllaColors.surfaceVariant,
               ring: EllaColors.info,
+              label: 'Profile',
+              labelColor: EllaColors.infoDark,
               onTap: onOpenProfile,
             ),
             const SizedBox(height: 12),
-            _CircleIconButton(
+            EllaCircleIconButton(
               glyph: SvgPicture.asset(_kPlantIcon, width: 32, height: 32),
               fill: EllaColors.greenLight,
               ring: EllaColors.greenDark,
+              label: 'Garden',
+              labelColor: EllaColors.greenDeep,
               onTap: onOpenGarden,
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  final Widget glyph;
-  final Color fill;
-  final Color ring;
-  final VoidCallback? onTap;
-
-  const _CircleIconButton({
-    required this.glyph,
-    required this.fill,
-    required this.ring,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: withTapClick(onTap),
-      child: Container(
-        width: 64,
-        height: 64,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: fill,
-          shape: BoxShape.circle,
-          border: Border.all(color: ring, width: 3),
-        ),
-        child: glyph,
-      ),
     );
   }
 }
