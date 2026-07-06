@@ -1670,12 +1670,11 @@ function App(){
             setBusy(true);
             try {
               if (LLM_CONFIG.mode === 'api') {
-                await callEllaAPI('/placements', 'POST', {
-                  level: 'A0',
-                  unit_label: 'Pre-Beginner',
-                  confidence: 'low',
-                  highlight: 'Placement cancelled by user before completion.',
-                  interests: []
+                await callEllaAPI('/llm/placement-turn', 'POST', {
+                  messages: [],
+                  name: null,
+                  age: null,
+                  cancel: true
                 });
                 const memoryData = await callEllaAPI('/users/me/memory');
                 setDbMemory(memoryData || {});
@@ -1685,10 +1684,11 @@ function App(){
                 } catch(e) {}
               }
               setSessionType('standard');
-              setPlacementAssessment({ is_complete: true, level: 'A0', unit_name: 'Pre-Beginner', confidence: 'low' });
-              setMsgs(m=>[...m,{role:'sys',text:'Placement cancelled — assigned A0 (Pre-Beginner) with low confidence. You can retake anytime.'}]);
+              setPlacementAssessment({ is_complete: true, level: null, unit_name: null, confidence: null });
+              setMsgs(m=>[...m,{role:'sys',text:'Placement cancelled. No level assigned — retake anytime.'}]);
             } catch(err) {
-              setMsgs(m=>[...m,{role:'sys',text:'Error ending placement: ' + (err.message || String(err))}]);
+              setSessionType('standard');
+              setMsgs(m=>[...m,{role:'sys',text:'Placement cancelled. No level assigned.'}]);
             } finally {
               setBusy(false);
             }

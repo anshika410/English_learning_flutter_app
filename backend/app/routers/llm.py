@@ -86,9 +86,30 @@ async def placement_turn(
     Executes a dialogue turn during the voice placement screening test.
     
     - Accepts the running transcript log.
+    - If cancel=true, records cancellation without assigning a level.
     - Queries the backend LLM state machine to decide if the test should continue or complete.
     - Returns Zoe's next question OR a final CEFR assessment (`is_complete: true`) once enough evidence is gathered.
     """
+    # Handle cancellation
+    if body.cancel:
+        return PlacementTurnResponse(
+            reply=None,
+            is_complete=True,
+            name=body.name or user.name,
+            age=body.age,
+            level=None,
+            unit_name=None,
+            level_description="Placement cancelled. You can retake anytime.",
+            confidence=None,
+            possible_higher=None,
+            evidence_summary="Placement cancelled by user.",
+            probe_targets_covered=None,
+            turns_taken=len([m for m in body.messages if m.role == "user"]),
+            code_switch_observed=None,
+            interests=None,
+            notes_for_first_session=None,
+        )
+
     try:
         messages = [m.model_dump() for m in body.messages]
         result = await llm_service.send_placement_turn(

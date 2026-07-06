@@ -59,6 +59,7 @@ class PlacementTurnRequest(BaseModel):
     messages: list[MessageIn]
     name: str | None = None
     age: int | None = None
+    cancel: bool = False
 
     model_config = {
         "json_schema_extra": {
