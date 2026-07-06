@@ -2227,7 +2227,36 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
         {serverPrompts && (
           <>
             <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Zoe Conversation Prompt (conversation-prompt.md)</div>
+              <div className="lbl">Base Prompt (Zoe personality + rules)</div>
+              <textarea 
+                value={serverPrompts.base} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 200 }}
+              />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl">Level Profiles</div>
+              {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => (
+                <div key={lvl} style={{ marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--purple)' }}>{lvl}</div>
+                  <textarea 
+                    value={txt} 
+                    readOnly={true} 
+                    style={{ background: '#f4f1ea', cursor: 'default', height: 60, fontSize: 11 }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl">Unit Conversation Framing (theme-led)</div>
+              <textarea 
+                value={serverPrompts.conv_unit_framing} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 180 }}
+              />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl">Full Conversation Template (conversation-prompt.md)</div>
               <textarea 
                 value={serverPrompts.conversation} 
                 readOnly={true} 
@@ -2240,6 +2269,14 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
                 value={serverPrompts.judge} 
                 readOnly={true} 
                 style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
+              />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl">Correction Extraction Prompt (separate LLM call)</div>
+              <textarea 
+                value={serverPrompts.correction_extraction} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 180 }}
               />
             </div>
             <div style={{ marginBottom: 14 }}>

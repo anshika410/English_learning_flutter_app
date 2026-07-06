@@ -227,20 +227,50 @@ class AdminPromptsResponse(BaseModel):
     conversation: str
     judge: str
     placement: str
+    correction_extraction: str
+    base: str
+    level_profiles: dict[str, str]
+    conv_unit_framing: str
+    conv_skill_framing: str
 
 
 @router.get("/prompts", response_model=AdminPromptsResponse)
 async def get_admin_prompts():
-    """Get active LLM prompt templates from disk."""
-    from ..services.llm_service import PROMPTS_DIR
+    """Get active LLM prompt templates — modular building blocks + assembled files."""
+    from ..services.llm_service import PROMPTS_DIR, _LEVEL_INSTRUCTIONS, extract_correction_highlight
+    import inspect
     try:
         conv = (PROMPTS_DIR / "conversation-prompt.md").read_text()
         judge = (PROMPTS_DIR / "end-result-prompt.md").read_text()
         placement = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+
+        # Extract the correction prompt from the function source
+        correction_src = inspect.getsource(extract_correction_highlight)
+        # Pull just the prompt string from between the triple quotes
+        import re
+        prompt_match = re.search(r'prompt = f"""(.+?)"""', correction_src, re.DOTALL)
+        correction_prompt = prompt_match.group(1).strip() if prompt_match else "See llm_service.py → extract_correction_highlight()"
+
+        # Extract unit framing and skill framing from conversation-prompt.md
+        # The conversation prompt is a single template; split by known markers
+        conv_unit_framing = ""
+        conv_skill_framing = ""
+        if "TODAY'S UNIT:" in conv:
+            unit_start = conv.find("TODAY'S UNIT:")
+            conv_unit_framing = conv[unit_start:].strip()
+        
+        # Base is everything before the level block placeholder
+        base = conv.split("{{LEVEL_BLOCK}}")[0].strip() if "{{LEVEL_BLOCK}}" in conv else conv[:500]
+
         return AdminPromptsResponse(
             conversation=conv,
             judge=judge,
             placement=placement,
+            correction_extraction=correction_prompt,
+            base=base,
+            level_profiles=_LEVEL_INSTRUCTIONS,
+            conv_unit_framing=conv_unit_framing,
+            conv_skill_framing="(Same as unit framing but with micro-skill targets — see convSkill in client simulator)",
         )
     except Exception as e:
         raise HTTPException(
