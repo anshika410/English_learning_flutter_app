@@ -1,0 +1,244 @@
+// Placement intro — the first-run "Homescreen" (Figma "Placement Flow").
+// Shown by RootGate before a student has been levelled: the garden sky, Zoe, a
+// warm "tell me about yourself" greeting, and a single "Let's Talk" CTA that
+// starts the voice placement screening. Mirrors HomeScreen's header (labelled
+// Profile/Garden shortcuts) but stays simpler — no topic chips or Last-time
+// card, since there's no history or level yet.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../core/text_styles.dart';
+import '../../core/theme_colors.dart';
+import '../../providers/onboarding_provider.dart';
+import '../../providers/placement_provider.dart';
+import '../../providers/service_providers.dart';
+import 'home_screen.dart' show kHomeChildName;
+import 'placement_garden_screen.dart';
+import 'placement_screen.dart';
+import 'profile_screen.dart';
+import 'widgets/circle_icon_button.dart';
+import 'widgets/ella_primary_button.dart';
+import 'widgets/garden_sky_background.dart';
+import 'widgets/speaker_dot_button.dart';
+import 'widgets/zoe_mascot.dart';
+
+const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
+const String _kPlantIcon = 'assets/homescreen/new/Plant.svg';
+
+const String _kGreeting =
+    "I'd love to know more about you! Tell me about your world. "
+    "It'll help your garden grow.";
+
+class PlacementIntroScreen extends ConsumerStatefulWidget {
+  const PlacementIntroScreen({super.key});
+
+  @override
+  ConsumerState<PlacementIntroScreen> createState() =>
+      _PlacementIntroScreenState();
+}
+
+class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
+  // True while the greeting is playing — drives the speaker dot's stop glyph.
+  bool _speaking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Greet the child aloud as soon as the screen appears (not only when they
+    // tap the speaker dot).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _speakGreeting());
+  }
+
+  Future<void> _speakGreeting() async {
+    setState(() => _speaking = true);
+    try {
+      // speak() awaits real playback completion (awaitSpeakCompletion).
+      await ref.read(ttsProvider).speak(_kGreeting);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _speaking = false);
+    }
+  }
+
+  // Speaker dot on the greeting card: replays the greeting when idle. While
+  // it's already playing the tap is a no-op (never restarts the utterance).
+  void _toggleSpeak() {
+    if (_speaking) return;
+    _speakGreeting();
+  }
+
+  void _startPlacement() {
+    // Start each screening from a clean slate (a prior End left stale state).
+    ref.invalidate(placementProvider);
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PlacementScreen()),
+    );
+  }
+
+  void _openProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const Scaffold(
+          backgroundColor: Colors.transparent,
+          body: ProfileScreen(),
+        ),
+      ),
+    );
+  }
+
+  // Pre-level, the garden shortcut shows the sprout-state placement garden.
+  void _openGarden() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PlacementGardenScreen(browse: true),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mascotW = (MediaQuery.of(context).size.width * 0.35).clamp(
+      128.0,
+      168.0,
+    );
+    // Prefer the name the child typed during onboarding; fall back to the demo
+    // placeholder if it isn't cached yet.
+    final childName =
+        ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+
+    return GardenSkyBackground(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          // Stack (not a Column) so the mascot + greeting + CTA group sits at
+          // the true centre of the screen; the header overlays the top edge.
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ZoeMascot(
+                          mode: ZoeMascotMode.listening,
+                          size: mascotW,
+                          reducedMotion:
+                              MediaQuery.of(context).disableAnimations,
+                        ),
+                        const SizedBox(height: 10),
+                        _GreetingCard(
+                          speaking: _speaking,
+                          onToggle: _toggleSpeak,
+                        ),
+                        const SizedBox(height: 24),
+                        EllaPrimaryButton(
+                          label: "Let's Talk",
+                          height: 60,
+                          leading: SvgPicture.asset(
+                            _kVoiceIcon,
+                            width: 22,
+                            height: 22,
+                            colorFilter: const ColorFilter.mode(
+                              EllaColors.onPrimary,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                          onTap: _startPlacement,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Header mirrors HomeScreen: greeting left, labelled Profile /
+              // Garden shortcuts stacked on the right.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Hi, $childName!',
+                        style: EllaTextStyles.headline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      EllaCircleIconButton(
+                        glyph: const Icon(
+                          Icons.person_rounded,
+                          size: 30,
+                          color: EllaColors.infoDark,
+                        ),
+                        fill: EllaColors.surfaceVariant,
+                        ring: EllaColors.info,
+                        label: 'Profile',
+                        labelColor: EllaColors.infoDark,
+                        onTap: _openProfile,
+                      ),
+                      const SizedBox(height: 12),
+                      EllaCircleIconButton(
+                        glyph: SvgPicture.asset(
+                          _kPlantIcon,
+                          width: 32,
+                          height: 32,
+                        ),
+                        fill: EllaColors.greenLight,
+                        ring: EllaColors.greenDark,
+                        label: 'Garden',
+                        labelColor: EllaColors.greenDeep,
+                        onTap: _openGarden,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GreetingCard extends StatelessWidget {
+  final bool speaking;
+  final VoidCallback onToggle;
+  const _GreetingCard({required this.speaking, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    // Top padding gives the overhanging speaker dot room inside the Stack's
+    // bounds so it stays tappable.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: EllaColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: EllaColors.info, width: 2),
+            ),
+            child: Text(_kGreeting, style: EllaTextStyles.bodySemibold),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          right: 14,
+          child: SpeakerDotButton(active: speaking, onTap: onToggle),
+        ),
+      ],
+    );
+  }
+}

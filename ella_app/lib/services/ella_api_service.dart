@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/child_memory.dart';
 import '../models/garden.dart';
+import '../models/home_topic.dart';
+import '../models/placement.dart';
 import '../models/session.dart';
 
 class EllaApiException implements Exception {
@@ -57,6 +59,13 @@ class EllaApiService {
   static const _userIdKey = 'ella_api_user_id';
   static const _deviceIdKey = 'ella_api_device_id';
 
+  // First-run onboarding (name/age) cache. `_onboardingDoneKey` gates the
+  // onboarding flow so it runs once; name/age are cached for the greeting and
+  // to seed the placement flow without a network round-trip.
+  static const _onboardingDoneKey = 'ella_onboarding_done';
+  static const _childNameKey = 'ella_child_name';
+  static const _childAgeKey = 'ella_child_age';
+
   final String baseUrl;
   final http.Client _client;
 
@@ -65,28 +74,94 @@ class EllaApiService {
     http.Client? client,
   }) : _client = client ?? http.Client();
 
-  Future<String> getOrCreateToken() async {
+  Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final existing = prefs.getString(_tokenKey);
-    if (existing != null && existing.isNotEmpty) return existing;
+    return prefs.getString(_tokenKey);
+  }
 
-    final deviceId = prefs.getString(_deviceIdKey) ?? _newDeviceId();
-    await prefs.setString(_deviceIdKey, deviceId);
+  Future<bool> isAuthenticated() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
 
-    final data = await _request(
-      'POST',
-      '/auth/anonymous',
-      auth: false,
-      body: {'device_id': deviceId},
-    );
-    final token = data['access_token'] as String?;
-    final userId = data['user_id'] as String?;
-    if (token == null || token.isEmpty || userId == null || userId.isEmpty) {
-      throw const EllaApiException('Anonymous auth returned an invalid token.');
-    }
+  Future<void> saveTokens(String token, String userId) async {
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userIdKey, userId);
-    return token;
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
+  }
+
+  Future<bool> loginAnonymous() async {
+    try {
+      final deviceId = await getDeviceId();
+      final data = await _request('POST', '/auth/anonymous', auth: false, body: {
+        'device_id': deviceId,
+      });
+      final accessToken = data['access_token'];
+      final userId = data['user_id'];
+      if (accessToken != null && userId != null) {
+        await saveTokens(accessToken, userId);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _log('Anonymous Auth Error', e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> loginWithGoogle(String idToken) async {
+    try {
+      final deviceId = await getDeviceId();
+      final data = await _request('POST', '/auth/google', auth: false, body: {
+        'token': idToken,
+        'device_id': deviceId,
+      });
+      final accessToken = data['access_token'];
+      final userId = data['user_id'];
+      if (accessToken != null && userId != null) {
+        await saveTokens(accessToken, userId);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _log('Google Auth Error', e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> requestMagicLink(String email) async {
+    try {
+      // Create a URL scheme for returning to the app
+      String redirectUrl;
+      if (kIsWeb) {
+        // Use the current web origin (e.g. http://localhost:3000)
+        redirectUrl = '${Uri.base.origin}/#/login'; 
+      } else {
+        redirectUrl = 'ella://login';
+      }
+      
+      final deviceId = await getDeviceId();
+      await _request(
+        'POST', 
+        '/auth/magic-link/request', 
+        auth: false, 
+        body: {
+          'email': email, 
+          'redirect_url': redirectUrl,
+          'device_id': deviceId,
+        }
+      );
+      return true;
+    } catch (e) {
+      _log('Magic Link Error', e.toString());
+      return false;
+    }
   }
 
   Future<String?> getCachedUserId() async {
@@ -144,6 +219,96 @@ class EllaApiService {
       '/users/me/memory',
       body: {'persona_memory': personaMemory},
     );
+  }
+
+  /// Persist the child's profile collected during onboarding. Mirrors
+  /// [updatePersonaMemory]'s PUT-to-/users/me shape.
+  Future<void> updateProfile({required String name, required int age}) async {
+    await _request('PUT', '/users/me', body: {'name': name, 'age': age.toString()});
+  }
+
+  Future<Map<String, dynamic>> getUserProfile() async {
+    return _request('GET', '/users/me');
+  }
+
+  Future<void> resetUserMemory() async {
+    final deviceId = await getDeviceId();
+    
+    // First fetch the anonymous token using the device ID as requested
+    final authData = await _request('POST', '/auth/anonymous', auth: false, body: {
+      'device_id': deviceId,
+    });
+    final anonToken = authData['access_token'];
+
+    // Now call the reset endpoint using this token directly
+    final uri = Uri.parse('$baseUrl/admin/reset-user/$deviceId');
+    final response = await _client.delete(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $anonToken',
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw EllaApiException(
+        'HTTP ${response.statusCode}: ${response.body}',
+      );
+    }
+  }
+
+  Future<List<HomeTopic>> getTopics() async {
+    final data = await _request('GET', '/users/me/topics');
+    final rows = data['_list'] as List? ?? const [];
+    return [
+      for (final row in rows)
+        HomeTopic.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
+
+  // ── Onboarding cache (local) ────────────────────────────────────────────────
+  // Gates the first-run onboarding flow and remembers the child's name/age for
+  // the greeting + placement seeding. Stored in the same SharedPreferences this
+  // service already owns for auth tokens.
+
+  Future<({bool done, String? name, int? age})> getOnboardingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      done: prefs.getBool(_onboardingDoneKey) ?? false,
+      name: prefs.getString(_childNameKey),
+      age: prefs.getInt(_childAgeKey),
+    );
+  }
+
+  Future<void> saveOnboarding({
+    required String name,
+    required int age,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_childNameKey, name);
+    await prefs.setInt(_childAgeKey, age);
+    await prefs.setBool(_onboardingDoneKey, true);
+  }
+
+  Future<void> clearOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_onboardingDoneKey);
+    await prefs.remove(_childNameKey);
+    await prefs.remove(_childAgeKey);
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
+  }
+
+  /// Cache just the name/age (onboarding NOT yet done) — written the moment
+  /// the child answers, so a relaunch resumes at the first-sprout garden
+  /// instead of re-asking name and age.
+  Future<void> saveOnboardingProfile({
+    required String name,
+    required int age,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_childNameKey, name);
+    await prefs.setInt(_childAgeKey, age);
   }
 
   Future<List<SessionLog>> listSessions({
@@ -210,6 +375,29 @@ class EllaApiService {
       ],
       conversationComplete: data['conversation_complete'] as bool? ?? false,
     );
+  }
+
+  /// One turn of the voice placement screening — POST /llm/placement-turn.
+  /// The full running transcript is sent on every call (the endpoint is
+  /// stateless); the response is either Zoe's next question or, once enough
+  /// evidence is gathered, the final CEFR assessment (`is_complete: true`).
+  /// [name]/[age], if known from earlier turns, are threaded back so the LLM
+  /// keeps its context.
+  Future<PlacementTurnResult> placementTurn({
+    required List<Map<String, String>> messages,
+    String? name,
+    int? age,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/llm/placement-turn',
+      body: {
+        'messages': messages,
+        if (name != null && name.isNotEmpty) 'name': name,
+        'age': ?age,
+      },
+    );
+    return PlacementTurnResult.fromJson(data);
   }
 
   Future<String?> conversationStarter({String? topic}) async {
@@ -328,7 +516,15 @@ class EllaApiService {
       if (body != null) 'Content-Type': 'application/json',
     };
     if (auth) {
-      headers['Authorization'] = 'Bearer ${await getOrCreateToken()}';
+      var token = await getToken();
+      if (token == null || token.isEmpty) {
+        _log('AUTH', 'No token found, grabbing anonymous token for demo.');
+        await loginAnonymous();
+        token = await getToken();
+      }
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
     }
 
     _log('REQUEST  $method $uri', body != null ? jsonEncode(body) : null);
@@ -341,6 +537,7 @@ class EllaApiService {
         body: jsonEncode(body ?? {}),
       ),
       'PUT' => _client.put(uri, headers: headers, body: jsonEncode(body ?? {})),
+      'DELETE' => _client.delete(uri, headers: headers),
       _ => throw EllaApiException('Unsupported method $method'),
     };
     final http.Response response;
@@ -413,9 +610,15 @@ class EllaApiService {
     await prefs.remove(_userIdKey);
   }
 
-  static String _newDeviceId() {
-    final now = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
-    return 'ella-flutter-$now';
+  Future<String> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    var did = prefs.getString(_deviceIdKey);
+    if (did == null) {
+      final now = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
+      did = 'ella-flutter-$now';
+      await prefs.setString(_deviceIdKey, did);
+    }
+    return did;
   }
 
   static MemoryState _memoryFromApi(Map<String, dynamic> j) {
@@ -425,6 +628,7 @@ class EllaApiService {
     return MemoryState(
       childId: id,
       level: j['level'] as String? ?? 'A1',
+      hasLevel: (j['level'] as String?)?.isNotEmpty ?? false,
       owned: List<String>.from((j['owned'] as List?) ?? const []),
       emerging: List<String>.from((j['emerging'] as List?) ?? const []),
       dueNext: j['due_next'] is Map
@@ -442,6 +646,11 @@ class EllaApiService {
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      placement: j['placement'] is Map
+          ? PlacementInfo.fromJson(
+              Map<String, dynamic>.from(j['placement'] as Map),
+            )
+          : null,
     );
   }
 

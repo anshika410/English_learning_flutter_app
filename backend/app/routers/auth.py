@@ -177,11 +177,52 @@ async def verify_magic_link(
     await db.commit()
 
     base_url = redirect_url if redirect_url else settings.frontend_url
-    # If the base URL already has parameters, append with &, otherwise ?
     separator = "&" if "?" in base_url else "?"
-    final_url = f"{base_url}{separator}access_token={access_token}&refresh_token={refresh_token}"
+    final_url = f"{base_url}{separator}access_token={access_token}&refresh_token={refresh_token}&user_id={user.id}"
 
-    return RedirectResponse(url=final_url)
+    playstore_url = "https://play.google.com/store/apps/details?id=org.navgurukul.ella"
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Authenticating...</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+            window.onload = function() {{
+                var now = new Date().getTime();
+                
+                // Try opening the app via Intent
+                setTimeout(function() {{
+                    window.location.href = "intent://login?access_token={access_token}&refresh_token={refresh_token}&user_id={user.id}#Intent;scheme=ella;package=org.navgurukul.ella;end";
+                }}, 500);
+                
+                // Fallback to web link
+                setTimeout(function() {{
+                    window.location.href = "{final_url}";
+                    setTimeout(function() {{
+                        window.location.href = "{playstore_url}";
+                    }}, 2500);
+                }}, 1000);
+            }};
+        </script>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb; color: #111827; }}
+            .container {{ max-width: 400px; margin: 0 auto; padding: 20px; }}
+            a {{ color: #4f46e5; text-decoration: none; font-weight: 600; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Redirecting you to Ella...</h2>
+            <p>If the app doesn't open automatically, <a href="{playstore_url}">download it from the Play Store</a>.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html_content)
 
 
 @router.post("/refresh", response_model=TokenResponse)

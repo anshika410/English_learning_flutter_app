@@ -14,15 +14,18 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import 'all_topics_screen.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
+import 'widgets/circle_icon_button.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/garden_sky_background.dart';
 import 'widgets/shake.dart';
-import 'widgets/speak_again_label.dart';
+import 'widgets/speaker_dot_button.dart';
+import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
@@ -119,13 +122,16 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
       setState(() => _selectedTopic = topic);
 
   // Replays the "Last time" recap aloud. Speaks the same fallback line that the
-  // card shows when the server hasn't sent a recap yet.
+  // card shows when the server hasn't sent a recap yet. A no-op while TTS is
+  // already speaking (placement-flow behavior), so taps can't stack utterances.
   Future<void> _speakRecap() async {
+    final tts = ref.read(ttsProvider);
+    if (tts.isSpeaking) return;
     final text = _recap.trim().isNotEmpty
         ? _recap.trim()
         : "This is our first chat together — I can't wait!";
     try {
-      await ref.read(ttsProvider).speak(text);
+      await tts.speak(text);
     } catch (_) {}
   }
 
@@ -189,7 +195,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           child: Column(
             children: [
               _HeaderRow(
-                name: kHomeChildName,
+                name:
+                    ref.watch(onboardingProvider).valueOrNull?.name ??
+                    kHomeChildName,
                 onOpenProfile: widget.onOpenProfile,
                 onOpenGarden: widget.onOpenGarden,
               ),
@@ -253,8 +261,11 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
               ),
               const SizedBox(height: 10),
               _TopicChipsRow(
+                // Pass the EFFECTIVE selection (explicit pick, else the
+                // server's recommended) so the topic on the "Let's Talk About…"
+                // CTA is the first, highlighted chip in the row below.
                 alternatives: _alternatives,
-                selected: _selectedTopic,
+                selected: _selected,
                 onSelect: _selectTopic,
                 onSeeMore: _openSeeMore,
               ),
@@ -299,7 +310,7 @@ class _HeaderRow extends StatelessWidget {
         ),
         Column(
           children: [
-            _CircleIconButton(
+            EllaCircleIconButton(
               // TODO: swap for the exported profile glyph when available.
               glyph: const Icon(
                 Icons.person_rounded,
@@ -308,51 +319,22 @@ class _HeaderRow extends StatelessWidget {
               ),
               fill: EllaColors.surfaceVariant,
               ring: EllaColors.info,
+              label: 'Profile',
+              labelColor: EllaColors.infoDark,
               onTap: onOpenProfile,
             ),
             const SizedBox(height: 12),
-            _CircleIconButton(
+            EllaCircleIconButton(
               glyph: SvgPicture.asset(_kPlantIcon, width: 32, height: 32),
               fill: EllaColors.greenLight,
               ring: EllaColors.greenDark,
+              label: 'Garden',
+              labelColor: EllaColors.greenDeep,
               onTap: onOpenGarden,
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  final Widget glyph;
-  final Color fill;
-  final Color ring;
-  final VoidCallback? onTap;
-
-  const _CircleIconButton({
-    required this.glyph,
-    required this.fill,
-    required this.ring,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: withTapClick(onTap),
-      child: Container(
-        width: 64,
-        height: 64,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: fill,
-          shape: BoxShape.circle,
-          border: Border.all(color: ring, width: 3),
-        ),
-        child: glyph,
-      ),
     );
   }
 }
@@ -364,8 +346,8 @@ class _LastTimeCard extends StatelessWidget {
   // or before the API provides it, when the friendly fallback is shown instead.
   final String recap;
 
-  /// Replays the recap aloud (TTS). Mirrors the "Speak Again" control in Zoe's
-  /// chat bubble.
+  /// Replays the recap aloud (TTS). Powers the speaker dot on the card, the
+  /// same control that straddles Zoe's chat bubble.
   final VoidCallback onSpeak;
 
   const _LastTimeCard({required this.recap, required this.onSpeak});
@@ -376,7 +358,7 @@ class _LastTimeCard extends StatelessWidget {
         ? recap.trim()
         : "This is our first chat together — I can't wait!";
 
-    return Container(
+    final card = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -384,15 +366,23 @@ class _LastTimeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: EllaColors.info, width: 2),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SpeakAgainLabel(onTap: onSpeak),
-          const SizedBox(height: 6),
-          Text(body, style: EllaTextStyles.bodySemibold),
-        ],
-      ),
+      child: Text(body, style: EllaTextStyles.bodySemibold),
+    );
+
+    // Speaker dot straddling the top-right border — identical control to Zoe's
+    // chat bubble. Top padding keeps the overhanging dot inside the Stack's
+    // bounds so it stays tappable. `active` stays false; _speakRecap already
+    // no-ops while TTS is speaking, so a tap can't restart or stack it.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(padding: const EdgeInsets.only(top: 14), child: card),
+        Positioned(
+          top: 0,
+          right: 10,
+          child: SpeakerDotButton(active: false, onTap: onSpeak),
+        ),
+      ],
     );
   }
 }
@@ -428,13 +418,14 @@ class _SectionDivider extends StatelessWidget {
 
 // The next_topics.alternatives as chips + a "See More" chip. Tapping a topic
 // chip SELECTS it (highlight + reorder to front + CTA relabel) — it does not
-// start a session; only the CTA does. The explicitly-selected topic (if any) is
-// moved to the front and highlighted; a See-More pick that isn't among the
-// alternatives is prepended. Empty slots stay as neutral placeholders so the
-// row's layout doesn't jump before the topics load.
+// start a session; only the CTA does. The effective selection (explicit pick,
+// else the server's recommended — i.e. whatever the CTA points at) is moved to
+// the front and highlighted, so the CTA's topic is always the first chip. Empty
+// slots stay as neutral placeholders so the row's layout doesn't jump before
+// the topics load.
 class _TopicChipsRow extends StatelessWidget {
   final List<TopicChoice> alternatives;
-  final TopicChoice? selected; // explicit pick (null = recommended, no highlight)
+  final TopicChoice? selected; // effective selection (CTA topic), highlighted first
   final ValueChanged<TopicChoice> onSelect;
   final VoidCallback onSeeMore;
 
@@ -463,6 +454,7 @@ class _TopicChipsRow extends StatelessWidget {
         Expanded(
           child: _TopicChip(
             label: topic.display,
+            icon: topic.icon,
             selected: sel != null && topic.name == sel.name,
             onTap: () => onSelect(topic),
           ),
@@ -530,20 +522,22 @@ class _ChipShell extends StatelessWidget {
 
 class _TopicChip extends StatelessWidget {
   final String label;
+  final String icon;
   final bool selected;
   final VoidCallback onTap;
 
   const _TopicChip({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Selected chips render their glyph + label in the highlight colour so the
-    // active choice reads clearly; unselected stay ink. A generic chat glyph
-    // stands in until the backend supplies per-topic icons.
+    // Selected chips render their label in the highlight colour so the active
+    // choice reads clearly; unselected stay ink. The per-topic icon (from the
+    // memory API's `icon` id) shows when known, else a generic chat glyph.
     final content = selected ? EllaColors.berryDark : EllaColors.ink;
     return _ChipShell(
       fill: selected ? EllaColors.berryLight : EllaColors.surface,
@@ -555,7 +549,7 @@ class _TopicChip extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.chat_bubble_rounded, size: 22, color: content),
+          TopicIcon(icon: icon, size: 26, fallbackColor: content),
           const SizedBox(height: 6),
           Text(
             label,

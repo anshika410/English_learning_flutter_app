@@ -194,18 +194,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     int nextChatNumber = 1;
 
     try {
-      // Anonymous sign-in — gives us an auth.uid() that the _TEST_ RLS
-      // policies can match against. Cached by supabase_flutter across
-      // app restarts via secure storage.
-      // NOTE: requires the "Anonymous Sign-Ins" provider to be enabled in
-      // Supabase → Authentication → Sign In / Up. If it's off, this throws
-      // AuthApiException(code: anonymous_provider_disabled) and we fall back
-      // to offline-only mode below.
-      await api.getOrCreateToken();
       _childId = await api.getCachedUserId() ?? _kOfflineChildId;
 
       // Make sure a `children` row exists for this uid (FK source).
-      // User creation is handled by POST /auth/anonymous.
+      // User creation is handled by POST /auth/google or magic link.
 
       // Canonical load order: auth → memory → garden (mirrors the server flow).
       // Resume memory from persisted state if any, else fresh.
@@ -243,6 +235,40 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       chatNumber: nextChatNumber,
       lastSyncError: syncError,
     );
+  }
+
+  // ── Placement completion ──────────────────────────────────────────────────
+
+  /// Called after the first-run placement screening completes. The backend has
+  /// already persisted the placement (level + `placement` object), so re-fetch
+  /// memory, recompute due_next locally (engine rules are authoritative on the
+  /// frontend), update in-memory state, and invalidate the garden so it renders
+  /// at the new level. Best-effort: a failure just leaves the current state.
+  Future<void> refreshAfterPlacement() async {
+    if (!_online) return;
+    try {
+      final api = ref.read(ellaApiServiceProvider);
+      var mem = await api.getUserMemory();
+      mem = mem.copyWith(
+        dueNext: targetsListFor(mem, mem.progressionModel, mem.level),
+      );
+      final cur = state.requireValue;
+      state = AsyncValue.data(
+        cur.copyWith(
+          memory: mem,
+          chatNumber: mem.chatCount > 0 ? mem.chatCount + 1 : 1,
+          clearSyncError: true,
+        ),
+      );
+      // Garden tab reads gardenProvider — invalidate so it refetches at the new
+      // placement level the next time it's shown.
+      ref.invalidate(gardenProvider);
+    } catch (e) {
+      final cur = state.requireValue;
+      state = AsyncValue.data(
+        cur.copyWith(lastSyncError: 'Post-placement memory refresh failed: $e'),
+      );
+    }
   }
 
   // ── Session start ────────────────────────────────────────────────────────
