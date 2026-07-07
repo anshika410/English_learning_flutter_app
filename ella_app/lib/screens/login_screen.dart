@@ -137,18 +137,39 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
     try {
-      final gsi.GoogleSignInAccount googleUser;
+      gsi.GoogleSignInAccount? googleUser;
 
       try {
-        googleUser = await gsi.GoogleSignIn.instance.authenticate();
+        // Clear credential state first to force the plugin to drop the 'authorized accounts' filter
+        // and fetch ALL accounts on the device, matching native apps like ChatGPT.
+        await gsi.GoogleSignIn.instance.signOut();
+        
+        // In google_sign_in v7+, attemptLightweightAuthentication() triggers the
+        // Android Credential Manager's "One-Tap" bottom sheet UI (useButtonFlow: false).
+        googleUser =
+            await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+        
+        if (googleUser == null) {
+          // The user dismissed the bottom sheet (swiped down or went back).
+          // Cancel the login flow silently.
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
       } catch (e) {
         final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('cancel')) {
+        if (errorStr.contains('cancel') || errorStr.contains('interrupted')) {
           // User cancelled the standard account picker. Quietly return.
           if (mounted) setState(() => _isLoading = false);
           return;
         }
         rethrow;
+      }
+
+      if (googleUser == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
       }
 
       final gsi.GoogleSignInAuthentication googleAuth =
