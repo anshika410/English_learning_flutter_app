@@ -99,9 +99,12 @@ class EllaApiService {
   Future<bool> loginAnonymous() async {
     try {
       final deviceId = await getDeviceId();
-      final data = await _request('POST', '/auth/anonymous', auth: false, body: {
-        'device_id': deviceId,
-      });
+      final data = await _request(
+        'POST',
+        '/auth/anonymous',
+        auth: false,
+        body: {'device_id': deviceId},
+      );
       final accessToken = data['access_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
@@ -235,7 +238,11 @@ class EllaApiService {
   /// Persist the child's profile collected during onboarding. Mirrors
   /// [updatePersonaMemory]'s PUT-to-/users/me shape.
   Future<void> updateProfile({required String name, required int age}) async {
-    await _request('PUT', '/users/me', body: {'name': name, 'age': age.toString()});
+    await _request(
+      'PUT',
+      '/users/me',
+      body: {'name': name, 'age': age.toString()},
+    );
   }
 
   Future<Map<String, dynamic>> getUserProfile() async {
@@ -246,9 +253,12 @@ class EllaApiService {
     final deviceId = await getDeviceId();
 
     // First fetch the anonymous token using the device ID as requested
-    final authData = await _request('POST', '/auth/anonymous', auth: false, body: {
-      'device_id': deviceId,
-    });
+    final authData = await _request(
+      'POST',
+      '/auth/anonymous',
+      auth: false,
+      body: {'device_id': deviceId},
+    );
     final anonToken = authData['access_token'];
 
     // Now call the reset endpoint using this token directly
@@ -262,19 +272,8 @@ class EllaApiService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw EllaApiException(
-        'HTTP ${response.statusCode}: ${response.body}',
-      );
+      throw EllaApiException('HTTP ${response.statusCode}: ${response.body}');
     }
-  }
-
-  Future<List<HomeTopic>> getTopics() async {
-    final data = await _request('GET', '/users/me/topics');
-    final rows = data['_list'] as List? ?? const [];
-    return [
-      for (final row in rows)
-        HomeTopic.fromJson(Map<String, dynamic>.from(row as Map)),
-    ];
   }
 
   // ── Onboarding cache (local) ────────────────────────────────────────────────

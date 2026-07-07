@@ -71,6 +71,18 @@ abstract final class EllaTextStyles {
     ),
   );
 
+  /// 18 / Synonym 600 (Semibold), line-height 160% — larger Zoe cards and
+  /// garden reveal copy.
+  static TextStyle get bodySemiboldLarge => EllaFonts.body(
+    const TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      height: 1.6,
+      letterSpacing: 0,
+      color: _ink,
+    ),
+  );
+
   /// 18 / Andika 400 — important body copy, readable chat text.
   static TextStyle get bodyLarge => EllaFonts.body(
     const TextStyle(fontSize: 18, fontWeight: FontWeight.w400, color: _ink),
@@ -97,10 +109,94 @@ abstract final class EllaTextStyles {
     const TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: _ink),
   );
 
+  // ── Auth / onboarding — Figma auth frames ───────────────────────────
+  /// 40 / Amulya 700, line-height 160% — auth wordmark display.
+  static TextStyle get authDisplay => EllaFonts.bricolage(
+    const TextStyle(
+      fontSize: 40,
+      fontWeight: FontWeight.w700,
+      height: 1.6,
+      letterSpacing: 0.1,
+      color: _ink,
+    ),
+  );
+
+  /// 20 / Amulya 700, line-height 160% — auth titles and subtitles.
+  static TextStyle get authTitle => EllaFonts.bricolage(
+    const TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      height: 1.6,
+      letterSpacing: 0.4,
+      color: _ink,
+    ),
+  );
+
+  /// 18 / Synonym 400, line-height 160% — auth helper and privacy copy.
+  static TextStyle get authBody => EllaFonts.body(
+    const TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w400,
+      height: 1.6,
+      letterSpacing: 0,
+      color: _ink,
+    ),
+  );
+
+  /// 18 / Synonym 600, line-height 160% — auth confirmation copy.
+  static TextStyle get authBodySemibold => EllaFonts.body(
+    const TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      height: 1.6,
+      letterSpacing: 0,
+      color: _ink,
+    ),
+  );
+
   // ── Action / voice ────────────────────────────────────────────────────
   /// 18 / Andika 700 — primary and secondary button labels.
   static TextStyle get button => EllaFonts.body(
-    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: _ink),
+    const TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      height: 1.6,
+      letterSpacing: 0,
+      color: _ink,
+    ),
+  );
+
+  /// 14 / Synonym 700, line-height 160% — compact CTA labels.
+  static TextStyle get buttonSmall => EllaFonts.body(
+    const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w700,
+      height: 1.6,
+      letterSpacing: 0,
+      color: _ink,
+    ),
+  );
+
+  /// 16 / Synonym 600, line-height 160% — placement garden header chip.
+  static TextStyle get gardenHeaderChip => EllaFonts.body(
+    const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      height: 1.6,
+      letterSpacing: 0,
+      color: _ink,
+    ),
+  );
+
+  /// 20 / Amulya 700, line-height 160% — placement garden title.
+  static TextStyle get gardenHeaderTitle => EllaFonts.bricolage(
+    const TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      height: 1.6,
+      letterSpacing: 0.08,
+      color: _ink,
+    ),
   );
 
   /// 18 / Grandstander 400 — Zoe bubbles and coaching prompts. Never bold.

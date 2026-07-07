@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
@@ -219,7 +220,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                           ZoeMascot(
                             mode: ZoeMascotMode.listening,
                             size: mascotW,
-                            reducedMotion: MediaQuery.of(context).disableAnimations,
+                            reducedMotion: MediaQuery.of(
+                              context,
+                            ).disableAnimations,
                           ),
                           const SizedBox(height: 20),
                           _LastTimeCard(recap: _recap, onSpeak: _speakRecap),
@@ -361,10 +364,10 @@ class _LastTimeCard extends StatelessWidget {
     final card = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
+      decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: EllaColors.info, width: 2),
+        side: const BorderSide(color: EllaColors.info, width: 2),
       ),
       child: Text(body, style: EllaTextStyles.bodySemibold),
     );
@@ -425,7 +428,8 @@ class _SectionDivider extends StatelessWidget {
 // the topics load.
 class _TopicChipsRow extends StatelessWidget {
   final List<TopicChoice> alternatives;
-  final TopicChoice? selected; // effective selection (CTA topic), highlighted first
+  final TopicChoice?
+  selected; // effective selection (CTA topic), highlighted first
   final ValueChanged<TopicChoice> onSelect;
   final VoidCallback onSeeMore;
 
@@ -577,7 +581,11 @@ class _SeeMoreChip extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.open_in_full_rounded, size: 22, color: EllaColors.ink),
+          const Icon(
+            Icons.open_in_full_rounded,
+            size: 22,
+            color: EllaColors.ink,
+          ),
           const SizedBox(height: 6),
           Text(
             'See More!',

@@ -10,9 +10,11 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../services/audio_service.dart';
+import 'ella_primary_button.dart' show EllaIconButton;
 import 'garden_sky_background.dart';
 import 'speaker_dot_button.dart';
 import 'zoe_mascot.dart';
@@ -47,6 +49,11 @@ class ConversationView extends StatelessWidget {
   /// student bubble has no such control (by design — only Zoe's lines replay).
   final VoidCallback? onSpeakAgain;
 
+  /// Placement progress in 0..1 (Figma "Placement Flow" top bar). Null hides
+  /// the bar entirely — the normal chat (SessionScreen) has no fixed turn
+  /// target, so it passes null.
+  final double? progress;
+
   const ConversationView({
     super.key,
     required this.phase,
@@ -63,6 +70,7 @@ class ConversationView extends StatelessWidget {
     this.onSend,
     this.onEnd,
     this.onSpeakAgain,
+    this.progress,
   });
 
   @override
@@ -72,31 +80,42 @@ class ConversationView extends StatelessWidget {
     final mascotSize = (w * 0.35).clamp(140.0, 158.0);
     final bubbleMaxWidth = w * 0.78;
 
+    final mascot = ZoeMascot(
+      mode: mascotSpeaking
+          ? ZoeMascotMode.speaking
+          : mascotThinking
+          ? ZoeMascotMode.thinking
+          : ZoeMascotMode.listening,
+      size: mascotSize,
+      reducedMotion: MediaQuery.of(context).disableAnimations,
+    );
+
     return GardenSkyBackground(
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
+              // Placement progress bar (Figma "Placement Flow"): a thin rounded
+              // track pinned at the very top that fills as the screening
+              // advances. Null on the normal chat (no fixed turn count).
+              if (progress != null) ...[
+                const SizedBox(height: 8),
+                _ProgressBar(value: progress!),
+                const SizedBox(height: 12),
+              ] else
+                const SizedBox(height: 28),
               // Mascot stays fixed at the top — only the bubbles below it
               // scroll.
-              const SizedBox(height: 28),
-              ZoeMascot(
-                mode: mascotSpeaking
-                    ? ZoeMascotMode.speaking
-                    : mascotThinking
-                        ? ZoeMascotMode.thinking
-                        : ZoeMascotMode.listening,
-                size: mascotSize,
-                reducedMotion: MediaQuery.of(context).disableAnimations,
-              ),
+              mascot,
               const SizedBox(height: 18),
               // Latest-turn bubbles live in a scroll region so a long turn can't
               // overflow the screen (or get clipped when the keyboard is up).
               // `reverse: true` pins the newest bubble just above the dock and
               // lets the older text scroll up and disappear under the fixed
               // mascot; the minHeight box keeps short turns top-aligned (right
-              // under the mascot) exactly as before.
+              // under the mascot) exactly as before. In the prepare phase the
+              // mascot + card centre in the space instead (Figma loader frame).
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) => SingleChildScrollView(
@@ -106,6 +125,9 @@ class ConversationView extends StatelessWidget {
                         minHeight: constraints.maxHeight,
                       ),
                       child: Column(
+                        mainAxisAlignment: phase == ConvPhase.prepare
+                            ? MainAxisAlignment.center
+                            : MainAxisAlignment.start,
                         children: [
                           if (phase == ConvPhase.prepare)
                             const _PrepareCard()
@@ -150,6 +172,52 @@ class ConversationView extends StatelessWidget {
   }
 }
 
+// ── Progress bar (placement screening) ───────────────────────────────────────
+
+/// Thin rounded top bar (Figma "Placement Flow"): a pale track with a green
+/// fill that eases toward [value] (0..1). A small min-fill keeps a sliver
+/// visible once the first turn lands (matches the Figma "listening" frame).
+class _ProgressBar extends StatelessWidget {
+  final double value;
+  const _ProgressBar({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = value.clamp(0.0, 1.0);
+    return SizedBox(
+      height: 12,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final full = constraints.maxWidth;
+          // Show at least a rounded sliver once any progress exists.
+          final width = v <= 0 ? 0.0 : (v * full).clamp(12.0, full);
+          return Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: EllaColors.greenLight,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOut,
+                width: width,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [EllaColors.greenMain, EllaColors.greenDeep],
+                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(999)),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 // ── Bubbles (latest turn only) ───────────────────────────────────────────────
 
 class _Bubbles extends StatelessWidget {
@@ -172,18 +240,30 @@ class _Bubbles extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (zoeLine != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: _ZoeBubble(
-                text: zoeLine!,
-                onSpeakAgain: onSpeakAgain,
-                speaking: speaking,
-              ),
+        // New Zoe turns cross-fade instead of snapping: the switcher is keyed by
+        // the line text, so a changed line fades the old bubble out and the new
+        // one in (~250ms). An empty box for null keeps the layout stable.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: zoeLine == null
+                  ? const SizedBox(key: ValueKey('zoe-empty'), width: 1)
+                  : _ZoeBubble(
+                      key: ValueKey(zoeLine),
+                      text: zoeLine!,
+                      onSpeakAgain: onSpeakAgain,
+                      speaking: speaking,
+                    ),
             ),
           ),
+        ),
         if (studentLine != null) ...[
           const SizedBox(height: 10),
           Align(
@@ -209,6 +289,7 @@ class _ZoeBubble extends StatelessWidget {
   final bool speaking;
 
   const _ZoeBubble({
+    super.key,
     required this.text,
     required this.onSpeakAgain,
     this.speaking = false,
@@ -218,7 +299,7 @@ class _ZoeBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
+      decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
         // Squared top-left "tail" pointing at Zoe; blue info border (#5898E0).
         borderRadius: const BorderRadius.only(
@@ -227,23 +308,29 @@ class _ZoeBubble extends StatelessWidget {
           bottomLeft: Radius.circular(18),
           bottomRight: Radius.circular(18),
         ),
-        border: Border.all(color: EllaColors.info, width: 2.5),
+        side: const BorderSide(color: EllaColors.info, width: 2.5),
       ),
-      child: Text(text, style: EllaTextStyles.bodySemibold),
+      child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
     );
 
     if (onSpeakAgain == null) return bubble;
 
-    // Top padding gives the overhanging dot room inside the Stack's bounds so
-    // it stays tappable (hit tests outside a Stack's rect are dropped).
+    // The 40px dot straddles the bubble's top-right corner (Figma "Placement
+    // Flow"): it hangs above and off the right edge. Top padding + the negative
+    // right offset keep it overhanging while still inside the Stack's hit-test
+    // bounds (hit tests outside a Stack's rect are dropped).
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Padding(padding: const EdgeInsets.only(top: 14), child: bubble),
+        Padding(padding: const EdgeInsets.only(top: 20), child: bubble),
         Positioned(
           top: 0,
-          right: 10,
-          child: SpeakerDotButton(active: speaking, onTap: onSpeakAgain),
+          right: -6,
+          child: SpeakerDotButton(
+            active: speaking,
+            onTap: onSpeakAgain,
+            size: 40,
+          ),
         ),
       ],
     );
@@ -258,7 +345,7 @@ class _StudentBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
+      decoration: ellaSmoothDecoration(
         // Pale pink (#FFF2F7) with a berryDark border and squared bottom-right
         // tail — matching speaking.svg.
         color: _studentFill,
@@ -268,10 +355,10 @@ class _StudentBubble extends StatelessWidget {
           bottomLeft: Radius.circular(18),
           bottomRight: Radius.circular(4),
         ),
-        border: Border.all(color: EllaColors.berryDark, width: 2.5),
+        side: const BorderSide(color: EllaColors.berryDark, width: 2.5),
       ),
       // Same font/weight as every other line (no italic, even while live).
-      child: Text(text, style: EllaTextStyles.bodySemibold),
+      child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
     );
   }
 }
@@ -288,10 +375,10 @@ class _PrepareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      decoration: BoxDecoration(
+      decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: EllaColors.border, width: 1.5),
+        side: const BorderSide(color: EllaColors.border, width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -518,6 +605,9 @@ class _TextDock extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Field + send button match the name/age onboarding composer
+        // (_ReplyComposer): pill field radius 999, 20/14 padding, berry
+        // EllaIconButton arrow.
         Row(
           children: [
             Expanded(
@@ -536,33 +626,19 @@ class _TextDock extends StatelessWidget {
                   filled: true,
                   fillColor: EllaColors.surface,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                    horizontal: 20,
+                    vertical: 14,
                   ),
-                  border: _border(EllaColors.border),
-                  enabledBorder: _border(EllaColors.border),
-                  focusedBorder: _border(EllaColors.borderStrong),
+                  enabledBorder: _border(EllaColors.border, 1.5),
+                  focusedBorder: _border(EllaColors.berryDark, 2),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: withTapClick(onSend),
-              child: Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: EllaColors.berryMain,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: EllaColors.berryDark, width: 2),
-                ),
-                child: const Icon(
-                  Icons.send_rounded,
-                  size: 20,
-                  color: EllaColors.onPrimary,
-                ),
-              ),
+            const SizedBox(width: 12),
+            EllaIconButton(
+              icon: Icons.arrow_forward_rounded,
+              size: 54,
+              onTap: onSend,
             ),
           ],
         ),
@@ -575,13 +651,13 @@ class _TextDock extends StatelessWidget {
             children: [
               const Icon(
                 Icons.mic_rounded,
-                size: 18,
+                size: 22,
                 color: EllaColors.greenDeep,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Text(
                 'Switch to Speaking',
-                style: EllaTextStyles.caption.copyWith(
+                style: EllaTextStyles.bodySemiboldLarge.copyWith(
                   color: EllaColors.greenDeep,
                 ),
               ),
@@ -592,8 +668,8 @@ class _TextDock extends StatelessWidget {
     );
   }
 
-  OutlineInputBorder _border(Color color) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(24),
-    borderSide: BorderSide(color: color, width: 1.5),
+  OutlineInputBorder _border(Color color, double width) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(999),
+    borderSide: BorderSide(color: color, width: width),
   );
 }

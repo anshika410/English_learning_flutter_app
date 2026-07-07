@@ -1,12 +1,10 @@
 // Splash — Figma "Onboarding / Splash Screen": the shared onboarding scenery
 // (peach→cyan sky, hills, garden blooms) with the live listening Zoe mascot
-// (same native animation as the Home screen) and the ZoSpeak wordmark.
+// (same native animation as the Home screen).
 // Routes to /home or /login once the auth check completes.
 
 import 'package:flutter/material.dart';
 
-import '../core/text_styles.dart';
-import '../core/theme_colors.dart';
 import '../services/ella_api_service.dart';
 import '../services/update_service.dart';
 import 'child_view/widgets/onboarding_scenery.dart';
@@ -54,34 +52,19 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0FAFA),
       body: OnboardingScenery(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Same listening mascot animation as the Home screen.
-              ZoeMascot(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final shortestSide = constraints.biggest.shortestSide;
+            final mascotSize = (shortestSide * 0.42).clamp(136.0, 180.0);
+
+            return Center(
+              child: ZoeMascot(
                 mode: ZoeMascotMode.listening,
-                size: 160,
+                size: mascotSize,
                 reducedMotion: MediaQuery.of(context).disableAnimations,
               ),
-              const SizedBox(height: 24),
-              Text(
-                'ZoSpeak',
-                style: EllaFonts.bricolage(
-                  const TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w700,
-                    color: EllaColors.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Talk More. Grow Your English',
-                style: EllaTextStyles.bodySemibold.copyWith(height: 1.2),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

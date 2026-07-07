@@ -122,6 +122,21 @@ class _EllaAppState extends State<EllaApp> {
       title: 'ELLA',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
+      // Clamp OS font scaling app-wide so a large accessibility setting can't
+      // overflow the fixed-size garden art / chat bubbles. 1.3 still honours
+      // most large-text preferences.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: mq.textScaler.clamp(
+              minScaleFactor: 1.0,
+              maxScaleFactor: 1.3,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       navigatorObservers: [appRouteObserver],
       // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
       // because we handle deep links manually via the app_links package.

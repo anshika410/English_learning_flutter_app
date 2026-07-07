@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
@@ -29,7 +31,7 @@ class ChatBubble extends StatelessWidget {
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
+              decoration: ellaSmoothDecoration(
                 // Child bubble uses greenMain (ink text = 7.29:1, AA); white on
                 // greenDark would fail. Zoe bubble is a plain surface.
                 color: isZoe ? EllaColors.surface : EllaColors.greenMain,
@@ -39,7 +41,7 @@ class ChatBubble extends StatelessWidget {
                   bottomLeft: Radius.circular(isZoe ? 4 : 18),
                   bottomRight: Radius.circular(isZoe ? 18 : 4),
                 ),
-                boxShadow: [
+                shadows: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 4,
@@ -118,7 +120,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
             opacity: _fade,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
+              decoration: ellaSmoothDecoration(
                 color: EllaColors.surface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(18),
@@ -126,7 +128,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                   bottomRight: Radius.circular(18),
                   bottomLeft: Radius.circular(4),
                 ),
-                boxShadow: [
+                shadows: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 4,

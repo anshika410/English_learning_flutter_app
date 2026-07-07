@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/ella_smooth_shape.dart';
 import '../../route_observer.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
@@ -28,7 +29,7 @@ import 'widgets/garden_dialogs.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
 
-// Dawn Garden values from docs/Garden Themes - Figma Values.md.
+// Garden values from docs/Garden Themes - Figma Values.md.
 const Color _dawnSkyTop = Color(0xFFFFE3D0);
 const Color _dawnSkyMid = Color(0xFFF6C9E0);
 const Color _dawnSkyBottom = Color(0xFFE4E8FA);
@@ -37,6 +38,26 @@ const Color _dawnHillMid = Color(0xFFA8D888);
 const Color _dawnHillBottom = Color(0xFF5C9A48);
 const List<Color> _dawnSky = [_dawnSkyTop, _dawnSkyMid, _dawnSkyBottom];
 const List<Color> _dawnHill = [_dawnHillTop, _dawnHillMid, _dawnHillBottom];
+const List<Color> _morningSky = [
+  Color(0xFFEAFDFF),
+  Color(0xFFD9FAFF),
+  Color(0xFFF1FFF8),
+];
+const List<Color> _morningHill = [
+  Color(0xFFD7F2C4),
+  Color(0xFF8DD67C),
+  Color(0xFF4E9A45),
+];
+const List<Color> _middaySky = [
+  Color(0xFFB8E4F8),
+  Color(0xFFD9FAFF),
+  Color(0xFFEAFDFF),
+];
+const List<Color> _middayHill = [
+  Color(0xFFC5E8A0),
+  Color(0xFF6BC85E),
+  Color(0xFF3D8438),
+];
 const List<double> _gardenStops = [0, 0.55, 1];
 
 const double _designWidth = 430;
@@ -52,18 +73,165 @@ const double _tileH = 80;
 const double _plantSlotW = 72.8; // 56 × 1.3
 const double _ellipseW = 287.32;
 const double _ellipseH = 130;
+const double _headerSidePadding = 24;
+const double _headerTopGap = 16;
+const double _headerButtonSize = 30;
+const double _headerButtonGap = 16;
+const double _levelPillH = 43;
+
+enum _GardenAmbientKind { butterfly, bird, bee }
+
+class _GardenSunSpec {
+  final double left;
+  final double top;
+  final double size;
+  final Color core;
+  final Color mid;
+  final Color glowInner;
+  final Color glowOuter;
+
+  const _GardenSunSpec({
+    required this.left,
+    required this.top,
+    required this.size,
+    required this.core,
+    required this.mid,
+    required this.glowInner,
+    required this.glowOuter,
+  });
+}
+
+class _GardenLevelVisualSpec {
+  final String code;
+  final String label;
+  final List<Color> sky;
+  final List<Color> hill;
+  final String iconAsset;
+  final _GardenAmbientKind ambientKind;
+  final int fenceCount;
+  final bool showWildflowers;
+  final double hillTop;
+  final double hillLeftYOffset;
+  final double hillRightYOffset;
+  final _GardenSunSpec? sun;
+
+  const _GardenLevelVisualSpec({
+    required this.code,
+    required this.label,
+    required this.sky,
+    required this.hill,
+    required this.iconAsset,
+    required this.ambientKind,
+    required this.fenceCount,
+    required this.showWildflowers,
+    required this.hillTop,
+    required this.hillLeftYOffset,
+    required this.hillRightYOffset,
+    this.sun,
+  });
+}
+
+const _GardenLevelVisualSpec _dawnSpec = _GardenLevelVisualSpec(
+  code: 'A0',
+  label: 'Dawn Glade',
+  sky: _dawnSky,
+  hill: _dawnHill,
+  iconAsset: 'assets/garden/plants/Sunrise Seedbed Icon 1.svg',
+  ambientKind: _GardenAmbientKind.butterfly,
+  fenceCount: 3,
+  showWildflowers: false,
+  hillTop: 176,
+  hillLeftYOffset: 30,
+  hillRightYOffset: 22,
+);
+
+const _GardenLevelVisualSpec _morningSpec = _GardenLevelVisualSpec(
+  code: 'A1',
+  label: 'Morning Meadow',
+  sky: _morningSky,
+  hill: _morningHill,
+  iconAsset: 'assets/garden/plants/morning-meadow-icon.svg',
+  ambientKind: _GardenAmbientKind.bird,
+  fenceCount: 4,
+  showWildflowers: true,
+  hillTop: 170,
+  hillLeftYOffset: 38,
+  hillRightYOffset: 28,
+  sun: _GardenSunSpec(
+    left: 360,
+    top: 160,
+    size: 56,
+    core: Color(0xFFFFFBEA),
+    mid: Color(0xFFFFE066),
+    glowInner: Color(0x52FFE066),
+    glowOuter: Color(0x24FFB84D),
+  ),
+);
+
+const _GardenLevelVisualSpec _middaySpec = _GardenLevelVisualSpec(
+  code: 'A2',
+  label: 'Midday Grove',
+  sky: _middaySky,
+  hill: _middayHill,
+  iconAsset: 'assets/garden/plants/midday-grove-icon.svg',
+  ambientKind: _GardenAmbientKind.bee,
+  fenceCount: 5,
+  showWildflowers: true,
+  hillTop: 170,
+  hillLeftYOffset: 38,
+  hillRightYOffset: 28,
+  sun: _GardenSunSpec(
+    left: 336,
+    top: 72,
+    size: 72,
+    core: Color(0xFFFFFDF0),
+    mid: Color(0xFFFFD666),
+    glowInner: Color(0x66FFE066),
+    glowOuter: Color(0x2EFFB84D),
+  ),
+);
+
+String _levelCode(String level) => level.trim().toUpperCase();
+
+_GardenLevelVisualSpec _visualSpecFor(String level) {
+  switch (_levelCode(level)) {
+    case 'A0':
+      return _dawnSpec;
+    case 'A1':
+      return _morningSpec;
+    case 'A2':
+      return _middaySpec;
+    default:
+      return _middaySpec;
+  }
+}
+
+bool _isKnownGardenLevel(String level) =>
+    const {'A0', 'A1', 'A2'}.contains(_levelCode(level));
+
+String _gardenDisplayName(GardenData data, _GardenLevelVisualSpec spec) {
+  if (_isKnownGardenLevel(data.level)) return spec.label;
+  final theme = data.theme.trim();
+  if (theme.isNotEmpty) return theme;
+  final label = data.levelLabel.trim();
+  return label.isNotEmpty ? label : spec.label;
+}
 
 // First-time welcome copy (Figma "Shift to new garden and nudge to start
 // talking") — shown under a spotlight when arriving from placement.
-const String _kWelcomeText =
-    'Welcome to your garden! 💗\nEach time we talk, a new plant grows here. '
-    'Ready?';
+const String _kWelcomeTitle = 'Welcome to your garden!';
+const String _kWelcomeBody =
+    'Each time we talk, a new plant grows here. Ready?';
+const String _kWelcomeText = '$_kWelcomeTitle\n$_kWelcomeBody';
+const String _kGardenButtonPlantIcon = 'assets/homescreen/new/Plant.svg';
+
+enum _FirstGardenPhase { waiting, speaking, exploreReady, settled }
 
 class GardenScreen extends ConsumerStatefulWidget {
   final VoidCallback? onConversationEnded;
 
   /// True when arriving from the placement bloom: shows a spotlight + Zoe's
-  /// "Welcome to your garden" nudge for a few seconds before the normal garden.
+  /// "Welcome to your garden" nudge, then unlocks the normal garden.
   final bool firstTime;
 
   const GardenScreen({
@@ -86,11 +254,14 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
   late final AudioInterface _audio;
 
-  // First-time welcome spotlight (firstTime only): on while Zoe greets, then
-  // fades out leaving the normal garden.
-  bool _welcomeOn = false;
+  late _FirstGardenPhase _firstGardenPhase = widget.firstTime
+      ? _FirstGardenPhase.waiting
+      : _FirstGardenPhase.settled;
+  ZoeMascotMode _welcomeZoeMode = ZoeMascotMode.listening;
+  bool _firstGardenStarted = false;
   bool _soundOn = true;
-  Timer? _welcomeTimer;
+  final List<Timer> _timers = [];
+  Set<String> _recentlyGrownSkillIds = {};
 
   @override
   void initState() {
@@ -100,16 +271,6 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
     // Start on every mount so the loop is audible each time the garden opens
     // (not just the first time).
     _startMusic();
-    if (widget.firstTime) {
-      _welcomeOn = true;
-      // Best-effort: greet aloud while the spotlight is up.
-      try {
-        ref.read(ttsProvider).speak(_kWelcomeText.replaceAll('💗', ''));
-      } catch (_) {}
-      _welcomeTimer = Timer(const Duration(milliseconds: 2800), () {
-        if (mounted) setState(() => _welcomeOn = false);
-      });
-    }
   }
 
   @override
@@ -121,6 +282,67 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
     if (route is PageRoute) {
       appRouteObserver.subscribe(this, route);
     }
+    if (widget.firstTime && !_firstGardenStarted) {
+      _firstGardenStarted = true;
+      final reducedMotion = MediaQuery.of(context).disableAnimations;
+      _after(reducedMotion ? 0 : 1000, _beginFirstGardenWelcome);
+    }
+  }
+
+  void _after(int ms, VoidCallback fn) {
+    final timer = Timer(Duration(milliseconds: ms), () {
+      if (mounted) fn();
+    });
+    _timers.add(timer);
+  }
+
+  void _beginFirstGardenWelcome() {
+    if (_firstGardenPhase != _FirstGardenPhase.waiting) return;
+    setState(() {
+      _firstGardenPhase = _FirstGardenPhase.speaking;
+      _welcomeZoeMode = ZoeMascotMode.speaking;
+    });
+    unawaited(_speakWelcomeAndUnlockExplore());
+  }
+
+  Future<void> _speakWelcomeAndUnlockExplore() async {
+    Timer? fallback;
+    fallback = Timer(const Duration(milliseconds: 5200), () {
+      if (mounted) _markFirstGardenExploreReady();
+    });
+    _timers.add(fallback);
+    await _speakWelcomeLine();
+    fallback.cancel();
+    if (mounted) _markFirstGardenExploreReady();
+  }
+
+  Future<void> _speakWelcomeLine() async {
+    final tts = ref.read(ttsProvider);
+    if (tts.isSpeaking) return;
+    try {
+      await tts.stop();
+      if (!mounted) return;
+      setState(() => _welcomeZoeMode = ZoeMascotMode.speaking);
+      await tts.speak(_kWelcomeText);
+    } catch (_) {}
+    if (mounted) setState(() => _welcomeZoeMode = ZoeMascotMode.listening);
+  }
+
+  void _markFirstGardenExploreReady() {
+    if (_firstGardenPhase != _FirstGardenPhase.speaking) return;
+    setState(() {
+      _firstGardenPhase = _FirstGardenPhase.exploreReady;
+      _welcomeZoeMode = ZoeMascotMode.listening;
+    });
+  }
+
+  void _onExploreFirstGarden() {
+    if (_firstGardenPhase != _FirstGardenPhase.exploreReady) return;
+    setState(() => _firstGardenPhase = _FirstGardenPhase.settled);
+  }
+
+  void _returnHome() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _startMusic() => _audio.playMusic(Sounds.gardenMusic);
@@ -149,29 +371,30 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
 
   /// Records the current sightings and returns true if any skill grew since the
   /// previous payload. Returns false on the first payload (baseline only).
-  bool _registerAndDetectGrowth(GardenData data) {
+  Set<String> _registerAndDetectGrowth(GardenData data) {
     final next = <String, int>{};
     for (final step in data.steps) {
       for (final skill in step.skills) {
         next[skill.id] = skill.sightings;
       }
     }
-    var grew = false;
+    final grown = <String>{};
     if (_lastSightings.isNotEmpty) {
       for (final entry in next.entries) {
         if (entry.value > (_lastSightings[entry.key] ?? 0)) {
-          grew = true;
-          break;
+          grown.add(entry.key);
         }
       }
     }
     _lastSightings = next;
-    return grew;
+    return grown;
   }
 
   @override
   void dispose() {
-    _welcomeTimer?.cancel();
+    for (final timer in _timers) {
+      timer.cancel();
+    }
     appRouteObserver.unsubscribe(this);
     _stopMusic();
     super.dispose();
@@ -192,19 +415,37 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
     ref.listen<AsyncValue<GardenData>>(gardenProvider, (prev, next) {
       final data = next.valueOrNull;
       if (data == null) return;
-      if (_registerAndDetectGrowth(data)) {
+      final grownSkillIds = _registerAndDetectGrowth(data);
+      if (grownSkillIds.isNotEmpty) {
+        if (mounted) {
+          setState(() => _recentlyGrownSkillIds = grownSkillIds);
+        }
         ref.read(audioProvider).playSfx(Sounds.newSprout);
+      } else if (_recentlyGrownSkillIds.isNotEmpty && mounted) {
+        setState(() => _recentlyGrownSkillIds = {});
       }
     });
     final gardenAsync = ref.watch(gardenProvider);
     final reducedMotion = MediaQuery.of(context).disableAnimations;
+    final introActive =
+        widget.firstTime &&
+        (_firstGardenPhase == _FirstGardenPhase.speaking ||
+            _firstGardenPhase == _FirstGardenPhase.exploreReady);
+    final showFirstExplore =
+        widget.firstTime && _firstGardenPhase == _FirstGardenPhase.exploreReady;
+    final showTalkBar =
+        !widget.firstTime || _firstGardenPhase == _FirstGardenPhase.settled;
     final garden = Container(
-      color: _dawnHillBottom,
+      color: _middaySpec.hill.last,
       child: gardenAsync.when(
         data: (data) => _GardenView(
           data: data,
           soundOn: _soundOn,
           onToggleSound: _toggleSound,
+          showTalkBar: showTalkBar,
+          grownSkillIds: _recentlyGrownSkillIds,
+          onBack: widget.firstTime ? _returnHome : null,
+          onTalk: _returnHome,
         ),
         loading: () => const _SkyScaffold(
           child: Center(
@@ -237,43 +478,105 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
     if (!widget.firstTime) return garden;
 
     // First-time arrival from placement: spotlight + Zoe's welcome over the
-    // garden for a few seconds, then the normal garden remains.
-    return Stack(
+    // real level garden, then the child explicitly unlocks the settled garden.
+    final child = Stack(
       fit: StackFit.expand,
       children: [
         garden,
         IgnorePointer(
           child: AnimatedOpacity(
-            opacity: _welcomeOn ? 1 : 0,
+            opacity: introActive ? 1 : 0,
             duration: Duration(milliseconds: reducedMotion ? 0 : 600),
-            child: const SpotlightOverlay(center: Alignment(0, 0)),
+            child: const SpotlightOverlay(center: Alignment(-0.16, -0.2)),
           ),
         ),
         IgnorePointer(
+          ignoring: !introActive,
           child: AnimatedOpacity(
-            opacity: _welcomeOn ? 1 : 0,
+            opacity: introActive ? 1 : 0,
             duration: Duration(milliseconds: reducedMotion ? 0 : 600),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ZoeMascot(
-                      mode: ZoeMascotMode.listening,
-                      size: 72,
-                      reducedMotion: reducedMotion,
-                    ),
-                    const SizedBox(height: 2),
-                    const _WelcomeBubble(),
-                  ],
-                ),
-              ),
+            child: _WelcomeCallout(
+              zoeMode: _welcomeZoeMode,
+              reducedMotion: reducedMotion,
             ),
           ),
         ),
+        AnimatedSwitcher(
+          duration: Duration(milliseconds: reducedMotion ? 0 : 450),
+          child: showFirstExplore
+              ? Align(
+                  key: const ValueKey('garden-first-explore-layer'),
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 22,
+                    ),
+                    child: _GardenIntroButton(
+                      key: const ValueKey('garden-first-explore'),
+                      label: 'Explore Garden',
+                      width: math.min(
+                        202.0,
+                        MediaQuery.of(context).size.width - 96,
+                      ),
+                      onTap: _onExploreFirstGarden,
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
+    );
+    return PopScope<Object?>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _returnHome();
+      },
+      child: child,
+    );
+  }
+}
+
+class _WelcomeCallout extends StatelessWidget {
+  final ZoeMascotMode zoeMode;
+  final bool reducedMotion;
+  const _WelcomeCallout({required this.zoeMode, required this.reducedMotion});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final media = MediaQuery.of(context);
+        final width = constraints.maxWidth;
+        final scale = (width / _designWidth).clamp(0.84, 1.08).toDouble();
+        final bubbleWidth = math.min(340 * scale, width - 40);
+        final bubbleLeft = math.max(20.0, (width - bubbleWidth) / 2);
+        final bubbleTop = media.padding.top + 138 * scale;
+        final mascotLeft = math.max(16.0, bubbleLeft - 6 * scale);
+        final mascotTop = math.max(
+          media.padding.top + 64,
+          bubbleTop - 58 * scale,
+        );
+
+        return Stack(
+          children: [
+            Positioned(
+              left: mascotLeft,
+              top: mascotTop,
+              child: ZoeMascot(
+                mode: zoeMode,
+                size: 72 * scale,
+                reducedMotion: reducedMotion,
+              ),
+            ),
+            Positioned(
+              left: bubbleLeft,
+              top: bubbleTop,
+              width: bubbleWidth,
+              child: const _WelcomeBubble(),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -284,23 +587,116 @@ class _WelcomeBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(
+      key: const ValueKey('garden-first-welcome-bubble'),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: EllaColors.info, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            offset: const Offset(0, 4),
-            blurRadius: 10,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(4),
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        side: const BorderSide(color: EllaColors.info, width: 3),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  _kWelcomeTitle,
+                  style: EllaTextStyles.bodySemiboldLarge.copyWith(
+                    color: EllaColors.greenDeep,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SvgPicture.asset(
+                _kGardenButtonPlantIcon,
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(
+                  EllaColors.greenDeep,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _kWelcomeBody,
+            style: EllaTextStyles.bodySemiboldLarge.copyWith(
+              color: EllaColors.ink,
+            ),
           ),
         ],
       ),
-      child: Text(
-        _kWelcomeText,
-        style: EllaTextStyles.zoeVoice.copyWith(height: 1.4),
+    );
+  }
+}
+
+class _GardenIntroButton extends StatelessWidget {
+  final String label;
+  final double width;
+  final VoidCallback onTap;
+  const _GardenIntroButton({
+    super.key,
+    required this.label,
+    required this.width,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: withTapClick(onTap),
+      child: Container(
+        width: width,
+        height: 56,
+        decoration: ellaSmoothDecoration(
+          color: EllaColors.berryMain,
+          borderRadius: BorderRadius.circular(100),
+          side: const BorderSide(color: EllaColors.berryDeep, width: 3),
+          shadows: const [
+            BoxShadow(
+              color: EllaColors.berryDeep,
+              offset: Offset(0, 3),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              _kGardenButtonPlantIcon,
+              width: 24,
+              height: 24,
+              colorFilter: const ColorFilter.mode(
+                EllaColors.onPrimary,
+                BlendMode.srcIn,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: EllaTextStyles.buttonSmall.copyWith(
+                  color: EllaColors.onPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -325,33 +721,74 @@ class _SkyScaffold extends StatelessWidget {
   }
 }
 
-class _GardenView extends ConsumerWidget {
+class _GardenView extends ConsumerStatefulWidget {
   final GardenData data;
   final bool soundOn;
   final VoidCallback onToggleSound;
+  final bool showTalkBar;
+  final Set<String> grownSkillIds;
+  final VoidCallback? onBack;
+  final VoidCallback onTalk;
   const _GardenView({
     required this.data,
     required this.soundOn,
     required this.onToggleSound,
+    required this.showTalkBar,
+    required this.grownSkillIds,
+    required this.onBack,
+    required this.onTalk,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_GardenView> createState() => _GardenViewState();
+}
+
+class _GardenViewState extends ConsumerState<_GardenView> {
+  late final ScrollController _scrollController;
+  double _scrollOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_handleScroll);
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients) return;
+    final next = _scrollController.offset;
+    if ((next - _scrollOffset).abs() < 0.5) return;
+    setState(() => _scrollOffset = next);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    final spec = _visualSpecFor(data.level);
     final media = MediaQuery.of(context);
     final childName =
         ref.watch(onboardingProvider).valueOrNull?.name?.trim() ?? '';
     final titleName = childName.isEmpty ? 'Narendra' : childName;
-    final levelName = data.theme.trim().isNotEmpty
-        ? data.theme.trim()
-        : (data.levelLabel.trim().isNotEmpty
-              ? data.levelLabel.trim()
-              : 'Dawn Glade');
+    final levelName = _gardenDisplayName(data, spec);
 
     return Stack(
       children: [
-        const Positioned.fill(child: _DawnGardenBackdrop()),
+        Positioned.fill(
+          child: _GardenBackdrop(
+            key: ValueKey('garden-backdrop-${spec.code}'),
+            spec: spec,
+          ),
+        ),
         Positioned.fill(
           child: SingleChildScrollView(
+            controller: _scrollController,
             padding: EdgeInsets.only(
               top: media.padding.top + _scrollStartY,
               bottom: media.padding.bottom + _ctaFadeHeight + 32,
@@ -365,6 +802,8 @@ class _GardenView extends ConsumerWidget {
                           data: data,
                           step: data.steps[i],
                           index: i,
+                          spec: spec,
+                          grownSkillIds: widget.grownSkillIds,
                         ),
                     ],
                   ),
@@ -375,22 +814,32 @@ class _GardenView extends ConsumerWidget {
           right: 0,
           top: 0,
           child: _PinnedGardenHeader(
+            spec: spec,
             levelName: levelName,
             gardenTitle: "$titleName's Garden",
-            soundOn: soundOn,
-            onBack: () => Navigator.of(context).maybePop(),
-            onToggleSound: onToggleSound,
+            scrollProgress: (_scrollOffset / 88).clamp(0.0, 1.0),
+            soundOn: widget.soundOn,
+            onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+            onToggleSound: widget.onToggleSound,
           ),
         ),
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          child: _LetsTalkBar(
-            // The button returns to Home, where the child picks a topic and
-            // starts a session (the garden no longer starts one directly).
-            onTalk: () =>
-                Navigator.of(context).popUntil((route) => route.isFirst),
+          child: AnimatedSwitcher(
+            duration: Duration(
+              milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 450,
+            ),
+            child: widget.showTalkBar
+                ? _LetsTalkBar(
+                    key: const ValueKey('garden-talk-bar-layer'),
+                    // The button returns to Home, where the child picks a topic
+                    // and starts a session (the garden no longer starts one
+                    // directly).
+                    onTalk: widget.onTalk,
+                  )
+                : const SizedBox.shrink(),
           ),
         ),
       ],
@@ -398,90 +847,140 @@ class _GardenView extends ConsumerWidget {
   }
 }
 
-// ── Fixed Dawn sky, header and scrolling units ───────────────────────────────
+// ── Level sky, header and scrolling units ────────────────────────────────────
 
-class _DawnGardenBackdrop extends StatelessWidget {
-  const _DawnGardenBackdrop();
+class _GardenBackdrop extends StatelessWidget {
+  final _GardenLevelVisualSpec spec;
+  const _GardenBackdrop({super.key, required this.spec});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const CustomPaint(painter: _DawnBackdropPainter()),
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 122,
-          left: -12,
-          child: const _Cloud(width: 78),
-        ),
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 120,
-          right: -19,
-          child: const _Cloud(width: 78),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = (constraints.maxWidth / _designWidth).clamp(0.86, 1.14);
+        final sun = spec.sun;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(painter: _GardenBackdropPainter(spec: spec)),
+            if (sun != null)
+              Positioned(
+                left: sun.left * scale,
+                top: sun.top * scale,
+                child: _GardenSun(spec: sun, size: sun.size * scale),
+              ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 122,
+              left: -12,
+              child: const _Cloud(width: 78),
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 120,
+              right: -19,
+              child: const _Cloud(width: 78),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _DawnBackdropPainter extends CustomPainter {
-  const _DawnBackdropPainter();
+class _GardenBackdropPainter extends CustomPainter {
+  final _GardenLevelVisualSpec spec;
+  const _GardenBackdropPainter({required this.spec});
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final skyH = math.min(h, _pinnedSkyHeight);
-    final hillStart = math.max(0.0, skyH - 7);
+    final skyH = math.min(h, spec.hillTop + 104);
 
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, skyH + 18),
+      Rect.fromLTWH(0, 0, w, skyH),
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: _dawnSky,
+          colors: spec.sky,
           stops: _gardenStops,
         ).createShader(Rect.fromLTWH(0, 0, w, skyH)),
     );
 
-    canvas.drawRect(
-      Rect.fromLTWH(0, hillStart, w, h - hillStart),
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: _dawnHill,
-          stops: _gardenStops,
-        ).createShader(Rect.fromLTWH(0, hillStart, w, h - hillStart)),
-    );
-
-    final backHill = Path()
-      ..moveTo(0, skyH + 40)
-      ..quadraticBezierTo(w * 0.38, skyH - 18, w, skyH + 28)
+    final hill = Path()
+      ..moveTo(0, spec.hillTop + spec.hillLeftYOffset)
+      ..cubicTo(
+        w * 0.20,
+        spec.hillTop + 7,
+        w * 0.37,
+        spec.hillTop - 5,
+        w * 0.53,
+        spec.hillTop,
+      )
+      ..cubicTo(
+        w * 0.70,
+        spec.hillTop + 1,
+        w * 0.86,
+        spec.hillTop + 15,
+        w,
+        spec.hillTop + spec.hillRightYOffset,
+      )
       ..lineTo(w, h)
       ..lineTo(0, h)
       ..close();
+
     canvas.drawPath(
-      backHill,
-      Paint()..color = _dawnHill.first.withValues(alpha: 0.64),
+      hill,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: spec.hill,
+          stops: _gardenStops,
+        ).createShader(Rect.fromLTWH(0, spec.hillTop, w, h - spec.hillTop)),
     );
   }
 
   @override
-  bool shouldRepaint(_DawnBackdropPainter oldDelegate) => false;
+  bool shouldRepaint(_GardenBackdropPainter oldDelegate) =>
+      oldDelegate.spec != spec;
+}
+
+class _GardenSun extends StatelessWidget {
+  final _GardenSunSpec spec;
+  final double size;
+  const _GardenSun({required this.spec, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [spec.core, spec.mid, spec.glowInner, spec.glowOuter],
+          stops: const [0, 0.42, 0.72, 1],
+        ),
+      ),
+    );
+  }
 }
 
 class _PinnedGardenHeader extends StatelessWidget {
+  final _GardenLevelVisualSpec spec;
   final String levelName;
   final String gardenTitle;
+  final double scrollProgress;
   final bool soundOn;
   final VoidCallback onBack;
   final VoidCallback onToggleSound;
 
   const _PinnedGardenHeader({
+    required this.spec,
     required this.levelName,
     required this.gardenTitle,
+    required this.scrollProgress,
     required this.soundOn,
     required this.onBack,
     required this.onToggleSound,
@@ -490,26 +989,32 @@ class _PinnedGardenHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
-    return SizedBox(
-      height: top + _pinnedSkyHeight,
-      child: Stack(
-        children: [
-          const Positioned.fill(
-            child: CustomPaint(painter: _PinnedSkyPainter()),
-          ),
-          Positioned(top: top + 122, left: -12, child: const _Cloud(width: 78)),
-          Positioned(
-            top: top + 120,
-            right: -19,
-            child: const _Cloud(width: 78),
-          ),
-          Positioned(
-            left: 24,
-            right: 20,
-            top: top + 16,
-            child: Column(
-              children: [
-                Row(
+    final pillW = _levelPillWidthFor(levelName);
+    final rowTop = top + _headerTopGap;
+    final pillLeft = _headerSidePadding + _headerButtonSize + _headerButtonGap;
+    final titleTargetY = rowTop + _levelPillH + 16;
+    final titleStartY = top + 84;
+    final progress = scrollProgress.clamp(0.0, 1.0);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final titleW = math.min(constraints.maxWidth - 32, 386.0);
+        final startCenter = constraints.maxWidth / 2;
+        final targetCenter = pillLeft + pillW / 2;
+        final titleCenter = lerpDouble(startCenter, targetCenter, progress)!;
+        final titleTop = lerpDouble(titleStartY, titleTargetY, progress)!;
+        final titleSize = lerpDouble(18, 16, progress)!;
+
+        return SizedBox(
+          height: top + _pinnedSkyHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: _headerSidePadding,
+                right: 20,
+                top: rowTop,
+                child: Row(
                   children: [
                     _HeaderCircleButton(
                       onTap: onBack,
@@ -518,8 +1023,12 @@ class _PinnedGardenHeader extends StatelessWidget {
                       iconColor: EllaColors.greenDeep,
                       border: EllaColors.greenDeep,
                     ),
-                    const SizedBox(width: 16),
-                    _LevelSelectorPill(levelName: levelName),
+                    const SizedBox(width: _headerButtonGap),
+                    _LevelSelectorPill(
+                      levelName: levelName,
+                      iconAsset: spec.iconAsset,
+                      width: pillW,
+                    ),
                     const Spacer(),
                     _HeaderCircleButton(
                       onTap: onToggleSound,
@@ -534,15 +1043,19 @@ class _PinnedGardenHeader extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                Text(
+              ),
+              Positioned(
+                left: titleCenter - titleW / 2,
+                top: titleTop,
+                width: titleW,
+                child: Text(
                   gardenTitle,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: EllaFonts.bricolage(
-                    const TextStyle(
-                      fontSize: 20,
+                    TextStyle(
+                      fontSize: titleSize,
                       fontWeight: FontWeight.w700,
                       height: 1.6,
                       letterSpacing: 0,
@@ -550,55 +1063,19 @@ class _PinnedGardenHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _PinnedSkyPainter extends CustomPainter {
-  const _PinnedSkyPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: _dawnSky,
-          stops: _gardenStops,
-        ).createShader(Offset.zero & size),
-    );
-
-    final hillTop = h - 56;
-    final hill = Path()
-      ..moveTo(0, hillTop + 14)
-      ..quadraticBezierTo(w * 0.42, hillTop - 28, w, hillTop + 4)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-
-    canvas.drawPath(
-      hill,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_dawnHillTop, _dawnHillMid],
-        ).createShader(Rect.fromLTWH(0, hillTop - 28, w, 84)),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_PinnedSkyPainter oldDelegate) => false;
+double _levelPillWidthFor(String name) {
+  if (name.length > 13) return 234;
+  if (name.length > 11) return 205;
+  return 190;
 }
 
 class _HeaderCircleButton extends StatelessWidget {
@@ -622,8 +1099,8 @@ class _HeaderCircleButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: withTapClick(onTap),
       child: Container(
-        width: 30,
-        height: 30,
+        width: _headerButtonSize,
+        height: _headerButtonSize,
         decoration: BoxDecoration(
           color: fill,
           shape: BoxShape.circle,
@@ -640,11 +1117,18 @@ class _HeaderCircleButton extends StatelessWidget {
 
 class _LevelSelectorPill extends StatelessWidget {
   final String levelName;
-  const _LevelSelectorPill({required this.levelName});
+  final String iconAsset;
+  final double width;
+  const _LevelSelectorPill({
+    required this.levelName,
+    required this.iconAsset,
+    required this.width,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: width,
       height: 43,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -655,22 +1139,20 @@ class _LevelSelectorPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset(
-            'assets/garden/plants/Sunrise Seedbed Icon 1.svg',
-            width: 24,
-            height: 24,
-          ),
+          SvgPicture.asset(iconAsset, width: 24, height: 24),
           const SizedBox(width: 12),
-          Text(
-            levelName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: EllaFonts.body(
-              const TextStyle(
-                fontSize: 16.7,
-                fontWeight: FontWeight.w600,
-                height: 1.6,
-                color: EllaColors.ink,
+          Expanded(
+            child: Text(
+              levelName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: EllaFonts.body(
+                const TextStyle(
+                  fontSize: 16.7,
+                  fontWeight: FontWeight.w600,
+                  height: 1.6,
+                  color: EllaColors.ink,
+                ),
               ),
             ),
           ),
@@ -737,10 +1219,14 @@ class _GardenUnitRow extends StatelessWidget {
   final GardenData data;
   final GardenStep step;
   final int index;
+  final _GardenLevelVisualSpec spec;
+  final Set<String> grownSkillIds;
   const _GardenUnitRow({
     required this.data,
     required this.step,
     required this.index,
+    required this.spec,
+    required this.grownSkillIds,
   });
 
   @override
@@ -756,14 +1242,28 @@ class _GardenUnitRow extends StatelessWidget {
         final signY = 23.0;
         final plotX = plotOnLeft ? 40.0 : 101.0;
         final plotY = signH > 40 ? 103.0 : (plotOnLeft ? 83.0 : 76.0);
-        final fenceX = plotOnLeft ? 47.0 : 240.0;
-        final fenceY = plotOnLeft ? 245.0 : 235.0;
-        final grassX = plotOnLeft ? 334.0 : 56.0;
-        final grassY = plotOnLeft ? plotY + 124.0 : 247.0;
-        final butterflyX = plotOnLeft ? (index == 0 ? 64.0 : 108.0) : 223.0;
-        final butterflyY = plotOnLeft ? plotY - 4.0 : plotY + 44.0;
+        final fenceX = plotOnLeft
+            ? 47.0
+            : 390.0 - _fenceRunSize(spec.fenceCount, !plotOnLeft).width;
+        final fenceY = plotOnLeft
+            ? 245.0
+            : (spec.fenceCount >= 5
+                  ? 255.0
+                  : (spec.fenceCount >= 4 ? 239.0 : 235.0));
+        final accentOffset = _groundAccentOffsetFor(
+          spec,
+          plotOnLeft: plotOnLeft,
+          plotY: plotY,
+        );
+        final ambientOffset = _ambientOffsetFor(
+          spec,
+          index: index,
+          plotOnLeft: plotOnLeft,
+          plotY: plotY,
+        );
 
         return SizedBox(
+          key: ValueKey('garden-unit-${step.step}'),
           height: _unitRowH * scale,
           child: Stack(
             clipBehavior: Clip.none,
@@ -783,7 +1283,11 @@ class _GardenUnitRow extends StatelessWidget {
                         Positioned(
                           left: plotX,
                           top: plotY,
-                          child: _Plot(data: data, step: step),
+                          child: _Plot(
+                            data: data,
+                            step: step,
+                            grownSkillIds: grownSkillIds,
+                          ),
                         ),
                         Positioned(
                           left: signX,
@@ -803,18 +1307,21 @@ class _GardenUnitRow extends StatelessWidget {
                         Positioned(
                           left: fenceX,
                           top: fenceY,
-                          child: _FenceRun(leansRight: !plotOnLeft),
+                          child: _FenceRun(
+                            leansRight: !plotOnLeft,
+                            count: spec.fenceCount,
+                          ),
                         ),
                         Positioned(
-                          left: grassX,
-                          top: grassY,
-                          child: const _GrassTuft(),
+                          left: accentOffset.dx,
+                          top: accentOffset.dy,
+                          child: _GroundAccent(spec: spec),
                         ),
                         if (step.hasGrowth || index < 4)
                           Positioned(
-                            left: butterflyX,
-                            top: butterflyY,
-                            child: const _Butterfly(),
+                            left: ambientOffset.dx,
+                            top: ambientOffset.dy,
+                            child: _AmbientCreature(kind: spec.ambientKind),
                           ),
                       ],
                     ),
@@ -826,6 +1333,42 @@ class _GardenUnitRow extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+Offset _groundAccentOffsetFor(
+  _GardenLevelVisualSpec spec, {
+  required bool plotOnLeft,
+  required double plotY,
+}) {
+  if (!spec.showWildflowers) {
+    return Offset(
+      plotOnLeft ? 334.0 : 56.0,
+      plotOnLeft ? plotY + 124.0 : 247.0,
+    );
+  }
+  if (spec.code == 'A1') {
+    return plotOnLeft ? const Offset(348, 211) : const Offset(59, 242);
+  }
+  return plotOnLeft ? const Offset(356, 171) : const Offset(46, 216);
+}
+
+Offset _ambientOffsetFor(
+  _GardenLevelVisualSpec spec, {
+  required int index,
+  required bool plotOnLeft,
+  required double plotY,
+}) {
+  switch (spec.ambientKind) {
+    case _GardenAmbientKind.butterfly:
+      return Offset(
+        plotOnLeft ? (index == 0 ? 64.0 : 108.0) : 223.0,
+        plotOnLeft ? plotY - 4.0 : plotY + 44.0,
+      );
+    case _GardenAmbientKind.bird:
+      return plotOnLeft ? const Offset(156, 210) : const Offset(182, 202);
+    case _GardenAmbientKind.bee:
+      return plotOnLeft ? const Offset(90, 73) : const Offset(353, 82);
   }
 }
 
@@ -1005,16 +1548,16 @@ class _UnitBadge extends StatelessWidget {
 
 class _FenceRun extends StatelessWidget {
   final bool leansRight;
-  const _FenceRun({required this.leansRight});
+  final int count;
+  const _FenceRun({required this.leansRight, required this.count});
 
   @override
   Widget build(BuildContext context) {
-    final positions = leansRight
-        ? const [Offset(0, 30), Offset(48, 21), Offset(95, 0)]
-        : const [Offset(0, 0), Offset(47, 12), Offset(99, 24)];
+    final positions = _fenceOffsets(count, leansRight);
+    final size = _fenceRunSize(count, leansRight);
     return SizedBox(
-      width: 139,
-      height: 54,
+      width: size.width,
+      height: size.height,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -1030,6 +1573,61 @@ class _FenceRun extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+List<Offset> _fenceOffsets(int count, bool leansRight) {
+  final normalized = count.clamp(3, 5).toInt();
+  if (leansRight) {
+    return switch (normalized) {
+      5 => const [
+        Offset(0, 30),
+        Offset(48, 30),
+        Offset(94, 30),
+        Offset(142, 21),
+        Offset(189, 0),
+      ],
+      4 => const [
+        Offset(0, 30),
+        Offset(48, 30),
+        Offset(96, 21),
+        Offset(143, 0),
+      ],
+      _ => const [Offset(0, 30), Offset(48, 21), Offset(95, 0)],
+    };
+  }
+  return switch (normalized) {
+    5 => const [
+      Offset(0, 0),
+      Offset(47, 12),
+      Offset(99, 24),
+      Offset(146, 24),
+      Offset(194, 24),
+    ],
+    4 => const [Offset(0, 0), Offset(47, 12), Offset(99, 24), Offset(147, 24)],
+    _ => const [Offset(0, 0), Offset(47, 12), Offset(99, 24)],
+  };
+}
+
+Size _fenceRunSize(int count, bool leansRight) {
+  final positions = _fenceOffsets(count, leansRight);
+  final maxX = positions.map((o) => o.dx).reduce(math.max);
+  final maxY = positions.map((o) => o.dy).reduce(math.max);
+  return Size(maxX + 40, maxY + 24);
+}
+
+class _GroundAccent extends StatelessWidget {
+  final _GardenLevelVisualSpec spec;
+  const _GroundAccent({required this.spec});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!spec.showWildflowers) return const _GrassTuft();
+    return SvgPicture.asset(
+      'assets/garden/ambient/wildflowers.svg',
+      width: 36,
+      height: 31,
     );
   }
 }
@@ -1052,15 +1650,17 @@ class _GrassTuft extends StatelessWidget {
 class _Plot extends StatelessWidget {
   final GardenData data;
   final GardenStep step;
-  const _Plot({required this.data, required this.step});
+  final Set<String> grownSkillIds;
+  const _Plot({
+    required this.data,
+    required this.step,
+    required this.grownSkillIds,
+  });
 
   @override
   Widget build(BuildContext context) {
     final skills = step.skills;
     final tileSpots = _tileSpotsFor(skills.length);
-    // Growth is driven purely by sightings: 0 → bare tile, 1 → seedling,
-    // 2 → young, ≥3 → bloom. A butterfly visits once anything has bloomed.
-    final hasBloom = step.skills.any((s) => s.sightings >= 3);
 
     // Paint back-to-front (higher = further back) so front tiles/plants overlap
     // the ones behind them correctly on the isometric lattice.
@@ -1108,9 +1708,9 @@ class _Plot extends StatelessWidget {
                 skill: skills[i],
                 spot: tileSpots[i],
                 swayDelayMs: ((i % cols) + (i ~/ cols)) * 400,
+                animateGrowth: grownSkillIds.contains(skills[i].id),
                 onTap: () => showSkillSheet(context, step, skills[i]),
               ),
-          if (hasBloom) const Positioned(top: 0, left: 24, child: _Butterfly()),
         ],
       ),
     );
@@ -1183,6 +1783,7 @@ class _SkillTile extends StatelessWidget {
       top: spot.top,
       left: spot.left,
       child: GestureDetector(
+        key: ValueKey('garden-skill-tile-${skill.id}'),
         onTap: withTapClick(onTap),
         behavior: HitTestBehavior.translucent,
         child: SvgPicture.asset(tileAsset, width: _tileW, height: _tileH),
@@ -1195,11 +1796,13 @@ class _SkillPlant extends StatelessWidget {
   final GardenSkill skill;
   final _TileSpot spot;
   final int swayDelayMs;
+  final bool animateGrowth;
   final VoidCallback onTap;
   const _SkillPlant({
     required this.skill,
     required this.spot,
     required this.swayDelayMs,
+    required this.animateGrowth,
     required this.onTap,
   });
 
@@ -1211,7 +1814,12 @@ class _SkillPlant extends StatelessWidget {
       child: SizedBox(
         width: _plantSlotW,
         child: Center(
-          child: _Plant(skill: skill, swayDelayMs: swayDelayMs, onTap: onTap),
+          child: _Plant(
+            skill: skill,
+            swayDelayMs: swayDelayMs,
+            animateGrowth: animateGrowth,
+            onTap: onTap,
+          ),
         ),
       ),
     );
@@ -1235,10 +1843,12 @@ const double _swayMaxRad = 2.2 * math.pi / 180;
 class _Plant extends StatefulWidget {
   final GardenSkill skill;
   final int swayDelayMs;
+  final bool animateGrowth;
   final VoidCallback onTap;
   const _Plant({
     required this.skill,
     required this.swayDelayMs,
+    required this.animateGrowth,
     required this.onTap,
   });
 
@@ -1268,15 +1878,25 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
   ).animate(CurvedAnimation(parent: _pop, curve: _popCurve));
 
   bool _started = false;
+  Timer? _swayDelayTimer;
 
   void _start() {
     if (_started) return;
     _started = true;
-    // Pop the plant in, then begin the staggered sway loop once it settles.
-    _pop.forward();
-    Future.delayed(Duration(milliseconds: widget.swayDelayMs), () {
-      if (mounted) _sway.repeat(reverse: true);
-    });
+    // Existing plants enter at rest. Only real post-refresh growth receives
+    // the pop animation.
+    if (widget.animateGrowth) {
+      _pop.forward(from: 0);
+    } else {
+      _pop.value = 1;
+    }
+    if (widget.swayDelayMs <= 0) {
+      _sway.repeat(reverse: true);
+    } else {
+      _swayDelayTimer = Timer(Duration(milliseconds: widget.swayDelayMs), () {
+        if (mounted) _sway.repeat(reverse: true);
+      });
+    }
   }
 
   @override
@@ -1291,7 +1911,22 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
   }
 
   @override
+  void didUpdateWidget(covariant _Plant oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (MediaQuery.of(context).disableAnimations) {
+      _pop.value = 1;
+      return;
+    }
+    final grew =
+        widget.animateGrowth &&
+        (!oldWidget.animateGrowth ||
+            widget.skill.sightings > oldWidget.skill.sightings);
+    if (grew) _pop.forward(from: 0);
+  }
+
+  @override
   void dispose() {
+    _swayDelayTimer?.cancel();
     _sway.dispose();
     _pop.dispose();
     super.dispose();
@@ -1324,6 +1959,7 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
         angle: _swayAngle.value,
         alignment: Alignment.bottomCenter,
         child: Transform.scale(
+          key: ValueKey('garden-plant-scale-${widget.skill.id}'),
           scale: _popScale.value,
           alignment: Alignment.bottomCenter,
           child: child,
@@ -1331,6 +1967,20 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
       ),
       child: art,
     );
+  }
+}
+
+class _AmbientCreature extends StatelessWidget {
+  final _GardenAmbientKind kind;
+  const _AmbientCreature({required this.kind});
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (kind) {
+      _GardenAmbientKind.butterfly => const _Butterfly(),
+      _GardenAmbientKind.bird => const _Bird(),
+      _GardenAmbientKind.bee => const _Bee(),
+    };
   }
 }
 
@@ -1403,8 +2053,121 @@ class _ButterflyState extends State<_Butterfly> with TickerProviderStateMixin {
       ),
       child: SvgPicture.asset(
         'assets/gardent-view/butterfly 1.svg',
-        width: 26,
-        height: 26,
+        width: 32,
+        height: 32,
+      ),
+    );
+  }
+}
+
+class _Bird extends StatefulWidget {
+  const _Bird();
+
+  @override
+  State<_Bird> createState() => _BirdState();
+}
+
+class _BirdState extends State<_Bird> with SingleTickerProviderStateMixin {
+  late final AnimationController _hop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 4200),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) return;
+    if (!_hop.isAnimating) _hop.repeat();
+  }
+
+  @override
+  void dispose() {
+    _hop.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _hop,
+      builder: (_, child) {
+        final forward = _hop.value < 0.5;
+        final t = forward ? _hop.value * 2 : (_hop.value - 0.5) * 2;
+        final eased = Curves.easeInOut.transform(t);
+        final x = forward
+            ? lerpDouble(0, 22, eased)!
+            : lerpDouble(22, 0, eased)!;
+        final y = -math.sin(t * math.pi) * 4;
+        return Transform.translate(
+          offset: Offset(x, y),
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.diagonal3Values(forward ? 1 : -1, 1, 1),
+            child: child,
+          ),
+        );
+      },
+      child: SvgPicture.asset(
+        'assets/garden/ambient/bird.svg',
+        width: 32,
+        height: 27,
+      ),
+    );
+  }
+}
+
+class _Bee extends StatefulWidget {
+  const _Bee();
+
+  @override
+  State<_Bee> createState() => _BeeState();
+}
+
+class _BeeState extends State<_Bee> with SingleTickerProviderStateMixin {
+  late final AnimationController _buzz = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3800),
+  );
+
+  late final Animation<double> _x = _seq(const [0, 8, 4, -6, 0]);
+  late final Animation<double> _y = _seq(const [0, -8, -2, -10, 0]);
+
+  Animation<double> _seq(List<double> pts) {
+    return TweenSequence<double>([
+      for (var i = 0; i < pts.length - 1; i++)
+        TweenSequenceItem(
+          tween: Tween(
+            begin: pts[i],
+            end: pts[i + 1],
+          ).chain(CurveTween(curve: Curves.easeInOut)),
+          weight: 25,
+        ),
+    ]).animate(_buzz);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) return;
+    if (!_buzz.isAnimating) _buzz.repeat();
+  }
+
+  @override
+  void dispose() {
+    _buzz.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _buzz,
+      builder: (_, child) =>
+          Transform.translate(offset: Offset(_x.value, _y.value), child: child),
+      child: SvgPicture.asset(
+        'assets/garden/ambient/bee.svg',
+        width: 24,
+        height: 24,
       ),
     );
   }
@@ -1414,7 +2177,7 @@ class _ButterflyState extends State<_Butterfly> with TickerProviderStateMixin {
 
 class _LetsTalkBar extends StatelessWidget {
   final VoidCallback onTalk;
-  const _LetsTalkBar({required this.onTalk});
+  const _LetsTalkBar({super.key, required this.onTalk});
 
   @override
   Widget build(BuildContext context) {
@@ -1455,14 +2218,14 @@ class _LetsTalkBar extends StatelessWidget {
                     child: Container(
                       width: 154,
                       height: 48,
-                      decoration: BoxDecoration(
+                      decoration: ellaSmoothDecoration(
                         color: EllaColors.berryMain,
                         borderRadius: BorderRadius.circular(100),
-                        border: Border.all(
+                        side: const BorderSide(
                           color: EllaColors.berryDeep,
                           width: 3,
                         ),
-                        boxShadow: const [
+                        shadows: const [
                           BoxShadow(
                             color: EllaColors.berryDeep,
                             offset: Offset(0, 3),
@@ -1478,15 +2241,21 @@ class _LetsTalkBar extends StatelessWidget {
                             size: 16,
                             color: EllaColors.onPrimary,
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            "Let's Talk",
-                            style: EllaFonts.body(
-                              const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                height: 1.6,
-                                color: EllaColors.onPrimary,
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                "Let's Talk",
+                                maxLines: 1,
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.6,
+                                    color: EllaColors.onPrimary,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

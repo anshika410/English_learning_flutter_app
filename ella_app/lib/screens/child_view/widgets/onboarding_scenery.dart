@@ -1,7 +1,7 @@
 // Shared backdrop for the pre-auth onboarding screens (Splash, Login, Magic
-// Link) — Figma "Onboarding" frames: a soft peach→cyan sky over two rolling
-// green hills, dressed with the SAME blooming skill plants the Garden screen
-// uses (assets/garden/plants/*-bloom.svg), gently swaying like they do there.
+// Link) — Figma "Onboarding" frames: a soft peach→cyan sky over rolling green
+// hills and three little blooms. The frame values are treated as proportions,
+// then clamped so the scenery holds together on narrow/short phones.
 // Content is layered on top via [child].
 
 import 'dart:math' as math;
@@ -16,68 +16,84 @@ class OnboardingScenery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      // Sky: soft peach easing into light cyan (Figma splash/login gradient).
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFEDDF), // soft peach
-            Color(0xFFE5F9F6), // light cyan
-          ],
-          stops: [0.0, 0.4],
-        ),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Rolling hills anchored to the bottom.
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 150,
-            child: CustomPaint(painter: _HillsPainter()),
-          ),
-          // Garden skill blooms — marigold (vocab) left; purple (grammar) +
-          // rose (fluency) right, matching the Figma corner arrangement.
-          const Positioned(
-            left: 20,
-            bottom: 26,
-            child: _SwayingBloom(
-              asset: 'assets/garden/plants/vocab-bloom.svg',
-              height: 64,
-              phaseMs: 0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final hillWidth = math.max(width * 1.305, 400.0);
+        final hillHeight = hillWidth * 660.5 / 561;
+        final visibleHillHeight = _clampDouble(height * 0.116, 72, 112);
+        final plantHeight = _clampDouble(height * 0.122, 82, 114);
+
+        return DecoratedBox(
+          // Sky: soft peach easing into light cyan (Figma splash/login gradient).
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFFEDDF), // soft peach
+                Color(0xFFE5F9F6), // light cyan
+              ],
+              stops: [0.0, 0.4],
             ),
           ),
-          const Positioned(
-            right: 58,
-            bottom: 54,
-            child: _SwayingBloom(
-              asset: 'assets/garden/plants/grammar-bloom.svg',
-              height: 58,
-              phaseMs: 900,
-            ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                left: -width * 0.121,
+                bottom: -(hillHeight - visibleHillHeight),
+                width: hillWidth,
+                height: hillHeight,
+                child: SvgPicture.asset(
+                  'assets/auth/onboarding-hills.svg',
+                  fit: BoxFit.fill,
+                ),
+              ),
+              Positioned(
+                left: width * 0.067,
+                bottom: _clampDouble(height * 0.026, 16, 26),
+                child: _SwayingBloom(
+                  asset: 'assets/gardent-view/plannts-vocobulary-bloom.svg',
+                  height: plantHeight,
+                  phaseMs: 0,
+                ),
+              ),
+              Positioned(
+                right: width * 0.13,
+                bottom: _clampDouble(height * 0.044, 24, 42),
+                child: _SwayingBloom(
+                  asset: 'assets/gardent-view/plants-grammer-bloom.svg',
+                  height: plantHeight,
+                  phaseMs: 1200,
+                ),
+              ),
+              Positioned(
+                right: -width * 0.004,
+                bottom: _clampDouble(height * 0.022, 14, 22),
+                child: _SwayingBloom(
+                  asset: 'assets/gardent-view/plants-fluency-bloom.svg',
+                  height: plantHeight,
+                  phaseMs: 2400,
+                ),
+              ),
+              child,
+            ],
           ),
-          const Positioned(
-            right: 14,
-            bottom: 18,
-            child: _SwayingBloom(
-              asset: 'assets/garden/plants/fluency-bloom.svg',
-              height: 72,
-              phaseMs: 1700,
-            ),
-          ),
-          child,
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-// A garden bloom that sways about its base (±2.2°, 3600ms ping-pong) — the same
-// idle motion as the Garden screen's _Plant sway, staggered by [phaseMs].
+double _clampDouble(double value, double min, double max) {
+  return value.clamp(min, max).toDouble();
+}
+
+// A garden bloom that sways about its base (±2.0°, 6000ms ping-pong). It is
+// deliberately slower than the interactive garden plants so the auth screens
+// keep their calm, idle feel.
 class _SwayingBloom extends StatefulWidget {
   final String asset;
   final double height;
@@ -95,11 +111,11 @@ class _SwayingBloom extends StatefulWidget {
 
 class _SwayingBloomState extends State<_SwayingBloom>
     with SingleTickerProviderStateMixin {
-  static const double _maxRad = 2.2 * math.pi / 180;
+  static const double _maxRad = 2.0 * math.pi / 180;
 
   late final AnimationController _sway = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 3600),
+    duration: const Duration(milliseconds: 6000),
   );
   late final Animation<double> _angle = Tween<double>(
     begin: -_maxRad,
@@ -126,55 +142,15 @@ class _SwayingBloomState extends State<_SwayingBloom>
 
   @override
   Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
     return AnimatedBuilder(
       animation: _sway,
       builder: (_, child) => Transform.rotate(
-        angle: _angle.value,
+        angle: reducedMotion ? 0 : _angle.value,
         alignment: Alignment.bottomCenter,
         child: child,
       ),
       child: SvgPicture.asset(widget.asset, height: widget.height),
     );
   }
-}
-
-class _HillsPainter extends CustomPainter {
-  const _HillsPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    // Back hill (lightest green).
-    paint.color = const Color(0xFFD6EFD2);
-    final back = Path()
-      ..moveTo(0, size.height * 0.7)
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.4,
-        size.width,
-        size.height * 0.8,
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(back, paint);
-
-    // Front hill (vibrant green).
-    paint.color = const Color(0xFFA5D166);
-    final front = Path()
-      ..moveTo(0, size.height * 0.9)
-      ..quadraticBezierTo(
-        size.width * 0.3,
-        size.height * 0.6,
-        size.width * 0.6,
-        size.height,
-      )
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(front, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _HillsPainter oldDelegate) => false;
 }

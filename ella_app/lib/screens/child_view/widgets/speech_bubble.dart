@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 
@@ -32,10 +33,10 @@ class SpeechBubble extends StatelessWidget {
     final bubble = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
+      decoration: ellaSmoothDecoration(
         color: EllaColors.bubbleSurface,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [
+        shadows: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.16),
             offset: const Offset(0, 4),
