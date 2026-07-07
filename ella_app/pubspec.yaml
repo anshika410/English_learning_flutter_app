@@ -145,3 +145,8 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dependency_overrides:
+  google_sign_in_android:
+    path: ../google_sign_in_android_patched
+
