@@ -152,6 +152,8 @@ class MemoryState {
   final int effortTimesSpoken; // lifetime total, only ever rises
   final int chatCount;
   final int updatedAfterChat;
+  final String? name;
+  final int? age;
   // Server-owned placement result (null until the student has been levelled).
   // Its presence gates the first-run placement flow. Read-only — not in toJson.
   final PlacementInfo? placement;
@@ -174,6 +176,8 @@ class MemoryState {
     this.effortTimesSpoken = 0,
     this.chatCount = 0,
     this.updatedAfterChat = 0,
+    this.name,
+    this.age,
     this.placement,
   });
 
@@ -195,6 +199,8 @@ class MemoryState {
     int? effortTimesSpoken,
     int? chatCount,
     int? updatedAfterChat,
+    String? name,
+    int? age,
     PlacementInfo? placement,
   }) => MemoryState(
     childId: childId ?? this.childId,
@@ -214,6 +220,8 @@ class MemoryState {
     effortTimesSpoken: effortTimesSpoken ?? this.effortTimesSpoken,
     chatCount: chatCount ?? this.chatCount,
     updatedAfterChat: updatedAfterChat ?? this.updatedAfterChat,
+    name: name ?? this.name,
+    age: age ?? this.age,
     placement: placement ?? this.placement,
   );
 
@@ -226,6 +234,9 @@ class MemoryState {
     final due = j['due_next'] != null
         ? DueNext.fromJson(Map<String, dynamic>.from(j['due_next'] as Map))
         : const DueNext();
+    final profile = j['profile'] is Map ? Map<String, dynamic>.from(j['profile'] as Map) : null;
+    final name = profile?['name'] as String?;
+    final age = (profile?['age'] as num?)?.toInt();
     return MemoryState(
       childId: childId,
       level: j['level'] as String? ?? 'A1',
@@ -263,6 +274,8 @@ class MemoryState {
       effortTimesSpoken: (j['effort_times_spoken'] as num?)?.toInt() ?? 0,
       chatCount: (j['chat_count'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      name: name,
+      age: age,
       placement: j['placement'] is Map
           ? PlacementInfo.fromJson(
               Map<String, dynamic>.from(j['placement'] as Map),

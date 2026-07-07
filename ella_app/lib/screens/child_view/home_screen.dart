@@ -196,6 +196,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
             children: [
               _HeaderRow(
                 name:
+                    _memory?.name ??
                     ref.watch(onboardingProvider).valueOrNull?.name ??
                     kHomeChildName,
                 onOpenProfile: widget.onOpenProfile,
