@@ -178,7 +178,7 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
   void _onMicTap(ChatState s) {
     if (s.status == ChatStatus.userSpeaking) {
       ref.read(chatProvider.notifier).stopListening();
-    } else if (s.status == ChatStatus.idle) {
+    } else if (s.status == ChatStatus.idle || s.status == ChatStatus.zoeSpeaking) {
       ref
           .read(chatProvider.notifier)
           .startListening()

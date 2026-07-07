@@ -9,6 +9,7 @@ import '../services/ella_api_service.dart';
 import '../services/llm_service.dart';
 import '../services/supabase_service.dart';
 import '../services/stt_tts_service.dart';
+import '../services/native_tts_service.dart';
 
 final supabaseServiceProvider = Provider<SupabaseService>((ref) {
   return SupabaseService(Supabase.instance.client);
@@ -33,6 +34,9 @@ final sttProvider = Provider<SpeechToTextService>(
 );
 
 final ttsProvider = Provider<FlutterTtsService>((ref) => FlutterTtsService());
+
+/// Native Android TTS with karaoke word-highlight support.
+final nativeTtsProvider = Provider<NativeTtsService>((ref) => NativeTtsService());
 
 /// App-wide SFX + background-music player. Initialized once in main().
 final audioProvider = Provider<AudioService>((ref) {

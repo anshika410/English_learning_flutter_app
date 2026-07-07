@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dotted_border/dotted_border.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
@@ -27,36 +28,133 @@ class ChatBubble extends StatelessWidget {
         children: [
           if (isZoe) ...[_ZoeAvatar(), const SizedBox(width: 8)],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                // Child bubble uses greenMain (ink text = 7.29:1, AA); white on
-                // greenDark would fail. Zoe bubble is a plain surface.
-                color: isZoe ? EllaColors.surface : EllaColors.greenMain,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isZoe ? 4 : 18),
-                  bottomRight: Radius.circular(isZoe ? 18 : 4),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+            child: isZoe
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: EllaColors.surface,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(18),
+                      bottomLeft: Radius.circular(4),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Text(
-                message.text,
-                style: EllaTextStyles.bodyBase.copyWith(
-                  color: EllaColors.ink,
-                  height: 1.4,
+                  child: _TypewriterText(text: message.text),
+                )
+              : DottedBorder(
+                  color: const Color(0xFFE91E63),
+                  strokeWidth: 2.5,
+                  dashPattern: const [8, 4],
+                  borderType: BorderType.RRect,
+                  radius: const Radius.circular(18),
+                  padding: EdgeInsets.zero,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFCE4EC),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(
+                      message.text,
+                      style: EllaTextStyles.bodyBase.copyWith(
+                        color: const Color(0xFF880E4F),
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Reveals text word-by-word with a typing animation for Zoe's messages.
+/// Also supports karaoke highlight when [highlightStart] and [highlightEnd] are provided.
+class _TypewriterText extends StatefulWidget {
+  final String text;
+  final int highlightStart;
+  final int highlightEnd;
+  const _TypewriterText({required this.text, this.highlightStart = -1, this.highlightEnd = -1});
+
+  @override
+  State<_TypewriterText> createState() => _TypewriterTextState();
+}
+
+class _TypewriterTextState extends State<_TypewriterText> {
+  late List<String> _words;
+  int _visibleWords = 0;
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _words = widget.text.split(' ');
+    _animate();
+  }
+
+  void _animate() async {
+    for (int i = 1; i <= _words.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+      setState(() => _visibleWords = i);
+    }
+    if (mounted) setState(() => _done = true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TypewriterText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _words = widget.text.split(' ');
+      _visibleWords = 0;
+      _done = false;
+      _animate();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayed = _done
+        ? widget.text
+        : _words.take(_visibleWords).join(' ');
+
+    // If we have highlight range, build RichText with highlighted span
+    if (_done && widget.highlightStart >= 0 && widget.highlightEnd > widget.highlightStart && widget.highlightEnd <= widget.text.length) {
+      return RichText(
+        text: TextSpan(
+          style: EllaTextStyles.bodyBase.copyWith(color: EllaColors.ink, height: 1.4),
+          children: [
+            TextSpan(text: widget.text.substring(0, widget.highlightStart)),
+            TextSpan(
+              text: widget.text.substring(widget.highlightStart, widget.highlightEnd),
+              style: EllaTextStyles.bodyBase.copyWith(
+                color: const Color(0xFFE91E63),
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+            TextSpan(text: widget.text.substring(widget.highlightEnd)),
+          ],
+        ),
+      );
+    }
+
+    return Text(
+      displayed,
+      style: EllaTextStyles.bodyBase.copyWith(
+        color: EllaColors.ink,
+        height: 1.4,
       ),
     );
   }
