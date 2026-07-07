@@ -550,7 +550,7 @@ class _WelcomeCallout extends StatelessWidget {
         final scale = (width / _designWidth).clamp(0.84, 1.08).toDouble();
         final bubbleLeft = 24.0;
         final bubbleWidth = width - 48;
-        final bubbleTop = media.padding.top + 138 * scale;
+        final bubbleTop = media.padding.top + 126 * scale;
         final mascotLeft = math.max(16.0, bubbleLeft - 6 * scale);
         final mascotTop = math.max(
           media.padding.top + 16 + 104 * 0.62,
@@ -607,7 +607,6 @@ class _WelcomeBubble extends StatelessWidget {
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
             children: [
               SvgPicture.asset(
                 _kGardenButtonPlantIcon,
@@ -619,11 +618,16 @@ class _WelcomeBubble extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  _kWelcomeTitle,
-                  style: EllaTextStyles.bodySemiboldLarge.copyWith(
-                    color: EllaColors.greenDeep,
+              Expanded(
+                child: FittedBox(
+                  alignment: Alignment.centerLeft,
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _kWelcomeTitle,
+                    maxLines: 1,
+                    style: EllaTextStyles.bodySemiboldLarge.copyWith(
+                      color: EllaColors.greenDeep,
+                    ),
                   ),
                 ),
               ),

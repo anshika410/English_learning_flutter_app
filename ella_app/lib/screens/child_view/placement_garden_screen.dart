@@ -678,10 +678,10 @@ class _PlacementGardenMetrics {
     // Spotlight bubble spans the full screen width with 24px side padding.
     final placementBubbleLeft = 24.0;
     final placementBubbleWidth = width - 48;
-    final placementBubbleTopIdeal = headerTop + 122 * scale;
+    final placementBubbleTopIdeal = headerTop + 108 * scale;
     final placementBubbleTopMax = math.max(
       headerTop + 104,
-      plotTop - 122 * scale,
+      plotTop - 150 * scale,
     );
     final placementBubbleTop = math.min(
       placementBubbleTopIdeal,
@@ -1083,15 +1083,19 @@ class _RevealBubble extends StatelessWidget {
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
             children: [
               SvgPicture.asset(_kBubblePlantIcon, width: 32, height: 32),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Look, your first plant',
-                  style: EllaTextStyles.bodySemiboldLarge.copyWith(
-                    color: EllaColors.greenDeep,
+              Expanded(
+                child: FittedBox(
+                  alignment: Alignment.centerLeft,
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'Look, your first plant',
+                    maxLines: 1,
+                    style: EllaTextStyles.bodySemiboldLarge.copyWith(
+                      color: EllaColors.greenDeep,
+                    ),
                   ),
                 ),
               ),
