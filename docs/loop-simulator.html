@@ -1525,12 +1525,38 @@ function App(){
             color: '#1e4620',
             boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
           }}>
-            <h3 style={{marginTop:0,marginBottom:8,color:'#1e4620'}}>🎉 Placement Test Complete!</h3>
-            <p style={{fontSize:13.5,margin:'4px 0'}}>Assessed Level: <b>{placementAssessment.level} - {placementAssessment.unit_name || placementAssessment.level_name || placementAssessment.unit_label}</b></p>
-            <p style={{fontSize:12.5,color:'#3b7a3e',margin:'4px 0'}}>Confidence: {placementAssessment.confidence || 'medium'}</p>
-            <p style={{fontSize:12.5,margin:'8px 0',lineHeight:1.4}}><i>{placementAssessment.evidence_summary}</i></p>
-            {placementAssessment.interests && placementAssessment.interests.length > 0 && (
-              <p style={{fontSize:12.5,margin:'4px 0'}}>Interests: {placementAssessment.interests.join(', ')}</p>
+            <h3 style={{marginTop:0,marginBottom:8,color: placementAssessment.level ? '#1e4620' : 'var(--rust)'}}>
+              {placementAssessment.level ? '🎉 Placement Test Complete!' : '⚠️ Placement Cancelled'}
+            </h3>
+            {placementAssessment.level ? (
+              <>
+                <p style={{fontSize:13.5,margin:'4px 0'}}>Assessed Level: <b>{placementAssessment.level} - {placementAssessment.unit_name || placementAssessment.level_name || placementAssessment.unit_label}</b></p>
+                <p style={{fontSize:12.5,color:'#3b7a3e',margin:'4px 0'}}>Confidence: {placementAssessment.confidence || 'medium'}</p>
+                {dbMemory && dbMemory.last_time_recap && (
+                  <div style={{marginTop:10,padding:'8px 12px',background:'#f0faf2',borderRadius:8,border:'1px solid #c8e6c9'}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'#3aa655',marginBottom:2}}>💬 RECAP</div>
+                    <div style={{fontSize:13}}>{dbMemory.last_time_recap}</div>
+                  </div>
+                )}
+                {dbMemory && dbMemory.next_topics && (
+                  <div style={{marginTop:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--blue)',marginBottom:4}}>NEXT TOPICS</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                      {dbMemory.next_topics.recommended && (
+                        <button className="act" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>{setPlacementAssessment(null);setSessionType('standard');startTopicConversation({topic:dbMemory.next_topics.recommended.name,name:dbMemory.next_topics.recommended.name,starters:[dbMemory.next_topics.recommended.starter]});}}>{dbMemory.next_topics.recommended.label || dbMemory.next_topics.recommended.name} →</button>
+                      )}
+                      {dbMemory.next_topics.alternatives && dbMemory.next_topics.alternatives.map((t,i) => (
+                        <button key={i} className="ghost" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>{setPlacementAssessment(null);setSessionType('standard');startTopicConversation({topic:t.name,name:t.name,starters:[t.starter]});}}>{t.label || t.name} →</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p style={{fontSize:13,margin:'4px 0',color:'#5a3a1a'}}>No level assigned. Take the test again when ready.</p>
+                <button className="act" style={{marginTop:8,background:'var(--rust)'}} onClick={()=>{setPlacementAssessment(null);startPlacementTest();}}>📝 Retake Placement Test</button>
+              </>
             )}
           </div>
         )}
@@ -1666,7 +1692,33 @@ function App(){
       <div className="inrow" style={{borderTop:'none',paddingTop:0}}>
         <button className="ghost" onClick={()=>setAuto(a=>!a)}>{auto?'✋ manual':'🤖 auto'}</button>
         {sessionType === 'placement' ? (
-          <button className="act" style={{background:'var(--rust)',cursor:'not-allowed'}} disabled={true}>Placement Active</button>
+          <button className="act" style={{background:'var(--rust)'}} disabled={busy||!!placementAssessment} onClick={async ()=>{
+            setBusy(true);
+            try {
+              if (LLM_CONFIG.mode === 'api') {
+                await callEllaAPI('/llm/placement-turn', 'POST', {
+                  messages: [],
+                  name: null,
+                  age: null,
+                  cancel: true
+                });
+                const memoryData = await callEllaAPI('/users/me/memory');
+                setDbMemory(memoryData || {});
+                try {
+                  const gardenData = await callEllaAPI('/users/me/garden');
+                  setDbGarden(gardenData || null);
+                } catch(e) {}
+              }
+              setSessionType('standard');
+              setPlacementAssessment({ is_complete: true, level: null, unit_name: null, confidence: null });
+              setMsgs(m=>[...m,{role:'sys',text:'Placement cancelled. No level assigned — retake anytime.'}]);
+            } catch(err) {
+              setSessionType('standard');
+              setMsgs(m=>[...m,{role:'sys',text:'Placement cancelled. No level assigned.'}]);
+            } finally {
+              setBusy(false);
+            }
+          }}>End Placement ✕</button>
         ) : (
           <button className="act" disabled={busy||!!judgeOut} onClick={endChat}>End chat & judge ⚖️</button>
         )}
@@ -2052,7 +2104,8 @@ function MemoryView({mem,hl,changes,snapshots,dbMemory,isApiMode,showClientSide}
     <small className="note">owned/emerging hold buckets; confidence is NOT stored here (see Session log). Snapshots show how memory evolved chat by chat.</small>
     {isApiMode&&<div style={{marginTop:16,padding:12,border:'1.5px dashed var(--rust)',borderRadius:8,background:'#fff5f5'}}>
       <div style={{fontSize:12,fontWeight:700,color:'var(--rust)',marginBottom:6}}>⚠️ Danger Zone</div>
-      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)'}} onClick={()=>{if(confirm('This will delete your token and create a fresh user. All progress will be lost. Continue?')){localStorage.removeItem('ella_access_token');localStorage.removeItem('ella_device_id');window.location.reload();}}}>🗑️ Delete & Start Fresh (new user for placement test)</button>
+      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)',marginBottom:6}} onClick={async ()=>{if(confirm('This will RESET your current user — delete placements, level, skills. Continue?')){try{const did=localStorage.getItem('ella_device_id');if(did){await callEllaAPI(`/admin/reset-user/${did}`,'DELETE');} }catch(e){console.error(e);}window.location.reload();}}}>🔄 Reset User (keep device, clear all progress)</button>
+      <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)'}} onClick={()=>{if(confirm('This will create a BRAND NEW user. All progress lost. Continue?')){localStorage.removeItem('ella_access_token');localStorage.removeItem('ella_device_id');window.location.reload();}}}>🗑️ Delete & Start Fresh (new user)</button>
     </div>}
   </div>);
 }
@@ -2226,28 +2279,62 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
         {error && <div style={{ color: 'var(--rust)', padding: 20 }}>Error: {error}</div>}
         {serverPrompts && (
           <>
+            <div className="lbl">Placement</div>
             <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Zoe Conversation Prompt (conversation-prompt.md)</div>
-              <textarea 
-                value={serverPrompts.conversation} 
-                readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
-              />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl">LLM Judge Prompt (end-result-prompt.md)</div>
-              <textarea 
-                value={serverPrompts.judge} 
-                readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
-              />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl">Placement Diagnostic Prompt (placement-check-prompt.md)</div>
+              <div className="lbl" style={{fontSize:9}}>placement-check-prompt.md</div>
               <textarea 
                 value={serverPrompts.placement} 
                 readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 260 }}
+                style={{ background: '#f4f1ea', cursor: 'default', height: 220 }}
+              />
+            </div>
+
+            <div className="lbl" style={{marginTop:20}}>Conversation — Base (shared)</div>
+            <div style={{ marginBottom: 14 }}>
+              <textarea 
+                value={serverPrompts.base} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 150 }}
+              />
+            </div>
+
+            <div className="lbl">Conversation — Level Profiles</div>
+            {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => (
+              <div key={lvl} style={{ marginBottom: 6 }}>
+                <div style={{ fontWeight: 700, fontSize: 10, color: 'var(--purple)', marginBottom: 2 }}>Profile · {lvl}</div>
+                <textarea 
+                  value={txt} 
+                  readOnly={true} 
+                  style={{ background: '#f4f1ea', cursor: 'default', height: 50, fontSize: 11 }}
+                />
+              </div>
+            ))}
+
+            <div className="lbl" style={{marginTop:16}}>Conversation — Unit Framing</div>
+            <div style={{ marginBottom: 14 }}>
+              <textarea 
+                value={serverPrompts.conv_unit_framing} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 140 }}
+              />
+            </div>
+
+            <div className="lbl" style={{marginTop:16}}>Judge (post-session)</div>
+            <div style={{ marginBottom: 14 }}>
+              <div className="lbl" style={{fontSize:9}}>end-result-prompt.md</div>
+              <textarea 
+                value={serverPrompts.judge} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 200 }}
+              />
+            </div>
+
+            <div className="lbl">Correction Extraction (separate call)</div>
+            <div style={{ marginBottom: 14 }}>
+              <textarea 
+                value={serverPrompts.correction_extraction} 
+                readOnly={true} 
+                style={{ background: '#f4f1ea', cursor: 'default', height: 120 }}
               />
             </div>
           </>

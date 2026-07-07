@@ -20,6 +20,26 @@ import json
 router = APIRouter(prefix="/llm", tags=["llm"])
 
 
+def _generate_placement_recap(result: dict) -> str | None:
+    """Generate a friendly recap from placement result data (interests, notes)."""
+    interests = result.get("interests", [])
+    notes = result.get("notes_for_first_session", "")
+    
+    if interests and len(interests) > 0:
+        if len(interests) == 1:
+            return f"You told me you like {interests[0]}!"
+        elif len(interests) == 2:
+            return f"You told me you like {interests[0]} and {interests[1]}!"
+        else:
+            return f"You told me you like {interests[0]}, {interests[1]}, and more!"
+    
+    if notes:
+        # Try to extract something personal from the notes
+        return "It was great chatting with you! Let's talk more soon."
+    
+    return None
+
+
 @router.post("/conversation-starter", response_model=StarterResponse)
 async def conversation_starter(
     body: StarterRequest,
@@ -86,9 +106,30 @@ async def placement_turn(
     Executes a dialogue turn during the voice placement screening test.
     
     - Accepts the running transcript log.
+    - If cancel=true, records cancellation without assigning a level.
     - Queries the backend LLM state machine to decide if the test should continue or complete.
     - Returns Zoe's next question OR a final CEFR assessment (`is_complete: true`) once enough evidence is gathered.
     """
+    # Handle cancellation
+    if body.cancel:
+        return PlacementTurnResponse(
+            reply=None,
+            is_complete=True,
+            name=body.name or user.name,
+            age=body.age,
+            level=None,
+            unit_name=None,
+            level_description="Placement cancelled. You can retake anytime.",
+            confidence=None,
+            possible_higher=None,
+            evidence_summary="Placement cancelled by user.",
+            probe_targets_covered=None,
+            turns_taken=len([m for m in body.messages if m.role == "user"]),
+            code_switch_observed=None,
+            interests=None,
+            notes_for_first_session=None,
+        )
+
     try:
         messages = [m.model_dump() for m in body.messages]
         result = await llm_service.send_placement_turn(
@@ -110,7 +151,7 @@ async def placement_turn(
                 level=level,
                 unit_label=unit_name,
                 confidence=result.get("confidence"),
-                highlight=result.get("evidence_summary"),
+                highlight=result.get("zoe_recap") or _generate_placement_recap(result) or result.get("evidence_summary"),
                 transcript_json=json.dumps(messages) if messages else None,
             )
             db.add(placement)

@@ -71,6 +71,7 @@ class PlacementSubResponse(BaseModel):
 class NextTopicItem(BaseModel):
     name: str
     label: str
+    icon: str | None = None
     starter: str | None = None
 
 

@@ -227,22 +227,90 @@ class AdminPromptsResponse(BaseModel):
     conversation: str
     judge: str
     placement: str
+    correction_extraction: str
+    base: str
+    level_profiles: dict[str, str]
+    conv_unit_framing: str
 
 
 @router.get("/prompts", response_model=AdminPromptsResponse)
 async def get_admin_prompts():
-    """Get active LLM prompt templates from disk."""
-    from ..services.llm_service import PROMPTS_DIR
+    """Get active LLM prompt templates — modular building blocks matching client structure."""
+    from ..services.llm_service import PROMPTS_DIR, extract_correction_highlight
+    import inspect, re
     try:
         conv = (PROMPTS_DIR / "conversation-prompt.md").read_text()
         judge = (PROMPTS_DIR / "end-result-prompt.md").read_text()
         placement = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+        
+        # Read modular prompt files
+        base = (PROMPTS_DIR / "base-prompt.md").read_text()
+        conv_unit_framing = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+        
+        # Read level profiles
+        level_profiles = {}
+        for lvl in ["A0", "A1", "A2", "B1", "B2", "C1"]:
+            profile_path = PROMPTS_DIR / f"profile-{lvl}.md"
+            if profile_path.exists():
+                level_profiles[lvl] = profile_path.read_text()
+            else:
+                level_profiles[lvl] = f"(No profile file for {lvl})"
+
+        # Extract correction prompt from function source
+        correction_src = inspect.getsource(extract_correction_highlight)
+        prompt_match = re.search(r'prompt = f"""(.+?)"""', correction_src, re.DOTALL)
+        correction_prompt = prompt_match.group(1).strip() if prompt_match else "See llm_service.py → extract_correction_highlight()"
+
         return AdminPromptsResponse(
             conversation=conv,
             judge=judge,
             placement=placement,
+            correction_extraction=correction_prompt,
+            base=base,
+            level_profiles=level_profiles,
+            conv_unit_framing=conv_unit_framing,
         )
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to read prompt templates: {e}"
         )
+
+
+@router.delete("/reset-user/{device_id}")
+async def reset_user(
+    device_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    DEV ONLY — Deletes all placement records for a user and resets their level to null.
+    Use this to re-test placement flow from scratch.
+    """
+    result = await db.execute(select(User).where(User.device_id == device_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User with device_id '{device_id}' not found")
+
+    # Delete placements
+    await db.execute(
+        select(Placement).where(Placement.user_id == user.id)
+    )
+    from sqlalchemy import delete
+    await db.execute(delete(Placement).where(Placement.user_id == user.id))
+
+    # Reset user fields
+    user.level = None
+    user.level_label = None
+    user.first_session_done = False
+    user.skills_progress = {}
+    user.due_next = {}
+    user.interests = None
+    user.persona_memory = {}
+    db.add(user)
+    await db.flush()
+
+    return {
+        "status": "reset",
+        "device_id": device_id,
+        "user_id": user.id,
+        "message": "All placements deleted. Level, skills, memory reset to fresh state."
+    }

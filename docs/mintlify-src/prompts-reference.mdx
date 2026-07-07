@@ -1,0 +1,254 @@
+---
+title: "Prompts Reference"
+sidebarTitle: "All Prompts"
+description: "Every LLM prompt used in the system — conversation, placement, judge, and correction extraction."
+---
+
+This page documents all LLM prompts used in the Ella backend. There are 4 prompts total, each serving a different purpose in the learning loop.
+
+---
+
+## Overview
+
+| Prompt | When Called | File | Purpose |
+|---|---|---|---|
+| Conversation | Every turn during chat | `prompts/conversation-prompt.md` | Makes Zoe respond as a tutor |
+| Placement | During screening test | `prompts/placement-check-prompt.md` | Assesses student's CEFR level |
+| Judge | After conversation ends | `prompts/end-result-prompt.md` | Grades skills, extracts best moment |
+| Correction Extraction | After judge completes | Inline in `llm_service.py` | Finds student error + correction pair |
+
+---
+
+## 1. Conversation Prompt
+
+**Called by:** `POST /session/{id}/turn`  
+**File:** `backend/app/prompts/conversation-prompt.md`  
+**LLM:** DeepSeek (`deepseek-chat`)  
+**Max tokens:** 280  
+**Temperature:** 0.75
+
+### What it does
+Makes Zoe respond as a warm English tutor during conversation. Each turn, the full prompt is assembled with variables and sent to the LLM.
+
+### Template Variables
+
+| Variable | Source | Example |
+|---|---|---|
+| `{{LEVEL_BLOCK}}` | Level-specific instructions (A0–C1) | "Use only present tense. Maximum 8-18 words." |
+| `{{UNITNAME}}` | Current unit name | "First words" |
+| `{{UNITFOCUS}}` | Unit focus description | "Naming the things I can see." |
+| `{{TARGETS}}` | Due skills to elicit | "I can name colours and say numbers 1–10." |
+| `{{ELICITATION}}` | Teacher invisible plan questions | "What colour is your bag?" |
+| `{{STUDENT_MEMORY}}` | Facts from persona_memory | "Likes cricket, has a dog named Max" |
+| `{{CURRENT_TURN}}` | Turn number (1–6) | "4" |
+
+### Key Rules
+- Keep turns short (8–18 words for A1/A2, 12–35 for B1+)
+- Ask only ONE question at a time
+- Never criticize or shame
+- Elicit the target skill naturally (no quizzing)
+- At turn 6, output `{"conversation_complete": true}`
+
+---
+
+## 2. Placement Prompt
+
+**Called by:** `POST /llm/placement-turn`  
+**File:** `backend/app/prompts/placement-check-prompt.md`  
+**LLM:** DeepSeek (`deepseek-chat`)  
+**Max tokens:** 280  
+**Temperature:** 0.75
+
+### What it does
+Runs an adaptive screening interview to determine the student's CEFR level. Zoe chats naturally while quietly probing speaking ability.
+
+### Template Variables
+
+| Variable | Source | Example |
+|---|---|---|
+| `{{NAME}}` | Student name (from form) | "Ravi" |
+| `{{AGE}}` | Student age (from form) | "14" |
+
+### Probe Targets (in order)
+1. Concrete self-description (school, family, day)
+2. Past narrative (what they did yesterday)
+3. Opinion + reason (what they think, why)
+4. Extended description or hypothetical (if age 13+)
+
+### Output (when complete)
+```json
+{
+  "level": "A2",
+  "unit_name": "Finding My Voice",
+  "confidence": "high",
+  "evidence_summary": "Student uses simple S-V-O sentences...",
+  "interests": ["cricket", "cartoons"]
+}
+```
+
+### Key Rules
+- Never reveal it's a test
+- Adapt probe difficulty based on responses
+- Don't judge pronunciation or regional accents
+- Indian English features are NOT errors
+
+### Server-Side Turn Guards (Confidence Gates)
+
+The server enforces placement completion rules regardless of what the LLM tries to do:
+
+| Student Turns | Rule | Accepted Confidence |
+|---|---|---|
+| **1–4** | Never complete | ❌ All rejected — too early |
+| **5–8** | Only if very sure | ✅ `"high"` only |
+| **9–11** | Accept good evidence | ✅ `"high"` or `"medium"` |
+| **12** | Force complete | ✅ Any (forced assessment) |
+
+**How it works:**
+
+```
+Turn 1-4:  LLM says "complete" → Server ignores → returns fallback question
+Turn 5-8:  LLM says "complete, high" → Server accepts → level saved
+Turn 5-8:  LLM says "complete, medium" → Server rejects → asks more questions
+Turn 9-11: LLM says "complete, medium" → Server accepts → level saved
+Turn 9-11: LLM says "complete, low" → Server rejects → pushes to turn 12
+Turn 12:   Server forces LLM → "ASSESS NOW" → level saved regardless
+```
+
+**Why these ranges:**
+- **Turn 1-4 blocked:** Student anxiety on first turns can hide real ability. A nervous B1 student might give A0-like one-word answers initially.
+- **Turn 5-8 high only:** Strong students (B1+) can be confidently identified early. Weaker students need more probing.
+- **Turn 9-11 medium OK:** By 9+ turns there's plenty of evidence. Medium confidence = "likely A2, possibly A1" — good enough.
+- **Turn 12 forced:** Nobody stuck forever. Even low confidence after 12 turns gives a starting level.
+
+### What Happens When User Cancels
+
+If user presses "End" before placement completes:
+- No API call to the server
+- No level assigned
+- No placement record saved
+- User stays unplaced (placement_garden = "soil")
+- App should show: "Let's try again when you're ready"
+
+### Placement Garden Mapping
+
+| Completion scenario | `confidence` | Garden stage |
+|---|---|---|
+| Completed with high/medium confidence | `"high"` / `"medium"` | `"bloom"` 🌺 |
+| Completed with low confidence (forced at turn 12) | `"low"` | `"seed"` 🌱 |
+| User cancelled / never started | — | `"soil"` 🟤 (null) |
+
+---
+
+## 3. Judge Prompt (Post-Session Analysis)
+
+**Called by:** `POST /llm/judge`  
+**File:** `backend/app/prompts/end-result-prompt.md`  
+**LLM:** DeepSeek (`deepseek-chat`)  
+**Max tokens:** 2500  
+**Temperature:** 0.4
+
+### What it does
+Analyzes a completed conversation. Grades skill demonstrations, extracts the best moment, and generates encouragement.
+
+### Template Variables
+
+| Variable | Source | Example |
+|---|---|---|
+| `{{LEVEL}}` | Student's CEFR level | "A0" |
+| `{{LEVEL_LABEL}}` | Level description | "First Words" |
+| `{{TOPIC}}` | Conversation topic | "My daily routine" |
+| `{{FULL_TRANSCRIPT}}` | Complete chat transcript | "STUDENT: I wake up... six-thirty..." |
+| `{{TARGET_SKILLS}}` | Skills being graded | "U1-VOC-01: I can name colours..." |
+
+### Output Fields
+
+| Field | Purpose | Used by |
+|---|---|---|
+| `overall` | "good" / "okay" / "struggling" | Quality badge on session |
+| `best_moment.quote` | Student's best verbatim quote | ⭐ Super Sentence card |
+| `best_moment.note` | Why it was strong | Super Sentence explanation |
+| `correction_highlight` | Error + correction pair | 🌱 Make It Grow card (fallback) |
+| `courage_or_motivation` | Encouragement moment | Future use |
+| `try_next_time` | Actionable tip + example | Make It Grow fallback |
+| `transcript_notes` | Per-turn annotations | Session review |
+| `scores` | Skill grading (confidence per skill) | Garden plant growth |
+
+### Key Rules
+- `best_moment.quote` must be verbatim from transcript
+- `correction_highlight.student_said` must be exact student words (NOT a tip)
+- Never use "incorrect" or "wrong"
+- Focus on what students got right for A1/A2
+
+---
+
+## 4. Correction Extraction Prompt (Separate Call)
+
+**Called by:** `run_and_save_session_analysis()` (after judge)  
+**Location:** Inline in `backend/app/services/llm_service.py` → `extract_correction_highlight()`  
+**LLM:** DeepSeek (`deepseek-chat`)  
+**Max tokens:** 200  
+**Temperature:** 0.2
+
+### What it does
+A focused, single-task LLM call that extracts one grammar/vocab error and its correction from the transcript. This exists because the main judge prompt was unreliable for this task.
+
+### The Prompt
+
+```
+Look at this conversation transcript between a student and their English tutor Zoe.
+
+TRANSCRIPT:
+{transcript}
+
+Find ONE grammar or vocabulary error the student made. Return ONLY valid JSON:
+
+{
+  "student_said": "<COPY exact words from transcript>",
+  "corrected": "<the corrected version>",
+  "highlight_word": "<the key words that changed>"
+}
+
+RULES:
+- student_said MUST be copied exactly from the STUDENT lines
+- WRONG: "using past tense". RIGHT: "I no play good"
+- If no errors at all, return: null
+```
+
+### Validation
+After the LLM responds, the code rejects tip-like answers:
+```python
+tip_words = ["using", "adding", "try to", "practice", "remember to"]
+if any(said.startswith(w) for w in tip_words):
+    return None  # rejected
+```
+
+### Output
+```json
+{
+  "student_said": "Alarm not work.",
+  "corrected": "Alarm doesn't work.",
+  "highlight_word": "doesn't work"
+}
+```
+
+---
+
+## Why Two Calls for Corrections?
+
+The main judge prompt (prompt #3) also asks for `correction_highlight`, but DeepSeek frequently returned tips like "using 'a' before nouns" instead of actual transcript quotes. The separate focused call (prompt #4) with low temperature and explicit examples fixed this problem.
+
+Priority order:
+1. **Correction extraction call** (prompt #4) → primary source
+2. **Judge's correction_highlight** (prompt #3) → fallback if #4 fails
+3. **Judge's try_next_time** → last resort fallback
+
+---
+
+## Token Budget Summary
+
+| Prompt | max_tokens | timeout | Typical response size |
+|---|---|---|---|
+| Conversation | 280 | 60s | ~50–150 tokens |
+| Placement | 280 | 60s | ~50–200 tokens (JSON at end: ~300) |
+| Judge | 2500 | 60s | ~800–1500 tokens |
+| Correction Extraction | 200 | 60s | ~30–60 tokens |

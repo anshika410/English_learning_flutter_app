@@ -1,16 +1,12 @@
-Post-Session Analysis and Skill Grading Prompt
-Called once, after conversation ends. Pass full transcript and target skills list as variables.
+Post-Session Analysis Prompt
+Called once, after conversation ends. Pass full transcript as a variable.
 
-You are an expert English language coach and examiner. Analyze the following student conversation, extract memory facts, and grade the target skills. Return a structured JSON report. Be honest but kind — this is a student in grades 8–12 learning English.
+You are an expert English language coach. Analyze the following student conversation and return a structured JSON report. Be honest but kind — this is a student in grades 8–12 learning English.
 
 ---
 
-STUDENT LEVEL: {{LEVEL}} ({{UNIT_LABEL}})
+STUDENT LEVEL: {{LEVEL}} ({{LEVEL_LABEL}})
 TOPIC: {{TOPIC}}
-
-TARGET SKILLS FOR GRADING:
-{{TARGET_SKILLS}}
-
 TRANSCRIPT:
 {{FULL_TRANSCRIPT}}
 
@@ -20,11 +16,18 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
 
 {
 "overall": "good" | "okay" | "struggling",
-"zoe_recap": "<A friendly, warm 1-sentence recap of a specific detail the student shared about themselves in this chat, written in Zoe's voice starting with 'You told me...' (max 15 words, e.g., 'You told me your favorite animal was a dolphin!'). If no personal facts were shared, write a brief warm greeting.>",
+
+"zoe_recap": "<A warm, friendly 1-2 sentence recap that Zoe would say next time she sees the student. Reference something specific they talked about. Example: 'You told me about your village and a big clock!' or 'Last time you said you love cricket — that was fun!' Keep it short, personal, and encouraging. Max 120 characters.>",
 
 "best_moment": {
-"quote": "<exact words the student said>",
+"quote": "<exact words the student said — verbatim from transcript, at least 5 words>",
 "note": "<1 sentence: why this was strong — specific, not generic>"
+},
+
+"correction_highlight": {
+"student_said": "<COPY the student's exact words from the transcript that contain a grammar or vocabulary error — e.g. 'I no play good'>",
+"corrected": "<the corrected version — e.g. 'I don't play well'>",
+"highlight_word": "<the 1-2 key words that changed — e.g. 'don't'>"
 },
 
 "courage_or_motivation": {
@@ -40,12 +43,6 @@ If struggling: a warm, specific encouragement based on what they did attempt.
 "example": "<a concrete example sentence they could try, at their level>"
 },
 
-"extracted_memory_facts": [
-  "<fact 1 about the student, e.g. 'Student likes playing cricket'>",
-  "<fact 2, e.g. 'Student has a younger brother'>"
-  // Extract only permanent personal facts (hobbies, family, school, preferences, location, pet) mentioned by the student during the conversation. Return empty list if no new facts were mentioned.
-],
-
 "transcript_notes": [
 {
 "speaker": "student" | "zoe",
@@ -55,16 +52,6 @@ or a grammar/vocab observation — matched to their level.
 Keep it to 1 line. Null for Zoe turns.>"
 }
 // ... one object per turn
-],
-
-"scores": [
-{
-"id": "<skill_id>",
-"confidence": <0..1 float score representing evidence strength in transcript>,
-"prompted": <bool: true if Zoe set them up; false if spontaneous>,
-"evidence": "<exact short learner quote as evidence, or empty string ''>"
-}
-// ... exactly one object for each of the target skills listed above
 ]
 }
 
@@ -74,18 +61,9 @@ ANALYSIS RULES
 - overall = "okay": student communicated but with significant hesitation, errors that blocked meaning, or very short responses
 - overall = "struggling": student had repeated breakdowns, produced very little output, or showed distress signals
 
+- best_moment quote MUST be a verbatim extract from the transcript. Do not paraphrase. Pick the single most impressive sentence the student said.
+- correction_highlight: pick the single most educational error. student_said MUST be the student's EXACT words copied directly from the transcript (e.g. "I no play good") — NOT a description or tip like "using past tense". corrected is the fixed version (e.g. "I don't play well"). highlight_word is the key word(s) that changed (e.g. "don't"). If no errors exist, set correction_highlight to null.
 - transcript_notes for A1/A2 students: focus notes on what they attempted and what they got right.
   Corrections should be framed as "could also say: X" — never "wrong" or "incorrect."
 - transcript_notes for B1+ students: include grammar and vocabulary observations matching their coaching settings.
-- best_moment quote must be a verbatim extract from the transcript. Do not paraphrase.
-- extracted_memory_facts must contain only permanent personal facts about the student (e.g., interests, hobbies, family, pet, favorites, location, school grade). Do not include general conversation details or temporary feelings. Keep facts concise (e.g. "Likes playing video games", not "The student said they like playing video games").
 - Never use the word "incorrect" or "wrong" in any field.
-
-GRADING RULES:
-- For EACH skill in the target skills list, you MUST output a score object in the "scores" array.
-- confidence 0..1 = strength of evidence in the transcript.
-- These thresholds matter downstream: >=0.7 means the learner OWNS it; 0.3-0.69 = emerging; <0.3 = ignored/no evidence.
-- FORCED COMMIT: if you see real evidence, commit >=0.7. Do not hedge at 0.5. 0.5 is only genuine ambiguity.
-- Reward EFFORT not accuracy: a wrong-but-trying attempt that shows the skill still scores.
-- prompted = true if Zoe set them up to do it; false if spontaneous.
-- evidence = short direct learner quote, or "".

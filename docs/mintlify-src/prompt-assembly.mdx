@@ -1,0 +1,159 @@
+---
+title: "Prompt Assembly"
+sidebarTitle: "How Prompts Assemble"
+description: "How the conversation prompt is built from modular blocks at runtime."
+---
+
+The conversation prompt sent to the LLM is not a single static file. It's **assembled at runtime** from 5 modular building blocks, each stored as a separate file on the server.
+
+---
+
+## The 5 Building Blocks
+
+```
+┌────────────────────────────────────────────────┐
+│ 1. BASE (shared — same for all levels)         │
+│    File: base-prompt.md                        │
+│    "You are Zoe, warm, encouraging..."         │
+│    + ABSOLUTE RULES                            │
+├────────────────────────────────────────────────┤
+│ 2. PROFILE (level-specific — one selected)     │
+│    File: profile-{level}.md                    │
+│    A0 → CARRIER role (carry the conversation)  │
+│    A1 → CARRIER role (recasts, simple)         │
+│    A2 → SPACE-CREATOR (nudges, longer turns)   │
+│    B1 → COACH (explicit corrections)           │
+│    B2 → PEER (suggestions, stylistic)          │
+│    C1 → ADVANCED PEER (nuance, debate)         │
+├────────────────────────────────────────────────┤
+│ 3. FRAMING (unit or skill mode)                │
+│    File: conv-unit-framing.md                  │
+│    Unit name, focus, TARGETS, ELICITATION      │
+│    + TEACHING BEHAVIOUR rules                  │
+│    + TOPIC, SESSION ARC, TURN info             │
+├────────────────────────────────────────────────┤
+│ 4. CONVERSATION SO FAR (transcript)            │
+│    Built dynamically from messages in DB       │
+│    All previous Zoe + Student turns            │
+├────────────────────────────────────────────────┤
+│ 5. INSTRUCTION                                 │
+│    "Reply with ONLY Zoe's next short spoken    │
+│     turn."                                     │
+└────────────────────────────────────────────────┘
+```
+
+---
+
+## How Assembly Works
+
+```python
+# Pseudocode — what happens in llm_service.py
+
+base = read("base-prompt.md")
+profile = read(f"profile-{level}.md")  # e.g. profile-A0.md
+framing = read("conv-unit-framing.md")
+
+# Inject variables into framing
+framing = framing.replace("{{UNITNAME}}", unit_name)
+framing = framing.replace("{{UNITFOCUS}}", unit_focus)
+framing = framing.replace("{{TARGETS}}", targets_text)
+framing = framing.replace("{{ELICITATION}}", elicitation_plan)
+framing = framing.replace("{{STUDENT_MEMORY}}", memory_facts)
+framing = framing.replace("{{CURRENT_TURN}}", str(turn_number))
+
+# Build transcript
+transcript = "\n".join(f"{'Zoe' if m.role == 'zoe' else 'Learner'}: {m.content}" for m in messages)
+
+# Assemble final prompt
+prompt = f"{base}\n\n{profile}\n\n{framing}\n\nCONVERSATION SO FAR:\n{transcript}\n\nReply with ONLY Zoe's next short spoken turn."
+```
+
+---
+
+## Files on Server
+
+| File | Block | Purpose |
+|---|---|---|
+| `base-prompt.md` | 1. Base | Zoe's identity + absolute rules |
+| `profile-A0.md` | 2. Profile | Level A0 behavior |
+| `profile-A1.md` | 2. Profile | Level A1 behavior |
+| `profile-A2.md` | 2. Profile | Level A2 behavior |
+| `profile-B1.md` | 2. Profile | Level B1 behavior |
+| `profile-B2.md` | 2. Profile | Level B2 behavior |
+| `profile-C1.md` | 2. Profile | Level C1 behavior |
+| `conv-unit-framing.md` | 3. Framing | Unit conversation template |
+| (dynamic) | 4. Transcript | Previous messages |
+| (hardcoded) | 5. Instruction | "Reply with ONLY..." |
+
+---
+
+## Variables Injected at Runtime
+
+| Variable | Source | Example |
+|---|---|---|
+| `{{UNITNAME}}` | From `conversations.topic` / curriculum | "First words" |
+| `{{UNITFOCUS}}` | From curriculum data | "Naming the things I can see." |
+| `{{TARGETS}}` | From `user.due_next` + curriculum | "PRIMARY: U1-FLU-01 — I can name things..." |
+| `{{ELICITATION}}` | From curriculum elicitation plans | "Ask the learner to describe a place..." |
+| `{{STUDENT_MEMORY}}` | From `user.persona_memory` | "Likes cricket, has a dog named Max" |
+| `{{CURRENT_TURN}}` | Turn counter | "3 of 6" |
+
+---
+
+## Which Profile Gets Selected?
+
+Based on `user.level`:
+
+| User Level | Profile File Used | Role |
+|---|---|---|
+| A0 | `profile-A0.md` | CARRIER — carry the conversation |
+| A1 | `profile-A1.md` | CARRIER — recasts, simple questions |
+| A2 | `profile-A2.md` | SPACE-CREATOR — nudges, longer turns |
+| B1 | `profile-B1.md` | COACH — explicit corrections allowed |
+| B2 | `profile-B2.md` | PEER — suggestions, stylistic options |
+| C1 | `profile-C1.md` | ADVANCED PEER — nuance, debate |
+
+---
+
+## Placement — NOT Modular
+
+Placement uses a single self-contained file (`placement-check-prompt.md`). No assembly needed because:
+- There's no "level" yet (that's what placement figures out)
+- No unit/skill targets to inject
+- No profile to select
+- It's a standalone adaptive interview
+
+---
+
+## Where to Edit
+
+| What you want to change | Edit this file |
+|---|---|
+| Zoe's core personality / rules | `base-prompt.md` |
+| How Zoe behaves with A0 students | `profile-A0.md` |
+| How Zoe behaves with B1 students | `profile-B1.md` |
+| Unit conversation structure | `conv-unit-framing.md` |
+| Judge grading logic | `end-result-prompt.md` |
+| Correction extraction | `llm_service.py` → `extract_correction_highlight()` |
+| Placement screening | `placement-check-prompt.md` |
+
+---
+
+## Viewing in Simulator
+
+Go to https://ella.navgurukul.org/v2/conversation-flow/
+
+- **📝 Prompt tab** — shows the fully assembled prompt (all 5 blocks combined with real data)
+- **✏️ Prompts tab → Client** — editable building blocks (for local testing)
+- **✏️ Prompts tab → Server** — read-only view of production building blocks from the server
+
+---
+
+## What Does NOT Affect Placement
+
+Changes to these files only affect conversation flow:
+- `base-prompt.md`
+- `profile-*.md`
+- `conv-unit-framing.md`
+
+Placement has its own completely separate code path in `llm_service.py` that reads only `placement-check-prompt.md`.

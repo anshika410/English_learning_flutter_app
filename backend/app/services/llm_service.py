@@ -344,6 +344,46 @@ async def send_placement_turn(
         .replace("{{NAME}}", name or "there")
         .replace("{{AGE}}", str(age) if age is not None else "unknown")
     )
+
+    # Count student turns (messages with role "user")
+    student_turns = len([m for m in messages if m.get("role") == "user"])
+
+    # ── TURN 12+: FORCE COMPLETE ──────────────────────────────────────────────
+    # Hard cap — after 12 student turns, force the LLM to assess NOW
+    if student_turns >= 12:
+        force_prompt = system_prompt + (
+            "\n\n⚠️ MANDATORY: You have heard 12 student turns. "
+            "You MUST output the final JSON assessment NOW. "
+            "Do NOT ask another question. Do NOT output REPLY:. "
+            "Assess based on everything you have heard so far."
+        )
+        api_messages = [{"role": "system", "content": force_prompt}] + [
+            {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
+            for m in messages
+        ]
+        text = await _chat_completion(api_messages, max_tokens=600, temperature=0.4)
+        # Parse the forced assessment
+        try:
+            json_str = _extract_json(text)
+            data = json.loads(json_str)
+            if "level" in data or "level_code" in data:
+                return _build_placement_result(data)
+        except Exception:
+            pass
+        # Absolute fallback if LLM still refuses: assign A0 with low confidence
+        return {
+            "reply": None, "is_complete": True,
+            "name": name, "age": age, "age_group": None,
+            "level": "A0", "unit_name": "First Words",
+            "level_description": "We'll start at the beginning and find your pace.",
+            "confidence": "low", "possible_higher": True,
+            "evidence_summary": "Assessment forced after 12 turns — insufficient LLM response.",
+            "probe_targets_covered": [], "turns_taken": student_turns,
+            "code_switch_observed": False, "interests": [],
+            "notes_for_first_session": "Consider retaking placement for a more accurate level.",
+        }
+
+    # ── NORMAL TURN ───────────────────────────────────────────────────────────
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
         for m in messages
@@ -356,36 +396,81 @@ async def send_placement_turn(
         reply = reply_match.group(1).strip()
         return {"reply": reply or text, "is_complete": False}
 
-    # Try parsing as final JSON assessment (new adaptive prompt shape)
+    # Try parsing as final JSON assessment
     try:
         json_str = _extract_json(text)
         data = json.loads(json_str)
         if "level" in data or "level_code" in data:
-            import logging
-            logging.info(f"Placement JSON interests: {data.get('interests')}")
-            return {
-                "reply": None,
-                "is_complete": True,
-                "name": data.get("name"),
-                "age": data.get("age"),
-                "age_group": data.get("age_group"),
-                "level": data.get("level") or data.get("level_code"),
-                "unit_name": data.get("unit_name") or data.get("level_name"),
-                "level_description": data.get("level_description"),
-                "confidence": data.get("confidence"),
-                "possible_higher": data.get("possible_higher"),
-                "evidence_summary": data.get("evidence_summary"),
-                "probe_targets_covered": data.get("probe_targets_covered"),
-                "turns_taken": data.get("turns_taken"),
-                "code_switch_observed": data.get("code_switch_observed"),
-                "interests": data.get("interests", []),
-                "notes_for_first_session": data.get("notes_for_first_session"),
-            }
+            confidence = data.get("confidence", "low")
+
+            # ── TURN-BASED CONFIDENCE GATES ───────────────────────────────────
+            # Turn 1-4: NEVER complete — too early, anxiety hides real level
+            if student_turns < 5:
+                # Reject — ask a follow-up instead
+                return {"reply": _fallback_reply(student_turns), "is_complete": False}
+
+            # Turn 5-8: Only accept HIGH confidence
+            elif student_turns <= 8:
+                if confidence == "high":
+                    return _build_placement_result(data)
+                else:
+                    # Reject — need more evidence
+                    return {"reply": _fallback_reply(student_turns), "is_complete": False}
+
+            # Turn 9-11: Accept HIGH or MEDIUM confidence
+            elif student_turns <= 11:
+                if confidence in ("high", "medium"):
+                    return _build_placement_result(data)
+                else:
+                    # Low confidence — push toward turn 12
+                    return {"reply": _fallback_reply(student_turns), "is_complete": False}
+
+            # Turn 12+: Accept anything (handled above but as safety)
+            else:
+                return _build_placement_result(data)
+
     except Exception:
         pass
 
     # Fallback: treat as plain reply
     return {"reply": text, "is_complete": False}
+
+
+def _build_placement_result(data: dict) -> dict:
+    """Build the standardized placement result from LLM JSON output."""
+    import logging
+    logging.info(f"Placement JSON interests: {data.get('interests')}")
+    return {
+        "reply": None,
+        "is_complete": True,
+        "name": data.get("name"),
+        "age": data.get("age"),
+        "age_group": data.get("age_group"),
+        "level": data.get("level") or data.get("level_code"),
+        "unit_name": data.get("unit_name") or data.get("level_name"),
+        "level_description": data.get("level_description"),
+        "confidence": data.get("confidence"),
+        "possible_higher": data.get("possible_higher"),
+        "evidence_summary": data.get("evidence_summary"),
+        "zoe_recap": data.get("zoe_recap"),
+        "probe_targets_covered": data.get("probe_targets_covered"),
+        "turns_taken": data.get("turns_taken"),
+        "code_switch_observed": data.get("code_switch_observed"),
+        "interests": data.get("interests", []),
+        "notes_for_first_session": data.get("notes_for_first_session"),
+    }
+
+
+def _fallback_reply(student_turns: int) -> str:
+    """Generate a contextual follow-up when rejecting an early completion attempt."""
+    if student_turns < 3:
+        return "Tell me a little more — what else do you like to do?"
+    elif student_turns < 6:
+        return "That's interesting! Can you tell me what happened next?"
+    elif student_turns < 9:
+        return "I'd love to hear one more thing — what do you think about that?"
+    else:
+        return "Almost done! Tell me one last thing — why do you think that?"
 
 
 # ── Session Analysis ──────────────────────────────────────────────────────────

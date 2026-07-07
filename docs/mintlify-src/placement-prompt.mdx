@@ -1,0 +1,252 @@
+---
+title: "Placement Prompt"
+sidebarTitle: "Placement Prompt"
+description: "The screening test prompt — how Zoe assesses CEFR level through natural conversation."
+---
+
+The placement prompt runs during `POST /llm/placement-turn`. It's a single self-contained prompt (no modular assembly) that guides Zoe through an adaptive screening interview.
+
+---
+
+## How It Works
+
+Zoe chats naturally with the student. Behind the scenes, she's probing 4 language targets in order of difficulty. When she's confident about the student's level, the LLM outputs a JSON assessment instead of another question.
+
+```
+Student opens app → "Hey, I'm Zoe! What did you have for lunch?"
+    ↓ (5-12 turns of natural chat)
+LLM outputs JSON → { "level": "A2", "confidence": "high" }
+    ↓
+Server saves placement → student gets their level
+```
+
+---
+
+## Server-Side Turn Guards
+
+The server enforces completion rules regardless of what the LLM tries to do:
+
+| Student Turns | Rule | Accepted Confidence |
+|---|---|---|
+| **1–4** | Never complete | ❌ All rejected — too early |
+| **5–8** | Only if very sure | ✅ `"high"` only |
+| **9–11** | Accept good evidence | ✅ `"high"` or `"medium"` |
+| **12** | Force complete | ✅ Any (forced assessment) |
+
+### Why These Ranges
+
+- **Turn 1-4 blocked:** Student anxiety on first turns can hide real ability. A nervous B1 student might give A0-like one-word answers initially.
+- **Turn 5-8 high only:** Strong students (B1+) can be confidently identified early. Weaker students need more probing.
+- **Turn 9-11 medium OK:** By 9+ turns there's plenty of evidence. Medium confidence is fine.
+- **Turn 12 forced:** Nobody stuck forever. 12 turns ≈ 3-4 minutes of speaking — enough evidence.
+
+### Flow Diagram
+
+```
+Turn 1-4:  LLM says "complete" → Server REJECTS → fallback question sent
+Turn 5-8:  LLM says "complete, high" → Server ACCEPTS → level saved ✅
+Turn 5-8:  LLM says "complete, medium" → Server REJECTS → more questions
+Turn 9-11: LLM says "complete, medium" → Server ACCEPTS → level saved ✅
+Turn 9-11: LLM says "complete, low" → Server REJECTS → pushes to turn 12
+Turn 12:   Server FORCES LLM → "ASSESS NOW" → level saved ✅
+```
+
+---
+
+## CEFR Levels
+
+| Level | Code | Label | Description |
+|---|---|---|---|
+| A0 | `"A0"` | Pre-Beginner | Single words only, cannot form phrases |
+| A1 | `"A1"` | First Words | Short phrases, mostly present tense, very limited vocab |
+| A2 | `"A2"` | Finding My Voice | Simple S-V-O sentences, everyday topics, cannot give extended opinions |
+| B1 | `"B1"` | Speaking Freely | Connected sentences with because/but, opinions with reasons, mostly correct past tense |
+| B2 | `"B2"` | Almost Fluent | Fluent on familiar topics, varied tenses, can argue with reasons |
+| C1 | `"C1"` | Fluent | Articulate, nuanced, handles abstract topics, near-natural flow |
+
+---
+
+## Probe Targets
+
+The LLM probes these in order of difficulty, adapting based on responses:
+
+1. **Concrete self-description** — school, family, day, routine
+2. **Past narrative** — what they did yesterday, connected past-tense verbs
+3. **Opinion + reason** — what they think about something, and why
+4. **Extended description / hypothetical** — "if you were principal..." (age 13+ only)
+
+**Adaptive behavior:**
+- Strong response → probe one rung harder
+- Short/struggling response → step back, simpler question
+- Move ONE rung at a time — never jump levels
+
+---
+
+## Template Variables
+
+| Variable | Source | Example |
+|---|---|---|
+| `{{NAME}}` | Student name (from app form or user profile) | "Ravi" |
+| `{{AGE}}` | Student age | "14" |
+
+---
+
+## Age-Aware Behavior
+
+| Age Group | Topics | Max Realistic Level |
+|---|---|---|
+| 10-12 (grades 5-7) | School, family, games, cartoons, food, pets | B1 (rare B2) |
+| 13-15 (grades 8-10) | School, friends, phones, movies, sports | B2 |
+| 16-18 (grades 11-12) | + future plans, social issues, college | C1 (rare) |
+
+---
+
+## Indian English Rules (built into prompt)
+
+These are NOT errors — they are valid Indian English features:
+
+- "doing the needful", "kindly revert", "prepone"
+- "I am having two sisters" (stative + progressive)
+- "good name" for name, "passed out" for graduated
+- Clause-final "only" ("I am from Kanpur only")
+- Code-switching with Hindi is acceptable
+
+**Do NOT penalize pronunciation or regional accents.**
+
+---
+
+## Output (when complete)
+
+```json
+{
+  "reply": null,
+  "is_complete": true,
+  "name": "Ravi",
+  "age": 14,
+  "age_group": "13-15",
+  "level": "A2",
+  "unit_name": "Finding My Voice",
+  "level_description": "You can talk about everyday things using simple sentences — great start!",
+  "confidence": "high",
+  "possible_higher": false,
+  "evidence_summary": "Student uses simple S-V-O sentences, mostly present tense...",
+  "probe_targets_covered": ["concrete_self", "past_narrative", "opinion_reason"],
+  "turns_taken": 7,
+  "code_switch_observed": false,
+  "interests": ["cricket", "cartoons"],
+  "notes_for_first_session": "Student loves cricket — use sports topics to build confidence."
+}
+```
+
+---
+
+## What Happens After Placement
+
+| Field | Saved to |
+|---|---|
+| `level` | `user.level` (CEFR code) |
+| `unit_name` | `user.unit_label` (friendly name) |
+| `confidence` | `placements.confidence` |
+| `evidence_summary` | `placements.highlight` |
+| `interests` | `user.interests` (comma-separated) |
+| Full transcript | `placements.transcript_json` |
+
+After save:
+- `next_topics` starts showing (based on new level)
+- `placement_garden` shows "bloom" (high/medium) or "seed" (low)
+- Student can start conversations
+
+---
+
+## User Cancel Behavior
+
+When user presses "End Placement" at any turn, the client calls:
+
+```json
+POST /llm/placement-turn
+{
+  "messages": [],
+  "name": null,
+  "age": null,
+  "cancel": true
+}
+```
+
+**Server returns:**
+```json
+{
+  "is_complete": true,
+  "level": null,
+  "confidence": null,
+  "evidence_summary": "Placement cancelled by user.",
+  "level_description": "Placement cancelled. You can retake anytime.",
+  "turns_taken": 0
+}
+```
+
+| Field | Value |
+|---|---|
+| `level` | `null` — no level assigned |
+| `confidence` | `null` |
+| `placement_garden` | stays `null` ("soil") |
+| `next_topics` | won't show (no level) |
+
+**What the app does:**
+- Show "No level assigned. Take the test again when ready."
+- Show "Retake Placement Test" button
+- User can retake anytime — fresh start
+
+**Key point:** The `cancel: true` flag is sent on the same `/llm/placement-turn` endpoint. No separate cancel API needed. The server skips the LLM call entirely and returns immediately.
+
+---
+
+## File Location
+
+**Prompt file:** `backend/app/prompts/placement-check-prompt.md`  
+**Server logic:** `backend/app/services/llm_service.py` → `send_placement_turn()`  
+**Endpoint:** `POST /llm/placement-turn`  
+**LLM:** DeepSeek (`deepseek-chat`)  
+**Max tokens:** 600  
+**Temperature:** 0.7
+
+
+---
+
+## Dev Tools: Reset User for Testing
+
+### `DELETE /admin/reset-user/{device_id}`
+
+Resets a user to fresh state — useful for re-testing placement from scratch.
+
+**What it clears:**
+- All placement records
+- Level → `null`
+- `first_session_done` → `false`
+- `skills_progress` → `{}`
+- `due_next` → `{}`
+- `interests` → `null`
+- `persona_memory` → `{}`
+
+**Usage:**
+
+```bash
+curl -X DELETE https://ella.navgurukul.org/api/admin/reset-user/dev_6fxb1a7zar8
+```
+
+**Response:**
+```json
+{
+  "status": "reset",
+  "device_id": "dev_6fxb1a7zar8",
+  "user_id": "581c20df-b060-4ab3-992f-6e8f095215a0",
+  "message": "All placements deleted. Level, skills, memory reset to fresh state."
+}
+```
+
+### From Simulator
+
+Go to https://ella.navgurukul.org/v2/conversation-flow/ → **Memory tab** → scroll to **Danger Zone** → click **🔄 Reset User**
+
+### From Swagger
+
+Go to https://ella.navgurukul.org/api/docs → `DELETE /admin/reset-user/{device_id}` → enter device_id → Execute
