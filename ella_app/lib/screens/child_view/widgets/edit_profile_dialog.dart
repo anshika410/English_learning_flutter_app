@@ -1,9 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/theme_colors.dart';
 import '../../../core/text_styles.dart';
 import '../../../providers/onboarding_provider.dart';
-import 'ella_primary_button.dart';
 
 class EditProfileDialog extends ConsumerStatefulWidget {
   final String initialName;
@@ -45,6 +46,8 @@ class EditProfileDialog extends ConsumerStatefulWidget {
 }
 
 class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
+  static const _asset = 'assets/profile';
+
   late TextEditingController _nameController;
   late TextEditingController _ageController;
   bool _isLoading = false;
@@ -102,124 +105,179 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
     }
   }
 
+  // Amulya Bold 20 — labels + banner title.
+  TextStyle get _title => EllaFonts.bricolage(const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        height: 1.6,
+        letterSpacing: 0.4,
+        color: EllaColors.onPrimary,
+      ));
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 320,
-      padding: const EdgeInsets.all(24),
+    final maxWidth = MediaQuery.of(context).size.width - 40;
+    final width = maxWidth < 387.0 ? maxWidth : 387.0;
+
+    return SizedBox(
+      width: width,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Wood sign header
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFC07F37), Color(0xFFA06122)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    offset: Offset(0, 4),
-                    blurRadius: 4,
-                  ),
-                ],
-                border: Border.all(color: const Color(0xFF8B4513), width: 2),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.circle, size: 6, color: Color(0xFF5A3110)),
-                  const SizedBox(width: 12),
-                  Text(
-                    "${widget.initialName.split(' ').first}'s Profile",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black45,
-                          offset: Offset(1, 1),
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.circle, size: 6, color: Color(0xFF5A3110)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          
-          Text(
-            'Name',
-            style: EllaTextStyles.bodyBase.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          _woodBanner("${widget.initialName.split(' ').first}'s Profile"),
+          const SizedBox(height: 16),
+          _label('Name'),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFDF5),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              ),
-              style: EllaTextStyles.bodyBase.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          
-          Text(
-            'Age',
-            style: EllaTextStyles.bodyBase.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          _field(controller: _nameController),
+          const SizedBox(height: 16),
+          _label('Age'),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFDF5),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: TextField(
-              controller: _ageController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              ),
-              style: EllaTextStyles.bodyBase.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          _field(
+            controller: _ageController,
+            keyboardType: TextInputType.number,
           ),
-          const SizedBox(height: 32),
-          
+          const SizedBox(height: 16),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : EllaPrimaryButton(
-                  label: 'Update Profile',
-                  leading: const Icon(Icons.check, color: Colors.white),
-                  onTap: _updateProfile,
-                ),
+              : _updateButton(),
         ],
+      ),
+    );
+  }
+
+  Widget _woodBanner(String text) {
+    const dot = SizedBox(
+      width: 6,
+      height: 6,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color(0xFF5A3110),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+    return Center(
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFC49050),
+              Color(0xFF9B6828),
+              Color(0xFFB08040),
+              Color(0xFF966828),
+              Color(0xFF8A5712),
+            ],
+            stops: [0.0, 0.28, 0.55, 0.78, 1.0],
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              offset: Offset(0, 4),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            dot,
+            const SizedBox(width: 16),
+            Flexible(
+              child: Text(
+                text,
+                overflow: TextOverflow.ellipsis,
+                style: _title.copyWith(
+                  shadows: const [
+                    Shadow(
+                      color: Colors.black45,
+                      offset: Offset(1, 1),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            dot,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _label(String text) => Text(text, style: _title);
+
+  Widget _field({
+    required TextEditingController controller,
+    TextInputType? keyboardType,
+  }) {
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: EllaColors.border),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          isCollapsed: true,
+        ),
+        style: EllaFonts.body(const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          height: 1.6,
+          color: EllaColors.ink,
+        )),
+      ),
+    );
+  }
+
+  Widget _updateButton() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _updateProfile,
+      child: Container(
+        height: 72,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: EllaColors.berryMain,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: EllaColors.berryDeep, width: 3),
+          boxShadow: const [
+            BoxShadow(
+              color: EllaColors.berryDeep,
+              offset: Offset(0, 3),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset('$_asset/checks.svg', width: 32, height: 32),
+            const SizedBox(width: 12),
+            Text(
+              'Update Profile',
+              style: EllaFonts.body(const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                height: 1.6,
+                color: EllaColors.onPrimary,
+              )),
+            ),
+          ],
+        ),
       ),
     );
   }

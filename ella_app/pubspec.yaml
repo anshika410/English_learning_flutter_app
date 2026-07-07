@@ -83,6 +83,7 @@ flutter:
     - assets/garden/props/
     - assets/garden/ambient/
     - assets/garden/tiles/
+    - assets/profile/
     - assets/information-box/
     - assets/sounds/sfx/
     - assets/sounds/music/

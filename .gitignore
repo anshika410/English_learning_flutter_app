@@ -102,3 +102,6 @@ zoe.db
 # Mintlify
 docs/mintlify-src/out/
 docs/mintlify-src/export.zip
+
+# Local MCP server config (Figma Dev Mode, points at localhost)
+.mcp.json
