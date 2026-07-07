@@ -38,11 +38,26 @@ class SpeechToTextService implements SttInterface {
   }) async {
     if (!_ready || _listening) return;
     _listening = true;
+    _stt.statusListener = (status) {
+      // Android SpeechRecognizer sometimes stops without firing finalResult.
+      // Detect "notListening" or "done" status and fire onFinal with whatever
+      // we have if we're still in listening state.
+      if (status == 'notListening' || status == 'done') {
+        if (_listening) {
+          _listening = false;
+          // The onResult with finalResult:true should follow shortly.
+          // If it doesn't (Android bug), this ensures we don't get stuck.
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (!_listening && _stt.lastRecognizedWords.isEmpty) {
+              onFinal('');
+            }
+          });
+        }
+      }
+    };
     await _stt.listen(
       onResult: (r) {
         if (r.finalResult) {
-          // STT auto-stopped (pauseFor elapsed) OR user tapped stop.
-          // Fire onFinal so the provider can submit.
           _listening = false;
           onFinal(r.recognizedWords);
         } else {

@@ -43,6 +43,7 @@ dependencies:
   google_fonts: ^6.2.1
   audioplayers: ^6.1.0
   path_drawing: ^1.0.1
+  dotted_border: ^2.1.0
   google_sign_in: ^7.2.0
   app_links: ^7.0.0
   url_launcher: ^6.3.2
@@ -84,6 +85,7 @@ flutter:
     - assets/garden/props/
     - assets/garden/ambient/
     - assets/garden/tiles/
+    - assets/profile/
     - assets/information-box/
     - assets/sounds/sfx/
     - assets/sounds/music/

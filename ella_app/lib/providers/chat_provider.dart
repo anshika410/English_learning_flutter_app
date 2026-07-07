@@ -795,8 +795,14 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   Future<void> startListening() async {
     final cur = state.requireValue;
-    if (cur.status != ChatStatus.idle || cur.sessionEnded) return;
-    state = AsyncValue.data(cur.copyWith(status: ChatStatus.userSpeaking));
+    if (cur.sessionEnded) return;
+    // Allow starting from idle OR while Zoe is speaking (interrupt her)
+    if (cur.status == ChatStatus.zoeSpeaking) {
+      await stopSpeaking();
+    } else if (cur.status != ChatStatus.idle) {
+      return;
+    }
+    state = AsyncValue.data(state.requireValue.copyWith(status: ChatStatus.userSpeaking));
     final stt = ref.read(sttProvider);
     // Lazily init STT (idempotent) so the mic-permission prompt appears now, on
     // first voice use, rather than at app launch.
@@ -923,6 +929,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
             state = AsyncValue.data(
               state.requireValue.copyWith(status: ChatStatus.idle),
             );
+          }
+          // Auto-end chat if conversation is complete
+          if (turn.conversationComplete) {
+            await endChat();
           }
           return;
         }
