@@ -17,6 +17,11 @@ class EllaCircleIconButton extends StatelessWidget {
   final String? label;
   final Color? labelColor;
 
+  /// Base style for the caption; defaults to [EllaTextStyles.caption]. Callers
+  /// pass a larger style (e.g. [EllaTextStyles.buttonSmall] on the placement
+  /// intro) to meet the ≥14px label spec. [labelColor] still tints it.
+  final TextStyle? labelStyle;
+
   const EllaCircleIconButton({
     super.key,
     required this.glyph,
@@ -25,6 +30,7 @@ class EllaCircleIconButton extends StatelessWidget {
     required this.onTap,
     this.label,
     this.labelColor,
+    this.labelStyle,
   });
 
   @override
@@ -53,9 +59,8 @@ class EllaCircleIconButton extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   label!,
-                  style: EllaTextStyles.caption.copyWith(
+                  style: (labelStyle ?? EllaTextStyles.caption).copyWith(
                     color: labelColor,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

@@ -194,11 +194,11 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   @override
   Future<ChatState> build() async {
-    // Init STT/TTS regardless of network state.
+    // Init TTS eagerly (no permission needed). STT initialize() triggers the OS
+    // mic-permission prompt, so it is deferred to the first listen (see
+    // startListening) to avoid blocking screen load / prompting at launch.
     final tts = ref.read(ttsProvider);
     await tts.initialize();
-    final stt = ref.read(sttProvider);
-    await stt.initialize();
 
     // Register native TTS range callbacks to drive Karaoke text highlighting
     final nativeTts = ref.read(nativeTtsProvider);
@@ -850,6 +850,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     }
     state = AsyncValue.data(state.requireValue.copyWith(status: ChatStatus.userSpeaking));
     final stt = ref.read(sttProvider);
+    // Lazily init STT (idempotent) so the mic-permission prompt appears now, on
+    // first voice use, rather than at app launch.
+    await stt.initialize();
     await stt.startListening(
       onPartial: (partial) {
         if (state.hasValue) {

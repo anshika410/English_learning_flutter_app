@@ -41,31 +41,41 @@ class PlacementGardenHeader extends StatelessWidget {
     return Column(
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (onBack != null)
-              _CircleControl(
-                fill: EllaColors.surface,
-                ring: EllaColors.greenDark,
-                onTap: onBack!,
-                child: const Icon(
-                  Icons.arrow_back_rounded,
-                  size: 20,
-                  color: EllaColors.greenDeep,
-                ),
-              )
-            else
-              const SizedBox(width: 38),
+            SizedBox(
+              width: 40,
+              height: 48,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: onBack != null
+                    ? _CircleControl(
+                        key: const ValueKey('placement-garden-back'),
+                        fill: EllaColors.greenLight,
+                        ring: EllaColors.greenDeep,
+                        size: 32,
+                        onTap: onBack!,
+                        child: const Icon(
+                          Icons.arrow_back_rounded,
+                          size: 18,
+                          color: EllaColors.greenDeep,
+                        ),
+                      )
+                    : const SizedBox(width: 32, height: 32),
+              ),
+            ),
             Expanded(
               child: Center(
                 child: Container(
+                  height: 48,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
+                    horizontal: 12,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: EllaColors.surface,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: EllaColors.border, width: 1.5),
+                    borderRadius: BorderRadius.circular(11.16),
+                    border: Border.all(color: EllaColors.border, width: 2.79),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.10),
@@ -77,35 +87,46 @@ class PlacementGardenHeader extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SvgPicture.asset(_kSeedbedIcon, height: 18),
-                      const SizedBox(width: 6),
-                      Text('Sunrise Seedbed', style: EllaTextStyles.caption),
+                      SvgPicture.asset(_kSeedbedIcon, width: 24, height: 24),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Sunrise Seedbed',
+                        style: EllaTextStyles.gardenHeaderChip,
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
-            if (trailing != null)
-              trailing!
-            else if (onSound != null)
-              _CircleControl(
-                fill: EllaColors.berryMain,
-                ring: EllaColors.berryDeep,
-                onTap: onSound!,
-                child: const Icon(
-                  Icons.volume_up_rounded,
-                  size: 18,
-                  color: EllaColors.onPrimary,
-                ),
-              )
-            else
-              const SizedBox(width: 38),
+            SizedBox(
+              width: 40,
+              height: 48,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child:
+                    trailing ??
+                    (onSound != null
+                        ? _CircleControl(
+                            fill: EllaColors.berryMain,
+                            ring: EllaColors.berryMain,
+                            size: 32,
+                            onTap: onSound!,
+                            child: const Icon(
+                              Icons.volume_up_rounded,
+                              size: 17,
+                              color: EllaColors.onPrimary,
+                            ),
+                          )
+                        : const SizedBox(width: 32, height: 32)),
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           "$name's Garden",
-          style: EllaTextStyles.titleSmall.copyWith(fontSize: 18),
+          style: EllaTextStyles.gardenHeaderTitle,
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -117,12 +138,15 @@ class _CircleControl extends StatelessWidget {
   final Color ring;
   final Widget child;
   final VoidCallback onTap;
+  final double size;
 
   const _CircleControl({
+    super.key,
     required this.fill,
     required this.ring,
     required this.child,
     required this.onTap,
+    this.size = 32,
   });
 
   @override
@@ -131,13 +155,13 @@ class _CircleControl extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: withTapClick(onTap),
       child: Container(
-        width: 38,
-        height: 38,
+        width: size,
+        height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: fill,
           shape: BoxShape.circle,
-          border: Border.all(color: ring, width: 2),
+          border: Border.all(color: ring, width: 2.4),
         ),
         child: child,
       ),

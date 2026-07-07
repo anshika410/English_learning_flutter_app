@@ -94,14 +94,23 @@ class EllaApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
+    // Clear the cached onboarding profile too, so a different user signing in
+    // next doesn't inherit the previous user's name/age (the greeting is
+    // re-sourced from /users/me on the fresh session).
+    await prefs.remove(_childNameKey);
+    await prefs.remove(_childAgeKey);
+    await prefs.remove(_onboardingDoneKey);
   }
 
   Future<bool> loginAnonymous() async {
     try {
       final deviceId = await getDeviceId();
-      final data = await _request('POST', '/auth/anonymous', auth: false, body: {
-        'device_id': deviceId,
-      });
+      final data = await _request(
+        'POST',
+        '/auth/anonymous',
+        auth: false,
+        body: {'device_id': deviceId},
+      );
       final accessToken = data['access_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
@@ -118,10 +127,12 @@ class EllaApiService {
   Future<bool> loginWithGoogle(String idToken) async {
     try {
       final deviceId = await getDeviceId();
-      final data = await _request('POST', '/auth/google', auth: false, body: {
-        'token': idToken,
-        'device_id': deviceId,
-      });
+      final data = await _request(
+        'POST',
+        '/auth/google',
+        auth: false,
+        body: {'token': idToken, 'device_id': deviceId},
+      );
       final accessToken = data['access_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
@@ -141,21 +152,21 @@ class EllaApiService {
       String redirectUrl;
       if (kIsWeb) {
         // Use the current web origin (e.g. http://localhost:3000)
-        redirectUrl = '${Uri.base.origin}/#/login'; 
+        redirectUrl = '${Uri.base.origin}/#/login';
       } else {
         redirectUrl = 'ella://login';
       }
-      
+
       final deviceId = await getDeviceId();
       await _request(
-        'POST', 
-        '/auth/magic-link/request', 
-        auth: false, 
+        'POST',
+        '/auth/magic-link/request',
+        auth: false,
         body: {
-          'email': email, 
+          'email': email,
           'redirect_url': redirectUrl,
           'device_id': deviceId,
-        }
+        },
       );
       return true;
     } catch (e) {
@@ -213,6 +224,15 @@ class EllaApiService {
     return garden;
   }
 
+  Future<List<HomeTopic>> getTopics() async {
+    final data = await _request('GET', '/users/me/topics');
+    final rows = data['_list'] as List? ?? data['topics'] as List? ?? const [];
+    return [
+      for (final topic in rows)
+        HomeTopic.fromJson(Map<String, dynamic>.from(topic as Map)),
+    ];
+  }
+
   Future<void> updatePersonaMemory(Map<String, dynamic> personaMemory) async {
     await _request(
       'PUT',
@@ -224,7 +244,11 @@ class EllaApiService {
   /// Persist the child's profile collected during onboarding. Mirrors
   /// [updatePersonaMemory]'s PUT-to-/users/me shape.
   Future<void> updateProfile({required String name, required int age}) async {
-    await _request('PUT', '/users/me', body: {'name': name, 'age': age.toString()});
+    await _request(
+      'PUT',
+      '/users/me',
+      body: {'name': name, 'age': age.toString()},
+    );
   }
 
   Future<Map<String, dynamic>> getUserProfile() async {
@@ -233,11 +257,14 @@ class EllaApiService {
 
   Future<void> resetUserMemory() async {
     final deviceId = await getDeviceId();
-    
+
     // First fetch the anonymous token using the device ID as requested
-    final authData = await _request('POST', '/auth/anonymous', auth: false, body: {
-      'device_id': deviceId,
-    });
+    final authData = await _request(
+      'POST',
+      '/auth/anonymous',
+      auth: false,
+      body: {'device_id': deviceId},
+    );
     final anonToken = authData['access_token'];
 
     // Now call the reset endpoint using this token directly
@@ -251,19 +278,8 @@ class EllaApiService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw EllaApiException(
-        'HTTP ${response.statusCode}: ${response.body}',
-      );
+      throw EllaApiException('HTTP ${response.statusCode}: ${response.body}');
     }
-  }
-
-  Future<List<HomeTopic>> getTopics() async {
-    final data = await _request('GET', '/users/me/topics');
-    final rows = data['_list'] as List? ?? const [];
-    return [
-      for (final row in rows)
-        HomeTopic.fromJson(Map<String, dynamic>.from(row as Map)),
-    ];
   }
 
   // ── Onboarding cache (local) ────────────────────────────────────────────────
@@ -280,10 +296,7 @@ class EllaApiService {
     );
   }
 
-  Future<void> saveOnboarding({
-    required String name,
-    required int age,
-  }) async {
+  Future<void> saveOnboarding({required String name, required int age}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_childNameKey, name);
     await prefs.setInt(_childAgeKey, age);
