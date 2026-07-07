@@ -272,7 +272,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       onSend: _sendTyped,
       onEnd: _endConversation,
       // Speaker dot on Zoe's bubble: replays the line when idle. While she's
-      // already talking the tap is a no-op (never stops or restarts her).
+      // already talking the tap is a no-op (never stops or restarts her). Only
+      // Zoe's lines get the control — the student bubble has none.
       onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
           ? () => _speakLine(zoeLine)
           : null,

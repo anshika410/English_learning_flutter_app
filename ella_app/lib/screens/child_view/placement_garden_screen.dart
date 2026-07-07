@@ -25,10 +25,14 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
+import '../../providers/service_providers.dart';
+import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
 import 'garden_screen.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'widgets/ella_primary_button.dart';
 import 'widgets/garden_sky_background.dart';
+import 'widgets/garden_sound_button.dart';
 import 'widgets/placement_garden_header.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
@@ -67,9 +71,22 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
   bool _resolved = false;
   final List<Timer> _timers = [];
 
+  // Set just before we pushReplacement into GardenScreen (bloom branch). That
+  // screen's initState starts the SAME ambient loop before our dispose runs, so
+  // we must NOT stop it on the way out or the garden would fall silent.
+  bool _handingOffToGarden = false;
+
+  // Captured in initState so dispose() never reads `ref` while deactivating —
+  // matching GardenScreen, so the ambient loop reliably stops on leave.
+  late final AudioInterface _audio;
+
   @override
   void initState() {
     super.initState();
+    // The placement garden is a garden screen: play the same ambient loop, and
+    // stop it in dispose() when the child leaves (or we swap to GardenScreen).
+    _audio = ref.read(audioProvider);
+    _audio.playMusic(Sounds.gardenMusic);
     if (widget.browse) {
       _phase = _Phase.settled;
       return;
@@ -116,6 +133,9 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
 
   void _toLevelGarden() {
     if (!mounted) return;
+    // GardenScreen will own the ambient loop from here — don't stop it in our
+    // dispose (see [_handingOffToGarden]).
+    _handingOffToGarden = true;
     // pushReplacement keeps the stack RootGate → Garden, so the garden's
     // "Let's Talk" / back land on the (now placement-aware) Home.
     Navigator.of(context).pushReplacement(
@@ -137,6 +157,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
     for (final t in _timers) {
       t.cancel();
     }
+    if (!_handingOffToGarden) _audio.stopMusic();
     super.dispose();
   }
 
@@ -175,6 +196,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                       onBack: widget.browse
                           ? () => Navigator.of(context).maybePop()
                           : null,
+                      trailing: const GardenSoundButton(size: 38),
                     ),
                     // Bloom message card — only during the spotlight beat.
                     AnimatedOpacity(
