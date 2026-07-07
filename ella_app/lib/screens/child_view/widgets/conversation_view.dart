@@ -248,7 +248,7 @@ class _Bubbles extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
+              duration: const Duration(milliseconds: 450),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
               transitionBuilder: (child, anim) =>
@@ -617,7 +617,7 @@ class _TextDock extends StatelessWidget {
                 textInputAction: TextInputAction.send,
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: onSend == null ? null : (_) => onSend!(),
-                style: EllaTextStyles.bodyBase,
+                style: EllaTextStyles.bodySemibold,
                 decoration: InputDecoration(
                   hintText: 'Type your reply…',
                   hintStyle: EllaTextStyles.bodyBase.copyWith(

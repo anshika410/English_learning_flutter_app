@@ -19,6 +19,7 @@ import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import 'garden_screen.dart';
 import 'home_screen.dart' show kHomeChildName;
+import 'widgets/garden_sound_button.dart';
 import 'widgets/placement_garden_header.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
@@ -298,17 +299,6 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
     if (mounted) setState(() => _zoeMode = ZoeMascotMode.listening);
   }
 
-  Future<void> _speakHeaderLine() {
-    // The abandoned-placement branch replays the sprout nudge (it also runs in
-    // placementResult mode, so this check must come first).
-    if (_sproutRevealLayerOn) return _speakSproutLine();
-    if (_placementRevealLayerOn ||
-        widget.mode == PlacementGardenMode.placementResult) {
-      return _speakPlacementBloomLine();
-    }
-    return _speakRevealLine();
-  }
-
   void _markExploreReady() {
     if (_phase != _Phase.reveal) return;
     setState(() {
@@ -451,7 +441,9 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                 child: PlacementGardenHeader(
                   name: name,
                   onBack: _handleBack,
-                  onSound: _speakHeaderLine,
+                  // Every garden speaker is a mute-only toggle for the ambient
+                  // garden music (matches the real garden's speaker button).
+                  trailing: const GardenSoundButton(size: 32),
                 ),
               ),
               Positioned(
@@ -683,8 +675,9 @@ class _PlacementGardenMetrics {
     final bubbleTop = maxBubbleTop < minBubbleTop
         ? minBubbleTop
         : (height * 220 / 932).clamp(minBubbleTop, maxBubbleTop).toDouble();
-    final placementBubbleWidth = math.min(342 * scale, width - 40);
-    final placementBubbleLeft = (width - placementBubbleWidth) / 2;
+    // Spotlight bubble spans the full screen width with 24px side padding.
+    final placementBubbleLeft = 24.0;
+    final placementBubbleWidth = width - 48;
     final placementBubbleTopIdeal = headerTop + 122 * scale;
     final placementBubbleTopMax = math.max(
       headerTop + 104,
@@ -737,6 +730,9 @@ class _PlacementGardenBackdrop extends StatelessWidget {
 class _PlacementGardenBackdropPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    // Sky + hills matched to Figma "Morning Meadow" (same values as
+    // garden_screen._morningSky / _morningHill): sky #EAFDFF→#D9FAFF→#F1FFF8,
+    // hills #D7F2C4→#8DD67C→#4E9A45, stops [0, 0.55, 1].
     final skyRect = Offset.zero & size;
     canvas.drawRect(
       skyRect,
@@ -744,7 +740,8 @@ class _PlacementGardenBackdropPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFDDEDE4), Color(0xFFEAF6DC)],
+          colors: [Color(0xFFEAFDFF), Color(0xFFD9FAFF), Color(0xFFF1FFF8)],
+          stops: [0, 0.55, 1],
         ).createShader(skyRect),
     );
 
@@ -765,7 +762,9 @@ class _PlacementGardenBackdropPainter extends CustomPainter {
         ).createShader(Rect.fromCircle(center: sunCenter, radius: sunRadius)),
     );
 
-    final backHill = Path()
+    // One rounded green hill mass over the sky (Figma has a single hill
+    // gradient from the crest to the bottom).
+    final hill = Path()
       ..moveTo(0, size.height * 0.224)
       ..cubicTo(
         size.width * 0.22,
@@ -779,13 +778,14 @@ class _PlacementGardenBackdropPainter extends CustomPainter {
       ..lineTo(0, size.height)
       ..close();
     canvas.drawPath(
-      backHill,
+      hill,
       Paint()
         ..shader =
             const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFE5F2D1), Color(0xFFBCE1A9)],
+              colors: [Color(0xFFD7F2C4), Color(0xFF8DD67C), Color(0xFF4E9A45)],
+              stops: [0, 0.55, 1],
             ).createShader(
               Rect.fromLTWH(
                 0,
@@ -794,22 +794,6 @@ class _PlacementGardenBackdropPainter extends CustomPainter {
                 size.height * 0.84,
               ),
             ),
-    );
-
-    final frontField = Rect.fromLTWH(
-      0,
-      size.height * 0.46,
-      size.width,
-      size.height * 0.54,
-    );
-    canvas.drawRect(
-      frontField,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFB7DFA4), Color(0xFF5A9C4B)],
-        ).createShader(frontField),
     );
   }
 
@@ -869,7 +853,7 @@ class _PlacementPlotState extends State<_PlacementPlot>
   );
   late final AnimationController _sway = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 5600),
+    duration: const Duration(milliseconds: 3200),
   );
 
   @override
@@ -929,8 +913,8 @@ class _PlacementPlotState extends State<_PlacementPlot>
     final plantHeight = width * (widget.bloom ? 152 : 112) / 342.98;
     final plantTop = width * (widget.bloom ? -40 : 0) / 342.98;
     final sway = Tween<double>(
-      begin: -0.034,
-      end: 0.034,
+      begin: -0.07,
+      end: 0.07,
     ).animate(CurvedAnimation(parent: _sway, curve: Curves.easeInOut));
 
     return SizedBox(
@@ -1051,8 +1035,16 @@ class _RevealCallout extends StatelessWidget {
     final bubbleWidth = placementStyle
         ? metrics.placementBubbleWidth
         : metrics.bubbleWidth;
+    // Bubble is painted first, then the mascot, so Zoe renders IN FRONT of the
+    // bubble (she only overlaps its top-left corner, not the text).
     return Stack(
       children: [
+        Positioned(
+          left: bubbleLeft,
+          top: bubbleTop,
+          width: bubbleWidth,
+          child: bubble,
+        ),
         Positioned(
           left: mascotLeft,
           top: mascotTop,
@@ -1061,12 +1053,6 @@ class _RevealCallout extends StatelessWidget {
             size: mascotSize,
             reducedMotion: reducedMotion,
           ),
-        ),
-        Positioned(
-          left: bubbleLeft,
-          top: bubbleTop,
-          width: bubbleWidth,
-          child: bubble,
         ),
       ],
     );
@@ -1096,8 +1082,11 @@ class _RevealBubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
+              SvgPicture.asset(_kBubblePlantIcon, width: 32, height: 32),
+              const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   'Look, your first plant',
@@ -1106,8 +1095,6 @@ class _RevealBubble extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              SvgPicture.asset(_kBubblePlantIcon, width: 32, height: 32),
             ],
           ),
           const SizedBox(height: 8),

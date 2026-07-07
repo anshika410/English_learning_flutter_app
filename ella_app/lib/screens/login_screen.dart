@@ -22,9 +22,7 @@ import 'google_sign_in_button.dart';
 
 const String _kGoogleLoginAsset = 'assets/auth/google-login.svg';
 const String _kEnvelopeOpenAsset = 'assets/auth/envelope-open.svg';
-const String _kShieldCheckAsset = 'assets/auth/shield-check.svg';
 const String _kPaperPlaneRightAsset = 'assets/auth/paper-plane-right.svg';
-const String _kArrowCircleLeftAsset = 'assets/auth/arrow-circle-left.svg';
 
 class LoginScreen extends StatefulWidget {
   final EllaApiService? api;
@@ -39,12 +37,22 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   late final EllaApiService _api;
 
   bool _isLoading = false;
   bool _showEmailInput = false;
   bool _magicLinkSent = false;
+
+  // Intro animation: the mascot slides up into place first, then the title +
+  // login options fade/slide in behind it. Runs once on the initial login stage.
+  late final AnimationController _introController;
+  late final Animation<double> _mascotFade;
+  late final Animation<Offset> _mascotSlide;
+  late final Animation<double> _contentFade;
+  late final Animation<Offset> _contentSlide;
+  bool _introStarted = false;
 
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
@@ -59,6 +67,39 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _api = widget.api ?? EllaApiService();
     _emailFocusNode.addListener(_onFocusChange);
+
+    _introController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    );
+    _mascotFade = CurvedAnimation(
+      parent: _introController,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+    _mascotSlide =
+        Tween<Offset>(
+          begin: const Offset(0, 0.5),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _introController,
+            curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+          ),
+        );
+    _contentFade = CurvedAnimation(
+      parent: _introController,
+      curve: const Interval(0.55, 1.0, curve: Curves.easeOut),
+    );
+    _contentSlide =
+        Tween<Offset>(
+          begin: const Offset(0, 0.25),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _introController,
+            curve: const Interval(0.55, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
 
     if (!widget.enableGoogleAuth) return;
 
@@ -120,7 +161,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Start the intro once we can read reduced-motion. If animations are
+    // disabled, jump straight to the settled state.
+    if (!_introStarted) {
+      _introStarted = true;
+      if (MediaQuery.of(context).disableAnimations) {
+        _introController.value = 1.0;
+      } else {
+        _introController.forward();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    _introController.dispose();
     _googleSignInSubscription?.cancel();
     _focusScrollTimer?.cancel();
     _emailFocusNode.removeListener(_onFocusChange);
@@ -277,26 +334,38 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           children: [
             SizedBox(height: metrics.topMascotInset),
-            _buildMascot(metrics),
+            FadeTransition(
+              opacity: _mascotFade,
+              child: SlideTransition(
+                position: _mascotSlide,
+                child: _buildMascot(metrics),
+              ),
+            ),
             SizedBox(height: metrics.loginTitleGap),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: metrics.contentWidth),
-              child: Column(
-                children: [
-                  Text(
-                    'ZoSpeak',
-                    textAlign: TextAlign.center,
-                    style: EllaTextStyles.authDisplay,
+            FadeTransition(
+              opacity: _contentFade,
+              child: SlideTransition(
+                position: _contentSlide,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: metrics.contentWidth),
+                  child: Column(
+                    children: [
+                      Text(
+                        'ZoSpeak',
+                        textAlign: TextAlign.center,
+                        style: EllaTextStyles.authDisplay,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Talk More. Grow Your English',
+                        textAlign: TextAlign.center,
+                        style: EllaTextStyles.authTitle,
+                      ),
+                      SizedBox(height: metrics.loginActionsGap),
+                      _buildLoginButtons(metrics),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Talk More. Grow Your English',
-                    textAlign: TextAlign.center,
-                    style: EllaTextStyles.authTitle,
-                  ),
-                  SizedBox(height: metrics.loginActionsGap),
-                  _buildLoginButtons(metrics),
-                ],
+                ),
               ),
             ),
             SizedBox(height: metrics.backdropReserve),
@@ -403,12 +472,6 @@ class _LoginScreenState extends State<LoginScreen> {
           onTap: _isLoading
               ? null
               : () => setState(() => _showEmailInput = true),
-        ),
-        SizedBox(height: metrics.footerGap),
-        _PrivacyFooter(
-          iconSize: metrics.authIconSize,
-          onReadPolicy: () =>
-              Navigator.of(context).pushNamed('/privacy-policy'),
         ),
       ],
     );
@@ -565,7 +628,6 @@ class _AuthLayoutMetrics {
     required this.buttonHeight,
     required this.buttonGap,
     required this.formGap,
-    required this.footerGap,
     required this.backdropReserve,
     required this.authIconSize,
     required this.googleIconSize,
@@ -584,7 +646,6 @@ class _AuthLayoutMetrics {
   final double buttonHeight;
   final double buttonGap;
   final double formGap;
-  final double footerGap;
   final double backdropReserve;
   final double authIconSize;
   final double googleIconSize;
@@ -615,7 +676,6 @@ class _AuthLayoutMetrics {
       buttonHeight: buttonHeight,
       buttonGap: _clampDouble(height * 0.026, 16, 24),
       formGap: _clampDouble(height * 0.026, 18, 24),
-      footerGap: _clampDouble(height * 0.026, 18, 24),
       backdropReserve: _clampDouble(height * 0.13, 88, 128),
       authIconSize: _clampDouble(buttonHeight * 0.44, 28, 32),
       googleIconSize: _clampDouble(buttonHeight * 0.56, 32, 40),
@@ -647,67 +707,23 @@ class _BackCircleButton extends StatelessWidget {
       key: const ValueKey('auth-back-button'),
       behavior: HitTestBehavior.opaque,
       onTap: withTapClick(onTap),
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Center(
-          child: SvgPicture.asset(
-            _kArrowCircleLeftAsset,
-            width: 32,
-            height: 32,
+      child: Center(
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: EllaColors.greenLight, // #DDF8E8 circle fill
+            shape: BoxShape.circle,
+            border: Border.all(color: EllaColors.greenDeep, width: 2),
+          ),
+          child: const Icon(
+            Icons.arrow_back_rounded,
+            size: 22,
+            color: EllaColors.greenDeep,
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PrivacyFooter extends StatelessWidget {
-  final double iconSize;
-  final VoidCallback onReadPolicy;
-
-  const _PrivacyFooter({required this.iconSize, required this.onReadPolicy});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SvgPicture.asset(
-              _kShieldCheckAsset,
-              width: iconSize,
-              height: iconSize,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Your learning data stays private and is never shared with anyone',
-                style: EllaTextStyles.authBody,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: EdgeInsets.only(left: iconSize + 12),
-            child: InkWell(
-              onTap: onReadPolicy,
-              child: Text(
-                'Read Privacy Policy',
-                style: EllaTextStyles.caption.copyWith(
-                  color: EllaColors.berryDark,
-                  decoration: TextDecoration.underline,
-                  decorationColor: EllaColors.berryDark,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

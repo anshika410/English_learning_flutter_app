@@ -26,8 +26,8 @@ class SpotlightOverlay extends StatelessWidget {
           colors: const [
             Color(0x00185E35),
             Color(0x00185E35),
-            Color(0x66123B23),
-            Color(0x99102F1D),
+            Color(0x7A123B23),
+            Color(0xB3102F1D),
           ],
           stops: const [0.0, 0.35, 0.75, 1.0],
         ),

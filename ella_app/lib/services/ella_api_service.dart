@@ -94,6 +94,12 @@ class EllaApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
+    // Clear the cached onboarding profile too, so a different user signing in
+    // next doesn't inherit the previous user's name/age (the greeting is
+    // re-sourced from /users/me on the fresh session).
+    await prefs.remove(_childNameKey);
+    await prefs.remove(_childAgeKey);
+    await prefs.remove(_onboardingDoneKey);
   }
 
   Future<bool> loginAnonymous() async {

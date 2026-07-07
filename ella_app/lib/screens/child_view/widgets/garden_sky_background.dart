@@ -108,11 +108,11 @@ class _SkyScenePainter extends CustomPainter {
     canvas.drawPath(
       backHill,
       Paint()
-        // Figma back-dome ramp: crest #D2F0BF → base #8FD67E.
+        // Figma hill gradient (top half): crest #D7F2C4 → #8DD67C.
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFD2F0BF), Color(0xFF8FD67E)],
+          colors: [Color(0xFFD7F2C4), Color(0xFF8DD67C)],
         ).createShader(Rect.fromLTWH(0, h * 0.28, w, h * 0.72)),
     );
 
@@ -128,11 +128,11 @@ class _SkyScenePainter extends CustomPainter {
     canvas.drawPath(
       frontHill,
       Paint()
-        // Figma foreground ground gradient (#98C861 → #8AC645), near-flat.
+        // Figma hill gradient (lower half): #8DD67C → base #4E9A45.
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF98C861), Color(0xFF8AC645)],
+          colors: [Color(0xFF8DD67C), Color(0xFF4E9A45)],
         ).createShader(Rect.fromLTWH(0, h * 0.40, w, h * 0.60)),
     );
   }

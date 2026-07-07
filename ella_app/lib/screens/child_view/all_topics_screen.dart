@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
@@ -29,50 +30,51 @@ class AllTopicsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: GardenSkyBackground(
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _CircleBackButton(
-                onTap: () => Navigator.of(context).maybePop(),
-              ),
-              const SizedBox(height: 12),
-              const _MascotPrompt(text: 'Choose any topic that you like'),
-              const SizedBox(height: 16),
-              Expanded(
-                child: topics.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No topics to show yet.',
-                          style: EllaTextStyles.bodyBase.copyWith(
-                            color: EllaColors.textSecondary,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _CircleBackButton(
+                  onTap: () => Navigator.of(context).maybePop(),
+                ),
+                const SizedBox(height: 12),
+                const _MascotPrompt(text: 'Choose any topic that you like'),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: topics.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No topics to show yet.',
+                            style: EllaTextStyles.bodyBase.copyWith(
+                              color: EllaColors.textSecondary,
+                            ),
+                          ),
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                mainAxisSpacing: 14,
+                                crossAxisSpacing: 14,
+                                childAspectRatio: 0.9,
+                              ),
+                          itemCount: topics.length,
+                          itemBuilder: (_, i) => _TopicCard(
+                            topic: topics[i],
+                            onTap: () {
+                              playTapClick();
+                              Navigator.of(context).pop(topics[i]);
+                            },
                           ),
                         ),
-                      )
-                    : GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 14,
-                          crossAxisSpacing: 14,
-                          childAspectRatio: 0.92,
-                        ),
-                        itemCount: topics.length,
-                        itemBuilder: (_, i) => _TopicCard(
-                          topic: topics[i],
-                          onTap: () {
-                            playTapClick();
-                            Navigator.of(context).pop(topics[i]);
-                          },
-                        ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -109,9 +111,18 @@ class _CircleBackButton extends StatelessWidget {
         width: 44,
         height: 44,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(
+        decoration: const ShapeDecoration(
           color: EllaColors.surface,
-          shape: BoxShape.circle,
+          shadows: [
+            BoxShadow(
+              color: EllaColors.greenDeep,
+              offset: Offset(0, 3),
+              blurRadius: 0,
+            ),
+          ],
+          shape: CircleBorder(
+            side: BorderSide(color: EllaColors.greenDeep, width: 2),
+          ),
         ),
         child: const Icon(
           Icons.arrow_back_rounded,
@@ -141,10 +152,17 @@ class _MascotPrompt extends StatelessWidget {
         Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
+            decoration: ellaSmoothDecoration(
               color: EllaColors.surface,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: EllaColors.info, width: 2),
+              side: const BorderSide(color: EllaColors.info, width: 2),
+              shadows: const [
+                BoxShadow(
+                  color: EllaColors.infoDark,
+                  offset: Offset(0, 3),
+                  blurRadius: 0,
+                ),
+              ],
             ),
             child: Text(text, style: EllaTextStyles.bodySemibold),
           ),
@@ -158,7 +176,10 @@ class _TopicCard extends StatelessWidget {
   final TopicChoice topic;
   final VoidCallback onTap;
 
-  const _TopicCard({required this.topic, required this.onTap});
+  const _TopicCard({
+    required this.topic,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -166,11 +187,11 @@ class _TopicCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
+        decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
             color: EllaColors.ink.withValues(alpha: 0.15),
             width: 1.5,
           ),
@@ -180,7 +201,7 @@ class _TopicCard extends StatelessWidget {
           children: [
             TopicIcon(
               icon: topic.icon,
-              size: 32,
+              size: 34,
               fallbackColor: EllaColors.ink,
             ),
             const SizedBox(height: 8),

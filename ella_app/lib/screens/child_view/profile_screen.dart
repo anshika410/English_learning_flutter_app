@@ -343,6 +343,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             try {
                               await GoogleSignIn.instance.signOut();
                             } catch (_) {}
+                            // Drop the previous user's cached memory + profile so
+                            // the next sign-in rebuilds them from /users/me.
+                            ref.invalidate(onboardingProvider);
+                            ref.invalidate(chatProvider);
                             if (context.mounted) {
                               Navigator.of(context, rootNavigator: true)
                                   .pushNamedAndRemoveUntil('/login', (route) => false);

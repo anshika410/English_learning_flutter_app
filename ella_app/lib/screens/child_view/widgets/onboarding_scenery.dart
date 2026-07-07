@@ -23,7 +23,8 @@ class OnboardingScenery extends StatelessWidget {
         final hillWidth = math.max(width * 1.305, 400.0);
         final hillHeight = hillWidth * 660.5 / 561;
         final visibleHillHeight = _clampDouble(height * 0.116, 72, 112);
-        final plantHeight = _clampDouble(height * 0.122, 82, 114);
+        // Blooms sized ~15% larger than before (0.122→0.140, clamps scaled).
+        final plantHeight = _clampDouble(height * 0.140, 94, 131);
 
         return DecoratedBox(
           // Sky: soft peach easing into light cyan (Figma splash/login gradient).
@@ -111,11 +112,11 @@ class _SwayingBloom extends StatefulWidget {
 
 class _SwayingBloomState extends State<_SwayingBloom>
     with SingleTickerProviderStateMixin {
-  static const double _maxRad = 2.0 * math.pi / 180;
+  static const double _maxRad = 4.0 * math.pi / 180;
 
   late final AnimationController _sway = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 6000),
+    duration: const Duration(milliseconds: 4200),
   );
   late final Animation<double> _angle = Tween<double>(
     begin: -_maxRad,

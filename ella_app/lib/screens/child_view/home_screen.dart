@@ -104,6 +104,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // Tapping an alternative chip or picking one in See More sets this; it never
   // starts a session — only the CTA does.
   TopicChoice? _selectedTopic;
+  bool _promoteSelectedTopic = true;
 
   MemoryState? get _memory => widget.memory;
 
@@ -119,8 +120,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // API provides it, in which case the card shows its first-chat fallback.
   String get _recap => _memory?.lastTimeRecap ?? '';
 
-  void _selectTopic(TopicChoice topic) =>
-      setState(() => _selectedTopic = topic);
+  void _selectTopic(TopicChoice topic) => setState(() {
+    _selectedTopic = topic;
+    _promoteSelectedTopic = false;
+  });
 
   // Replays the "Last time" recap aloud. Speaks the same fallback line that the
   // card shows when the server hasn't sent a recap yet. A no-op while TTS is
@@ -141,7 +144,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
       MaterialPageRoute(builder: (_) => const AllTopicsScreen()),
     );
     if (picked != null && mounted) {
-      setState(() => _selectedTopic = picked);
+      setState(() {
+        _selectedTopic = picked;
+        _promoteSelectedTopic = true;
+      });
     }
   }
 
@@ -267,8 +273,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                 // Pass the EFFECTIVE selection (explicit pick, else the
                 // server's recommended) so the topic on the "Let's Talk About…"
                 // CTA is the first, highlighted chip in the row below.
+                recommended: _recommended,
                 alternatives: _alternatives,
                 selected: _selected,
+                promoteSelected: _promoteSelectedTopic,
                 onSelect: _selectTopic,
                 onSeeMore: _openSeeMore,
               ),
@@ -427,28 +435,45 @@ class _SectionDivider extends StatelessWidget {
 // slots stay as neutral placeholders so the row's layout doesn't jump before
 // the topics load.
 class _TopicChipsRow extends StatelessWidget {
+  final TopicChoice? recommended;
   final List<TopicChoice> alternatives;
   final TopicChoice?
   selected; // effective selection (CTA topic), highlighted first
+  final bool promoteSelected;
   final ValueChanged<TopicChoice> onSelect;
   final VoidCallback onSeeMore;
 
   const _TopicChipsRow({
+    required this.recommended,
     required this.alternatives,
     required this.selected,
+    required this.promoteSelected,
     required this.onSelect,
     required this.onSeeMore,
   });
 
   @override
   Widget build(BuildContext context) {
-    final ordered = <TopicChoice>[...alternatives];
+    final ordered = <TopicChoice>[];
     final sel = selected;
-    if (sel != null && sel.name.isNotEmpty) {
+    final seen = <String>{};
+    void addTopic(TopicChoice? topic) {
+      if (topic == null || topic.name.isEmpty || !seen.add(topic.name)) return;
+      ordered.add(topic);
+    }
+
+    if (promoteSelected) {
       // Move the explicit pick to the front (it may be one of the alternatives,
       // or a See-More pick that isn't — prepend either way), highlighted.
-      ordered.removeWhere((t) => t.name == sel.name);
-      ordered.insert(0, sel);
+      addTopic(sel);
+      for (final topic in alternatives) {
+        addTopic(topic);
+      }
+    } else {
+      addTopic(recommended);
+      for (final topic in alternatives) {
+        addTopic(topic);
+      }
     }
     final shown = ordered.take(2).toList();
 

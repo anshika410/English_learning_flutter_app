@@ -47,7 +47,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   /// The child's reply bubble currently on screen (exactly as typed).
   String? _userReply;
-  String? _fieldError;
+
+  /// When a reply is invalid, Zoe re-asks in her own bubble using this text
+  /// (overriding the step's default prompt) instead of a separate error line.
+  String? _zoeOverride;
 
   String _name = '';
   int? _age;
@@ -68,11 +71,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   String get _congratsText =>
       "Alright $_name. Your garden is ready! Let's plant something";
 
-  String get _zoeText => switch (_step) {
-    _Step.name => _introText,
-    _Step.age => _ageText,
-    _Step.congrats => _congratsText,
-  };
+  String get _zoeText =>
+      _zoeOverride ??
+      switch (_step) {
+        _Step.name => _introText,
+        _Step.age => _ageText,
+        _Step.congrats => _congratsText,
+      };
 
   @override
   void initState() {
@@ -182,13 +187,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   Future<void> _onSend() async {
     if (_busy) return;
     final typed = _replyCtrl.text.trim();
+    if (typed.isEmpty) return;
 
     if (_step == _Step.name) {
       final name = _extractName(typed);
       if (name == null) {
-        setState(
-          () => _fieldError =
-              "I couldn't get your name properly. Can you tell me your name again?",
+        // Re-ask as Zoe's next bubble (child's reply shown, Zoe asks again).
+        await _reask(
+          typed,
+          "I couldn't get your name properly. Can you tell me your name again?",
         );
         return;
       }
@@ -198,9 +205,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     } else if (_step == _Step.age) {
       final age = _extractAge(typed);
       if (age == null) {
-        setState(
-          () => _fieldError =
-              "I couldn't get your correct age. Can you please share your age again?",
+        await _reask(
+          typed,
+          "I couldn't get your correct age. Can you please share your age again?",
         );
         return;
       }
@@ -227,7 +234,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }) async {
     setState(() {
       _busy = true;
-      _fieldError = null;
       _userReply = reply;
       _mascot = ZoeMascotMode.thinking;
       _replyCtrl.clear();
@@ -236,10 +242,32 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     if (!mounted) return;
     setState(() {
       _step = next;
+      _zoeOverride = null; // back to the step's default prompt
       _userReply = null;
       _busy = false;
     });
     await _speak(prompt);
+  }
+
+  /// Invalid reply: show the child's words as a bubble, let Zoe "think", then
+  /// have her re-ask the same question ([prompt]) in her own bubble — no
+  /// separate error line. Stays on the current step.
+  Future<void> _reask(String reply, String prompt) async {
+    setState(() {
+      _busy = true;
+      _userReply = reply;
+      _mascot = ZoeMascotMode.thinking;
+      _replyCtrl.clear();
+    });
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    setState(() {
+      _zoeOverride = prompt;
+      _userReply = null;
+      _busy = false;
+    });
+    await _speak(prompt);
+    if (mounted) _replyFocus.requestFocus();
   }
 
   void _openPlacementGarden({bool playReveal = true}) {
@@ -265,7 +293,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     return GardenSkyBackground(
       child: SafeArea(
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
+          duration: const Duration(milliseconds: 500),
           transitionBuilder: (child, anim) =>
               FadeTransition(opacity: anim, child: child),
           child: _ChatStep(
@@ -277,7 +305,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             showComposer: _step != _Step.congrats,
             controller: _replyCtrl,
             focusNode: _replyFocus,
-            error: _fieldError,
             sendEnabled: !_busy,
             onSend: _onSend,
             onReplay: () => _replay(_zoeText),
@@ -298,7 +325,6 @@ class _ChatStep extends StatelessWidget {
   final bool showComposer;
   final TextEditingController controller;
   final FocusNode focusNode;
-  final String? error;
   final bool sendEnabled;
   final VoidCallback onSend;
   final VoidCallback onReplay;
@@ -312,7 +338,6 @@ class _ChatStep extends StatelessWidget {
     required this.showComposer,
     required this.controller,
     required this.focusNode,
-    required this.error,
     required this.sendEnabled,
     required this.onSend,
     required this.onReplay,
@@ -342,7 +367,7 @@ class _ChatStep extends StatelessWidget {
                   const SizedBox(height: 16),
                   // Cross-fade when Zoe's line changes (name → age → congrats).
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
+                    duration: const Duration(milliseconds: 450),
                     child: _ZoeBubble(
                       key: ValueKey(zoeText),
                       text: zoeText,
@@ -360,20 +385,6 @@ class _ChatStep extends StatelessWidget {
               ),
             ),
           ),
-          if (error != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  error!,
-                  style: EllaTextStyles.bodySmall.copyWith(
-                    color: EllaColors.error,
-                  ),
-                ),
-              ),
-            ),
-          ],
           if (showComposer)
             _ReplyComposer(
               controller: controller,
@@ -519,7 +530,7 @@ class _ReplyComposer extends StatelessWidget {
             textInputAction: TextInputAction.send,
             textCapitalization: TextCapitalization.sentences,
             onSubmitted: (_) => onSend(),
-            style: EllaTextStyles.bodyBase,
+            style: EllaTextStyles.bodySemibold,
             decoration: InputDecoration(
               hintText: 'Type your reply...',
               hintStyle: EllaTextStyles.bodyBase.copyWith(

@@ -487,7 +487,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
           child: AnimatedOpacity(
             opacity: introActive ? 1 : 0,
             duration: Duration(milliseconds: reducedMotion ? 0 : 600),
-            child: const SpotlightOverlay(center: Alignment(-0.16, -0.2)),
+            child: const SpotlightOverlay(center: Alignment(0, 0.26)),
           ),
         ),
         IgnorePointer(
@@ -548,17 +548,25 @@ class _WelcomeCallout extends StatelessWidget {
         final media = MediaQuery.of(context);
         final width = constraints.maxWidth;
         final scale = (width / _designWidth).clamp(0.84, 1.08).toDouble();
-        final bubbleWidth = math.min(340 * scale, width - 40);
-        final bubbleLeft = math.max(20.0, (width - bubbleWidth) / 2);
+        final bubbleLeft = 24.0;
+        final bubbleWidth = width - 48;
         final bubbleTop = media.padding.top + 138 * scale;
         final mascotLeft = math.max(16.0, bubbleLeft - 6 * scale);
         final mascotTop = math.max(
-          media.padding.top + 64,
+          media.padding.top + 16 + 104 * 0.62,
           bubbleTop - 58 * scale,
         );
 
+        // Bubble first, then the mascot, so Zoe renders IN FRONT of the bubble
+        // (consistent with the placement spotlight callout).
         return Stack(
           children: [
+            Positioned(
+              left: bubbleLeft,
+              top: bubbleTop,
+              width: bubbleWidth,
+              child: const _WelcomeBubble(),
+            ),
             Positioned(
               left: mascotLeft,
               top: mascotTop,
@@ -567,12 +575,6 @@ class _WelcomeCallout extends StatelessWidget {
                 size: 72 * scale,
                 reducedMotion: reducedMotion,
               ),
-            ),
-            Positioned(
-              left: bubbleLeft,
-              top: bubbleTop,
-              width: bubbleWidth,
-              child: const _WelcomeBubble(),
             ),
           ],
         );
@@ -604,17 +606,9 @@ class _WelcomeBubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Flexible(
-                child: Text(
-                  _kWelcomeTitle,
-                  style: EllaTextStyles.bodySemiboldLarge.copyWith(
-                    color: EllaColors.greenDeep,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
               SvgPicture.asset(
                 _kGardenButtonPlantIcon,
                 width: 24,
@@ -622,6 +616,15 @@ class _WelcomeBubble extends StatelessWidget {
                 colorFilter: const ColorFilter.mode(
                   EllaColors.greenDeep,
                   BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  _kWelcomeTitle,
+                  style: EllaTextStyles.bodySemiboldLarge.copyWith(
+                    color: EllaColors.greenDeep,
+                  ),
                 ),
               ),
             ],
@@ -1837,8 +1840,8 @@ double _plantHeightFor(GardenSkill skill) => switch (skill.sightings) {
 // Scales past 1.0 before settling, giving the plant a satisfying "pop".
 const Cubic _popCurve = Cubic(0.34, 1.56, 0.64, 1.0);
 
-// Idle plant sway: rotation ±2.2° about the bottom-centre, 3600ms ping-pong.
-const double _swayMaxRad = 2.2 * math.pi / 180;
+// Idle plant sway: rotation ±4° about the bottom-centre, 2400ms ping-pong.
+const double _swayMaxRad = 4.0 * math.pi / 180;
 
 class _Plant extends StatefulWidget {
   final GardenSkill skill;
@@ -1860,7 +1863,7 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
   // Idle sway loop (1a) and one-shot pop-in (2a) from the grove handoff.
   late final AnimationController _sway = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 3600),
+    duration: const Duration(milliseconds: 2400),
   );
   late final AnimationController _pop = AnimationController(
     vsync: this,

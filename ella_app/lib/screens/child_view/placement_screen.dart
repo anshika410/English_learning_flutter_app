@@ -28,7 +28,7 @@ class PlacementScreen extends ConsumerStatefulWidget {
 // Placeholder turn target for the progress bar: the bar fills proportionally by
 // Zoe-question count until the hard placement turn count lands (then this
 // becomes that number). Swapping this constant is the only change needed.
-const int kPlacementTurnTarget = 8;
+const int kPlacementTurnTarget = 12;
 
 class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final _textController = TextEditingController();

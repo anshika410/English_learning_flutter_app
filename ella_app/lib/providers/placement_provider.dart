@@ -276,6 +276,9 @@ class PlacementNotifier extends Notifier<PlacementState> {
     if (state.status != ChatStatus.idle || state.isComplete) return;
     state = state.copyWith(status: ChatStatus.userSpeaking);
     final stt = ref.read(sttProvider);
+    // Lazily init STT (idempotent) so the mic-permission prompt appears on first
+    // voice use rather than at app/screen load.
+    await stt.initialize();
     await stt.startListening(
       onPartial: (partial) =>
           state = state.copyWith(partialStt: partial),
