@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dotted_border/dotted_border.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
@@ -27,31 +28,41 @@ class ChatBubble extends StatelessWidget {
         children: [
           if (isZoe) ...[_ZoeAvatar(), const SizedBox(width: 8)],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isZoe ? EllaColors.surface : const Color(0xFFFCE4EC),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isZoe ? 4 : 18),
-                  bottomRight: Radius.circular(isZoe ? 18 : 4),
-                ),
-                border: isZoe ? null : Border.all(
-                  color: const Color(0xFFE91E63),
-                  width: 2.5,
-                ),
-                boxShadow: isZoe ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+            child: isZoe
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: EllaColors.surface,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(18),
+                      bottomLeft: Radius.circular(4),
+                      bottomRight: Radius.circular(18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ] : null,
-              ),
-              child: isZoe
-                  ? _TypewriterText(text: message.text)
-                  : Text(
+                  child: _TypewriterText(text: message.text),
+                )
+              : DottedBorder(
+                  color: const Color(0xFFE91E63),
+                  strokeWidth: 2.5,
+                  dashPattern: const [8, 4],
+                  borderType: BorderType.RRect,
+                  radius: const Radius.circular(18),
+                  padding: EdgeInsets.zero,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFCE4EC),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(
                       message.text,
                       style: EllaTextStyles.bodyBase.copyWith(
                         color: const Color(0xFF880E4F),
@@ -59,7 +70,8 @@ class ChatBubble extends StatelessWidget {
                         height: 1.4,
                       ),
                     ),
-            ),
+                  ),
+                ),
           ),
         ],
       ),
