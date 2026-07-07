@@ -196,9 +196,18 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   Future<ChatState> build() async {
     // Init STT/TTS regardless of network state.
     final tts = ref.read(ttsProvider);
-    await tts.initialize();
+    try {
+      await tts.initialize();
+    } catch (e) {
+      print('⚠️ TTS initialization failed: $e');
+    }
+
     final stt = ref.read(sttProvider);
-    await stt.initialize();
+    try {
+      await stt.initialize();
+    } catch (e) {
+      print('⚠️ STT initialization failed: $e');
+    }
 
     // Register native TTS range callbacks to drive Karaoke text highlighting
     final nativeTts = ref.read(nativeTtsProvider);
