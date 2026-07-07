@@ -85,6 +85,30 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
 
     state = AsyncData(OnboardingState(done: true, name: name, age: age));
   }
+
+  Future<void> updateProfile({required String name, required int age}) async {
+    final api = ref.read(ellaApiServiceProvider);
+
+    await api.saveOnboardingProfile(name: name, age: age);
+
+    // Unlike complete(), we don't swallow errors here so the UI can show them
+    await api.updateProfile(name: name, age: age);
+
+    ref.read(placementProvider.notifier).seedProfile(name: name, age: age);
+
+    final currentDone = state.valueOrNull?.done ?? true;
+    state = AsyncData(OnboardingState(done: currentDone, name: name, age: age));
+  }
+
+  Future<void> reset() async {
+    final api = ref.read(ellaApiServiceProvider);
+    await api.clearOnboarding();
+    
+    // Clear placement state as well, since memory is gone
+    ref.read(placementProvider.notifier).reset();
+    
+    state = const AsyncData(OnboardingState(done: false, name: null, age: null));
+  }
 }
 
 final onboardingProvider =
