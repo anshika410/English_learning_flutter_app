@@ -38,6 +38,9 @@ class ChatState {
   final int turnCount;
   final bool sessionEnded;
   final String? partialStt;
+  final String? currentlySpeakingMessageId;
+  final int highlightStart;
+  final int highlightEnd;
 
   // Simulator parity additions
   final int
@@ -73,6 +76,9 @@ class ChatState {
     this.turnCount = 0,
     this.sessionEnded = false,
     this.partialStt,
+    this.currentlySpeakingMessageId,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
     this.chatNumber = 1,
     this.autoMode = false,
     this.autoStep = 0,
@@ -120,6 +126,10 @@ class ChatState {
     List<String>? serverAimedAt,
     String? lastSyncError,
     bool clearSyncError = false,
+    String? currentlySpeakingMessageId,
+    bool clearCurrentlySpeaking = false,
+    int? highlightStart,
+    int? highlightEnd,
   }) => ChatState(
     messages: messages ?? this.messages,
     memory: memory ?? this.memory,
@@ -130,6 +140,11 @@ class ChatState {
     turnCount: turnCount ?? this.turnCount,
     sessionEnded: sessionEnded ?? this.sessionEnded,
     partialStt: clearPartialStt ? null : (partialStt ?? this.partialStt),
+    currentlySpeakingMessageId: clearCurrentlySpeaking
+        ? null
+        : (currentlySpeakingMessageId ?? this.currentlySpeakingMessageId),
+    highlightStart: highlightStart ?? this.highlightStart,
+    highlightEnd: highlightEnd ?? this.highlightEnd,
     chatNumber: chatNumber ?? this.chatNumber,
     autoMode: autoMode ?? this.autoMode,
     autoStep: autoStep ?? this.autoStep,
@@ -184,6 +199,34 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     await tts.initialize();
     final stt = ref.read(sttProvider);
     await stt.initialize();
+
+    // Register native TTS range callbacks to drive Karaoke text highlighting
+    final nativeTts = ref.read(nativeTtsProvider);
+    final progressSub = nativeTts.progressStream.listen((event) {
+      if (state.hasValue) {
+        state = AsyncValue.data(
+          state.requireValue.copyWith(
+            highlightStart: event.start,
+            highlightEnd: event.end,
+          ),
+        );
+      }
+    });
+    final doneSub = nativeTts.doneStream.listen((_) {
+      if (state.hasValue) {
+        state = AsyncValue.data(
+          state.requireValue.copyWith(
+            clearCurrentlySpeaking: true,
+            highlightStart: -1,
+            highlightEnd: -1,
+          ),
+        );
+      }
+    });
+    ref.onDispose(() {
+      progressSub.cancel();
+      doneSub.cancel();
+    });
 
     final api = ref.read(ellaApiServiceProvider);
 
@@ -328,6 +371,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           // opens its mouth (mirrors _zoeTurn); reset to idle when done.
           status: ChatStatus.zoeSpeaking,
           liveLlmLastCall: true,
+          currentlySpeakingMessageId: zoeMsg.id,
+          highlightStart: -1,
+          highlightEnd: -1,
         ),
       );
       try {
@@ -840,6 +886,16 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     try {
       await ref.read(ttsProvider).stop();
     } catch (_) {}
+    if (state.hasValue) {
+      state = AsyncValue.data(
+        state.requireValue.copyWith(
+          status: ChatStatus.idle,
+          clearCurrentlySpeaking: true,
+          highlightStart: -1,
+          highlightEnd: -1,
+        ),
+      );
+    }
   }
 
   Future<void> stopListening() async {
@@ -916,6 +972,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
               messages: [...state.requireValue.messages, zoeMsg],
               status: ChatStatus.zoeSpeaking,
               liveLlmLastCall: true,
+              currentlySpeakingMessageId: zoeMsg.id,
+              highlightStart: -1,
+              highlightEnd: -1,
             ),
           );
           try {
@@ -968,6 +1027,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         messages: [...state.requireValue.messages, zoeMsg],
         status: ChatStatus.zoeSpeaking,
         liveLlmLastCall: live,
+        currentlySpeakingMessageId: zoeMsg.id,
+        highlightStart: -1,
+        highlightEnd: -1,
       ),
     );
 

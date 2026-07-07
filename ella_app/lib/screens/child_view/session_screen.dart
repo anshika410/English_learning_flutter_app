@@ -284,6 +284,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
           ? () => _speakLine(zoeLine)
           : null,
+      highlightStart: s.highlightStart,
+      highlightEnd: s.highlightEnd,
     );
   }
 

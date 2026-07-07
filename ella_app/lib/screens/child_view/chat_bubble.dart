@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
+import '../../providers/chat_provider.dart';
 
-class ChatBubble extends StatelessWidget {
+class ChatBubble extends ConsumerWidget {
   final ChatMessage message;
 
   const ChatBubble({super.key, required this.message});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isZoe = message.sender == MessageSender.zoe;
+
+    int highlightStart = -1;
+    int highlightEnd = -1;
+
+    if (isZoe) {
+      final chatState = ref.watch(chatProvider).value;
+      if (chatState != null && chatState.currentlySpeakingMessageId == message.id) {
+        highlightStart = chatState.highlightStart;
+        highlightEnd = chatState.highlightEnd;
+      }
+    }
 
     return Padding(
       padding: EdgeInsets.only(
@@ -47,7 +60,12 @@ class ChatBubble extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: _TypewriterText(text: message.text),
+                  child: TypewriterText(
+                    key: ValueKey(message.id),
+                    text: message.text,
+                    highlightStart: highlightStart,
+                    highlightEnd: highlightEnd,
+                  ),
                 )
               : DottedBorder(
                   color: const Color(0xFFE91E63),
@@ -55,7 +73,7 @@ class ChatBubble extends StatelessWidget {
                   dashPattern: const [8, 4],
                   borderType: BorderType.RRect,
                   radius: const Radius.circular(18),
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.all(2),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
@@ -81,20 +99,31 @@ class ChatBubble extends StatelessWidget {
 
 /// Reveals text word-by-word with a typing animation for Zoe's messages.
 /// Also supports karaoke highlight when [highlightStart] and [highlightEnd] are provided.
-class _TypewriterText extends StatefulWidget {
+class TypewriterText extends StatefulWidget {
   final String text;
   final int highlightStart;
   final int highlightEnd;
-  const _TypewriterText({required this.text, this.highlightStart = -1, this.highlightEnd = -1});
+  final TextStyle? style;
+  final TextStyle? highlightStyle;
+
+  const TypewriterText({
+    super.key,
+    required this.text,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+    this.style,
+    this.highlightStyle,
+  });
 
   @override
-  State<_TypewriterText> createState() => _TypewriterTextState();
+  State<TypewriterText> createState() => _TypewriterTextState();
 }
 
-class _TypewriterTextState extends State<_TypewriterText> {
+class _TypewriterTextState extends State<TypewriterText> {
   late List<String> _words;
   int _visibleWords = 0;
   bool _done = false;
+  int _animationId = 0;
 
   @override
   void initState() {
@@ -104,16 +133,19 @@ class _TypewriterTextState extends State<_TypewriterText> {
   }
 
   void _animate() async {
+    final currentId = ++_animationId;
     for (int i = 1; i <= _words.length; i++) {
       await Future.delayed(const Duration(milliseconds: 50));
-      if (!mounted) return;
+      if (!mounted || _animationId != currentId) return;
       setState(() => _visibleWords = i);
     }
-    if (mounted) setState(() => _done = true);
+    if (mounted && _animationId == currentId) {
+      setState(() => _done = true);
+    }
   }
 
   @override
-  void didUpdateWidget(covariant _TypewriterText oldWidget) {
+  void didUpdateWidget(covariant TypewriterText oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text) {
       _words = widget.text.split(' ');
@@ -129,20 +161,31 @@ class _TypewriterTextState extends State<_TypewriterText> {
         ? widget.text
         : _words.take(_visibleWords).join(' ');
 
+    final baseStyle = widget.style ??
+        EllaTextStyles.bodyBase.copyWith(color: EllaColors.ink, height: 1.4);
+    final highlightStyle = widget.highlightStyle ??
+        baseStyle.copyWith(
+          color: const Color(0xFFE91E63),
+          fontWeight: FontWeight.w800,
+          fontSize: (baseStyle.fontSize ?? 16.0) + 2.0,
+        );
+
     // If we have highlight range, build RichText with highlighted span
-    if (_done && widget.highlightStart >= 0 && widget.highlightEnd > widget.highlightStart && widget.highlightEnd <= widget.text.length) {
+    if (_done &&
+        widget.highlightStart >= 0 &&
+        widget.highlightEnd > widget.highlightStart &&
+        widget.highlightEnd <= widget.text.length) {
       return RichText(
         text: TextSpan(
-          style: EllaTextStyles.bodyBase.copyWith(color: EllaColors.ink, height: 1.4),
+          style: baseStyle,
           children: [
             TextSpan(text: widget.text.substring(0, widget.highlightStart)),
             TextSpan(
-              text: widget.text.substring(widget.highlightStart, widget.highlightEnd),
-              style: EllaTextStyles.bodyBase.copyWith(
-                color: const Color(0xFFE91E63),
-                fontWeight: FontWeight.w700,
-                height: 1.4,
+              text: widget.text.substring(
+                widget.highlightStart,
+                widget.highlightEnd,
               ),
+              style: highlightStyle,
             ),
             TextSpan(text: widget.text.substring(widget.highlightEnd)),
           ],
@@ -152,10 +195,7 @@ class _TypewriterTextState extends State<_TypewriterText> {
 
     return Text(
       displayed,
-      style: EllaTextStyles.bodyBase.copyWith(
-        color: EllaColors.ink,
-        height: 1.4,
-      ),
+      style: baseStyle,
     );
   }
 }

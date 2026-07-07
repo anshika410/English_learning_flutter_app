@@ -72,7 +72,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating — same pattern as GardenScreen's audio handle).
-  late final FlutterTtsService _tts;
+  late final TtsInterface _tts;
 
   // ── Zoe's script (Figma copy) ───────────────────────────────────────────────
 
