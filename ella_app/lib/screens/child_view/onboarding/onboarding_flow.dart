@@ -25,7 +25,7 @@ import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/stt_tts_service.dart';
 import '../placement_garden_screen.dart';
-import '../widgets/ella_primary_button.dart';
+import '../widgets/chat_reply_composer.dart';
 import '../widgets/garden_sky_background.dart';
 import '../widgets/zoe_mascot.dart';
 
@@ -504,8 +504,8 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-// "Type your reply…" composer — rounded field + round berry arrow send button
-// (same flat/stamp treatment as the home-screen buttons via EllaIconButton).
+// "Type your reply…" composer — thin wrapper over the shared [ChatReplyComposer]
+// (Figma node 441:26724) so the name/age step matches the conversation dock.
 class _ReplyComposer extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -521,51 +521,11 @@ class _ReplyComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            textInputAction: TextInputAction.send,
-            textCapitalization: TextCapitalization.sentences,
-            onSubmitted: (_) => onSend(),
-            style: EllaTextStyles.bodySemibold,
-            decoration: InputDecoration(
-              hintText: 'Type your reply...',
-              hintStyle: EllaTextStyles.bodyBase.copyWith(
-                color: EllaColors.textTertiary,
-              ),
-              filled: true,
-              fillColor: EllaColors.surface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 14,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(999),
-                borderSide: const BorderSide(
-                  color: EllaColors.border,
-                  width: 1.5,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(999),
-                borderSide: const BorderSide(
-                  color: EllaColors.berryDark,
-                  width: 2,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        EllaIconButton(
-          icon: Icons.arrow_forward_rounded,
-          size: 54,
-          onTap: enabled ? onSend : null,
-        ),
-      ],
+    return ChatReplyComposer(
+      controller: controller,
+      focusNode: focusNode,
+      enabled: enabled,
+      onSend: onSend,
     );
   }
 }

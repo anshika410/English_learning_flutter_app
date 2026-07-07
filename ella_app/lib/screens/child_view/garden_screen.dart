@@ -26,6 +26,7 @@ import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import 'widgets/garden_dialogs.dart';
+import 'widgets/spotlight_callout_bubble.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
 
@@ -219,10 +220,9 @@ String _gardenDisplayName(GardenData data, _GardenLevelVisualSpec spec) {
 
 // First-time welcome copy (Figma "Shift to new garden and nudge to start
 // talking") — shown under a spotlight when arriving from placement.
-const String _kWelcomeTitle = 'Welcome to your garden!';
-const String _kWelcomeBody =
-    'Each time we talk, a new plant grows here. Ready?';
-const String _kWelcomeText = '$_kWelcomeTitle\n$_kWelcomeBody';
+const String _kWelcomeTitle = 'Look, your first plant';
+const String _kWelcomeBody = 'Every conversation grows something new here';
+const String _kWelcomeText = '$_kWelcomeTitle. $_kWelcomeBody';
 const String _kGardenButtonPlantIcon = 'assets/homescreen/new/Plant.svg';
 
 enum _FirstGardenPhase { waiting, speaking, exploreReady, settled }
@@ -548,12 +548,16 @@ class _WelcomeCallout extends StatelessWidget {
         final media = MediaQuery.of(context);
         final width = constraints.maxWidth;
         final scale = (width / _designWidth).clamp(0.84, 1.08).toDouble();
-        final bubbleLeft = 24.0;
+        // Same wide callout as the placement sprout reveal: a full-width card
+        // (24px side margins) tucked just under the header controls so the sprout
+        // reads clearly below it, with Zoe perched at its top-left corner
+        // (58px above the bubble top).
         final bubbleWidth = width - 48;
-        final bubbleTop = media.padding.top + 126 * scale;
+        final bubbleLeft = 24.0;
+        final bubbleTop = media.padding.top + 60 * scale;
         final mascotLeft = math.max(16.0, bubbleLeft - 6 * scale);
         final mascotTop = math.max(
-          media.padding.top + 16 + 104 * 0.62,
+          media.padding.top + 8.0,
           bubbleTop - 58 * scale,
         );
 
@@ -588,60 +592,12 @@ class _WelcomeBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('garden-first-welcome-bubble'),
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-      decoration: ellaSmoothDecoration(
-        color: EllaColors.surface,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(4),
-          topRight: Radius.circular(20),
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
-        side: const BorderSide(color: EllaColors.info, width: 3),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SvgPicture.asset(
-                _kGardenButtonPlantIcon,
-                width: 24,
-                height: 24,
-                colorFilter: const ColorFilter.mode(
-                  EllaColors.greenDeep,
-                  BlendMode.srcIn,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FittedBox(
-                  alignment: Alignment.centerLeft,
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    _kWelcomeTitle,
-                    maxLines: 1,
-                    style: EllaTextStyles.bodySemiboldLarge.copyWith(
-                      color: EllaColors.greenDeep,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _kWelcomeBody,
-            style: EllaTextStyles.bodySemiboldLarge.copyWith(
-              color: EllaColors.ink,
-            ),
-          ),
-        ],
-      ),
+    // Same bubble as the placement reveal (Figma 598:17012) — only the copy
+    // differs.
+    return const SpotlightCalloutBubble(
+      key: ValueKey('garden-first-welcome-bubble'),
+      title: _kWelcomeTitle,
+      body: _kWelcomeBody,
     );
   }
 }

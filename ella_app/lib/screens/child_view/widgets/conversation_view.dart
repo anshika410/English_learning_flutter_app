@@ -14,7 +14,7 @@ import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../services/audio_service.dart';
-import 'ella_primary_button.dart' show EllaIconButton;
+import 'chat_reply_composer.dart';
 import 'garden_sky_background.dart';
 import 'speaker_dot_button.dart';
 import 'zoe_mascot.dart';
@@ -605,42 +605,13 @@ class _TextDock extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Field + send button match the name/age onboarding composer
-        // (_ReplyComposer): pill field radius 999, 20/14 padding, berry
-        // EllaIconButton arrow.
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                autofocus: true,
-                textInputAction: TextInputAction.send,
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: onSend == null ? null : (_) => onSend!(),
-                style: EllaTextStyles.bodySemibold,
-                decoration: InputDecoration(
-                  hintText: 'Type your reply…',
-                  hintStyle: EllaTextStyles.bodyBase.copyWith(
-                    color: EllaColors.textTertiary,
-                  ),
-                  filled: true,
-                  fillColor: EllaColors.surface,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                  enabledBorder: _border(EllaColors.border, 1.5),
-                  focusedBorder: _border(EllaColors.berryDark, 2),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            EllaIconButton(
-              icon: Icons.arrow_forward_rounded,
-              size: 54,
-              onTap: onSend,
-            ),
-          ],
+        // Shared reply composer (Figma node 441:26724) — the same field + berry
+        // paper-plane send button used across placement, conversation and the
+        // name/age onboarding step.
+        ChatReplyComposer(
+          controller: controller,
+          autofocus: true,
+          onSend: onSend,
         ),
         const SizedBox(height: 12),
         GestureDetector(
@@ -667,9 +638,4 @@ class _TextDock extends StatelessWidget {
       ],
     );
   }
-
-  OutlineInputBorder _border(Color color, double width) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(999),
-    borderSide: BorderSide(color: color, width: width),
-  );
 }

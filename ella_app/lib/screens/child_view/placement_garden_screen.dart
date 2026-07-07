@@ -21,6 +21,7 @@ import 'garden_screen.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'widgets/garden_sound_button.dart';
 import 'widgets/placement_garden_header.dart';
+import 'widgets/spotlight_callout_bubble.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
 
@@ -1064,52 +1065,10 @@ class _RevealBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('placement-garden-reveal-bubble'),
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-      decoration: ellaSmoothDecoration(
-        color: EllaColors.surface,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(4),
-          topRight: Radius.circular(20),
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
-        side: const BorderSide(color: EllaColors.info, width: 3),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SvgPicture.asset(_kBubblePlantIcon, width: 32, height: 32),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FittedBox(
-                  alignment: Alignment.centerLeft,
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Look, your first plant',
-                    maxLines: 1,
-                    style: EllaTextStyles.bodySemiboldLarge.copyWith(
-                      color: EllaColors.greenDeep,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Every conversation grows\nsomething new here',
-            style: EllaTextStyles.bodySemiboldLarge.copyWith(
-              color: EllaColors.greenDeep,
-            ),
-          ),
-        ],
-      ),
+    return const SpotlightCalloutBubble(
+      key: ValueKey('placement-garden-reveal-bubble'),
+      title: 'Look, your first plant',
+      body: 'Every conversation grows something new here',
     );
   }
 }

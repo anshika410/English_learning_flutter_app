@@ -140,7 +140,11 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
 /// moments. Same flat treatment as [EllaPrimaryButton]: 2px stroke + 3px stamp,
 /// no gloss. Icon is onPrimary on berry; ink on green (onPrimary fails AA there).
 class EllaIconButton extends StatefulWidget {
-  final IconData icon;
+  final IconData? icon;
+
+  /// Custom glyph rendered in place of [icon] (e.g. an exported Figma SVG such
+  /// as the paper-plane send icon). Provide exactly one of [icon] / [glyph].
+  final Widget? glyph;
   final VoidCallback? onTap;
   final double size;
 
@@ -149,11 +153,15 @@ class EllaIconButton extends StatefulWidget {
 
   const EllaIconButton({
     super.key,
-    required this.icon,
+    this.icon,
+    this.glyph,
     this.onTap,
     this.size = 60,
     this.secondary = false,
-  });
+  }) : assert(
+         icon != null || glyph != null,
+         'EllaIconButton needs an icon or a glyph',
+       );
 
   @override
   State<EllaIconButton> createState() => _EllaIconButtonState();
@@ -195,7 +203,9 @@ class _EllaIconButtonState extends State<EllaIconButton> {
           boxShadow: boxShadow,
         ),
         child: Center(
-          child: Icon(widget.icon, size: widget.size * 0.5, color: iconColor),
+          child:
+              widget.glyph ??
+              Icon(widget.icon, size: widget.size * 0.5, color: iconColor),
         ),
       ),
     );
