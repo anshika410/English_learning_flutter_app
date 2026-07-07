@@ -1,10 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+
+/// Strip markdown syntax for plain text (used for TTS).
+String stripMarkdown(String text) {
+  return text
+      .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1')
+      .replaceAll(RegExp(r'\*(.+?)\*'), r'$1')
+      .replaceAll(RegExp(r'__(.+?)__'), r'$1')
+      .replaceAll(RegExp(r'_(.+?)_'), r'$1')
+      .replaceAll(RegExp(r'`(.+?)`'), r'$1')
+      .replaceAll(RegExp(r'~~(.+?)~~'), r'$1')
+      .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)'), r'$1')
+      .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
+      .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
+      .trim();
+}
 
 class ChatBubble extends ConsumerWidget {
   final ChatMessage message;
@@ -193,10 +209,25 @@ class _TypewriterTextState extends State<TypewriterText> {
       );
     }
 
-    return Text(
-      displayed,
-      style: baseStyle,
-    );
+    return _done
+        ? MarkdownBody(
+            data: widget.text,
+            styleSheet: MarkdownStyleSheet(
+              p: baseStyle,
+              strong: baseStyle.copyWith(fontWeight: FontWeight.w700),
+              em: baseStyle.copyWith(fontStyle: FontStyle.italic),
+              code: baseStyle.copyWith(
+                fontFamily: 'monospace',
+                color: EllaColors.greenDark,
+                backgroundColor: const Color(0xFFE8F5E9),
+              ),
+            ),
+            softLineBreak: true,
+          )
+        : Text(
+            displayed,
+            style: baseStyle,
+          );
   }
 }
 

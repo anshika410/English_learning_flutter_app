@@ -44,6 +44,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // placement garden (replace so back never returns into the finished test).
   void _maybeAdvance(PlacementState s) {
     if (!s.isComplete || _navigated) return;
+    if (s.currentlySpeakingMessageId != null) return;
     Future.delayed(const Duration(milliseconds: 1600), _goToComplete);
   }
 
