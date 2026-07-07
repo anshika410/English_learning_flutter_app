@@ -86,21 +86,23 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     ref.read(chatProvider.notifier).sendUserTurn(text).catchError(_snack);
   }
 
-  /// End-call: no confirm. Fire scoring in the background, show Zoe's goodbye
-  /// line for a beat, then return to the garden.
+  /// End-call: no confirm. Fire scoring in the background, speak Zoe's goodbye
+  /// line, then return to the garden.
   Future<void> _endConversation() async {
     if (_ending) return;
     setState(() => _ending = true);
     final notifier = ref.read(chatProvider.notifier);
-    unawaited(notifier.stopSpeaking());
-    unawaited(notifier.stopListening());
+    await notifier.stopListening();
+    // Speak the goodbye line before navigating away
+    try {
+      final tts = ref.read(ttsProvider);
+      await tts.speak(_kGoodbye);
+    } catch (_) {}
+    // Fire scoring in the background (don't wait)
     unawaited(notifier.endChat().catchError(_snack));
-    await Future.delayed(const Duration(milliseconds: 2200));
+    // Brief pause after TTS finishes
+    await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
-    // Pop this screen, then open the garden on the NEXT frame. Popping and
-    // pushing in the same callback reparents internal (GlobalKey) elements in a
-    // bad order — the framework's inactive-element tracking corrupts and later
-    // trips `_elements.contains(element)` when the garden is popped (back).
     final onEnded = widget.onEnded;
     Navigator.of(context).pop();
     if (onEnded != null) {
@@ -250,9 +252,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         studentLine = p.isEmpty ? null : p;
         studentLive = true;
       } else {
-        final last = _lastTurn(s);
-        if (last != null && last.sender == MessageSender.child) {
-          studentLine = last.text;
+        // Show student's last message until the user starts speaking next turn.
+        // This keeps the bubble visible while Zoe is thinking/speaking.
+        final lastChild = s.messages.lastWhere(
+          (m) => m.sender == MessageSender.child,
+          orElse: () => ChatMessage(sender: MessageSender.system, text: ''),
+        );
+        if (lastChild.sender == MessageSender.child) {
+          studentLine = lastChild.text;
         }
       }
     }
