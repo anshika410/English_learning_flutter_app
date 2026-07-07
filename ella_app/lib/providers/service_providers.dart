@@ -33,7 +33,7 @@ final sttProvider = Provider<SpeechToTextService>(
   (ref) => SpeechToTextService(),
 );
 
-final ttsProvider = Provider<FlutterTtsService>((ref) => FlutterTtsService());
+final ttsProvider = Provider<TtsInterface>((ref) => ref.read(nativeTtsProvider));
 
 /// Native Android TTS with karaoke word-highlight support.
 final nativeTtsProvider = Provider<NativeTtsService>((ref) => NativeTtsService());
