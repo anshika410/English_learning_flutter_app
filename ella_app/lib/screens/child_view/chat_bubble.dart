@@ -80,8 +80,8 @@ class ChatBubble extends ConsumerWidget {
                       color: const Color(0xFFFCE4EC),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: Text(
-                      message.text,
+                    child: SpokenTextFlow(
+                      text: message.text,
                       style: EllaTextStyles.bodyBase.copyWith(
                         color: const Color(0xFF880E4F),
                         fontWeight: FontWeight.w700,
@@ -279,6 +279,101 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// SpokenTextFlow splits the text into words and animates each word as it pops
+/// into the bubble (using a scale + slide bounce animation).
+class SpokenTextFlow extends StatelessWidget {
+  final String text;
+  final TextStyle? style;
+
+  const SpokenTextFlow({
+    super.key,
+    required this.text,
+    this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (text.trim().isEmpty) return const SizedBox.shrink();
+
+    final words = text.split(RegExp(r'\s+'));
+    return Wrap(
+      spacing: 0,
+      runSpacing: 4,
+      children: List.generate(words.length, (index) {
+        final word = words[index];
+        return AnimatedWord(
+          key: ValueKey('${index}_$word'),
+          word: word,
+          style: style,
+        );
+      }),
+    );
+  }
+}
+
+class AnimatedWord extends StatefulWidget {
+  final String word;
+  final TextStyle? style;
+
+  const AnimatedWord({
+    super.key,
+    required this.word,
+    this.style,
+  });
+
+  @override
+  State<AnimatedWord> createState() => _AnimatedWordState();
+}
+
+class _AnimatedWordState extends State<AnimatedWord> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    // Spring/bounce curve matching cubic-bezier(.34, 1.56, .64, 1)
+    final curve = CurvedAnimation(
+      parent: _controller,
+      curve: const Cubic(0.34, 1.56, 0.64, 1.0),
+    );
+
+    _scale = Tween<double>(begin: 0.3, end: 1.0).animate(curve);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(curve);
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slide,
+      child: ScaleTransition(
+        scale: _scale,
+        child: Text(
+          '${widget.word} ',
+          style: widget.style,
+        ),
       ),
     );
   }

@@ -293,8 +293,8 @@ class _StudentBubble extends StatelessWidget {
           color: const Color(0xFFFCE4EC),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
-          text,
+        child: SpokenTextFlow(
+          text: text,
           style: EllaTextStyles.bodySemibold.copyWith(
             color: const Color(0xFF880E4F),
           ),
