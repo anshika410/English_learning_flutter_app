@@ -5,10 +5,13 @@
 // Profile/Garden shortcuts) but stays simpler — no topic chips or Last-time
 // card, since there's no history or level yet.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../providers/onboarding_provider.dart';
@@ -112,9 +115,9 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   void _startPlacement() {
     // Start each screening from a clean slate (a prior End left stale state).
     ref.invalidate(placementProvider);
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PlacementScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PlacementScreen()));
   }
 
   void _openProfile() {
@@ -132,17 +135,19 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   void _openGarden() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const PlacementGardenScreen(browse: true),
+        builder: (_) =>
+            const PlacementGardenScreen(mode: PlacementGardenMode.browse),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final mascotW = (MediaQuery.of(context).size.width * 0.35).clamp(
-      128.0,
-      168.0,
-    );
+    final size = MediaQuery.of(context).size;
+    final mascotW = (size.width * 0.35).clamp(128.0, 168.0);
+    // Figma places Zoe ~24% down (y=224/932) with a clear sky band above; a
+    // clamped top gap holds that on tall/short phones without re-centering.
+    final topGap = (size.height * 0.14).clamp(64.0, 150.0);
     // Prefer the name the child typed during onboarding; fall back to the demo
     // placeholder if it isn't cached yet.
     final childName =
@@ -157,6 +162,38 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
           child: Stack(
             children: [
               Positioned.fill(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Top gap seats Zoe ~24% down with a sky band above, per
+                      // Figma (top-aligned, not re-centered).
+                      SizedBox(height: topGap),
+                      ZoeMascot(
+                        // Speak the greeting with the speaking animation; fall
+                        // back to the calm listening pose when idle.
+                        mode: _speaking
+                            ? ZoeMascotMode.speaking
+                            : ZoeMascotMode.listening,
+                        size: mascotW,
+                        reducedMotion: MediaQuery.of(context).disableAnimations,
+                      ),
+                      const SizedBox(height: 10),
+                      _GreetingCard(
+                        speaking: _speaking,
+                        onToggle: _toggleSpeak,
+                      ),
+                      const SizedBox(height: 24),
+                      EllaPrimaryButton(
+                        label: "Let's Talk",
+                        height: 60,
+                        leading: SvgPicture.asset(
+                          _kVoiceIcon,
+                          width: 22,
+                          height: 22,
+                          colorFilter: const ColorFilter.mode(
+                            EllaColors.onPrimary,
+                            BlendMode.srcIn,
                 child: Center(
                   child: SingleChildScrollView(
                     child: Column(
@@ -188,10 +225,10 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                               BlendMode.srcIn,
                             ),
                           ),
-                          onTap: _startPlacement,
                         ),
-                      ],
-                    ),
+                        onTap: _startPlacement,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -223,19 +260,24 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                         ring: EllaColors.info,
                         label: 'Profile',
                         labelColor: EllaColors.infoDark,
+                        labelStyle: EllaTextStyles.buttonSmall,
                         onTap: _openProfile,
                       ),
                       const SizedBox(height: 12),
                       EllaCircleIconButton(
-                        glyph: SvgPicture.asset(
-                          _kPlantIcon,
-                          width: 32,
-                          height: 32,
+                        // Garden leaf gently sways (Figma placement intro).
+                        glyph: _SwayingLeaf(
+                          child: SvgPicture.asset(
+                            _kPlantIcon,
+                            width: 32,
+                            height: 32,
+                          ),
                         ),
                         fill: EllaColors.greenLight,
                         ring: EllaColors.greenDark,
                         label: 'Garden',
                         labelColor: EllaColors.greenDeep,
+                        labelStyle: EllaTextStyles.buttonSmall,
                         onTap: _openGarden,
                       ),
                     ],
@@ -265,21 +307,23 @@ class _GreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Top padding gives the overhanging speaker dot room inside the Stack's
-    // bounds so it stays tappable.
+    // The 40px dot straddles the card's top-right corner (Figma): it hangs
+    // above and off the right edge. Top padding keeps it inside the Stack's
+    // hit-test bounds.
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 14),
+          padding: const EdgeInsets.only(top: 20),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
+            decoration: ellaSmoothDecoration(
               color: EllaColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: EllaColors.info, width: 2),
+              side: const BorderSide(color: EllaColors.info, width: 2),
             ),
+            child: Text(_kGreeting, style: EllaTextStyles.bodySemiboldLarge),
             child: TypewriterText(
               text: _kGreeting,
               style: EllaTextStyles.bodySemibold,
@@ -291,10 +335,65 @@ class _GreetingCard extends StatelessWidget {
         ),
         Positioned(
           top: 0,
-          right: 14,
-          child: SpeakerDotButton(active: speaking, onTap: onToggle),
+          right: -6,
+          child: SpeakerDotButton(active: speaking, onTap: onToggle, size: 40),
         ),
       ],
+    );
+  }
+}
+
+/// Gently sways [child] about its base (±3°, 3000ms ping-pong) — the Garden
+/// button's leaf on the placement intro. Mirrors onboarding_scenery's
+/// `_SwayingBloom`; frozen under reduced-motion.
+class _SwayingLeaf extends StatefulWidget {
+  final Widget child;
+  const _SwayingLeaf({required this.child});
+
+  @override
+  State<_SwayingLeaf> createState() => _SwayingLeafState();
+}
+
+class _SwayingLeafState extends State<_SwayingLeaf>
+    with SingleTickerProviderStateMixin {
+  static const double _maxRad = 3.0 * math.pi / 180;
+
+  late final AnimationController _sway = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3000),
+  );
+  late final Animation<double> _angle = Tween<double>(
+    begin: -_maxRad,
+    end: _maxRad,
+  ).animate(CurvedAnimation(parent: _sway, curve: Curves.easeInOut));
+
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations || _started) return;
+    _started = true;
+    _sway.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _sway.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    return AnimatedBuilder(
+      animation: _sway,
+      builder: (_, child) => Transform.rotate(
+        angle: reducedMotion ? 0 : _angle.value,
+        alignment: Alignment.bottomCenter,
+        child: child,
+      ),
+      child: widget.child,
     );
   }
 }

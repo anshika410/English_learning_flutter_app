@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_toast.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
@@ -46,6 +47,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _ending = false;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
+
+  // True while a tapped-speaker replay is speaking — drives Zoe's speaking
+  // animation for manual replays (engine status only covers auto-speech).
+  bool _replaying = false;
 
   @override
   void dispose() {
@@ -166,9 +171,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _snack(Object e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
+    if (!mounted) return;
+    debugPrint('[Session] $e');
+    showEllaErrorToast(context);
   }
 
   /// Whether a real conversation is under way (at least one non-system turn and
@@ -324,7 +329,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     return ConversationView(
       phase: phase,
-      mascotSpeaking: _ending || s.status == ChatStatus.zoeSpeaking,
+      mascotSpeaking:
+          _ending || s.status == ChatStatus.zoeSpeaking || _replaying,
       mascotThinking: s.status == ChatStatus.zoeThinking,
       zoeLine: zoeLine,
       studentLine: studentLine,
@@ -349,11 +355,17 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   /// Replays a Zoe line via TTS — the speaker dot on her bubble. A no-op while
   /// TTS is already speaking, so a tap can never restart or stack utterances.
+  /// Sets [_replaying] around the playback so Zoe animates her mouth for the
+  /// manual replay too (not just engine-driven speech).
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
-    if (tts.isSpeaking) return;
+    if (tts.isSpeaking || _replaying) return;
+    setState(() => _replaying = true);
     try {
       await tts.speak(text);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _replaying = false);
+    }
   }
 }

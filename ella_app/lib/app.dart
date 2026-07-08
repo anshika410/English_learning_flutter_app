@@ -11,8 +11,10 @@ import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
 import 'providers/chat_provider.dart';
+import 'providers/connectivity_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'screens/child_view/home_screen.dart';
+import 'screens/child_view/offline_screen.dart';
 import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
 import 'screens/child_view/placement_intro_screen.dart';
@@ -37,7 +39,7 @@ class EllaApp extends StatefulWidget {
 class _EllaAppState extends State<EllaApp> {
   late AppLinks _appLinks;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,14 +49,14 @@ class _EllaAppState extends State<EllaApp> {
   Future<void> _initAuthAndDeepLinks() async {
     // Initialize App Links for Magic Link handling
     _appLinks = AppLinks();
-    
+
     // Handle incoming app links while the app is in the background or foreground
     _appLinks.uriLinkStream.listen((Uri? uri) async {
       if (uri != null) {
         _handleDeepLink(uri);
       }
     });
-    
+
     // Handle link that started the app (if any)
     try {
       final initialUri = await _appLinks.getInitialLink();
@@ -65,24 +67,26 @@ class _EllaAppState extends State<EllaApp> {
       debugPrint('Error getting initial deep link: $e');
     }
   }
-  
+
   void _handleDeepLink(Uri uri) async {
     // Expected magic link format: ella://login?token=XYZ&user_id=123
     // Or on web: http://domain/#/login?token=XYZ&user_id=123
-    
+
     // On web with hash routing, query params are inside the fragment (after the #)
     Uri parsedUri = uri;
     if (uri.fragment.contains('?')) {
       final fragmentParts = uri.fragment.split('?');
       if (fragmentParts.length > 1) {
-         final query = fragmentParts[1];
-         parsedUri = Uri.parse('dummy://dummy?$query');
+        final query = fragmentParts[1];
+        parsedUri = Uri.parse('dummy://dummy?$query');
       }
     }
 
-    final token = parsedUri.queryParameters['access_token'] ?? parsedUri.queryParameters['token'];
+    final token =
+        parsedUri.queryParameters['access_token'] ??
+        parsedUri.queryParameters['token'];
     String? userId = parsedUri.queryParameters['user_id'];
-    
+
     // If backend didn't return user_id, extract it from the JWT's 'sub' claim
     if (userId == null && token != null) {
       try {
@@ -90,11 +94,11 @@ class _EllaAppState extends State<EllaApp> {
         if (parts.length == 3) {
           // dart:convert is imported at the top of the file? Wait, app.dart doesn't import dart:convert.
           // Let's just pass an empty string or 'unknown_user_id'. The backend uses the Bearer token anyway.
-          userId = 'user_from_token'; 
+          userId = 'user_from_token';
         }
       } catch (_) {}
     }
-    
+
     if (token != null && userId != null) {
       final api = EllaApiService();
       await api.saveTokens(token, userId);
@@ -107,6 +111,7 @@ class _EllaAppState extends State<EllaApp> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -114,6 +119,24 @@ class _EllaAppState extends State<EllaApp> {
       title: 'ELLA',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
+      // Clamp OS font scaling app-wide so a large accessibility setting can't
+      // overflow the fixed-size garden art / chat bubbles. 1.3 still honours
+      // most large-text preferences.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: mq.textScaler.clamp(
+              minScaleFactor: 1.0,
+              maxScaleFactor: 1.3,
+            ),
+          ),
+          // Global offline gate: overlays OfflineScreen over whatever route is
+          // showing the moment the device goes offline, and removes it on
+          // reconnect. Sits above every screen so it works app-wide.
+          child: _ConnectivityGate(child: child ?? const SizedBox.shrink()),
+        );
+      },
       navigatorObservers: [appRouteObserver],
       // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
       // because we handle deep links manually via the app_links package.
@@ -131,18 +154,55 @@ class _EllaAppState extends State<EllaApp> {
         final path = uri.path;
 
         if (path == '/splash') {
-          return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+          return MaterialPageRoute(
+            builder: (_) => const SplashScreen(),
+            settings: settings,
+          );
         } else if (path == '/login') {
-          return MaterialPageRoute(builder: (_) => const LoginScreen(), settings: settings);
+          return MaterialPageRoute(
+            builder: (_) => const LoginScreen(),
+            settings: settings,
+          );
         } else if (path == '/privacy-policy') {
-          return MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen(), settings: settings);
+          return MaterialPageRoute(
+            builder: (_) => const PrivacyPolicyScreen(),
+            settings: settings,
+          );
         } else if (path == '/' || path == '/home') {
-          return MaterialPageRoute(builder: (_) => const RootGate(), settings: settings);
+          return MaterialPageRoute(
+            builder: (_) => const RootGate(),
+            settings: settings,
+          );
         }
-        
+
         // Fallback
-        return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => const SplashScreen(),
+          settings: settings,
+        );
       },
+    );
+  }
+}
+
+/// Overlays [OfflineScreen] above the whole app whenever the device is offline.
+/// While the initial connectivity check is still loading (or on error) it shows
+/// nothing, so a momentary unknown state never flashes the offline screen.
+class _ConnectivityGate extends ConsumerWidget {
+  final Widget child;
+  const _ConnectivityGate({required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offline = ref
+        .watch(connectivityProvider)
+        .maybeWhen(data: (online) => !online, orElse: () => false);
+    return Stack(
+      textDirection: TextDirection.ltr,
+      children: [
+        child,
+        if (offline) const Positioned.fill(child: OfflineScreen()),
+      ],
     );
   }
 }
@@ -299,9 +359,9 @@ class _EllaHomeState extends State<_EllaHome> {
   }
 
   void _openConversationPreview() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ConversationStatesPreview()));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ConversationStatesPreview()),
+    );
   }
 
   @override

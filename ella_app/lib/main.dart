@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +22,11 @@ Future<void> main() async {
   };
 
   await dotenv.load(fileName: '.env');
+
+  await GoogleSignIn.instance.initialize(
+    clientId: kIsWeb ? dotenv.env['GOOGLE_CLIENT_ID'] : null,
+    serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_CLIENT_ID'],
+  );
   
   try {
     await GoogleSignIn.instance.initialize(

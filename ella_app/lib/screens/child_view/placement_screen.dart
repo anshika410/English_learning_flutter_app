@@ -7,11 +7,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_toast.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/chat_provider.dart' show ChatStatus;
 import '../../providers/service_providers.dart';
+import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'widgets/conversation_view.dart';
 import 'widgets/garden_sky_background.dart';
@@ -23,11 +26,25 @@ class PlacementScreen extends ConsumerStatefulWidget {
   ConsumerState<PlacementScreen> createState() => _PlacementScreenState();
 }
 
+// Placeholder turn target for the progress bar: the bar fills proportionally by
+// Zoe-question count until the hard placement turn count lands (then this
+// becomes that number). Swapping this constant is the only change needed.
+const int kPlacementTurnTarget = 12;
+
 class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final _textController = TextEditingController();
   bool _keyboardMode = false;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
+
+  // True while the End-Call closing line is playing (before we hand off to the
+  // placement garden). Drives the ending phase: Zoe speaks a fixed farewell that
+  // cross-fades in over the last turn, the dock disappears, then a ~2s hold.
+  bool _ending = false;
+
+  // True while a tapped-speaker replay is speaking — drives Zoe's speaking
+  // animation for manual replays (the engine status only covers auto-speech).
+  bool _replaying = false;
 
   @override
   void dispose() {
@@ -44,6 +61,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // On completion, let the closing line land for a beat, then swap to the
   // placement garden (replace so back never returns into the finished test).
   void _maybeAdvance(PlacementState s) {
+    // While the End-Call farewell is playing, _exit owns the transition — don't
+    // let the LLM-completion auto-advance cut it short.
+    if (_ending || !s.isComplete || _navigated) return;
     if (!s.isComplete || _navigated) return;
     if (s.currentlySpeakingMessageId != null) {
       if (!_advanceTimerStarted) {
@@ -86,31 +106,62 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     ref.read(placementProvider.notifier).sendUserTurn(text).catchError(_snack);
   }
 
-  // End the placement screening immediately (hard end — no farewell turn):
-  // the notifier stops voice, marks the test complete and refreshes memory to
-  // check whether a level was persisted, then we route straight to the
-  // placement garden, which branches on that level (bloom vs sprout). Repeat
-  // taps are absorbed by the notifier's `ending` guard + _navigated.
+  // Fixed farewell spoken when the child taps End Call before the screening
+  // finishes on its own. Personalised with the onboarding name.
+  String _closingLine() {
+    final name =
+        ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+    return 'It was really nice talking with you, $name! Let\'s talk again soon.';
+  }
+
+  // End the placement screening (hard end — no farewell turn is posted): the
+  // notifier stops voice, marks the test complete and refreshes memory to check
+  // whether a level was persisted. Rather than cutting away instantly, we speak
+  // a fixed closing line (which cross-fades in over the last turn and drops the
+  // dock), hold ~2s, then route to the placement garden — which branches on the
+  // resolved level (bloom vs sprout). Repeat taps are absorbed by _ending +
+  // the notifier's `ending` guard + _navigated.
   Future<void> _exit() async {
+    if (_ending || _navigated) return;
     // If the screening already finished, End means "go to my garden" — route to
-    // the placement garden instead of re-ending.
+    // the placement garden instead of playing the farewell.
     if (ref.read(placementProvider).isComplete) {
       _goToComplete();
       return;
     }
+    setState(() => _ending = true);
     try {
       await ref.read(placementProvider.notifier).endConversation();
     } catch (e) {
       _snack(e);
     }
-    // No closing line to let land — advance right away.
+    // Speak the farewell with the speaking animation, then hold a beat so it can
+    // land before the transition. Cap the total wait so a slow/failed TTS still
+    // advances promptly.
+    if (!mounted) return;
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    try {
+      await ref.read(ttsProvider).speak(_closingLine());
+    } catch (_) {}
+    if (!mounted) return;
+    await Future.delayed(Duration(milliseconds: reducedMotion ? 0 : 800));
     _goToComplete();
   }
 
   void _snack(Object e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
+    if (!mounted) return;
+    debugPrint('[Placement] $e');
+    showEllaErrorToast(context);
+  }
+
+  // Proportional progress placeholder: fraction of the (assumed) turn target
+  // that Zoe has already asked, or a full bar once the screening completes.
+  double _progress(PlacementState s) {
+    if (s.isComplete) return 1.0;
+    final zoeTurns = s.messages
+        .where((m) => m.sender == MessageSender.zoe)
+        .length;
+    return (zoeTurns / kPlacementTurnTarget).clamp(0.0, 1.0);
   }
 
   String? _lastFrom(PlacementState s, MessageSender who) {
@@ -127,7 +178,14 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     _maybeAdvance(s);
 
     final hasTurn = s.messages.any((m) => m.sender != MessageSender.system);
-    final phase = hasTurn ? ConvPhase.talking : ConvPhase.prepare;
+    final ConvPhase phase;
+    if (_ending) {
+      phase = ConvPhase.ending;
+    } else if (hasTurn) {
+      phase = ConvPhase.talking;
+    } else {
+      phase = ConvPhase.prepare;
+    }
 
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
@@ -135,17 +193,21 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       ChatStatus.idle => MicState.idle,
     };
 
-    final zoeLine = _lastFrom(s, MessageSender.zoe);
+    // While ending, Zoe speaks the fixed farewell (which cross-fades in over the
+    // last turn); otherwise show her latest line.
+    final zoeLine = _ending ? _closingLine() : _lastFrom(s, MessageSender.zoe);
     String? studentLine;
     bool studentLive = false;
-    if (s.status == ChatStatus.userSpeaking) {
-      final p = s.partialStt?.trim() ?? '';
-      studentLine = p.isEmpty ? null : p;
-      studentLive = true;
-    } else {
-      final last = s.messages.isNotEmpty ? s.messages.last : null;
-      if (last != null && last.sender == MessageSender.child) {
-        studentLine = last.text;
+    if (!_ending) {
+      if (s.status == ChatStatus.userSpeaking) {
+        final p = s.partialStt?.trim() ?? '';
+        studentLine = p.isEmpty ? null : p;
+        studentLive = true;
+      } else {
+        final last = s.messages.isNotEmpty ? s.messages.last : null;
+        if (last != null && last.sender == MessageSender.child) {
+          studentLine = last.text;
+        }
       }
     }
 
@@ -165,8 +227,11 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
               )
             : ConversationView(
                 phase: phase,
-                mascotSpeaking: s.status == ChatStatus.zoeSpeaking,
-                mascotThinking: s.status == ChatStatus.zoeThinking,
+                mascotSpeaking:
+                    _ending || s.status == ChatStatus.zoeSpeaking || _replaying,
+                mascotThinking: !_ending && s.status == ChatStatus.zoeThinking,
+                // Bar sits full as the screening closes.
+                progress: _ending ? 1.0 : _progress(s),
                 zoeLine: zoeLine,
                 studentLine: studentLine,
                 studentLive: studentLive,
@@ -179,8 +244,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 onEnd: _exit,
                 // Speaker dot on Zoe's bubble: replays the line when idle.
                 // While she's already talking the tap is a no-op (never stops
-                // or restarts her). Only Zoe's lines get the control.
-                onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
+                // or restarts her). Only Zoe's lines get the control — and not
+                // the farewell (no replay dot while ending).
+                onSpeakAgain:
+                    (!_ending && zoeLine != null && zoeLine.trim().isNotEmpty)
                     ? () => _speakLine(zoeLine)
                     : null,
                 highlightStart: s.highlightStart,
@@ -191,8 +258,18 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   }
 
   /// Replays a Zoe line via TTS. A no-op while TTS is already speaking, so a
-  /// tap can never restart or stack utterances.
+  /// tap can never restart or stack utterances. Sets [_replaying] around the
+  /// playback so Zoe runs her speaking animation for the manual replay too.
   Future<void> _speakLine(String text) async {
+    final tts = ref.read(ttsProvider);
+    if (tts.isSpeaking || _replaying) return;
+    setState(() => _replaying = true);
+    try {
+      await tts.speak(text);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _replaying = false);
+    }
     await ref.read(placementProvider.notifier).replayZoeLine(text);
   }
 }
