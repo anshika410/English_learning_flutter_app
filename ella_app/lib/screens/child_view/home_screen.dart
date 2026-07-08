@@ -531,6 +531,8 @@ class _TopicChipsRow extends StatelessWidget {
       addTopic(recommended);
       for (final topic in alternatives) {
         addTopic(topic);
+      }
+    }
     if (sel != null && sel.name.isNotEmpty) {
       final isAlreadyInAlternatives = alternatives.any((t) => t.name == sel.name);
       if (!isAlreadyInAlternatives) {

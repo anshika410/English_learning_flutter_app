@@ -379,131 +379,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       )),
                                     ),
                                   ],
-                                    child: const Icon(Icons.volume_up, color: Colors.white, size: 20),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Sound Effects',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Music & Tap Sounds',
-                                          style: TextStyle(
-                                            color: Colors.black.withValues(alpha: 0.6),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Switch(
-                                    value: _sfxOn,
-                                    activeTrackColor: EllaColors.berryMain,
-                                    onChanged: (v) {
-                                      setState(() {
-                                        _sfxOn = v;
-                                      });
-                                      ref.read(audioProvider).setSfxEnabled(v);
-                                      ref.read(audioProvider).setMusicEnabled(v);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 64),
-                        
-                        // Sign Out Button
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            await EllaApiService().logout();
-                            try {
-                              await GoogleSignIn.instance.signOut();
-                            } catch (_) {}
-                            ref.invalidate(chatProvider);
-                            ref.invalidate(onboardingProvider);
-                            if (context.mounted) {
-                              Navigator.of(context, rootNavigator: true)
-                                  .pushNamedAndRemoveUntil('/login', (route) => false);
-                            }
-                          },
-                          icon: const Icon(Icons.logout),
-                          label: const Text('Sign Out'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: EllaColors.berryMain,
-                            side: const BorderSide(color: EllaColors.berryMain, width: 2),
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(32),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Delete Memory
-                        TextButton(
-                          onPressed: _handleDeleteMemory,
-                          child: const Text(
-                            'Delete Memory',
-                            style: TextStyle(
-                              color: EllaColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 8),
-
-                        // Delete Account
-                        TextButton(
-                          onPressed: _handleDeleteAccount,
-                          child: const Text(
-                            'Delete Account',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 64),
-                        
-                        // Footer
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 8,
-                            children: [
-                              TextButton.icon(
-                                onPressed: () {
-                                  Navigator.of(context).pushNamed('/privacy-policy');
-                                },
-                                icon: const Icon(Icons.privacy_tip, color: Color(0xFF1E3A2B), size: 18),
-                                label: const Text(
-                                  'Privacy Policy',
-                                  style: TextStyle(
-                                    color: Color(0xFF1E3A2B),
-                                    fontWeight: FontWeight.bold,
-                                  ),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -548,6 +423,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         height: 56,
                         dropShadow: EllaColors.errorDark,
                         onTap: _handleDeleteMemory,
+                      ),
+
+                      const SizedBox(height: 16),
+                      // ── Delete Account ────────────────────────────────
+                      TextButton(
+                        onPressed: _handleDeleteAccount,
+                        child: const Text(
+                          'Delete Account',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
                       ),
 
                       const SizedBox(height: 48),

@@ -35,7 +35,10 @@ void main() {
       }
       return http.Response('{}', 404);
     });
-    return EllaApiService(client: client);
+    return EllaApiService(
+      baseUrl: 'https://ella.navgurukul.org/api',
+      client: client,
+    );
   }
 
   test('getUserMemory parses next_topics (recommended + alternatives)', () async {

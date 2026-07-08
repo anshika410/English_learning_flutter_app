@@ -38,7 +38,7 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
   @override
   Future<OnboardingState> build() async {
     final api = ref.read(ellaApiServiceProvider);
-    final cached = await api.getOnboardingState();
+    var cached = await api.getOnboardingState();
 
     // Prefer the authenticated user's server profile (GET /users/me) so the
     // greeting always reflects the current user — this fixes a stale cached
@@ -73,7 +73,7 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
       }
     }
 
-    var cached = await api.getOnboardingState();
+    cached = await api.getOnboardingState();
     if (cached.name == null || cached.name!.isEmpty) {
       try {
         final profile = await api.getUserProfile();

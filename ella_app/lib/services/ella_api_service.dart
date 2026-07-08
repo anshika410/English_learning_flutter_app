@@ -58,6 +58,7 @@ class SessionAnalysisApiResult {
 class EllaApiService {
   static const _tokenKey = 'ella_api_access_token';
   static const _userIdKey = 'ella_api_user_id';
+  static const _deviceIdKey = 'ella_api_device_id';
 
   // First-run onboarding (name/age) cache. `_onboardingDoneKey` gates the
   // onboarding flow so it runs once; name/age are cached for the greeting and
@@ -123,10 +124,6 @@ class EllaApiService {
       _log('Anonymous Auth Error', e.toString());
       return false;
     }
-    await prefs.remove(_onboardingDoneKey);
-    await prefs.remove(_childNameKey);
-    await prefs.remove(_childAgeKey);
-    await prefs.remove('ella_api_device_id');
   }
 
   Future<bool> loginWithGoogle(String idToken) async {
@@ -138,9 +135,6 @@ class EllaApiService {
         auth: false,
         body: {'token': idToken, 'device_id': deviceId},
       );
-      final data = await _request('POST', '/auth/google', auth: false, body: {
-        'token': idToken,
-      });
       final accessToken = data['access_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
@@ -176,7 +170,6 @@ class EllaApiService {
           'redirect_url': redirectUrl,
           'device_id': deviceId,
         },
-        }
       );
       return true;
     } catch (e) {
@@ -633,7 +626,16 @@ class EllaApiService {
     await prefs.remove(_userIdKey);
   }
 
-
+  Future<String> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    var did = prefs.getString(_deviceIdKey);
+    if (did == null) {
+      final now = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
+      did = 'ella-flutter-$now';
+      await prefs.setString(_deviceIdKey, did);
+    }
+    return did;
+  }
 
   static MemoryState _memoryFromApi(Map<String, dynamic> j) {
     final id = j['id'] as String? ?? j['user_id'] as String? ?? 'api-user';

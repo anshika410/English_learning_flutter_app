@@ -8,29 +8,13 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 
-class ChatBubble extends StatelessWidget {
-/// Strip markdown syntax for plain text (used for TTS).
-String stripMarkdown(String text) {
-  return text
-      .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1')
-      .replaceAll(RegExp(r'\*(.+?)\*'), r'$1')
-      .replaceAll(RegExp(r'__(.+?)__'), r'$1')
-      .replaceAll(RegExp(r'_(.+?)_'), r'$1')
-      .replaceAll(RegExp(r'`(.+?)`'), r'$1')
-      .replaceAll(RegExp(r'~~(.+?)~~'), r'$1')
-      .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)'), r'$1')
-      .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-      .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
-      .trim();
-}
-
 class ChatBubble extends ConsumerWidget {
   final ChatMessage message;
 
   const ChatBubble({super.key, required this.message});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isZoe = message.sender == MessageSender.zoe;
 
     return Padding(
