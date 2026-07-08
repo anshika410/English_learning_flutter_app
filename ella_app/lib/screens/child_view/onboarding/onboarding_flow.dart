@@ -332,7 +332,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           transitionBuilder: (child, anim) =>
               FadeTransition(opacity: anim, child: child),
           child: _ChatStep(
-            key: const ValueKey('chat'),
+            // Use step-specific key so widget rebuilds when step changes
+            key: ValueKey('chat-$_step'),
             zoeText: _zoeText,
             userReply: _userReply,
             mascotMode: _mascot,
@@ -345,6 +346,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             onReplay: () => _replay(_zoeText),
             highlightStart: _highlightStart,
             highlightEnd: _highlightEnd,
+            keyboardType: _step == _Step.age 
+                ? TextInputType.number 
+                : TextInputType.text,
           ),
         ),
       ),
@@ -367,6 +371,7 @@ class _ChatStep extends StatelessWidget {
   final VoidCallback onReplay;
   final int highlightStart;
   final int highlightEnd;
+  final TextInputType keyboardType;
 
   const _ChatStep({
     super.key,
@@ -382,6 +387,7 @@ class _ChatStep extends StatelessWidget {
     required this.onReplay,
     this.highlightStart = -1,
     this.highlightEnd = -1,
+    this.keyboardType = TextInputType.text,
   });
 
   @override
@@ -434,6 +440,7 @@ class _ChatStep extends StatelessWidget {
               focusNode: focusNode,
               enabled: sendEnabled,
               onSend: onSend,
+              keyboardType: keyboardType,
             ),
         ],
       ),
@@ -571,12 +578,14 @@ class _ReplyComposer extends StatelessWidget {
   final FocusNode focusNode;
   final bool enabled;
   final VoidCallback onSend;
+  final TextInputType keyboardType;
 
   const _ReplyComposer({
     required this.controller,
     required this.focusNode,
     required this.enabled,
     required this.onSend,
+    this.keyboardType = TextInputType.text,
   });
 
   @override
@@ -586,6 +595,7 @@ class _ReplyComposer extends StatelessWidget {
       focusNode: focusNode,
       enabled: enabled,
       onSend: onSend,
+      keyboardType: keyboardType,
     );
   }
 }
