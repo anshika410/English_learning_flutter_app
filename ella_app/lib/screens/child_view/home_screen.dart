@@ -499,10 +499,14 @@ class _TopicChipsRow extends StatelessWidget {
     final ordered = <TopicChoice>[...alternatives];
     final sel = selected;
     if (sel != null && sel.name.isNotEmpty) {
-      // Move the explicit pick to the front (it may be one of the alternatives,
-      // or a See-More pick that isn't — prepend either way), highlighted.
-      ordered.removeWhere((t) => t.name == sel.name);
-      ordered.insert(0, sel);
+      final isAlreadyInAlternatives = alternatives.any((t) => t.name == sel.name);
+      if (!isAlreadyInAlternatives) {
+        if (ordered.isNotEmpty) {
+          ordered[0] = sel;
+        } else {
+          ordered.add(sel);
+        }
+      }
     }
     final shown = ordered.take(2).toList();
 
