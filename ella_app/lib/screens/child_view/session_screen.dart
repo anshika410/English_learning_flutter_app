@@ -44,6 +44,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _sessionStarted = false;
   bool _keyboardMode = false;
   bool _ending = false;
+  bool _navigated = false;
+  bool _advanceTimerStarted = false;
 
   @override
   void dispose() {
@@ -63,6 +65,37 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           .read(chatProvider.notifier)
           .startSession(topicOverride: widget.initialTopic);
     }
+  }
+
+  void _maybeAdvance(ChatState s) {
+    if (!s.sessionEnded || _navigated) return;
+    if (s.currentlySpeakingMessageId != null) {
+      if (!_advanceTimerStarted) {
+        _advanceTimerStarted = true;
+        // Safety net: force navigation back to garden after 5 seconds even if TTS completion handler fails to fire
+        Future.delayed(const Duration(seconds: 5), () {
+          if (mounted && !_navigated) {
+            _navigated = true;
+            final onEnded = widget.onEnded;
+            Navigator.of(context).pop();
+            if (onEnded != null) {
+              onEnded();
+            }
+          }
+        });
+      }
+      return;
+    }
+    _navigated = true;
+    Future.delayed(const Duration(milliseconds: 1600), () {
+      if (mounted) {
+        final onEnded = widget.onEnded;
+        Navigator.of(context).pop();
+        if (onEnded != null) {
+          onEnded();
+        }
+      }
+    });
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -189,6 +222,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     final chatAsync = ref.watch(chatProvider);
     final s = chatAsync.asData?.value;
+    if (s != null) {
+      _maybeAdvance(s);
+    }
     final active = s != null && _hasActiveChat(s);
 
     return PopScope(

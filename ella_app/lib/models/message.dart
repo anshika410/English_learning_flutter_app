@@ -12,10 +12,13 @@ class ChatMessage {
   ChatMessage({
     String? id,
     required this.sender,
-    required this.text,
+    required String text,
     DateTime? timestamp,
   })  : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-        timestamp = timestamp ?? DateTime.now();
+        timestamp = timestamp ?? DateTime.now(),
+        text = sender == MessageSender.zoe
+            ? text.replaceAll('"', '').replaceAll('“', '').replaceAll('”', '')
+            : text;
 
   // transcript table row — matches ELLA-Final-Build-Spec.md Part C.
   Map<String, dynamic> toTranscriptRow({

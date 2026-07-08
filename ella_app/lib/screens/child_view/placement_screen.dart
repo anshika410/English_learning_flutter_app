@@ -27,6 +27,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final _textController = TextEditingController();
   bool _keyboardMode = false;
   bool _navigated = false;
+  bool _advanceTimerStarted = false;
 
   @override
   void dispose() {
@@ -44,7 +45,14 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // placement garden (replace so back never returns into the finished test).
   void _maybeAdvance(PlacementState s) {
     if (!s.isComplete || _navigated) return;
-    if (s.currentlySpeakingMessageId != null) return;
+    if (s.currentlySpeakingMessageId != null) {
+      if (!_advanceTimerStarted) {
+        _advanceTimerStarted = true;
+        // Safety net: force navigation after 5 seconds even if TTS completion handler fails to fire
+        Future.delayed(const Duration(seconds: 5), _goToComplete);
+      }
+      return;
+    }
     Future.delayed(const Duration(milliseconds: 1600), _goToComplete);
   }
 
@@ -185,10 +193,6 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   /// Replays a Zoe line via TTS. A no-op while TTS is already speaking, so a
   /// tap can never restart or stack utterances.
   Future<void> _speakLine(String text) async {
-    final tts = ref.read(ttsProvider);
-    if (tts.isSpeaking) return;
-    try {
-      await tts.speak(text);
-    } catch (_) {}
+    await ref.read(placementProvider.notifier).replayZoeLine(text);
   }
 }

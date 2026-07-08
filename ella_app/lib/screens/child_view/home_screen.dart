@@ -6,6 +6,7 @@
 // next_topics. The child selects a topic (chip / See More) — only the CTA starts
 // a session, sending the topic name to POST /session.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -18,6 +19,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import 'all_topics_screen.dart';
+import 'chat_bubble.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/circle_icon_button.dart';
@@ -99,6 +101,40 @@ class _HomeBody extends ConsumerStatefulWidget {
 }
 
 class _HomeBodyState extends ConsumerState<_HomeBody> {
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    super.dispose();
+  }
+
   // The topic the CTA will start. Null means "use the server's recommended".
   // Tapping an alternative chip or picking one in See More sets this; it never
   // starts a session — only the CTA does.
@@ -222,7 +258,12 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                             reducedMotion: MediaQuery.of(context).disableAnimations,
                           ),
                           const SizedBox(height: 20),
-                          _LastTimeCard(recap: _recap, onSpeak: _speakRecap),
+                          _LastTimeCard(
+                            recap: _recap,
+                            onSpeak: _speakRecap,
+                            highlightStart: _highlightStart,
+                            highlightEnd: _highlightEnd,
+                          ),
                           const SizedBox(height: 16),
                           const _SectionDivider(label: 'Next Session'),
                           const SizedBox(height: 12),
@@ -349,8 +390,15 @@ class _LastTimeCard extends StatelessWidget {
   /// Replays the recap aloud (TTS). Powers the speaker dot on the card, the
   /// same control that straddles Zoe's chat bubble.
   final VoidCallback onSpeak;
+  final int highlightStart;
+  final int highlightEnd;
 
-  const _LastTimeCard({required this.recap, required this.onSpeak});
+  const _LastTimeCard({
+    required this.recap,
+    required this.onSpeak,
+    required this.highlightStart,
+    required this.highlightEnd,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +414,13 @@ class _LastTimeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: EllaColors.info, width: 2),
       ),
-      child: Text(body, style: EllaTextStyles.bodySemibold),
+      child: TypewriterText(
+        text: body,
+        style: EllaTextStyles.bodySemibold,
+        highlightStart: highlightStart,
+        highlightEnd: highlightEnd,
+        animate: false,
+      ),
     );
 
     // Speaker dot straddling the top-right border — identical control to Zoe's
@@ -380,7 +434,10 @@ class _LastTimeCard extends StatelessWidget {
         Positioned(
           top: 0,
           right: 10,
-          child: SpeakerDotButton(active: false, onTap: onSpeak),
+          child: SpeakerDotButton(
+            active: highlightStart >= 0,
+            onTap: onSpeak,
+          ),
         ),
       ],
     );

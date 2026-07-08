@@ -121,6 +121,7 @@ class TypewriterText extends StatefulWidget {
   final int highlightEnd;
   final TextStyle? style;
   final TextStyle? highlightStyle;
+  final bool animate;
 
   const TypewriterText({
     super.key,
@@ -129,6 +130,7 @@ class TypewriterText extends StatefulWidget {
     this.highlightEnd = -1,
     this.style,
     this.highlightStyle,
+    this.animate = true,
   });
 
   @override
@@ -145,7 +147,12 @@ class _TypewriterTextState extends State<TypewriterText> {
   void initState() {
     super.initState();
     _words = widget.text.split(' ');
-    _animate();
+    if (widget.animate) {
+      _animate();
+    } else {
+      _visibleWords = _words.length;
+      _done = true;
+    }
   }
 
   void _animate() async {
@@ -165,9 +172,14 @@ class _TypewriterTextState extends State<TypewriterText> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text) {
       _words = widget.text.split(' ');
-      _visibleWords = 0;
-      _done = false;
-      _animate();
+      if (widget.animate) {
+        _visibleWords = 0;
+        _done = false;
+        _animate();
+      } else {
+        _visibleWords = _words.length;
+        _done = true;
+      }
     }
   }
 
@@ -182,8 +194,6 @@ class _TypewriterTextState extends State<TypewriterText> {
     final highlightStyle = widget.highlightStyle ??
         baseStyle.copyWith(
           color: const Color(0xFFE91E63),
-          fontWeight: FontWeight.w800,
-          fontSize: (baseStyle.fontSize ?? 16.0) + 2.0,
         );
 
     // If we have highlight range, build RichText with highlighted span
@@ -196,12 +206,18 @@ class _TypewriterTextState extends State<TypewriterText> {
           style: baseStyle,
           children: [
             TextSpan(text: widget.text.substring(0, widget.highlightStart)),
-            TextSpan(
-              text: widget.text.substring(
-                widget.highlightStart,
-                widget.highlightEnd,
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Transform.scale(
+                scale: 1.12, // Magnify the active word by 12% without shifting text layout
+                child: Text(
+                  widget.text.substring(
+                    widget.highlightStart,
+                    widget.highlightEnd,
+                  ),
+                  style: highlightStyle,
+                ),
               ),
-              style: highlightStyle,
             ),
             TextSpan(text: widget.text.substring(widget.highlightEnd)),
           ],
