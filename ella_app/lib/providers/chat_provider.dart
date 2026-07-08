@@ -17,7 +17,9 @@ import '../models/history_entry.dart';
 import '../models/memory_snapshot.dart';
 import '../models/message.dart';
 import '../models/session.dart';
+import '../services/ella_api_service.dart';
 import 'garden_provider.dart';
+import 'onboarding_provider.dart';
 import 'prompts_provider.dart';
 import 'service_providers.dart';
 
@@ -254,6 +256,14 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       // Canonical load order: auth → memory → garden (mirrors the server flow).
       // Resume memory from persisted state if any, else fresh.
       mem = await api.getUserMemory();
+      if (mem.name != null && mem.name!.trim().isNotEmpty) {
+        try {
+          await ref.read(onboardingProvider.notifier).seedFromServer(
+            name: mem.name!,
+            age: mem.age,
+          );
+        } catch (_) {}
+      }
       // The server returns its own due_next, but the engine's due_next-stage
       // rules (engine.dart) are authoritative on the frontend. Recompute over
       // the server's owned/emerging so those rules drive the due_next display
@@ -272,6 +282,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         await api.getGarden();
       } catch (_) {}
     } catch (e) {
+      if (e is EllaApiException && e.message == 'not_authenticated') {
+        rethrow;
+      }
       // Offline-only mode. App still works in memory; Glass Box shows the error.
       // No Supabase writes will be attempted while _online is false.
       _online = false;

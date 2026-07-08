@@ -23,12 +23,10 @@ class TokenResponse(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     token: str
-    device_id: str | None = None
 
 
 class MagicLinkRequest(BaseModel):
     email: str
-    device_id: str | None = None
     redirect_url: str | None = None
 
 

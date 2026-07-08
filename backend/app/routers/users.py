@@ -305,6 +305,70 @@ async def update_user_memory(
     return {"persona_memory": user.persona_memory}
 
 
+@router.delete("/me/memory", status_code=204)
+async def clear_user_memory(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Clears the child's permanent persona memory block and resets onboarding state.
+    """
+    user.persona_memory = {}
+    user.name = None
+    user.age = None
+    db.add(user)
+    await db.commit()
+    return None
+
+
+@router.delete("/me", status_code=204)
+async def delete_user_memory(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Resets all learning memory for the authenticated user.
+
+    Clears: placement history, skills progress, persona memory, profile info
+    (name, age, level), and the first-session flag. The user account itself
+    (email / id) is preserved so they can log back in and start fresh.
+
+    Called by the Flutter app's "Delete Memory" feature. Uses the real JWT
+    so we always reset the correct account regardless of device.
+    """
+    from sqlalchemy import delete, select
+    from ..models.placement import Placement
+    from ..models.conversation import Conversation
+    from ..models.message import Message
+    from ..models.session_analysis import SessionAnalysis
+
+    # Wipe placements, session analyses, messages, and conversations
+    # 1. Fetch all conversation IDs for this user to wipe nested messages and analyses
+    conv_ids_result = await db.execute(
+        select(Conversation.id).where(Conversation.user_id == user.id)
+    )
+    conv_ids = [r[0] for r in conv_ids_result.all()]
+
+    if conv_ids:
+        await db.execute(delete(Message).where(Message.conversation_id.in_(conv_ids)))
+        await db.execute(
+            delete(SessionAnalysis).where(SessionAnalysis.conversation_id.in_(conv_ids))
+        )
+        await db.execute(delete(Conversation).where(Conversation.user_id == user.id))
+
+    await db.execute(delete(Placement).where(Placement.user_id == user.id))
+
+    # Wipe RefreshSessions to invalidate tokens
+    from ..models.user import RefreshSession, User
+    await db.execute(delete(RefreshSession).where(RefreshSession.user_id == user.id))
+    
+    # Finally, hard delete the user account
+    await db.execute(delete(User).where(User.id == user.id))
+
+    await db.commit()
+    # 204 No Content — no response body
+
+
 @router.get("/me/garden", response_model=GardenResponse)
 async def get_user_garden(user: User = Depends(get_current_user)):
     level = user.level or "A0"
