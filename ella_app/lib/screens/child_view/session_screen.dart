@@ -126,20 +126,42 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     setState(() => _ending = true);
     final notifier = ref.read(chatProvider.notifier);
     await notifier.stopListening();
-    // Speak the goodbye line before navigating away
+    
+    // Fire scoring in the background (don't wait)
+    unawaited(notifier.endChat().catchError(_snack));
+
+    bool popped = false;
+    void doPop() {
+      if (popped) return;
+      popped = true;
+      if (mounted) {
+        final onEnded = widget.onEnded;
+        Navigator.of(context).pop();
+        if (onEnded != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => onEnded());
+        }
+      }
+    }
+
+    // Safety net: force navigation after 4.5 seconds if TTS done callback fails
+    final safetyTimer = Timer(const Duration(milliseconds: 4500), doPop);
+
+    // Listen for TTS done stream to pop as soon as speech finishes
+    StreamSubscription? doneSub;
+    final nativeTts = ref.read(nativeTtsProvider);
+    doneSub = nativeTts.doneStream.listen((_) {
+      safetyTimer.cancel();
+      doneSub?.cancel();
+      Future.delayed(const Duration(milliseconds: 400), doPop);
+    });
+
     try {
       final tts = ref.read(ttsProvider);
       await tts.speak(_kGoodbye);
-    } catch (_) {}
-    // Fire scoring in the background (don't wait)
-    unawaited(notifier.endChat().catchError(_snack));
-    // Brief pause after TTS finishes
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-    final onEnded = widget.onEnded;
-    Navigator.of(context).pop();
-    if (onEnded != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => onEnded());
+    } catch (_) {
+      safetyTimer.cancel();
+      doneSub.cancel();
+      doPop();
     }
   }
 
