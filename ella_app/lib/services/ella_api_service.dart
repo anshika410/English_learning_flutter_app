@@ -285,6 +285,10 @@ class EllaApiService {
     }
   }
 
+  Future<void> deleteAccount() async {
+    await _request('DELETE', '/users/me');
+  }
+
   // ── Onboarding cache (local) ────────────────────────────────────────────────
   // Gates the first-run onboarding flow and remembers the child's name/age for
   // the greeting + placement seeding. Stored in the same SharedPreferences this
