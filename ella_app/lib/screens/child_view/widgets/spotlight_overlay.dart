@@ -3,38 +3,65 @@
 // sprout, the placement bloom, and the garden's first-time welcome. Modelled on
 // the sun RadialGradient in garden_sky_background.dart.
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 class SpotlightOverlay extends StatelessWidget {
   /// Where the bright (transparent) hole sits, in alignment coordinates.
   final Alignment center;
+  final Offset? pixelCenter;
   final double radius;
+  final bool figmaStyle;
 
   const SpotlightOverlay({
     super.key,
     this.center = const Alignment(0, 0.25),
-    this.radius = 0.95,
+    this.pixelCenter,
+    this.radius = 0.85,
+    this.figmaStyle = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: center,
-          radius: radius,
-          // The transparent plateau (first two stops) is held wide so the whole
-          // plant sits in clear space before the scrim ramps in — the darkening
-          // only starts at 45% of the radius.
-          colors: const [
-            Color(0x00185E35),
-            Color(0x00185E35),
-            Color(0x7A123B23),
-            Color(0xB3102F1D),
-          ],
-          stops: const [0.0, 0.45, 0.8, 1.0],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final resolvedCenter = pixelCenter == null
+            ? center
+            : Alignment(
+                (pixelCenter!.dx / constraints.maxWidth) * 2 - 1,
+                (pixelCenter!.dy / constraints.maxHeight) * 2 - 1,
+              );
+        final colors = figmaStyle
+            ? const [Color(0x002B362F), Color(0x002B362F), Color(0x522B362F)]
+            : const [
+                Color(0x00185E35),
+                Color(0x00185E35),
+                Color(0x7A123B23),
+                Color(0xB3102F1D),
+              ];
+        final stops = figmaStyle
+            ? const [0.0, 0.59615, 1.0]
+            : const [0.0, 0.45, 0.8, 1.0];
+
+        return ClipRect(
+          child: BackdropFilter(
+            filter: figmaStyle
+                ? ImageFilter.blur(sigmaX: 6, sigmaY: 6)
+                : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: resolvedCenter,
+                  radius: radius,
+                  colors: colors,
+                  stops: stops,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

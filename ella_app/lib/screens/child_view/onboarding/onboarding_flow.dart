@@ -28,7 +28,6 @@ import '../placement_garden_screen.dart';
 import '../widgets/chat_reply_composer.dart';
 import '../widgets/garden_sky_background.dart';
 import '../widgets/zoe_mascot.dart';
-import '../chat_bubble.dart';
 
 enum _Step { name, age, congrats }
 
@@ -61,10 +60,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating — same pattern as GardenScreen's audio handle).
   late final TtsInterface _tts;
-  int _highlightStart = -1;
-  int _highlightEnd = -1;
-  StreamSubscription? _ttsProgressSub;
-  StreamSubscription? _ttsDoneSub;
 
   // ── Zoe's script (Figma copy) ───────────────────────────────────────────────
 
@@ -88,24 +83,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void initState() {
     super.initState();
     _tts = ref.read(ttsProvider);
-    
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
-      if (mounted) {
-        setState(() {
-          _highlightStart = event.start;
-          _highlightEnd = event.end;
-        });
-      }
-    });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
-      if (mounted) {
-        setState(() {
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-    });
     // saveProfile persisted the name/age the moment they were collected; when
     // they're already cached, resume straight on the first-sprout garden.
     final cached = ref.read(onboardingProvider).valueOrNull;
@@ -130,8 +107,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void dispose() {
     _replyCtrl.dispose();
     _replyFocus.dispose();
-    _ttsProgressSub?.cancel();
-    _ttsDoneSub?.cancel();
     // Cut Zoe off if the flow is left mid-utterance.
     _tts.stop().catchError((_) {});
     super.dispose();
@@ -147,20 +122,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     try {
       await tts.stop();
       if (!mounted) return;
-      setState(() {
-        _highlightStart = -1;
-        _highlightEnd = -1;
-        _mascot = ZoeMascotMode.speaking;
-      });
+      setState(() => _mascot = ZoeMascotMode.speaking);
       await tts.speak(text);
     } catch (_) {}
-    if (mounted) {
-      setState(() {
-        _mascot = ZoeMascotMode.listening;
-        _highlightStart = -1;
-        _highlightEnd = -1;
-      });
-    }
+    if (mounted) setState(() => _mascot = ZoeMascotMode.listening);
   }
 
   /// Sound-button replays: a no-op while TTS is already speaking, so a tap can
@@ -419,8 +384,6 @@ class _ChatStep extends StatelessWidget {
                       key: ValueKey(zoeText),
                       text: zoeText,
                       onReplay: onReplay,
-                      highlightStart: highlightStart,
-                      highlightEnd: highlightEnd,
                     ),
                   ),
                   if (userReply != null) ...[
@@ -455,16 +418,8 @@ class _ChatStep extends StatelessWidget {
 class _ZoeBubble extends StatelessWidget {
   final String text;
   final VoidCallback onReplay;
-  final int highlightStart;
-  final int highlightEnd;
 
-  const _ZoeBubble({
-    super.key,
-    required this.text,
-    required this.onReplay,
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
-  });
+  const _ZoeBubble({super.key, required this.text, required this.onReplay});
 
   @override
   Widget build(BuildContext context) {
@@ -493,16 +448,7 @@ class _ZoeBubble extends StatelessWidget {
               ),
             ],
           ),
-          child: TypewriterText(
-            text: text,
-            animate: false,
-            highlightStart: highlightStart,
-            highlightEnd: highlightEnd,
-            style: EllaTextStyles.bodySemibold,
-            highlightStyle: EllaTextStyles.bodySemibold.copyWith(
-              color: const Color(0xFFE91E63),
-            ),
-          ),
+          child: Text(text, style: EllaTextStyles.bodySemibold),
         ),
         Positioned(
           top: -14,

@@ -70,11 +70,12 @@ class EllaApiService {
   final String baseUrl;
   final http.Client _client;
 
-  EllaApiService({
-    String? baseUrl,
-    http.Client? client,
-  })  : baseUrl = baseUrl ?? dotenv.env['ELLA_API_BASE_URL'] ?? 'https://ella.navgurukul.org/api',
-        _client = client ?? http.Client();
+  EllaApiService({String? baseUrl, http.Client? client})
+    : baseUrl =
+          baseUrl ??
+          (dotenv.isInitialized ? dotenv.env['ELLA_API_BASE_URL'] : null) ??
+          'https://ella.navgurukul.org/api',
+      _client = client ?? http.Client();
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -160,7 +161,6 @@ class EllaApiService {
       }
 
       final deviceId = await getDeviceId();
-      
       await _request(
         'POST',
         '/auth/magic-link/request',
@@ -283,11 +283,6 @@ class EllaApiService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw EllaApiException('HTTP ${response.statusCode}: ${response.body}');
     }
-    await _request('DELETE', '/users/me/memory');
-  }
-
-  Future<void> deleteAccount() async {
-    await _request('DELETE', '/users/me');
   }
 
   // ── Onboarding cache (local) ────────────────────────────────────────────────
@@ -316,6 +311,8 @@ class EllaApiService {
     await prefs.remove(_onboardingDoneKey);
     await prefs.remove(_childNameKey);
     await prefs.remove(_childAgeKey);
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
   }
 
   /// Cache just the name/age (onboarding NOT yet done) — written the moment
@@ -532,15 +529,18 @@ class EllaApiService {
     final uri = Uri.parse(path.startsWith('http') ? path : '$baseUrl$path');
     final headers = <String, String>{
       'Accept': 'application/json',
-      'Bypass-Tunnel-Reminder': 'true',
       if (body != null) 'Content-Type': 'application/json',
     };
     if (auth) {
-      final token = await getToken();
+      var token = await getToken();
       if (token == null || token.isEmpty) {
-        throw const EllaApiException('not_authenticated');
+        _log('AUTH', 'No token found, grabbing anonymous token for demo.');
+        await loginAnonymous();
+        token = await getToken();
       }
-      headers['Authorization'] = 'Bearer $token';
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
     }
 
     _log('REQUEST  $method $uri', body != null ? jsonEncode(body) : null);
@@ -566,9 +566,9 @@ class EllaApiService {
 
     _log('RESPONSE $method $path  HTTP ${response.statusCode}', response.body);
 
-    if ((response.statusCode == 401 || response.statusCode == 403 || (response.statusCode == 404 && response.body.toLowerCase().contains("user not found"))) && auth) {
+    if (response.statusCode == 401 && auth) {
       await _clearToken();
-      throw const EllaApiException('not_authenticated');
+      return _request(method, path, auth: auth, body: body);
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw EllaApiException(
@@ -641,9 +641,6 @@ class EllaApiService {
     final id = j['id'] as String? ?? j['user_id'] as String? ?? 'api-user';
     final effort = Map<String, dynamic>.from((j['effort'] as Map?) ?? {});
     final interests = (j['interests'] as List? ?? const []).join(', ');
-    final profile = j['profile'] is Map ? Map<String, dynamic>.from(j['profile'] as Map) : null;
-    final name = profile?['name'] as String?;
-    final age = (profile?['age'] as num?)?.toInt();
     return MemoryState(
       childId: id,
       level: j['level'] as String? ?? 'A1',
@@ -665,8 +662,6 @@ class EllaApiService {
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
-      name: name,
-      age: age,
       placement: j['placement'] is Map
           ? PlacementInfo.fromJson(
               Map<String, dynamic>.from(j['placement'] as Map),

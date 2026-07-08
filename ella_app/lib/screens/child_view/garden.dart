@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/curriculum_display_copy.dart';
 import '../../core/engine.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
@@ -62,7 +63,11 @@ class _GardenContent extends StatelessWidget {
           if (step != null) ...[
             const SizedBox(height: 6),
             Text(
-              step.name,
+              CurriculumDisplayCopy.unitName(
+                level: mem.level,
+                unit: int.tryParse(step.step) ?? 0,
+                fallback: step.name,
+              ),
               style: const TextStyle(fontSize: 12, color: Colors.white70),
             ),
             const SizedBox(height: 8),

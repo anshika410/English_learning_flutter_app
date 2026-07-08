@@ -135,7 +135,7 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
 
     state = AsyncData(OnboardingState(done: true, name: name, age: age));
 
-    // Force chatProvider to refresh so RootGate sees the new memory.name and 
+    // Force chatProvider to refresh so RootGate sees the new memory.name and
     // advances to PlacementIntroScreen (Garden) instead of bouncing back to Onboarding.
     ref.invalidate(chatProvider);
   }
@@ -164,11 +164,13 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
   Future<void> reset() async {
     final api = ref.read(ellaApiServiceProvider);
     await api.clearOnboarding();
-    
+
     // Clear placement state as well, since memory is gone
     ref.read(placementProvider.notifier).reset();
-    
-    state = const AsyncData(OnboardingState(done: false, name: null, age: null));
+
+    state = const AsyncData(
+      OnboardingState(done: false, name: null, age: null),
+    );
   }
 }
 
