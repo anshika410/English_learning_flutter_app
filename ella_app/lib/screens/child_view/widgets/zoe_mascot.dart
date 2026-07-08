@@ -196,12 +196,7 @@ class _ZoeMascotState extends State<ZoeMascot>
       ),
     );
 
-    final framed = widget.clipToCircle ? ClipOval(child: content) : content;
-
-    return KeyedSubtree(
-      key: const ValueKey('zoe-native-mascot'),
-      child: framed,
-    );
+    return widget.clipToCircle ? ClipOval(child: content) : content;
   }
 }
 
