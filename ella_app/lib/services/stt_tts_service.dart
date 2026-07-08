@@ -23,6 +23,10 @@ class SpeechToTextService implements SttInterface {
   bool _ready = false;
   bool _listening = false;
 
+  // Track accumulated text segments during active session to prevent word disappearance on pauses
+  String _sessionPrefix = '';
+  String _lastWords = '';
+
   @override
   Future<void> initialize() async {
     // Idempotent: the first call triggers the OS mic-permission prompt via the
@@ -38,6 +42,9 @@ class SpeechToTextService implements SttInterface {
   }) async {
     if (!_ready || _listening) return;
     _listening = true;
+    _sessionPrefix = '';
+    _lastWords = '';
+
     _stt.statusListener = (status) {
       // Android SpeechRecognizer sometimes stops without firing finalResult.
       // Detect "notListening" or "done" status and fire onFinal with whatever
@@ -49,7 +56,8 @@ class SpeechToTextService implements SttInterface {
           // If it doesn't (Android bug), this ensures we don't get stuck.
           Future.delayed(const Duration(milliseconds: 300), () {
             if (!_listening && _stt.lastRecognizedWords.isEmpty) {
-              onFinal('');
+              final finalVal = _sessionPrefix.isEmpty ? _lastWords : "$_sessionPrefix $_lastWords";
+              onFinal(finalVal.trim());
             }
           });
         }
@@ -57,11 +65,24 @@ class SpeechToTextService implements SttInterface {
     };
     await _stt.listen(
       onResult: (r) {
+        final newWords = r.recognizedWords.trim();
+        final newWordsLower = newWords.toLowerCase();
+        final lastWordsLower = _lastWords.toLowerCase();
+
+        // If the new phrase is completely different and doesn't contain the last phrase,
+        // we commit the last phrase to the prefix.
+        if (_lastWords.isNotEmpty && !newWordsLower.contains(lastWordsLower)) {
+          _sessionPrefix = _sessionPrefix.isEmpty ? _lastWords : "$_sessionPrefix $_lastWords";
+        }
+
+        _lastWords = newWords;
+        final fullTranscript = _sessionPrefix.isEmpty ? newWords : "$_sessionPrefix $newWords";
+
         if (r.finalResult) {
           _listening = false;
-          onFinal(r.recognizedWords);
+          onFinal(fullTranscript.trim());
         } else {
-          onPartial(r.recognizedWords);
+          onPartial(fullTranscript.trim());
         }
       },
       listenOptions: stt.SpeechListenOptions(

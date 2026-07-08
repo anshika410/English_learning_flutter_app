@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/app_toast.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../route_observer.dart';
 import '../../core/text_styles.dart';
@@ -574,6 +575,12 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
     // mounted, queue the same reveal flow used after conversations. Baseline is
     // set silently on the first payload.
     ref.listen<AsyncValue<GardenData>>(gardenProvider, (prev, next) {
+      // A backend failure loading the garden shows the standard toast (once, on
+      // the transition into error) instead of a separate error screen.
+      if (next.hasError && !(prev?.hasError ?? false) && mounted) {
+        debugPrint('[Garden] load error: ${next.error}');
+        showEllaErrorToast(context);
+      }
       final data = next.valueOrNull;
       if (data == null) return;
       _registerGardenForReveal(
@@ -610,24 +617,16 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
             child: CircularProgressIndicator(color: EllaColors.berryDark),
           ),
         ),
+        // No separate error screen: the toast (fired from the ref.listen above)
+        // carries the message. Show a calm empty sky with a quiet retry so the
+        // child can try again without a jarring error page.
         error: (e, _) => _SkyScaffold(
           child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Could not load your garden',
-                  style: TextStyle(
-                    color: EllaColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: withTapClick(() => ref.invalidate(gardenProvider)),
-                  child: const Text('Retry'),
-                ),
-              ],
+            child: IconButton(
+              onPressed: withTapClick(() => ref.invalidate(gardenProvider)),
+              icon: const Icon(Icons.refresh_rounded, color: EllaColors.ink),
+              iconSize: 32,
+              tooltip: 'Retry',
             ),
           ),
         ),
@@ -645,7 +644,9 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
           child: AnimatedOpacity(
             opacity: introActive ? 1 : 0,
             duration: Duration(milliseconds: reducedMotion ? 0 : 600),
-            child: const SpotlightOverlay(center: Alignment(0, 0.26)),
+            // Wider radius + a slightly lower centre so the first plot's plant is
+            // fully inside the clear spotlight on every screen size.
+            child: const SpotlightOverlay(center: Alignment(0, 0.28), radius: 1.05),
           ),
         ),
         IgnorePointer(
@@ -712,11 +713,13 @@ class _WelcomeCallout extends StatelessWidget {
         // (58px above the bubble top).
         final bubbleWidth = width - 48;
         final bubbleLeft = 24.0;
-        final bubbleTop = media.padding.top + 60 * scale;
+        // Bubble sits low enough that the 72px mascot fits fully ABOVE it (feet
+        // land just above the top border) without spilling into the status bar.
+        final bubbleTop = media.padding.top + 84 * scale;
         final mascotLeft = math.max(16.0, bubbleLeft - 6 * scale);
         final mascotTop = math.max(
-          media.padding.top + 8.0,
-          bubbleTop - 58 * scale,
+          media.padding.top,
+          bubbleTop - 76 * scale,
         );
 
         // Bubble first, then the mascot, so Zoe renders IN FRONT of the bubble

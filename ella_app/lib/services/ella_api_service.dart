@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -69,10 +70,12 @@ class EllaApiService {
   final String baseUrl;
   final http.Client _client;
 
-  EllaApiService({
-    this.baseUrl = 'https://ella.navgurukul.org/api',
-    http.Client? client,
-  }) : _client = client ?? http.Client();
+  EllaApiService({String? baseUrl, http.Client? client})
+    : baseUrl =
+          baseUrl ??
+          (dotenv.isInitialized ? dotenv.env['ELLA_API_BASE_URL'] : null) ??
+          'https://ella.navgurukul.org/api',
+      _client = client ?? http.Client();
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();

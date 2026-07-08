@@ -37,12 +37,12 @@ class SpotlightOverlay extends StatelessWidget {
             : const [
                 Color(0x00185E35),
                 Color(0x00185E35),
-                Color(0x66123B23),
-                Color(0x99102F1D),
+                Color(0x7A123B23),
+                Color(0xB3102F1D),
               ];
         final stops = figmaStyle
             ? const [0.0, 0.59615, 1.0]
-            : const [0.0, 0.35, 0.75, 1.0];
+            : const [0.0, 0.45, 0.8, 1.0];
 
         return ClipRect(
           child: BackdropFilter(

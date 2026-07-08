@@ -26,6 +26,8 @@ import 'widgets/ella_primary_button.dart';
 import 'widgets/garden_sky_background.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/zoe_mascot.dart';
+import 'dart:async';
+import 'chat_bubble.dart';
 
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
 const String _kPlantIcon = 'assets/homescreen/new/Plant.svg';
@@ -45,23 +47,61 @@ class PlacementIntroScreen extends ConsumerStatefulWidget {
 class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   // True while the greeting is playing — drives the speaker dot's stop glyph.
   bool _speaking = false;
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
 
   @override
   void initState() {
     super.initState();
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
     // Greet the child aloud as soon as the screen appears (not only when they
     // tap the speaker dot).
     WidgetsBinding.instance.addPostFrameCallback((_) => _speakGreeting());
   }
 
+  @override
+  void dispose() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _speakGreeting() async {
-    setState(() => _speaking = true);
+    setState(() {
+      _speaking = true;
+      _highlightStart = -1;
+      _highlightEnd = -1;
+    });
     try {
       // speak() awaits real playback completion (awaitSpeakCompletion).
       await ref.read(ttsProvider).speak(_kGreeting);
     } catch (_) {
     } finally {
-      if (mounted) setState(() => _speaking = false);
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
     }
   }
 
@@ -154,6 +194,36 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                           colorFilter: const ColorFilter.mode(
                             EllaColors.onPrimary,
                             BlendMode.srcIn,
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ZoeMascot(
+                          mode: ZoeMascotMode.listening,
+                          size: mascotW,
+                          reducedMotion:
+                              MediaQuery.of(context).disableAnimations,
+                        ),
+                        const SizedBox(height: 10),
+                        _GreetingCard(
+                          speaking: _speaking,
+                          onToggle: _toggleSpeak,
+                          highlightStart: _highlightStart,
+                          highlightEnd: _highlightEnd,
+                        ),
+                        const SizedBox(height: 24),
+                        EllaPrimaryButton(
+                          label: "Let's Talk",
+                          height: 60,
+                          leading: SvgPicture.asset(
+                            _kVoiceIcon,
+                            width: 22,
+                            height: 22,
+                            colorFilter: const ColorFilter.mode(
+                              EllaColors.onPrimary,
+                              BlendMode.srcIn,
+                            ),
                           ),
                         ),
                         onTap: _startPlacement,
@@ -225,7 +295,15 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
 class _GreetingCard extends StatelessWidget {
   final bool speaking;
   final VoidCallback onToggle;
-  const _GreetingCard({required this.speaking, required this.onToggle});
+  final int highlightStart;
+  final int highlightEnd;
+
+  const _GreetingCard({
+    required this.speaking,
+    required this.onToggle,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -246,6 +324,13 @@ class _GreetingCard extends StatelessWidget {
               side: const BorderSide(color: EllaColors.info, width: 2),
             ),
             child: Text(_kGreeting, style: EllaTextStyles.bodySemiboldLarge),
+            child: TypewriterText(
+              text: _kGreeting,
+              style: EllaTextStyles.bodySemibold,
+              highlightStart: highlightStart,
+              highlightEnd: highlightEnd,
+              animate: false,
+            ),
           ),
         ),
         Positioned(

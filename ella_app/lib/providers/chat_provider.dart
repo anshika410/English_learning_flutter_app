@@ -7,6 +7,7 @@
 // Non-negotiable: only applyMerge / applyEndChat write owned/emerging/due_next.
 // The LLM result (SkillScore list) is passed to the engine, never written directly.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants.dart';
 import '../core/engine.dart';
@@ -18,7 +19,9 @@ import '../models/history_entry.dart';
 import '../models/memory_snapshot.dart';
 import '../models/message.dart';
 import '../models/session.dart';
+import '../services/ella_api_service.dart';
 import 'garden_provider.dart';
+import 'onboarding_provider.dart';
 import 'prompts_provider.dart';
 import 'service_providers.dart';
 
@@ -39,6 +42,9 @@ class ChatState {
   final int turnCount;
   final bool sessionEnded;
   final String? partialStt;
+  final String? currentlySpeakingMessageId;
+  final int highlightStart;
+  final int highlightEnd;
 
   // Simulator parity additions
   final int
@@ -74,6 +80,9 @@ class ChatState {
     this.turnCount = 0,
     this.sessionEnded = false,
     this.partialStt,
+    this.currentlySpeakingMessageId,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
     this.chatNumber = 1,
     this.autoMode = false,
     this.autoStep = 0,
@@ -121,6 +130,10 @@ class ChatState {
     List<String>? serverAimedAt,
     String? lastSyncError,
     bool clearSyncError = false,
+    String? currentlySpeakingMessageId,
+    bool clearCurrentlySpeaking = false,
+    int? highlightStart,
+    int? highlightEnd,
   }) => ChatState(
     messages: messages ?? this.messages,
     memory: memory ?? this.memory,
@@ -131,6 +144,11 @@ class ChatState {
     turnCount: turnCount ?? this.turnCount,
     sessionEnded: sessionEnded ?? this.sessionEnded,
     partialStt: clearPartialStt ? null : (partialStt ?? this.partialStt),
+    currentlySpeakingMessageId: clearCurrentlySpeaking
+        ? null
+        : (currentlySpeakingMessageId ?? this.currentlySpeakingMessageId),
+    highlightStart: highlightStart ?? this.highlightStart,
+    highlightEnd: highlightEnd ?? this.highlightEnd,
     chatNumber: chatNumber ?? this.chatNumber,
     autoMode: autoMode ?? this.autoMode,
     autoStep: autoStep ?? this.autoStep,
@@ -184,7 +202,46 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // mic-permission prompt, so it is deferred to the first listen (see
     // startListening) to avoid blocking screen load / prompting at launch.
     final tts = ref.read(ttsProvider);
-    await tts.initialize();
+    try {
+      await tts.initialize();
+    } catch (e) {
+      debugPrint('⚠️ TTS initialization failed: $e');
+    }
+
+    final stt = ref.read(sttProvider);
+    try {
+      await stt.initialize();
+    } catch (e) {
+      debugPrint('⚠️ STT initialization failed: $e');
+    }
+
+    // Register native TTS range callbacks to drive Karaoke text highlighting
+    final nativeTts = ref.read(nativeTtsProvider);
+    final progressSub = nativeTts.progressStream.listen((event) {
+      if (state.hasValue) {
+        state = AsyncValue.data(
+          state.requireValue.copyWith(
+            highlightStart: event.start,
+            highlightEnd: event.end,
+          ),
+        );
+      }
+    });
+    final doneSub = nativeTts.doneStream.listen((_) {
+      if (state.hasValue) {
+        state = AsyncValue.data(
+          state.requireValue.copyWith(
+            clearCurrentlySpeaking: true,
+            highlightStart: -1,
+            highlightEnd: -1,
+          ),
+        );
+      }
+    });
+    ref.onDispose(() {
+      progressSub.cancel();
+      doneSub.cancel();
+    });
 
     final api = ref.read(ellaApiServiceProvider);
 
@@ -203,6 +260,13 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       // Canonical load order: auth → memory → garden (mirrors the server flow).
       // Resume memory from persisted state if any, else fresh.
       mem = await api.getUserMemory();
+      if (mem.name != null && mem.name!.trim().isNotEmpty) {
+        try {
+          await ref
+              .read(onboardingProvider.notifier)
+              .seedFromServer(name: mem.name!, age: mem.age);
+        } catch (_) {}
+      }
       // The server returns its own due_next, but the engine's due_next-stage
       // rules (engine.dart) are authoritative on the frontend. Recompute over
       // the server's owned/emerging so those rules drive the due_next display
@@ -221,6 +285,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         await api.getGarden();
       } catch (_) {}
     } catch (e) {
+      if (e is EllaApiException && e.message == 'not_authenticated') {
+        rethrow;
+      }
       // Offline-only mode. App still works in memory; Glass Box shows the error.
       // No Supabase writes will be attempted while _online is false.
       _online = false;
@@ -329,6 +396,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           // opens its mouth (mirrors _zoeTurn); reset to idle when done.
           status: ChatStatus.zoeSpeaking,
           liveLlmLastCall: true,
+          currentlySpeakingMessageId: zoeMsg.id,
+          highlightStart: -1,
+          highlightEnd: -1,
         ),
       );
       try {
@@ -818,7 +888,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     } else if (cur.status != ChatStatus.idle) {
       return;
     }
-    state = AsyncValue.data(state.requireValue.copyWith(status: ChatStatus.userSpeaking));
+    state = AsyncValue.data(
+      state.requireValue.copyWith(status: ChatStatus.userSpeaking),
+    );
     final stt = ref.read(sttProvider);
     // Lazily init STT (idempotent) so the mic-permission prompt appears now, on
     // first voice use, rather than at app launch.
@@ -859,6 +931,16 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     try {
       await ref.read(ttsProvider).stop();
     } catch (_) {}
+    if (state.hasValue) {
+      state = AsyncValue.data(
+        state.requireValue.copyWith(
+          status: ChatStatus.idle,
+          clearCurrentlySpeaking: true,
+          highlightStart: -1,
+          highlightEnd: -1,
+        ),
+      );
+    }
   }
 
   Future<void> stopListening() async {
@@ -935,6 +1017,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
               messages: [...state.requireValue.messages, zoeMsg],
               status: ChatStatus.zoeSpeaking,
               liveLlmLastCall: true,
+              currentlySpeakingMessageId: zoeMsg.id,
+              highlightStart: -1,
+              highlightEnd: -1,
             ),
           );
           try {
@@ -987,6 +1072,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         messages: [...state.requireValue.messages, zoeMsg],
         status: ChatStatus.zoeSpeaking,
         liveLlmLastCall: live,
+        currentlySpeakingMessageId: zoeMsg.id,
+        highlightStart: -1,
+        highlightEnd: -1,
       ),
     );
 

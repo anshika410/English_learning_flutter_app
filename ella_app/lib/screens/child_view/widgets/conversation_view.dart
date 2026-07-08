@@ -53,6 +53,8 @@ class ConversationView extends StatelessWidget {
   /// the bar entirely — the normal chat (SessionScreen) has no fixed turn
   /// target, so it passes null.
   final double? progress;
+  final int highlightStart;
+  final int highlightEnd;
 
   const ConversationView({
     super.key,
@@ -71,6 +73,8 @@ class ConversationView extends StatelessWidget {
     this.onEnd,
     this.onSpeakAgain,
     this.progress,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override

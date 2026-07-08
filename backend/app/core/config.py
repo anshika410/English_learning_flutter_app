@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Set to True if Nginx/Cloudflare already adds 'Access-Control-Allow-Origin' to avoid duplicate headers in production
     disable_cors: bool = False
     
+    google_client_id: str = ""
     google_web_client_id: str = ""
     google_android_client_id: str = ""
     model_config = {"env_file": ".env", "extra": "ignore"}

@@ -11,6 +11,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'chat_provider.dart';
 import 'placement_provider.dart';
 import 'service_providers.dart';
 
@@ -118,6 +119,10 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
     ref.read(placementProvider.notifier).seedProfile(name: name, age: age);
 
     state = AsyncData(OnboardingState(done: true, name: name, age: age));
+
+    // Force chatProvider to refresh so RootGate sees the new memory.name and
+    // advances to PlacementIntroScreen (Garden) instead of bouncing back to Onboarding.
+    ref.invalidate(chatProvider);
   }
 
   Future<void> updateProfile({required String name, required int age}) async {
@@ -134,14 +139,23 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
     state = AsyncData(OnboardingState(done: currentDone, name: name, age: age));
   }
 
+  Future<void> seedFromServer({required String name, required int? age}) async {
+    final api = ref.read(ellaApiServiceProvider);
+    await api.saveOnboarding(name: name, age: age ?? 0);
+    ref.read(placementProvider.notifier).seedProfile(name: name, age: age ?? 0);
+    state = AsyncData(OnboardingState(done: true, name: name, age: age));
+  }
+
   Future<void> reset() async {
     final api = ref.read(ellaApiServiceProvider);
     await api.clearOnboarding();
-    
+
     // Clear placement state as well, since memory is gone
     ref.read(placementProvider.notifier).reset();
-    
-    state = const AsyncData(OnboardingState(done: false, name: null, age: null));
+
+    state = const AsyncData(
+      OnboardingState(done: false, name: null, age: null),
+    );
   }
 }
 

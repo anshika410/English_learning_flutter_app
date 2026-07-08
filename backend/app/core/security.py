@@ -35,7 +35,7 @@ def create_refresh_token() -> str:
     return secrets.token_urlsafe(64)
 
 
-def create_magic_token(email: str, device_id: str | None = None, redirect_url: str | None = None) -> str:
+def create_magic_token(email: str, redirect_url: str | None = None) -> str:
     settings = get_settings()
     expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     payload = {
@@ -43,8 +43,6 @@ def create_magic_token(email: str, device_id: str | None = None, redirect_url: s
         "exp": expire,
         "type": "magic_link"
     }
-    if device_id:
-        payload["device_id"] = device_id
     if redirect_url:
         payload["redirect_url"] = redirect_url
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
@@ -62,7 +60,6 @@ def decode_magic_token(token: str) -> dict:
             raise HTTPException(status_code=400, detail="Invalid token")
         return {
             "email": email, 
-            "device_id": payload.get("device_id"),
             "redirect_url": payload.get("redirect_url")
         }
     except JWTError:

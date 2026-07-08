@@ -111,10 +111,10 @@ void main() {
 
     // Name step.
     expect(find.textContaining('What is your name?'), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_forward_rounded), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-reply-send')), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Aarav');
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump(); // step change
     await tester.pump(const Duration(milliseconds: 950)); // thinking beat
     await tester.pump(const Duration(milliseconds: 400)); // switcher fade
@@ -123,7 +123,7 @@ void main() {
     expect(find.textContaining('what is your age?'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '9');
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
     await tester.pumpAndSettle();
@@ -139,16 +139,14 @@ void main() {
     expect(find.text("Let's Talk"), findsOneWidget);
   });
 
-  testWidgets('blank name shows inline error and stays on the name step', (
-    tester,
-  ) async {
+  testWidgets('blank name stays on the name step', (tester) async {
     await tester.pumpWidget(_harness());
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
 
-    expect(find.textContaining("couldn't get your name"), findsOneWidget);
+    expect(find.textContaining("couldn't get your name"), findsNothing);
     expect(find.textContaining('What is your name?'), findsOneWidget);
   });
 
@@ -159,20 +157,21 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.byType(TextField), 'Aarav');
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
     await tester.pump(const Duration(milliseconds: 400));
 
-    // Blank age → error, stays put.
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
+    // Blank age stays put.
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
-    expect(find.textContaining('correct age'), findsOneWidget);
+    expect(find.textContaining('correct age'), findsNothing);
+    expect(find.textContaining('what is your age?'), findsOneWidget);
     expect(find.text("Let's Talk"), findsNothing);
 
     // A large age (would have failed the old 3–19 check) is now accepted.
     await tester.enterText(find.byType(TextField), '45');
-    await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
     await tester.pumpAndSettle();

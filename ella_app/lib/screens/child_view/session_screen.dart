@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_toast.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
@@ -44,6 +45,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _sessionStarted = false;
   bool _keyboardMode = false;
   bool _ending = false;
+  bool _navigated = false;
+  bool _advanceTimerStarted = false;
 
   // True while a tapped-speaker replay is speaking — drives Zoe's speaking
   // animation for manual replays (engine status only covers auto-speech).
@@ -67,6 +70,37 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           .read(chatProvider.notifier)
           .startSession(topicOverride: widget.initialTopic);
     }
+  }
+
+  void _maybeAdvance(ChatState s) {
+    if (!s.sessionEnded || _navigated) return;
+    if (s.currentlySpeakingMessageId != null) {
+      if (!_advanceTimerStarted) {
+        _advanceTimerStarted = true;
+        // Safety net: force navigation back to garden after 5 seconds even if TTS completion handler fails to fire
+        Future.delayed(const Duration(seconds: 5), () {
+          if (mounted && !_navigated) {
+            _navigated = true;
+            final onEnded = widget.onEnded;
+            Navigator.of(context).pop();
+            if (onEnded != null) {
+              onEnded();
+            }
+          }
+        });
+      }
+      return;
+    }
+    _navigated = true;
+    Future.delayed(const Duration(milliseconds: 1600), () {
+      if (mounted) {
+        final onEnded = widget.onEnded;
+        Navigator.of(context).pop();
+        if (onEnded != null) {
+          onEnded();
+        }
+      }
+    });
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -97,27 +131,49 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     setState(() => _ending = true);
     final notifier = ref.read(chatProvider.notifier);
     await notifier.stopListening();
-    // Speak the goodbye line before navigating away
+    
+    // Fire scoring in the background (don't wait)
+    unawaited(notifier.endChat().catchError(_snack));
+
+    bool popped = false;
+    void doPop() {
+      if (popped) return;
+      popped = true;
+      if (mounted) {
+        final onEnded = widget.onEnded;
+        Navigator.of(context).pop();
+        if (onEnded != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => onEnded());
+        }
+      }
+    }
+
+    // Safety net: force navigation after 4.5 seconds if TTS done callback fails
+    final safetyTimer = Timer(const Duration(milliseconds: 4500), doPop);
+
+    // Listen for TTS done stream to pop as soon as speech finishes
+    StreamSubscription? doneSub;
+    final nativeTts = ref.read(nativeTtsProvider);
+    doneSub = nativeTts.doneStream.listen((_) {
+      safetyTimer.cancel();
+      doneSub?.cancel();
+      Future.delayed(const Duration(milliseconds: 400), doPop);
+    });
+
     try {
       final tts = ref.read(ttsProvider);
       await tts.speak(_kGoodbye);
-    } catch (_) {}
-    // Fire scoring in the background (don't wait)
-    unawaited(notifier.endChat().catchError(_snack));
-    // Brief pause after TTS finishes
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-    final onEnded = widget.onEnded;
-    Navigator.of(context).pop();
-    if (onEnded != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => onEnded());
+    } catch (_) {
+      safetyTimer.cancel();
+      doneSub.cancel();
+      doPop();
     }
   }
 
   void _snack(Object e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
+    if (!mounted) return;
+    debugPrint('[Session] $e');
+    showEllaErrorToast(context);
   }
 
   /// Whether a real conversation is under way (at least one non-system turn and
@@ -193,6 +249,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     final chatAsync = ref.watch(chatProvider);
     final s = chatAsync.asData?.value;
+    if (s != null) {
+      _maybeAdvance(s);
+    }
     final active = s != null && _hasActiveChat(s);
 
     return PopScope(
@@ -289,6 +348,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
           ? () => _speakLine(zoeLine)
           : null,
+      highlightStart: s.highlightStart,
+      highlightEnd: s.highlightEnd,
     );
   }
 

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class UserProfile(BaseModel):
     id: str
-    device_id: str
+    device_id: str | None = None
     name: str | None = None
     age: str | None = None
     location: str | None = None
@@ -88,7 +88,7 @@ class PlacementGardenResponse(BaseModel):
 
 class UserMemoryResponse(BaseModel):
     id: str
-    device_id: str
+    device_id: str | None = None
     profile: MemoryProfileSub
     level: str | None = None
     first_session_done: bool = False

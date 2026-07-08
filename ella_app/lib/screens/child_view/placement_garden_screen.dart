@@ -467,7 +467,10 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                 child: AnimatedOpacity(
                   opacity: (_revealLayerOn || _placementRevealLayerOn) ? 1 : 0,
                   duration: Duration(milliseconds: _reducedMotion ? 0 : 600),
-                  child: const SpotlightOverlay(center: Alignment(0, 0.26)),
+                  child: SpotlightOverlay(
+                    center: metrics.spotlightCenter,
+                    radius: metrics.spotlightRadius,
+                  ),
                 ),
               ),
               AnimatedSwitcher(
@@ -625,6 +628,8 @@ class _PlacementGardenMetrics {
   final double placementMascotLeft;
   final double placementMascotTop;
   final double exploreWidth;
+  final Alignment spotlightCenter;
+  final double spotlightRadius;
 
   const _PlacementGardenMetrics({
     required this.scale,
@@ -647,6 +652,8 @@ class _PlacementGardenMetrics {
     required this.placementMascotLeft,
     required this.placementMascotTop,
     required this.exploreWidth,
+    required this.spotlightCenter,
+    required this.spotlightRadius,
   });
 
   factory _PlacementGardenMetrics.from(Size size, EdgeInsets padding) {
@@ -669,13 +676,27 @@ class _PlacementGardenMetrics {
         : idealPlotTop.clamp(minPlotTop, maxPlotTop).toDouble();
 
     final fenceTop = plotTop + plotHeight + 26 * scale;
-    final bubbleWidth = math.min(296 * scale, width - 64);
-    final bubbleLeft = (width - bubbleWidth) / 2 + 4 * scale;
-    final maxBubbleTop = plotTop - 150 * scale;
+    // The welcome/reveal bubble spans the full width (24px side margins) — the
+    // same wide card as the placement bloom/sprout callouts — so its two-line
+    // body never wraps tall enough to reach down over the plant. (Previously it
+    // was pinned to 296px, which is the "width won't increase" bug.)
+    final bubbleWidth = width - 48;
+    final bubbleLeft = 24.0;
+    // Keep the bubble's bottom clear of the plant top. The plant draws from
+    // ~40px above plotTop (bloom) and the card is ~150px tall, so anchor it high
+    // under the header and never let it sink past that gap.
+    final maxBubbleTop = plotTop - 170 * scale;
     final minBubbleTop = headerTop + headerHeight + 10;
     final bubbleTop = maxBubbleTop < minBubbleTop
         ? minBubbleTop
-        : (height * 220 / 932).clamp(minBubbleTop, maxBubbleTop).toDouble();
+        : (height * 200 / 932).clamp(minBubbleTop, maxBubbleTop).toDouble();
+
+    // Spotlight hole centred on the plant (which sits in the upper part of the
+    // plot box and, when bloomed, rises ~40px above plotTop), with a wide radius
+    // so the whole plant stays in clear space on every screen size.
+    final spotlightCenterY = plotTop + plotHeight * 0.20;
+    final spotlightCenter = Alignment(0, (spotlightCenterY / height) * 2 - 1);
+    const spotlightRadius = 0.98;
     // Spotlight bubble spans the full screen width with 24px side padding.
     final placementBubbleLeft = 24.0;
     final placementBubbleWidth = width - 48;
@@ -689,9 +710,12 @@ class _PlacementGardenMetrics {
       placementBubbleTopMax,
     );
     final placementMascotLeft = math.max(16.0, placementBubbleLeft - 6 * scale);
+    // Zoe sits fully ABOVE the bubble's top border (her feet land ~4px above it).
+    // Offset = mascot height (72) + 4; floor is the header TOP (not its bottom)
+    // so a device status bar can't clamp her down into the card.
     final placementMascotTop = math.max(
-      headerTop + headerHeight * 0.62,
-      placementBubbleTop - 58 * scale,
+      headerTop,
+      placementBubbleTop - 76 * scale,
     );
 
     return _PlacementGardenMetrics(
@@ -708,13 +732,15 @@ class _PlacementGardenMetrics {
       bubbleTop: bubbleTop,
       bubbleLeft: bubbleLeft,
       mascotLeft: math.max(16, bubbleLeft - 6 * scale),
-      mascotTop: math.max(headerTop + headerHeight, bubbleTop - 58 * scale),
+      mascotTop: math.max(headerTop, bubbleTop - 76 * scale),
       placementBubbleWidth: placementBubbleWidth,
       placementBubbleTop: placementBubbleTop,
       placementBubbleLeft: placementBubbleLeft,
       placementMascotLeft: placementMascotLeft,
       placementMascotTop: placementMascotTop,
       exploreWidth: math.min(204, width - 96),
+      spotlightCenter: spotlightCenter,
+      spotlightRadius: spotlightRadius,
     );
   }
 }

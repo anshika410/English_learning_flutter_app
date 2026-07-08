@@ -1,13 +1,27 @@
+import 'dart:async';
 import 'package:flutter/services.dart';
+import 'stt_tts_service.dart';
+
+class TtsProgressEvent {
+  final int start;
+  final int end;
+  const TtsProgressEvent(this.start, this.end);
+}
 
 /// Native Android TTS with karaoke word-highlight via onRangeStart.
 /// Falls back gracefully if the channel isn't available (e.g., on web/iOS).
-class NativeTtsService {
+class NativeTtsService implements TtsInterface {
   static const _channel = MethodChannel('ella/native_tts');
 
   bool _speaking = false;
   int _highlightStart = 0;
   int _highlightEnd = 0;
+
+  final _progressController = StreamController<TtsProgressEvent>.broadcast();
+  Stream<TtsProgressEvent> get progressStream => _progressController.stream;
+
+  final _doneController = StreamController<void>.broadcast();
+  Stream<void> get doneStream => _doneController.stream;
 
   /// Callback fired when TTS highlights a new character range.
   void Function(int start, int end)? onRangeStart;
@@ -17,6 +31,11 @@ class NativeTtsService {
 
   NativeTtsService() {
     _channel.setMethodCallHandler(_handleMethod);
+  }
+
+  @override
+  Future<void> initialize() async {
+    // Native method call handler registered in constructor.
   }
 
   Future<dynamic> _handleMethod(MethodCall call) async {
@@ -30,6 +49,7 @@ class NativeTtsService {
         _speaking = false;
         _highlightStart = 0;
         _highlightEnd = 0;
+        _doneController.add(null);
         onDone?.call();
         break;
       case 'onRangeStart':
@@ -37,6 +57,7 @@ class NativeTtsService {
         final end = call.arguments['end'] as int;
         _highlightStart = start;
         _highlightEnd = end;
+        _progressController.add(TtsProgressEvent(start, end));
         onRangeStart?.call(start, end);
         break;
     }

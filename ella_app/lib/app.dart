@@ -11,8 +11,10 @@ import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
 import 'providers/chat_provider.dart';
+import 'providers/connectivity_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'screens/child_view/home_screen.dart';
+import 'screens/child_view/offline_screen.dart';
 import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
 import 'screens/child_view/placement_intro_screen.dart';
@@ -45,11 +47,6 @@ class _EllaAppState extends State<EllaApp> {
   }
 
   Future<void> _initAuthAndDeepLinks() async {
-    final api = EllaApiService();
-
-    // Check initial auth state
-    await api.isAuthenticated();
-
     // Initialize App Links for Magic Link handling
     _appLinks = AppLinks();
 
@@ -134,7 +131,10 @@ class _EllaAppState extends State<EllaApp> {
               maxScaleFactor: 1.3,
             ),
           ),
-          child: child ?? const SizedBox.shrink(),
+          // Global offline gate: overlays OfflineScreen over whatever route is
+          // showing the moment the device goes offline, and removes it on
+          // reconnect. Sits above every screen so it works app-wide.
+          child: _ConnectivityGate(child: child ?? const SizedBox.shrink()),
         );
       },
       navigatorObservers: [appRouteObserver],
@@ -185,6 +185,28 @@ class _EllaAppState extends State<EllaApp> {
   }
 }
 
+/// Overlays [OfflineScreen] above the whole app whenever the device is offline.
+/// While the initial connectivity check is still loading (or on error) it shows
+/// nothing, so a momentary unknown state never flashes the offline screen.
+class _ConnectivityGate extends ConsumerWidget {
+  final Widget child;
+  const _ConnectivityGate({required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offline = ref
+        .watch(connectivityProvider)
+        .maybeWhen(data: (online) => !online, orElse: () => false);
+    return Stack(
+      textDirection: TextDirection.ltr,
+      children: [
+        child,
+        if (offline) const Positioned.fill(child: OfflineScreen()),
+      ],
+    );
+  }
+}
+
 /// First-run gate. A student with no `placement` in memory is routed into the
 /// placement screening before the normal topic Home; once placed (or if we're
 /// offline and can't place), the regular Home shows. Watching chatProvider means
@@ -196,21 +218,38 @@ class RootGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatAsync = ref.watch(chatProvider);
-    return chatAsync.when(
-      loading: () => const GardenSkyBackground(
+    
+    if (chatAsync.isLoading) {
+      return const GardenSkyBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: Center(
             child: CircularProgressIndicator(color: EllaColors.berryDark),
           ),
         ),
-      ),
+      );
+    }
+
+    return chatAsync.when(
+      skipLoadingOnReload: false,
+      loading: () => const SizedBox(), // Handled above
       // On error, don't trap the user on a spinner — fall through to Home.
-      error: (_, _) => const _EllaHome(),
+      error: (error, _) {
+        if (error is EllaApiException && error.message == 'not_authenticated') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+          });
+          return const SizedBox();
+        }
+        return const _EllaHome();
+      },
       data: (s) {
         final online = ref.read(chatProvider.notifier).online;
+        final needsOnboarding = online && s.memory.name == null;
         final needsPlacement = online && s.memory.placement == null;
-        if (!needsPlacement) return const _EllaHome();
+        
+        if (!needsOnboarding && !needsPlacement) return const _EllaHome();
+
         // Before the placement screening, collect name/age once via onboarding.
         // Watching onboardingProvider means the final "Let's Talk" flips the gate
         // and this rebuilds straight into PlacementIntroScreen — no manual nav.
@@ -227,12 +266,18 @@ class RootGate extends ConsumerWidget {
             ),
           );
         }
+        
+        // Use the remote state to force onboarding if they bypassed it locally.
+        // But if the backend already has their name, SKIP onboarding, even if
+        // the local device cache was cleared (e.g., app reinstall).
         final onboardingDone = onboarding.valueOrNull?.done ?? false;
+        final showOnboarding = online ? needsOnboarding : !onboardingDone;
+
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: onboardingDone
-              ? const PlacementIntroScreen()
-              : const OnboardingFlow(),
+          body: showOnboarding
+              ? const OnboardingFlow()
+              : const PlacementIntroScreen(),
         );
       },
     );

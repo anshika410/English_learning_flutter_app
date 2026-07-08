@@ -36,6 +36,9 @@ class PlacementState {
   final bool? levelAssigned;
   final PlacementTurnResult? result;
   final String? error;
+  final String? currentlySpeakingMessageId;
+  final int highlightStart;
+  final int highlightEnd;
 
   const PlacementState({
     this.messages = const [],
@@ -47,6 +50,9 @@ class PlacementState {
     this.levelAssigned,
     this.result,
     this.error,
+    this.currentlySpeakingMessageId,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   PlacementState copyWith({
@@ -61,6 +67,10 @@ class PlacementState {
     PlacementTurnResult? result,
     String? error,
     bool clearError = false,
+    String? currentlySpeakingMessageId,
+    bool clearCurrentlySpeaking = false,
+    int? highlightStart,
+    int? highlightEnd,
   }) => PlacementState(
     messages: messages ?? this.messages,
     status: status ?? this.status,
@@ -71,6 +81,11 @@ class PlacementState {
     levelAssigned: levelAssigned ?? this.levelAssigned,
     result: result ?? this.result,
     error: clearError ? null : (error ?? this.error),
+    currentlySpeakingMessageId: clearCurrentlySpeaking
+        ? null
+        : (currentlySpeakingMessageId ?? this.currentlySpeakingMessageId),
+    highlightStart: highlightStart ?? this.highlightStart,
+    highlightEnd: highlightEnd ?? this.highlightEnd,
   );
 }
 
@@ -85,7 +100,28 @@ class PlacementNotifier extends Notifier<PlacementState> {
   Future<void>? _inflight;
 
   @override
-  PlacementState build() => const PlacementState();
+  PlacementState build() {
+    final nativeTts = ref.read(nativeTtsProvider);
+    final progressSub = nativeTts.progressStream.listen((event) {
+      state = state.copyWith(
+        highlightStart: event.start,
+        highlightEnd: event.end,
+      );
+    });
+    final doneSub = nativeTts.doneStream.listen((_) {
+      state = state.copyWith(
+        status: ChatStatus.idle,
+        clearCurrentlySpeaking: true,
+        highlightStart: -1,
+        highlightEnd: -1,
+      );
+    });
+    ref.onDispose(() {
+      progressSub.cancel();
+      doneSub.cancel();
+    });
+    return const PlacementState();
+  }
 
   /// Seed the name/age collected during onboarding so the very first
   /// placement-turn request carries them and Zoe doesn't re-ask. LLM turns may
@@ -242,13 +278,17 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
     final reply = result.reply?.trim() ?? '';
     if (reply.isNotEmpty) {
+      final zoeMsg = ChatMessage(sender: MessageSender.zoe, text: reply);
       state = state.copyWith(
         messages: [
           ...state.messages,
-          ChatMessage(sender: MessageSender.zoe, text: reply),
+          zoeMsg,
         ],
         status: ChatStatus.zoeSpeaking,
         clearError: true,
+        currentlySpeakingMessageId: zoeMsg.id,
+        highlightStart: -1,
+        highlightEnd: -1,
       );
       try {
         await ref.read(ttsProvider).speak(reply);
@@ -318,8 +358,30 @@ class PlacementNotifier extends Notifier<PlacementState> {
     // Some platforms don't fire the completion handler on stop(), which would
     // leave the status stuck on zoeSpeaking (and the speaker toggle "active").
     if (state.status == ChatStatus.zoeSpeaking) {
-      state = state.copyWith(status: ChatStatus.idle);
+      state = state.copyWith(
+        status: ChatStatus.idle,
+        clearCurrentlySpeaking: true,
+        highlightStart: -1,
+        highlightEnd: -1,
+      );
     }
+  }
+
+  Future<void> replayZoeLine(String text) async {
+    if (state.status != ChatStatus.idle || state.isComplete) return;
+    state = state.copyWith(
+      status: ChatStatus.zoeSpeaking,
+      highlightStart: -1,
+      highlightEnd: -1,
+    );
+    try {
+      await ref.read(ttsProvider).speak(text);
+    } catch (_) {}
+    state = state.copyWith(
+      status: ChatStatus.idle,
+      highlightStart: -1,
+      highlightEnd: -1,
+    );
   }
 }
 

@@ -4,12 +4,26 @@
 enum MessageSender { zoe, child, system }
 
 class ChatMessage {
+  final String id;
   final MessageSender sender;
   final String text;
   final DateTime timestamp;
 
-  ChatMessage({required this.sender, required this.text, DateTime? timestamp})
-    : timestamp = timestamp ?? DateTime.now();
+  ChatMessage({
+    String? id,
+    required this.sender,
+    required String text,
+    DateTime? timestamp,
+  })  : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+        timestamp = timestamp ?? DateTime.now(),
+        text = sender == MessageSender.zoe
+            ? text
+                .replaceAll('"', '')
+                .replaceAll('“', '')
+                .replaceAll('”', '')
+                .replaceAll('**', '')
+                .replaceAll('*', '')
+            : text;
 
   // transcript table row — matches ELLA-Final-Build-Spec.md Part C.
   Map<String, dynamic> toTranscriptRow({

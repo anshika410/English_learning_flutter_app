@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_toast.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/onboarding_provider.dart';
@@ -34,6 +35,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final _textController = TextEditingController();
   bool _keyboardMode = false;
   bool _navigated = false;
+  bool _advanceTimerStarted = false;
 
   // True while the End-Call closing line is playing (before we hand off to the
   // placement garden). Drives the ending phase: Zoe speaks a fixed farewell that
@@ -62,6 +64,15 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     // While the End-Call farewell is playing, _exit owns the transition — don't
     // let the LLM-completion auto-advance cut it short.
     if (_ending || !s.isComplete || _navigated) return;
+    if (!s.isComplete || _navigated) return;
+    if (s.currentlySpeakingMessageId != null) {
+      if (!_advanceTimerStarted) {
+        _advanceTimerStarted = true;
+        // Safety net: force navigation after 5 seconds even if TTS completion handler fails to fire
+        Future.delayed(const Duration(seconds: 5), _goToComplete);
+      }
+      return;
+    }
     Future.delayed(const Duration(milliseconds: 1600), _goToComplete);
   }
 
@@ -138,9 +149,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   }
 
   void _snack(Object e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
+    if (!mounted) return;
+    debugPrint('[Placement] $e');
+    showEllaErrorToast(context);
   }
 
   // Proportional progress placeholder: fraction of the (assumed) turn target
@@ -239,6 +250,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                     (!_ending && zoeLine != null && zoeLine.trim().isNotEmpty)
                     ? () => _speakLine(zoeLine)
                     : null,
+                highlightStart: s.highlightStart,
+                highlightEnd: s.highlightEnd,
               ),
       ),
     );
@@ -257,5 +270,6 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     } finally {
       if (mounted) setState(() => _replaying = false);
     }
+    await ref.read(placementProvider.notifier).replayZoeLine(text);
   }
 }
