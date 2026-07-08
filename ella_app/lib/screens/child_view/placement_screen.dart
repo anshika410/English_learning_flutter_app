@@ -46,8 +46,39 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // animation for manual replays (the engine status only covers auto-speech).
   bool _replaying = false;
 
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+  bool _speaking = false;
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted && _speaking) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
     ref.read(placementProvider.notifier).stopListening();
     _textController.dispose();
     super.dispose();
@@ -129,7 +160,12 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       _goToComplete();
       return;
     }
-    setState(() => _ending = true);
+    setState(() {
+      _ending = true;
+      _speaking = true;
+      _highlightStart = -1;
+      _highlightEnd = -1;
+    });
     try {
       await ref.read(placementProvider.notifier).endConversation();
     } catch (e) {
@@ -173,6 +209,15 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(placementProvider, (previous, next) {
+      if (next.status == ChatStatus.zoeSpeaking) {
+        setState(() {
+          _speaking = true;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStart());
     final s = ref.watch(placementProvider);
     _maybeAdvance(s);
@@ -228,7 +273,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
             : ConversationView(
                 phase: phase,
                 mascotSpeaking:
-                    _ending || s.status == ChatStatus.zoeSpeaking || _replaying,
+                    _ending || s.status == ChatStatus.zoeSpeaking || _replaying || _speaking,
                 mascotThinking: !_ending && s.status == ChatStatus.zoeThinking,
                 // Bar sits full as the screening closes.
                 progress: _ending ? 1.0 : _progress(s),
@@ -250,8 +295,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                     (!_ending && zoeLine != null && zoeLine.trim().isNotEmpty)
                     ? () => _speakLine(zoeLine)
                     : null,
-                highlightStart: s.highlightStart,
-                highlightEnd: s.highlightEnd,
+                highlightStart: _highlightStart,
+                highlightEnd: _highlightEnd,
               ),
       ),
     );
@@ -263,7 +308,12 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
     if (tts.isSpeaking || _replaying) return;
-    setState(() => _replaying = true);
+    setState(() {
+      _replaying = true;
+      _speaking = true;
+      _highlightStart = -1;
+      _highlightEnd = -1;
+    });
     try {
       await tts.speak(text);
     } catch (_) {

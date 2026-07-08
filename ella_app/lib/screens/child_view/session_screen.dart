@@ -52,8 +52,39 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   // animation for manual replays (engine status only covers auto-speech).
   bool _replaying = false;
 
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+  bool _speaking = false;
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted && _speaking) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
     ref.read(chatProvider.notifier).stopListening();
     _textController.dispose();
     super.dispose();
@@ -244,7 +275,19 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(chatProvider, (_, _) => _maybeStartSession());
+    ref.listen(chatProvider, (previous, next) {
+      _maybeStartSession();
+      final nextState = next.asData?.value;
+      if (nextState != null) {
+        if (nextState.status == ChatStatus.zoeSpeaking) {
+          setState(() {
+            _speaking = true;
+            _highlightStart = -1;
+            _highlightEnd = -1;
+          });
+        }
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartSession());
 
     final chatAsync = ref.watch(chatProvider);
@@ -330,7 +373,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return ConversationView(
       phase: phase,
       mascotSpeaking:
-          _ending || s.status == ChatStatus.zoeSpeaking || _replaying,
+          _ending || s.status == ChatStatus.zoeSpeaking || _replaying || _speaking,
       mascotThinking: s.status == ChatStatus.zoeThinking,
       zoeLine: zoeLine,
       studentLine: studentLine,
@@ -348,8 +391,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       onSpeakAgain: (zoeLine != null && zoeLine.trim().isNotEmpty)
           ? () => _speakLine(zoeLine)
           : null,
-      highlightStart: s.highlightStart,
-      highlightEnd: s.highlightEnd,
+      highlightStart: _highlightStart,
+      highlightEnd: _highlightEnd,
     );
   }
 
@@ -360,7 +403,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
     if (tts.isSpeaking || _replaying) return;
-    setState(() => _replaying = true);
+    setState(() {
+      _replaying = true;
+      _speaking = true;
+      _highlightStart = -1;
+      _highlightEnd = -1;
+    });
     try {
       await tts.speak(text);
     } catch (_) {

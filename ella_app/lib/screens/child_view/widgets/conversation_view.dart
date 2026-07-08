@@ -333,7 +333,6 @@ class _ZoeBubble extends StatelessWidget {
         style: EllaTextStyles.bodySemiboldLarge,
         highlightStart: highlightStart,
         highlightEnd: highlightEnd,
-        animate: false,
       ),
     );
 
