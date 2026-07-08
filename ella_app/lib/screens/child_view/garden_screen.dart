@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -646,7 +647,10 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
             duration: Duration(milliseconds: reducedMotion ? 0 : 600),
             // Wider radius + a slightly lower centre so the first plot's plant is
             // fully inside the clear spotlight on every screen size.
-            child: const SpotlightOverlay(center: Alignment(0, 0.28), radius: 1.05),
+            child: const SpotlightOverlay(
+              center: Alignment(0, 0.28),
+              radius: 1.05,
+            ),
           ),
         ),
         IgnorePointer(
@@ -717,10 +721,7 @@ class _WelcomeCallout extends StatelessWidget {
         // land just above the top border) without spilling into the status bar.
         final bubbleTop = media.padding.top + 84 * scale;
         final mascotLeft = math.max(16.0, bubbleLeft - 6 * scale);
-        final mascotTop = math.max(
-          media.padding.top,
-          bubbleTop - 76 * scale,
-        );
+        final mascotTop = math.max(media.padding.top, bubbleTop - 76 * scale);
 
         // Bubble first, then the mascot, so Zoe renders IN FRONT of the bubble
         // (consistent with the placement spotlight callout).
@@ -1317,6 +1318,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
                             spec: spec,
                             grownSkillIds: activeGrownSkillIds,
                             skillAnchorFor: _skillAnchorKeyFor,
+                            completedPrevious: completedPreviousActive,
                           ),
                       ],
                     ),
@@ -2004,6 +2006,8 @@ const Color _signpost78 = Color(0xFF966828);
 const Color _signpostBottom = Color(0xFF8A5712);
 const Color _signpostPeg = Color(0xFF5A3A18);
 const Color _switcherCardBorder = Color(0xFF9DB8AE);
+// Muted grey-green dashed border for the locked/fog "next garden" card.
+const Color _switcherLockedBorder = Color(0xFFBFC9C4);
 const Color _bubbleBorder = Color(0xFFD5E7DF);
 
 class _GardenSwitcherSheet extends ConsumerStatefulWidget {
@@ -2311,7 +2315,11 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
       decoration: BoxDecoration(
         color: EllaColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _switcherCardBorder, width: 1),
+        // Locked card's border is drawn by the DottedBorder wrapper below;
+        // keep the Container border off so there's no solid line under the dashes.
+        border: entry.isLocked
+            ? const Border.fromBorderSide(BorderSide.none)
+            : Border.all(color: _switcherCardBorder, width: 1),
       ),
       child: Row(
         children: [
@@ -2337,7 +2345,7 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
             const SizedBox(width: 8),
             const _YoureHereChip(),
           ],
-          const SizedBox(width: 8),
+          const Spacer(),
           Icon(
             Icons.chevron_right_rounded,
             size: 24,
@@ -2351,23 +2359,31 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
 
     Widget content = card;
     if (entry.isLocked) {
-      content = Stack(
-        children: [
-          card,
-          // Fog paints on top of the card content but must not eat the tap —
-          // the GestureDetector below still receives it.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: _FogOverlay(
-                  key: const ValueKey('garden-switcher-fog'),
-                  reducedMotion: widget.reducedMotion,
+      content = DottedBorder(
+        borderType: BorderType.RRect,
+        radius: const Radius.circular(20),
+        color: _switcherLockedBorder,
+        strokeWidth: 1.5,
+        dashPattern: const [5, 4],
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            card,
+            // Fog paints on top of the card content but must not eat the tap —
+            // the GestureDetector below still receives it.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: _FogOverlay(
+                    key: const ValueKey('garden-switcher-fog'),
+                    reducedMotion: widget.reducedMotion,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -2722,6 +2738,7 @@ class _GardenUnitRow extends StatelessWidget {
   final _GardenLevelVisualSpec spec;
   final Set<String> grownSkillIds;
   final GlobalKey Function(String skillId) skillAnchorFor;
+  final bool completedPrevious;
   const _GardenUnitRow({
     required this.data,
     required this.step,
@@ -2729,6 +2746,7 @@ class _GardenUnitRow extends StatelessWidget {
     required this.spec,
     required this.grownSkillIds,
     required this.skillAnchorFor,
+    this.completedPrevious = false,
   });
 
   @override
@@ -2738,8 +2756,9 @@ class _GardenUnitRow extends StatelessWidget {
         final scale = (constraints.maxWidth / _designWidth).clamp(0.86, 1.10);
         final leftInset = (constraints.maxWidth - _designWidth * scale) / 2;
         final plotOnLeft = index.isEven;
-        final signW = _signWidthFor(step.name);
-        final signH = _signHeightFor(step.name, signW);
+        final signName = step.displayName;
+        final signW = _signWidthFor(signName);
+        final signH = _signHeightFor(signName, signW);
         final signX = plotOnLeft ? _designWidth - 40 - signW : 27.0;
         final signY = 5.0;
         final plotX = plotOnLeft ? 40.0 : 101.0;
@@ -2785,7 +2804,7 @@ class _GardenUnitRow extends StatelessWidget {
                           top: signY,
                           child: _UnitSignPost(
                             key: ValueKey('garden-unit-sign-${step.step}'),
-                            name: step.name,
+                            name: signName,
                             width: signW,
                             height: signH,
                             onTap: () => showUnitSheet(context, data, step),
@@ -2801,6 +2820,7 @@ class _GardenUnitRow extends StatelessWidget {
                             spec: spec,
                             grownSkillIds: grownSkillIds,
                             skillAnchorFor: skillAnchorFor,
+                            completedPrevious: completedPrevious,
                           ),
                         ),
                         Positioned(
@@ -3331,6 +3351,7 @@ class _Plot extends StatelessWidget {
   final _GardenLevelVisualSpec spec;
   final Set<String> grownSkillIds;
   final GlobalKey Function(String skillId) skillAnchorFor;
+  final bool completedPrevious;
   const _Plot({
     super.key,
     required this.data,
@@ -3338,6 +3359,7 @@ class _Plot extends StatelessWidget {
     required this.spec,
     required this.grownSkillIds,
     required this.skillAnchorFor,
+    this.completedPrevious = false,
   });
 
   @override
@@ -3368,7 +3390,12 @@ class _Plot extends StatelessWidget {
             _SkillTile(
               skill: skills[i],
               spot: tileSpots[i],
-              onTap: () => showSkillSheet(context, step, skills[i]),
+              onTap: () => showSkillSheet(
+                context,
+                step,
+                skills[i],
+                showEvidence: !completedPrevious,
+              ),
             ),
           for (final i in order)
             if (skills[i].sightings >= 1)
@@ -3378,7 +3405,12 @@ class _Plot extends StatelessWidget {
                 swayDelayMs: ((i % cols) + (i ~/ cols)) * 400,
                 animateGrowth: grownSkillIds.contains(skills[i].id),
                 anchorKey: skillAnchorFor(skills[i].id),
-                onTap: () => showSkillSheet(context, step, skills[i]),
+                onTap: () => showSkillSheet(
+                  context,
+                  step,
+                  skills[i],
+                  showEvidence: !completedPrevious,
+                ),
               ),
         ],
       ),
@@ -4117,7 +4149,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    item.skill.text,
+                    item.skill.displayText,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: EllaFonts.body(
@@ -4363,7 +4395,7 @@ String _growthRevealSpeech(GardenGrowthRevealItem item) {
   final evidenceLine = quote == null || quote.isEmpty
       ? ''
       : ' You said, $quote';
-  return '${_growthRevealTitle(item)}. ${item.skill.text}.$evidenceLine';
+  return '${_growthRevealTitle(item)}. ${item.skill.displayText}.$evidenceLine';
 }
 
 String _resolveRevealSkillIcon(GardenSkill skill) {

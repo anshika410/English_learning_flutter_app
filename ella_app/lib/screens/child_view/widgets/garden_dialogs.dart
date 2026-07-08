@@ -43,18 +43,23 @@ String? _relativeTime(DateTime? dt) {
   return 'just now';
 }
 
-void showSkillSheet(BuildContext context, GardenStep step, GardenSkill skill) {
+void showSkillSheet(
+  BuildContext context,
+  GardenStep step,
+  GardenSkill skill, {
+  bool showEvidence = true,
+}) {
   _showGardenSheet(
     context,
-    boardTitle: step.name,
-    child: _SkillSheetBody(skill: skill),
+    boardTitle: step.displayName,
+    child: _SkillSheetBody(skill: skill, showEvidence: showEvidence),
   );
 }
 
 void showUnitSheet(BuildContext context, GardenData data, GardenStep step) {
   _showGardenSheet(
     context,
-    boardTitle: step.name,
+    boardTitle: step.displayName,
     child: _UnitSheetBody(data: data, step: step),
   );
 }
@@ -321,7 +326,8 @@ class _ResolvedSvgIcon extends StatelessWidget {
 
 class _SkillSheetBody extends StatelessWidget {
   final GardenSkill skill;
-  const _SkillSheetBody({required this.skill});
+  final bool showEvidence;
+  const _SkillSheetBody({required this.skill, this.showEvidence = true});
 
   @override
   Widget build(BuildContext context) {
@@ -341,7 +347,7 @@ class _SkillSheetBody extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                skill.text,
+                skill.displayText,
                 style: EllaFonts.bricolage(
                   const TextStyle(
                     fontSize: 18,
@@ -356,21 +362,25 @@ class _SkillSheetBody extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _StrandChip(strand: skill.strand),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _StrandChip(strand: skill.strand),
+            ),
             _GrowthStateChip(skill: skill),
           ],
         ),
-        const SizedBox(height: 16),
-        const _WoodDivider(),
-        const SizedBox(height: 20),
-        if (evidence.isEmpty)
-          const _EmptySkillState()
-        else
-          _EvidenceSection(skill: skill, evidence: evidence),
+        if (showEvidence) ...[
+          const SizedBox(height: 16),
+          const _WoodDivider(),
+          const SizedBox(height: 20),
+          if (evidence.isEmpty)
+            const _EmptySkillState()
+          else
+            _EvidenceSection(skill: skill, evidence: evidence),
+        ],
       ],
     );
   }
@@ -698,9 +708,7 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
   @override
   Widget build(BuildContext context) {
     final step = widget.step;
-    final description = step.description.isNotEmpty
-        ? step.description
-        : step.focus;
+    final description = step.displayDescription;
     final visibleSkills = _expanded ? step.skills : step.skills.take(2);
     final hasMore = step.skills.length > 2 && !_expanded;
 
@@ -820,7 +828,7 @@ class _SkillRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    skill.text,
+                    skill.displayText,
                     style: EllaFonts.body(
                       const TextStyle(
                         fontSize: 16,

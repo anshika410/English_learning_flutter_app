@@ -4,6 +4,7 @@
 
 import 'package:flutter/widgets.dart';
 
+import '../core/curriculum_display_copy.dart';
 import '../core/theme_colors.dart';
 
 String _optionalString(Map<String, dynamic> j, List<String> keys) {
@@ -156,6 +157,7 @@ class GardenSkill {
   final String id;
   final Strand strand;
   final String text;
+  final String _displayText;
   final SkillStatus status;
   final int sightings;
   final List<GardenEvidence> evidence;
@@ -168,28 +170,45 @@ class GardenSkill {
     required this.status,
     required this.sightings,
     required this.evidence,
+    String displayText = '',
     this.icon = '',
-  });
+  }) : _displayText = displayText;
 
   PlantStage get stage => plantStageFor(status, sightings);
 
-  factory GardenSkill.fromJson(Map<String, dynamic> j) => GardenSkill(
-    id: (j['id'] ?? '').toString(),
-    strand: strandFromString(j['strand'] as String?),
-    text: (j['text'] ?? '').toString(),
-    status: statusFromString(j['status'] as String?),
-    sightings: (j['sightings'] as num?)?.toInt() ?? 0,
-    evidence: [
-      for (final e in (j['evidence'] as List? ?? const []))
-        GardenEvidence.fromJson(Map<String, dynamic>.from(e as Map)),
-    ],
-    icon: _optionalString(j, const [
-      'icon',
-      'icon_id',
-      'icon_asset',
-      'icon_path',
-    ]),
-  );
+  String get displayText => _displayText.isNotEmpty ? _displayText : text;
+
+  factory GardenSkill.fromJson(
+    Map<String, dynamic> j, {
+    String level = '',
+    int unit = 0,
+  }) {
+    final id = (j['id'] ?? '').toString();
+    final text = (j['text'] ?? '').toString();
+    return GardenSkill(
+      id: id,
+      strand: strandFromString(j['strand'] as String?),
+      text: text,
+      displayText: CurriculumDisplayCopy.skillText(
+        level: level,
+        unit: unit,
+        skillId: id,
+        fallback: text,
+      ),
+      status: statusFromString(j['status'] as String?),
+      sightings: (j['sightings'] as num?)?.toInt() ?? 0,
+      evidence: [
+        for (final e in (j['evidence'] as List? ?? const []))
+          GardenEvidence.fromJson(Map<String, dynamic>.from(e as Map)),
+      ],
+      icon: _optionalString(j, const [
+        'icon',
+        'icon_id',
+        'icon_asset',
+        'icon_path',
+      ]),
+    );
+  }
 }
 
 class GardenStep {
@@ -197,6 +216,8 @@ class GardenStep {
   final String name;
   final String focus;
   final String description;
+  final String _displayName;
+  final String _displayDescription;
   final String icon;
   final bool isCompleted;
   final List<GardenSkill> skills;
@@ -208,35 +229,69 @@ class GardenStep {
     required this.isCompleted,
     required this.skills,
     this.description = '',
+    String displayName = '',
+    String displayDescription = '',
     this.icon = '',
-  });
+  }) : _displayName = displayName,
+       _displayDescription = displayDescription;
 
   /// A plot is "active" (grassy) once any skill is past locked.
   bool get hasGrowth => skills.any((s) => s.status != SkillStatus.locked);
 
-  factory GardenStep.fromJson(Map<String, dynamic> j) => GardenStep(
+  String get displayName => _displayName.isNotEmpty ? _displayName : name;
+
+  String get displayDescription {
+    if (_displayDescription.isNotEmpty) return _displayDescription;
+    if (description.isNotEmpty) return description;
+    return focus;
+  }
+
+  factory GardenStep.fromJson(Map<String, dynamic> j, {String level = ''}) {
     // API returns `unit`; older payloads used `step`. Accept both.
-    step: (j['step'] as num?)?.toInt() ?? (j['unit'] as num?)?.toInt() ?? 0,
-    name: (j['name'] ?? '').toString(),
-    focus: (j['focus'] ?? '').toString(),
-    description: _optionalString(j, const [
+    final step =
+        (j['step'] as num?)?.toInt() ?? (j['unit'] as num?)?.toInt() ?? 0;
+    final name = (j['name'] ?? '').toString();
+    final focus = (j['focus'] ?? '').toString();
+    final description = _optionalString(j, const [
       'description',
       'unit_description',
       'focus',
-    ]),
-    icon: _optionalString(j, const [
-      'icon',
-      'icon_id',
-      'icon_asset',
-      'icon_path',
-    ]),
-    isCompleted:
-        j['isCompleted'] as bool? ?? j['is_completed'] as bool? ?? false,
-    skills: [
-      for (final s in (j['skills'] as List? ?? const []))
-        GardenSkill.fromJson(Map<String, dynamic>.from(s as Map)),
-    ],
-  );
+    ]);
+    final descriptionFallback = description.isNotEmpty ? description : focus;
+
+    return GardenStep(
+      step: step,
+      name: name,
+      focus: focus,
+      description: description,
+      displayName: CurriculumDisplayCopy.unitName(
+        level: level,
+        unit: step,
+        fallback: name,
+      ),
+      displayDescription: CurriculumDisplayCopy.unitDescription(
+        level: level,
+        unit: step,
+        fallback: descriptionFallback,
+      ),
+      icon: _optionalString(j, const [
+        'icon',
+        'icon_id',
+        'icon_asset',
+        'icon_path',
+      ]),
+      isCompleted:
+          j['isCompleted'] as bool? ?? j['is_completed'] as bool? ?? false,
+      skills: [
+        for (final s in (j['skills'] as List? ?? const []))
+          GardenSkill.fromJson(
+            Map<String, dynamic>.from(s as Map),
+            level: level,
+            unit: step,
+          ),
+      ],
+    );
+  }
 }
 
 class GardenData {
@@ -256,20 +311,27 @@ class GardenData {
     required this.steps,
   });
 
-  factory GardenData.fromJson(Map<String, dynamic> j) => GardenData(
-    level: (j['level'] ?? '').toString(),
-    levelLabel: (j['levelLabel'] ?? j['level_label'] ?? '').toString(),
-    theme: (j['theme'] ?? '').toString(),
-    activeStepIndex:
-        (j['activeStepIndex'] as num?)?.toInt() ??
-        (j['active_step_index'] as num?)?.toInt() ??
-        0,
-    recommendedTopic: (j['recommendedTopic'] ?? j['recommended_topic'] ?? '')
-        .toString(),
-    // API returns `units`; older payloads used `steps`. Accept both.
-    steps: [
-      for (final s in (j['steps'] as List? ?? j['units'] as List? ?? const []))
-        GardenStep.fromJson(Map<String, dynamic>.from(s as Map)),
-    ],
-  );
+  factory GardenData.fromJson(Map<String, dynamic> j) {
+    final level = (j['level'] ?? '').toString();
+    return GardenData(
+      level: level,
+      levelLabel: (j['levelLabel'] ?? j['level_label'] ?? '').toString(),
+      theme: (j['theme'] ?? '').toString(),
+      activeStepIndex:
+          (j['activeStepIndex'] as num?)?.toInt() ??
+          (j['active_step_index'] as num?)?.toInt() ??
+          0,
+      recommendedTopic: (j['recommendedTopic'] ?? j['recommended_topic'] ?? '')
+          .toString(),
+      // API returns `units`; older payloads used `steps`. Accept both.
+      steps: [
+        for (final s
+            in (j['steps'] as List? ?? j['units'] as List? ?? const []))
+          GardenStep.fromJson(
+            Map<String, dynamic>.from(s as Map),
+            level: level,
+          ),
+      ],
+    );
+  }
 }

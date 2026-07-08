@@ -54,12 +54,14 @@ class _FakeAudioService extends AudioService {
 
 class _ImmediateTtsService extends FlutterTtsService {
   bool _speaking = false;
+  String? lastSpoken;
 
   @override
   Future<void> initialize() async {}
 
   @override
   Future<void> speak(String text) async {
+    lastSpoken = text;
     _speaking = true;
     _speaking = false;
   }
@@ -191,12 +193,16 @@ GardenStep _step({
   required String level,
   required int step,
   required String name,
+  String displayName = '',
+  String displayDescription = '',
   required int count,
   int sightings = 0,
 }) => GardenStep(
   step: step,
   name: name,
   focus: '',
+  displayName: displayName,
+  displayDescription: displayDescription,
   isCompleted: false,
   skills: [
     for (var i = 0; i < count; i++)
@@ -219,6 +225,7 @@ GardenSkill _skill({
   required String id,
   Strand strand = Strand.voc,
   String text = 'Describe people and how they feel',
+  String displayText = '',
   int sightings = 0,
   SkillStatus? status,
   List<GardenEvidence> evidence = const [],
@@ -226,6 +233,7 @@ GardenSkill _skill({
   id: id,
   strand: strand,
   text: text,
+  displayText: displayText,
   status:
       status ??
       (sightings >= 3
@@ -592,6 +600,51 @@ void main() {
     }
   });
 
+  testWidgets('growth reveal uses refreshed skill copy on card and TTS', (
+    tester,
+  ) async {
+    final tts = _ImmediateTtsService();
+    final skill = _skill(
+      id: 'display-copy-growth',
+      text: 'Canonical framework skill statement',
+      displayText: 'Use words like yesterday, last week',
+      sightings: 1,
+      evidence: [_evidence('Yesterday I played cricket.')],
+    );
+    final step = _stepWithSkills(step: 2, skills: [skill]);
+
+    await tester.pumpWidget(
+      _harness(
+        _gardenData(level: 'A1', steps: [step]),
+        disableAnimations: true,
+        tts: tts,
+      ),
+    );
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(GardenScreen)),
+    );
+    container.read(gardenGrowthRevealProvider.notifier).setQueue([
+      _revealItem(
+        step: step,
+        skill: skill,
+        from: GardenGrowthStage.seed,
+        to: GardenGrowthStage.sprout,
+      ),
+    ]);
+    await tester.pump();
+    await _pumpUntilRevealCard(tester);
+
+    expect(find.text('Use words like yesterday, last week'), findsOneWidget);
+    expect(find.text('Canonical framework skill statement'), findsNothing);
+    expect(tts.lastSpoken, contains('Use words like yesterday, last week'));
+    expect(
+      tts.lastSpoken,
+      isNot(contains('Canonical framework skill statement')),
+    );
+  });
+
   testWidgets('multiple growth reveal items advance with See Next Plant', (
     tester,
   ) async {
@@ -754,6 +807,27 @@ void main() {
 
     expect(find.text('First Unit'), findsOneWidget);
     expect(find.byIcon(Icons.card_giftcard_rounded), findsNothing);
+  });
+
+  testWidgets('unit signposts render refreshed display names', (tester) async {
+    await _pumpGarden(
+      tester,
+      _gardenData(
+        level: 'A0',
+        steps: [
+          _step(
+            level: 'A0',
+            step: 3,
+            name: "I like and I don't like",
+            displayName: 'Likes and dislikes',
+            count: 3,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Likes and dislikes'), findsOneWidget);
+    expect(find.text("I like and I don't like"), findsNothing);
   });
 
   testWidgets('unit signboard grows for text and keeps legs below board', (
@@ -1163,7 +1237,7 @@ void main() {
   });
 
   test(
-    'completed previous A0 garden projects current API steps as bloomed',
+    "completed previous A0 garden uses A0's own framework, all bloomed",
     () {
       final current = _gardenData(
         level: 'B1',
@@ -1175,15 +1249,22 @@ void main() {
       );
 
       expect(projected.level, 'A0');
-      expect(projected.steps, hasLength(1));
-      expect(projected.steps.first.name, 'Current Unit');
-      final skills = projected.steps.first.skills;
-      expect(skills.map((skill) => skill.id), ['B1-U1-S0', 'B1-U1-S1']);
+      // A0's own 5 units, not the current garden's units.
+      expect(projected.steps, hasLength(5));
+      expect(projected.steps.first.displayName, 'Naming the world');
+      expect(projected.steps.first.name, 'Naming the world');
+
+      final skills = projected.steps.expand((step) => step.skills).toList();
+      expect(skills, hasLength(20));
+      expect(skills.first.id, 'U1-VOC-01');
+      expect(skills.first.strand, Strand.voc);
+      expect(skills.first.displayText, 'Colours and numbers up to ten');
       expect(
         skills.every((skill) => skill.status == SkillStatus.owned),
         isTrue,
       );
       expect(skills.every((skill) => skill.sightings == 3), isTrue);
+      expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
     },
   );
 

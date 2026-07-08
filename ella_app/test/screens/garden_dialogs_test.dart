@@ -8,6 +8,7 @@ GardenSkill _skill({
   String id = 'skill-1',
   Strand strand = Strand.voc,
   String text = 'Describe people and how they feel',
+  String displayText = '',
   SkillStatus status = SkillStatus.locked,
   int sightings = 0,
   List<GardenEvidence> evidence = const [],
@@ -16,6 +17,7 @@ GardenSkill _skill({
   id: id,
   strand: strand,
   text: text,
+  displayText: displayText,
   status: status,
   sightings: sightings,
   evidence: evidence,
@@ -26,6 +28,8 @@ GardenStep _step({
   String name = 'Describing the World',
   String focus = 'Go from naming things to describing them',
   String description = '',
+  String displayName = '',
+  String displayDescription = '',
   String icon = '',
   List<GardenSkill>? skills,
 }) => GardenStep(
@@ -33,6 +37,8 @@ GardenStep _step({
   name: name,
   focus: focus,
   description: description,
+  displayName: displayName,
+  displayDescription: displayDescription,
   icon: icon,
   isCompleted: false,
   skills: skills ?? [_skill()],
@@ -87,12 +93,18 @@ Future<void> _openSkillSheet(
   WidgetTester tester,
   GardenSkill skill, {
   GardenStep? step,
+  bool showEvidence = true,
 }) async {
   final resolvedStep = step ?? _step(skills: [skill]);
   await _pumpOpener(
     tester,
     opener: (context) =>
-        () => showSkillSheet(context, resolvedStep, skill),
+        () => showSkillSheet(
+          context,
+          resolvedStep,
+          skill,
+          showEvidence: showEvidence,
+        ),
   );
 }
 
@@ -136,6 +148,67 @@ void main() {
     });
     expect(fallback.description, 'Use focus as the current unit description');
   });
+
+  test('garden model keeps canonical copy while exposing display copy', () {
+    final data = GardenData.fromJson({
+      'level': 'A2',
+      'units': [
+        {
+          'unit': 2,
+          'name': 'Talking about the past with more precision',
+          'focus': 'Describing not just what happened, but what was happening.',
+          'skills': [
+            {
+              'id': 'U2-GRA-02',
+              'strand': 'GRA',
+              'text': "I can use 'used to' to talk about past habits.",
+              'status': 'locked',
+              'sightings': 0,
+            },
+          ],
+        },
+      ],
+    });
+
+    final step = data.steps.single;
+    final skill = step.skills.single;
+    expect(step.name, 'Talking about the past with more precision');
+    expect(step.displayName, 'Refining past stories');
+    expect(
+      step.focus,
+      'Describing not just what happened, but what was happening.',
+    );
+    expect(
+      step.displayDescription,
+      'Add precision to the past — what was happening, what used to be, and how to contrast ideas.',
+    );
+    expect(skill.text, "I can use 'used to' to talk about past habits.");
+    expect(skill.displayText, 'Talk about what you used to do');
+  });
+
+  test(
+    'garden model falls back to focus when a unit description is missing',
+    () {
+      final data = GardenData.fromJson({
+        'level': 'C1',
+        'units': [
+          {
+            'unit': 1,
+            'name': 'Mastery of vocabulary',
+            'focus': 'Moving towards native-level vocabulary range.',
+            'skills': const [],
+          },
+        ],
+      });
+
+      final step = data.steps.single;
+      expect(step.displayName, 'Mastery of vocabulary');
+      expect(
+        step.displayDescription,
+        'Moving towards native-level vocabulary range.',
+      );
+    },
+  );
 
   testWidgets('skill sheet renders all Figma growth state chips', (
     tester,
@@ -215,6 +288,71 @@ void main() {
     expect(find.text('2 days ago'), findsWidgets);
   });
 
+  testWidgets(
+    'skill sheet hides evidence when showEvidence is false (completed garden)',
+    (tester) async {
+      final skill = _skill(
+        strand: Strand.voc,
+        status: SkillStatus.owned,
+        sightings: 3,
+        displayText: 'Colours and numbers up to ten',
+        evidence: [
+          _evidence('This part of my garden was already grown.'),
+        ],
+      );
+      final step = _step(displayName: 'Naming the world', skills: [skill]);
+
+      await _openSkillSheet(tester, skill, step: step, showEvidence: false);
+
+      // Unit name, skill name, strand tag and the Bloomed chip remain.
+      expect(find.text('Naming the world'), findsOneWidget);
+      expect(find.text('Colours and numbers up to ten'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('garden-strand-chip-voc')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('garden-growth-state-bloomed')),
+        findsOneWidget,
+      );
+
+      // The evidence section is hidden entirely.
+      expect(find.text('What You Said'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('garden-evidence-card-0')),
+        findsNothing,
+      );
+      expect(
+        find.text('This part of my garden was already grown.'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('skill sheet renders refreshed unit and skill copy', (
+    tester,
+  ) async {
+    final skill = _skill(
+      text: 'Canonical framework skill statement',
+      displayText: 'Talk about what you used to do',
+    );
+    final step = _step(
+      name: 'Talking about the past with more precision',
+      displayName: 'Refining past stories',
+      skills: [skill],
+    );
+
+    await _openSkillSheet(tester, skill, step: step);
+
+    expect(find.text('Refining past stories'), findsOneWidget);
+    expect(find.text('Talk about what you used to do'), findsOneWidget);
+    expect(find.text('Canonical framework skill statement'), findsNothing);
+    expect(
+      find.text('Talking about the past with more precision'),
+      findsNothing,
+    );
+  });
+
   testWidgets('unit sheet shows two skills then expands with Show more', (
     tester,
   ) async {
@@ -248,5 +386,41 @@ void main() {
     expect(find.text('Skill 2'), findsOneWidget);
     expect(find.text('Skill 3'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-unit-show-more')), findsNothing);
+  });
+
+  testWidgets('unit sheet renders refreshed unit description and skill rows', (
+    tester,
+  ) async {
+    await _setPhoneSurface(tester);
+    final step = _step(
+      name: 'Speaking for longer without losing the thread',
+      displayName: 'Keeping the thread',
+      description: 'Canonical internal step context',
+      displayDescription:
+          'Build up to a full minute of connected speech — linking ideas clearly, without losing the thread.',
+      skills: [
+        _skill(
+          id: 'skill-0',
+          text: 'Canonical unit skill statement',
+          displayText: 'Speak for a full minute without running out',
+        ),
+      ],
+    );
+
+    await _openUnitSheet(tester, step);
+
+    expect(find.text('Keeping the thread'), findsOneWidget);
+    expect(
+      find.text(
+        'Build up to a full minute of connected speech — linking ideas clearly, without losing the thread.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Speak for a full minute without running out'),
+      findsOneWidget,
+    );
+    expect(find.text('Canonical internal step context'), findsNothing);
+    expect(find.text('Canonical unit skill statement'), findsNothing);
   });
 }

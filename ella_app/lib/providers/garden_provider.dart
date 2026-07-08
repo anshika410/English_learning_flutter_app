@@ -5,6 +5,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/curriculum_display_copy.dart';
 import '../core/skill_data.dart';
 import '../models/garden.dart';
 import 'service_providers.dart';
@@ -126,15 +127,58 @@ GardenData completedPreviousGardenData({
   final level = _canonicalGardenLevel(viewedLevel);
   final label = _previewLabelFor(level);
   if (level == 'A0') {
+    final steps = <GardenStep>[];
+    for (final unit in CurriculumDisplayCopy.a0Units) {
+      steps.add(
+        GardenStep(
+          step: unit.unit,
+          name: CurriculumDisplayCopy.unitName(
+            level: level,
+            unit: unit.unit,
+            fallback: '',
+          ),
+          focus: '',
+          description: '',
+          displayName: CurriculumDisplayCopy.unitName(
+            level: level,
+            unit: unit.unit,
+            fallback: '',
+          ),
+          displayDescription: CurriculumDisplayCopy.unitDescription(
+            level: level,
+            unit: unit.unit,
+            fallback: '',
+          ),
+          isCompleted: true,
+          skills: [
+            for (final skillId in unit.skillIds)
+              _completedSkill(
+                id: skillId,
+                strand: _strandFromA0SkillId(skillId),
+                text: CurriculumDisplayCopy.skillText(
+                  level: level,
+                  unit: unit.unit,
+                  skillId: skillId,
+                  fallback: '',
+                ),
+                displayText: CurriculumDisplayCopy.skillText(
+                  level: level,
+                  unit: unit.unit,
+                  skillId: skillId,
+                  fallback: '',
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     return GardenData(
       level: level,
       levelLabel: label,
       theme: label,
-      activeStepIndex: currentGarden.activeStepIndex,
-      recommendedTopic: currentGarden.recommendedTopic,
-      steps: [
-        for (final step in currentGarden.steps) _completedStepFromGarden(step),
-      ],
+      activeStepIndex: steps.length,
+      recommendedTopic: 'Placement',
+      steps: steps,
     );
   }
 
@@ -162,12 +206,25 @@ GardenData completedPreviousGardenData({
     final chunk = skills.skip(cursor).take(take).toList(growable: false);
     cursor += chunk.length;
     final unit = kUnitSteps[i];
+    final unitNumber = int.tryParse(unit.step) ?? i + 1;
+    final displayName = CurriculumDisplayCopy.unitName(
+      level: level,
+      unit: unitNumber,
+      fallback: unit.name,
+    );
+    final displayDescription = CurriculumDisplayCopy.unitDescription(
+      level: level,
+      unit: unitNumber,
+      fallback: unit.focus,
+    );
     steps.add(
       GardenStep(
-        step: int.tryParse(unit.step) ?? i + 1,
+        step: unitNumber,
         name: unit.name,
         focus: unit.focus,
         description: unit.focus,
+        displayName: displayName,
+        displayDescription: displayDescription,
         isCompleted: true,
         skills: [
           for (final skill in chunk)
@@ -175,6 +232,7 @@ GardenData completedPreviousGardenData({
               id: skill.id,
               strand: strandFromString(skill.strand),
               text: skill.text,
+              displayText: skill.text,
             ),
         ],
       ),
@@ -211,6 +269,12 @@ final completedGardenIntroSeenProvider =
       (ref) => CompletedGardenIntroSeenController(),
     );
 
+/// Extracts the strand from an A0 skill ID such as `U1-VOC-01` → [Strand.voc].
+Strand _strandFromA0SkillId(String skillId) {
+  final parts = skillId.split('-');
+  return parts.length >= 2 ? strandFromString(parts[1]) : Strand.unknown;
+}
+
 String _canonicalGardenLevel(String level) {
   final upper = level.trim().toUpperCase();
   return gardenSequence.any((entry) => entry.code == upper)
@@ -223,6 +287,8 @@ GardenStep _completedStepFromGarden(GardenStep step) => GardenStep(
   name: step.name,
   focus: step.focus,
   description: step.description,
+  displayName: step.displayName,
+  displayDescription: step.displayDescription,
   icon: step.icon,
   isCompleted: true,
   skills: [
@@ -231,6 +297,7 @@ GardenStep _completedStepFromGarden(GardenStep step) => GardenStep(
         id: skill.id,
         strand: skill.strand,
         text: skill.text,
+        displayText: skill.displayText,
         icon: skill.icon,
       ),
   ],
@@ -240,11 +307,13 @@ GardenSkill _completedSkill({
   required String id,
   required Strand strand,
   required String text,
+  String displayText = '',
   String icon = '',
 }) => GardenSkill(
   id: id,
   strand: strand,
   text: text,
+  displayText: displayText,
   status: SkillStatus.owned,
   sightings: 3,
   icon: icon,
