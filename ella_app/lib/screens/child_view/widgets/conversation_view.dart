@@ -18,6 +18,7 @@ import 'chat_reply_composer.dart';
 import 'garden_sky_background.dart';
 import 'speaker_dot_button.dart';
 import 'zoe_mascot.dart';
+import '../chat_bubble.dart';
 
 enum ConvPhase { prepare, talking, ending }
 
@@ -315,6 +316,13 @@ class _ZoeBubble extends StatelessWidget {
         side: const BorderSide(color: EllaColors.info, width: 2.5),
       ),
       child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
+      child: TypewriterText(
+        text: text,
+        style: EllaTextStyles.bodySemibold,
+        highlightStart: highlightStart,
+        highlightEnd: highlightEnd,
+        animate: false,
+      ),
     );
 
     if (onSpeakAgain == null) return bubble;

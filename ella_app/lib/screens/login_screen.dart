@@ -28,7 +28,7 @@ const String _kEnvelopeOpenAsset = 'assets/auth/envelope-open.svg';
 const String _kPaperPlaneRightAsset = 'assets/auth/paper-plane-right.svg';
 const String _kShieldCheckAsset = 'assets/auth/shield-check.svg';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   final EllaApiService? api;
 
   /// Kept true in production. Tests can disable plugin-backed Google listeners
@@ -36,20 +36,16 @@ class LoginScreen extends StatefulWidget {
   final bool enableGoogleAuth;
 
   const LoginScreen({super.key, this.api, this.enableGoogleAuth = true});
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
+class _LoginScreenState extends ConsumerState<LoginScreen>
     with SingleTickerProviderStateMixin {
   late final EllaApiService _api;
-class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final EllaApiService _api = EllaApiService();
 
-    bool _isLoading = false;
+  bool _isLoading = false;
   bool _showEmailInput = false;
   bool _magicLinkSent = false;
   bool _isSigningIn = false;
@@ -113,24 +109,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Listen to Google Sign-In account changes (crucial for Web iframe button clicks)
     _googleSignInSubscription = gsi.GoogleSignIn.instance.authenticationEvents
         .listen((gsi.GoogleSignInAuthenticationEvent event) async {
-          if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
-            final account = event.user;
-            try {
-              final gsi.GoogleSignInAuthentication googleAuth =
-                  account.authentication;
-              final String? idToken = googleAuth.idToken;
-              if (idToken != null) {
-                final success = await _api.loginWithGoogle(idToken);
-                if (success && mounted) {
-                  Navigator.of(context).pushReplacementNamed('/');
-                } else {
-                  _showError('Google Login failed on backend.');
-                }
-              } else {
-                _showError('Google Login failed: no idToken.');
-              }
-            } catch (e) {
-              _showError('Google Login Error: $e');
       if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
         if (_isSigningIn) return;
         _isSigningIn = true;
@@ -148,7 +126,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               _showError('Google Login failed on backend.');
             }
           }
-        });
         } catch (e) {
           _showError('Google Login Error: $e');
         } finally {

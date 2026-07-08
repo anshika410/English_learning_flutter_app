@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ella_app/providers/service_providers.dart';
 import 'package:ella_app/screens/child_view/onboarding/onboarding_flow.dart';
+import 'package:ella_app/screens/child_view/widgets/ella_primary_button.dart';
 import 'package:ella_app/services/audio_service.dart';
 import 'package:ella_app/services/ella_api_service.dart';
 import 'package:ella_app/services/sounds.dart';
@@ -115,6 +116,10 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'Aarav');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
+    expect(find.byType(EllaIconButton), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Aarav');
+    await tester.tap(find.byType(EllaIconButton));
     await tester.pump(); // step change
     await tester.pump(const Duration(milliseconds: 950)); // thinking beat
     await tester.pump(const Duration(milliseconds: 400)); // switcher fade
@@ -124,6 +129,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '9');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
+    await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
     await tester.pumpAndSettle();
@@ -144,13 +150,22 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
+  testWidgets('invalid name shows error and stays on the name step', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_harness());
     await tester.pump();
+
+    await tester.enterText(find.byType(TextField), '???');
+    await tester.tap(find.byType(EllaIconButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 950));
 
     expect(find.textContaining("couldn't get your name"), findsNothing);
     expect(find.textContaining('What is your name?'), findsOneWidget);
   });
 
-  testWidgets('any positive age is accepted; blank age is rejected', (
+  testWidgets('any positive age is accepted; invalid age is rejected', (
     tester,
   ) async {
     await tester.pumpWidget(_harness());
@@ -158,6 +173,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'Aarav');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
+    await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
     await tester.pump(const Duration(milliseconds: 400));
@@ -167,11 +183,18 @@ void main() {
     await tester.pump();
     expect(find.textContaining('correct age'), findsNothing);
     expect(find.textContaining('what is your age?'), findsOneWidget);
+    // Invalid age → error, stays put.
+    await tester.enterText(find.byType(TextField), 'abc');
+    await tester.tap(find.byType(EllaIconButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 950));
+    expect(find.textContaining('correct age'), findsOneWidget);
     expect(find.text("Let's Talk"), findsNothing);
 
     // A large age (would have failed the old 3–19 check) is now accepted.
     await tester.enterText(find.byType(TextField), '45');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
+    await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
     await tester.pumpAndSettle();

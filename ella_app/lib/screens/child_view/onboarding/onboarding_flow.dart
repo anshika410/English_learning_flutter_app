@@ -308,6 +308,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             sendEnabled: !_busy,
             onSend: _onSend,
             onReplay: () => _replay(_zoeText),
+            highlightStart: _highlightStart,
+            highlightEnd: _highlightEnd,
           ),
         ),
       ),

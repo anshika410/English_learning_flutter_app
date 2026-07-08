@@ -357,8 +357,9 @@ void main() {
   testWidgets('placement result without a level settles in seedbed', (
     tester,
   ) async {
+    final tts = _ControllableTtsService();
     await tester.pumpWidget(
-      _harness(mode: PlacementGardenMode.placementResult),
+      _harness(tts: tts, mode: PlacementGardenMode.placementResult),
     );
     await tester.pump();
     final container = ProviderScope.containerOf(
@@ -366,8 +367,21 @@ void main() {
     );
     (container.read(placementProvider.notifier) as _FakePlacementNotifier)
         .resolve(false);
+    await tester.pump(const Duration(milliseconds: 1200));
+    await _pumpUntilFound(
+      tester,
+      find.text(
+        "Your plant is soaking up sunshine.\nLet's talk again and watch it grow!",
+      ),
+    );
+
+    await _pumpUntilSpeaking(tester, tts);
+    tts.finish();
+    await _pumpUntilFound(tester, find.text('Explore Garden'));
+
+    expect(find.text('Explore Garden'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('placement-garden-sprout-explore')));
     await tester.pump();
-    await _pumpUntilFound(tester, find.text("Let's Talk"));
 
     expect(find.text('See My Garden'), findsNothing);
     expect(find.text("Let's Talk"), findsOneWidget);

@@ -475,6 +475,16 @@ class _TopicChipsRow extends StatelessWidget {
         addTopic(topic);
       }
     }
+    if (sel != null && sel.name.isNotEmpty) {
+      final isAlreadyInAlternatives = alternatives.any((t) => t.name == sel.name);
+      if (!isAlreadyInAlternatives) {
+        if (ordered.isNotEmpty) {
+          ordered[0] = sel;
+        } else {
+          ordered.add(sel);
+        }
+      }
+    }
     final shown = ordered.take(2).toList();
 
     final slots = <Widget>[];

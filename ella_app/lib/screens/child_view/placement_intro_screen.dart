@@ -182,6 +182,8 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                       _GreetingCard(
                         speaking: _speaking,
                         onToggle: _toggleSpeak,
+                        highlightStart: _highlightStart,
+                        highlightEnd: _highlightEnd,
                       ),
                       const SizedBox(height: 24),
                       EllaPrimaryButton(
@@ -194,36 +196,6 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                           colorFilter: const ColorFilter.mode(
                             EllaColors.onPrimary,
                             BlendMode.srcIn,
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ZoeMascot(
-                          mode: ZoeMascotMode.listening,
-                          size: mascotW,
-                          reducedMotion:
-                              MediaQuery.of(context).disableAnimations,
-                        ),
-                        const SizedBox(height: 10),
-                        _GreetingCard(
-                          speaking: _speaking,
-                          onToggle: _toggleSpeak,
-                          highlightStart: _highlightStart,
-                          highlightEnd: _highlightEnd,
-                        ),
-                        const SizedBox(height: 24),
-                        EllaPrimaryButton(
-                          label: "Let's Talk",
-                          height: 60,
-                          leading: SvgPicture.asset(
-                            _kVoiceIcon,
-                            width: 22,
-                            height: 22,
-                            colorFilter: const ColorFilter.mode(
-                              EllaColors.onPrimary,
-                              BlendMode.srcIn,
-                            ),
                           ),
                         ),
                         onTap: _startPlacement,
@@ -323,10 +295,9 @@ class _GreetingCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               side: const BorderSide(color: EllaColors.info, width: 2),
             ),
-            child: Text(_kGreeting, style: EllaTextStyles.bodySemiboldLarge),
             child: TypewriterText(
               text: _kGreeting,
-              style: EllaTextStyles.bodySemibold,
+              style: EllaTextStyles.bodySemiboldLarge,
               highlightStart: highlightStart,
               highlightEnd: highlightEnd,
               animate: false,
