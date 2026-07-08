@@ -24,6 +24,7 @@ import 'widgets/placement_garden_header.dart';
 import 'widgets/spotlight_callout_bubble.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
+import 'chat_bubble.dart';
 
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
 const String _kBubblePlantIcon = 'assets/homescreen/new/Plant.svg';
@@ -110,6 +111,11 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
     _ => _Phase.empty,
   };
 
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
+
   final List<Timer> _timers = [];
   bool _started = false;
   bool _resolved = false;
@@ -151,6 +157,24 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
     super.initState();
     _audio = ref.read(audioProvider);
     _audio.playMusic(Sounds.gardenMusic);
+
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
   }
 
   @override
@@ -401,6 +425,8 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
 
   @override
   void dispose() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
     for (final timer in _timers) {
       timer.cancel();
     }
@@ -481,6 +507,10 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                         metrics: metrics,
                         zoeMode: _zoeMode,
                         reducedMotion: _reducedMotion,
+                        bubble: _RevealBubble(
+                          highlightStart: _highlightStart,
+                          highlightEnd: _highlightEnd,
+                        ),
                       )
                     : _sproutRevealLayerOn
                     ? _RevealCallout(
@@ -489,7 +519,10 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                         zoeMode: _zoeMode,
                         reducedMotion: _reducedMotion,
                         placementStyle: true,
-                        bubble: const _PlacementSproutBubble(),
+                        bubble: _PlacementSproutBubble(
+                          highlightStart: _highlightStart,
+                          highlightEnd: _highlightEnd,
+                        ),
                       )
                     : _placementRevealLayerOn
                     ? _RevealCallout(
@@ -498,7 +531,10 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                         zoeMode: _zoeMode,
                         reducedMotion: _reducedMotion,
                         placementStyle: true,
-                        bubble: const _PlacementBloomBubble(),
+                        bubble: _PlacementBloomBubble(
+                          highlightStart: _highlightStart,
+                          highlightEnd: _highlightEnd,
+                        ),
                       )
                     : const SizedBox.shrink(),
               ),
@@ -1087,23 +1123,43 @@ class _RevealCallout extends StatelessWidget {
 }
 
 class _RevealBubble extends StatelessWidget {
-  const _RevealBubble();
+  final int highlightStart;
+  final int highlightEnd;
+  const _RevealBubble({
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const SpotlightCalloutBubble(
-      key: ValueKey('placement-garden-reveal-bubble'),
+    return SpotlightCalloutBubble(
+      key: const ValueKey('placement-garden-reveal-bubble'),
       title: 'Look, your first plant',
       body: 'Every conversation grows something new here',
+      highlightStart: highlightStart,
+      highlightEnd: highlightEnd,
     );
   }
 }
 
 class _PlacementBloomBubble extends StatelessWidget {
-  const _PlacementBloomBubble();
+  final int highlightStart;
+  final int highlightEnd;
+  const _PlacementBloomBubble({
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final title = 'Your flower is blooming!';
+    final titleHighlightStart = highlightStart < title.length ? highlightStart : -1;
+    final titleHighlightEnd = highlightStart < title.length ? highlightEnd : -1;
+
+    final titleLength = title.length + 1; // account for newline
+    final bodyHighlightStart = highlightStart >= titleLength ? highlightStart - titleLength : -1;
+    final bodyHighlightEnd = highlightStart >= titleLength ? highlightEnd - titleLength : -1;
+
     return Container(
       key: const ValueKey('placement-garden-bloom-bubble'),
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
@@ -1125,11 +1181,14 @@ class _PlacementBloomBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
-                child: Text(
-                  'Your flower is blooming!',
+                child: TypewriterText(
+                  text: title,
                   style: EllaTextStyles.bodySemiboldLarge.copyWith(
                     color: EllaColors.greenDeep,
                   ),
+                  highlightStart: titleHighlightStart,
+                  highlightEnd: titleHighlightEnd,
+                  animate: false,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1137,11 +1196,14 @@ class _PlacementBloomBubble extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            "You've got a brand new garden\nwaiting with space for even more\nplants",
+          TypewriterText(
+            text: "You've got a brand new garden\nwaiting with space for even more\nplants",
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.ink,
             ),
+            highlightStart: bodyHighlightStart,
+            highlightEnd: bodyHighlightEnd,
+            animate: false,
           ),
         ],
       ),
@@ -1153,10 +1215,23 @@ class _PlacementBloomBubble extends StatelessWidget {
 /// leading the first line, then the encouragement to talk again. Same shell as
 /// the bloom bubble so the two spotlight callouts read consistently.
 class _PlacementSproutBubble extends StatelessWidget {
-  const _PlacementSproutBubble();
+  final int highlightStart;
+  final int highlightEnd;
+  const _PlacementSproutBubble({
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final title = 'Your plant is soaking up';
+    final titleHighlightStart = highlightStart < title.length ? highlightStart : -1;
+    final titleHighlightEnd = highlightStart < title.length ? highlightEnd : -1;
+
+    final titleLength = title.length + 1; // account for space/newline
+    final bodyHighlightStart = highlightStart >= titleLength ? highlightStart - titleLength : -1;
+    final bodyHighlightEnd = highlightStart >= titleLength ? highlightEnd - titleLength : -1;
+
     return Container(
       key: const ValueKey('placement-garden-sprout-bubble'),
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
@@ -1181,21 +1256,27 @@ class _PlacementSproutBubble extends StatelessWidget {
               SvgPicture.asset(_kBubblePlantIcon, width: 24, height: 24),
               const SizedBox(width: 8),
               Flexible(
-                child: Text(
-                  'Your plant is soaking up',
+                child: TypewriterText(
+                  text: title,
                   style: EllaTextStyles.bodySemiboldLarge.copyWith(
                     color: EllaColors.greenDeep,
                   ),
+                  highlightStart: titleHighlightStart,
+                  highlightEnd: titleHighlightEnd,
+                  animate: false,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            "sunshine. Let's talk again and\nwatch it grow!",
+          TypewriterText(
+            text: "sunshine. Let's talk again and\nwatch it grow!",
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.greenDeep,
             ),
+            highlightStart: bodyHighlightStart,
+            highlightEnd: bodyHighlightEnd,
+            animate: false,
           ),
         ],
       ),

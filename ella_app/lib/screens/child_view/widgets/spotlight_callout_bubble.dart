@@ -11,17 +11,22 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
+import '../chat_bubble.dart';
 
 const String _kSproutIcon = 'assets/homescreen/new/Plant.svg';
 
 class SpotlightCalloutBubble extends StatelessWidget {
   final String title;
   final String body;
+  final int highlightStart;
+  final int highlightEnd;
 
   const SpotlightCalloutBubble({
     super.key,
     required this.title,
     required this.body,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override
@@ -29,6 +34,14 @@ class SpotlightCalloutBubble extends StatelessWidget {
     final green = EllaTextStyles.bodySemiboldLarge.copyWith(
       color: EllaColors.greenDeep,
     );
+
+    final titleHighlightStart = highlightStart < title.length ? highlightStart : -1;
+    final titleHighlightEnd = highlightStart < title.length ? highlightEnd : -1;
+
+    final titleLength = title.length + 1; // account for newline
+    final bodyHighlightStart = highlightStart >= titleLength ? highlightStart - titleLength : -1;
+    final bodyHighlightEnd = highlightStart >= titleLength ? highlightEnd - titleLength : -1;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
       decoration: ellaSmoothDecoration(
@@ -54,7 +67,13 @@ class SpotlightCalloutBubble extends StatelessWidget {
                 child: FittedBox(
                   alignment: Alignment.centerLeft,
                   fit: BoxFit.scaleDown,
-                  child: Text(title, maxLines: 1, style: green),
+                  child: TypewriterText(
+                    text: title,
+                    style: green,
+                    highlightStart: titleHighlightStart,
+                    highlightEnd: titleHighlightEnd,
+                    animate: false,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -62,7 +81,13 @@ class SpotlightCalloutBubble extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(body, style: green),
+          TypewriterText(
+            text: body,
+            style: green,
+            highlightStart: bodyHighlightStart,
+            highlightEnd: bodyHighlightEnd,
+            animate: false,
+          ),
         ],
       ),
     );

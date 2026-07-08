@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:async';
 
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
@@ -28,6 +29,7 @@ import 'widgets/shake.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
+import 'chat_bubble.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
 // 'demo'), so this is a swappable placeholder matching the design demo until a
@@ -106,6 +108,42 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   TopicChoice? _selectedTopic;
   bool _promoteSelectedTopic = true;
 
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+  bool _speaking = false;
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted && _speaking) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    super.dispose();
+  }
+
   MemoryState? get _memory => widget.memory;
 
   // Server recommendation and the alternatives shown as chips.
@@ -134,9 +172,20 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     final text = _recap.trim().isNotEmpty
         ? _recap.trim()
         : "This is our first chat together — I can't wait!";
+    setState(() {
+      _speaking = true;
+      _highlightStart = -1;
+      _highlightEnd = -1;
+    });
     try {
       await tts.speak(text);
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+        });
+      }
+    }
   }
 
   Future<void> _openSeeMore() async {
@@ -231,7 +280,13 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                             ).disableAnimations,
                           ),
                           const SizedBox(height: 20),
-                          _LastTimeCard(recap: _recap, onSpeak: _speakRecap),
+                          _LastTimeCard(
+                            recap: _recap,
+                            onSpeak: _speakRecap,
+                            highlightStart: _highlightStart,
+                            highlightEnd: _highlightEnd,
+                            speaking: _speaking,
+                          ),
                           const SizedBox(height: 16),
                           const _SectionDivider(label: 'Next Session'),
                           const SizedBox(height: 12),
@@ -360,8 +415,17 @@ class _LastTimeCard extends StatelessWidget {
   /// Replays the recap aloud (TTS). Powers the speaker dot on the card, the
   /// same control that straddles Zoe's chat bubble.
   final VoidCallback onSpeak;
+  final int highlightStart;
+  final int highlightEnd;
+  final bool speaking;
 
-  const _LastTimeCard({required this.recap, required this.onSpeak});
+  const _LastTimeCard({
+    required this.recap,
+    required this.onSpeak,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+    this.speaking = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -377,13 +441,18 @@ class _LastTimeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: EllaColors.info, width: 2),
       ),
-      child: Text(body, style: EllaTextStyles.bodySemibold),
+      child: TypewriterText(
+        text: body,
+        style: EllaTextStyles.bodySemibold,
+        highlightStart: highlightStart,
+        highlightEnd: highlightEnd,
+        animate: false,
+      ),
     );
 
     // Speaker dot straddling the top-right border — identical control to Zoe's
     // chat bubble. Top padding keeps the overhanging dot inside the Stack's
-    // bounds so it stays tappable. `active` stays false; _speakRecap already
-    // no-ops while TTS is speaking, so a tap can't restart or stack it.
+    // bounds so it stays tappable.
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -391,7 +460,7 @@ class _LastTimeCard extends StatelessWidget {
         Positioned(
           top: 0,
           right: 10,
-          child: SpeakerDotButton(active: false, onTap: onSpeak),
+          child: SpeakerDotButton(active: speaking, onTap: onSpeak),
         ),
       ],
     );
