@@ -122,7 +122,7 @@ void main() {
     await tester.tap(find.byType(EllaIconButton));
     await tester.pump(); // step change
     await tester.pump(const Duration(milliseconds: 950)); // thinking beat
-    await tester.pump(const Duration(milliseconds: 400)); // switcher fade
+    await tester.pumpAndSettle(); // switcher fade
 
     // Age step — question interpolates the typed name.
     expect(find.textContaining('what is your age?'), findsOneWidget);
@@ -176,7 +176,7 @@ void main() {
     await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
     // Blank age stays put.
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
@@ -184,7 +184,7 @@ void main() {
     expect(find.textContaining('correct age'), findsNothing);
     expect(find.textContaining('what is your age?'), findsOneWidget);
     // Invalid age → error, stays put.
-    await tester.enterText(find.byType(TextField), 'abc');
+    await tester.enterText(find.byType(TextField), '0');
     await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));

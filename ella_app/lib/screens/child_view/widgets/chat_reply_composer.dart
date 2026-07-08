@@ -5,6 +5,7 @@
 // the paper-plane glyph, so every input point reads identically.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/ella_smooth_shape.dart';
@@ -24,6 +25,7 @@ class ChatReplyComposer extends StatelessWidget {
   final bool enabled;
   final String hintText;
   final VoidCallback? onSend;
+  final TextInputType keyboardType;
 
   const ChatReplyComposer({
     super.key,
@@ -33,6 +35,7 @@ class ChatReplyComposer extends StatelessWidget {
     this.enabled = true,
     this.hintText = 'Type your reply...',
     this.onSend,
+    this.keyboardType = TextInputType.text,
   });
 
   @override
@@ -56,8 +59,14 @@ class ChatReplyComposer extends StatelessWidget {
               autofocus: autofocus,
               minLines: 1,
               maxLines: 3,
+              keyboardType: keyboardType,
+              inputFormatters: keyboardType == TextInputType.number
+                  ? [FilteringTextInputFormatter.digitsOnly]
+                  : null,
               textInputAction: TextInputAction.send,
-              textCapitalization: TextCapitalization.sentences,
+              textCapitalization: keyboardType == TextInputType.number
+                  ? TextCapitalization.none
+                  : TextCapitalization.sentences,
               onSubmitted: onSend == null ? null : (_) => onSend!(),
               style: EllaTextStyles.bodySemiboldLarge,
               cursorColor: EllaColors.berryDark,
