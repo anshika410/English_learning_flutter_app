@@ -13,6 +13,7 @@ import '../core/engine.dart';
 import '../core/skill_data.dart';
 import '../core/topic_data.dart';
 import '../models/child_memory.dart';
+import '../models/garden.dart';
 import '../models/history_entry.dart';
 import '../models/memory_snapshot.dart';
 import '../models/message.dart';
@@ -431,6 +432,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     final cur = state.requireValue;
     if (cur.sessionEnded || cur.messages.isEmpty) return;
 
+    ref.read(gardenGrowthRevealProvider.notifier).clear();
     state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
 
     final mem = cur.memory;
@@ -451,6 +453,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       // deterministic merge, then persists the transcript + new memory. ───────
       try {
         final api = ref.read(ellaApiServiceProvider);
+        GardenData? beforeGarden;
+        try {
+          beforeGarden = await api.getGarden();
+        } catch (_) {}
         // End-chat flow (matches the server contract / network log order):
         //   judge → memory → garden → session-log.
         final analysis = await api.judge(
@@ -483,9 +489,19 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
         // Refresh the garden, then pull the canonical session log. Best-effort —
         // neither should block ending the chat.
+        GardenData? afterGarden;
         try {
-          await api.getGarden();
+          afterGarden = await api.getGarden();
         } catch (_) {}
+        if (afterGarden != null) {
+          final revealItems = buildGardenGrowthRevealItems(
+            before: beforeGarden,
+            after: afterGarden,
+          );
+          if (revealItems.isNotEmpty) {
+            ref.read(gardenGrowthRevealProvider.notifier).setQueue(revealItems);
+          }
+        }
         try {
           await api.getSessionLog(cur.activeSessionId!);
         } catch (_) {}

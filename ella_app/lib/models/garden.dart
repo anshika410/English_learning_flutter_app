@@ -6,6 +6,16 @@ import 'package:flutter/widgets.dart';
 
 import '../core/theme_colors.dart';
 
+String _optionalString(Map<String, dynamic> j, List<String> keys) {
+  for (final key in keys) {
+    final value = j[key];
+    if (value == null) continue;
+    final text = value.toString().trim();
+    if (text.isNotEmpty) return text;
+  }
+  return '';
+}
+
 /// Learning strand a skill belongs to.
 enum Strand { voc, gra, flu, unknown }
 
@@ -149,6 +159,7 @@ class GardenSkill {
   final SkillStatus status;
   final int sightings;
   final List<GardenEvidence> evidence;
+  final String icon;
 
   const GardenSkill({
     required this.id,
@@ -157,6 +168,7 @@ class GardenSkill {
     required this.status,
     required this.sightings,
     required this.evidence,
+    this.icon = '',
   });
 
   PlantStage get stage => plantStageFor(status, sightings);
@@ -171,6 +183,12 @@ class GardenSkill {
       for (final e in (j['evidence'] as List? ?? const []))
         GardenEvidence.fromJson(Map<String, dynamic>.from(e as Map)),
     ],
+    icon: _optionalString(j, const [
+      'icon',
+      'icon_id',
+      'icon_asset',
+      'icon_path',
+    ]),
   );
 }
 
@@ -178,6 +196,8 @@ class GardenStep {
   final int step;
   final String name;
   final String focus;
+  final String description;
+  final String icon;
   final bool isCompleted;
   final List<GardenSkill> skills;
 
@@ -187,6 +207,8 @@ class GardenStep {
     required this.focus,
     required this.isCompleted,
     required this.skills,
+    this.description = '',
+    this.icon = '',
   });
 
   /// A plot is "active" (grassy) once any skill is past locked.
@@ -197,6 +219,17 @@ class GardenStep {
     step: (j['step'] as num?)?.toInt() ?? (j['unit'] as num?)?.toInt() ?? 0,
     name: (j['name'] ?? '').toString(),
     focus: (j['focus'] ?? '').toString(),
+    description: _optionalString(j, const [
+      'description',
+      'unit_description',
+      'focus',
+    ]),
+    icon: _optionalString(j, const [
+      'icon',
+      'icon_id',
+      'icon_asset',
+      'icon_path',
+    ]),
     isCompleted:
         j['isCompleted'] as bool? ?? j['is_completed'] as bool? ?? false,
     skills: [
