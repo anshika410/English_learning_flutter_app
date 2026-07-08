@@ -710,12 +710,12 @@ class _PlacementGardenMetrics {
       placementBubbleTopMax,
     );
     final placementMascotLeft = math.max(16.0, placementBubbleLeft - 6 * scale);
-    // Zoe sits fully ABOVE the bubble's top border (her feet land ~4px above it).
-    // Offset = mascot height (72) + 4; floor is the header TOP (not its bottom)
-    // so a device status bar can't clamp her down into the card.
+    // Zoe sits just above the bubble's top border, closer than before.
+    // Reduced offset from 76 to 52 to position her lower, sitting just above
+    // the spotlight bubble (mascot height 72, with ~20px gap from bubble top).
     final placementMascotTop = math.max(
       headerTop,
-      placementBubbleTop - 76 * scale,
+      placementBubbleTop - 52 * scale,
     );
 
     return _PlacementGardenMetrics(
@@ -732,7 +732,7 @@ class _PlacementGardenMetrics {
       bubbleTop: bubbleTop,
       bubbleLeft: bubbleLeft,
       mascotLeft: math.max(16, bubbleLeft - 6 * scale),
-      mascotTop: math.max(headerTop, bubbleTop - 76 * scale),
+      mascotTop: math.max(headerTop, bubbleTop - 52 * scale),
       placementBubbleWidth: placementBubbleWidth,
       placementBubbleTop: placementBubbleTop,
       placementBubbleLeft: placementBubbleLeft,
