@@ -11,6 +11,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'chat_provider.dart';
 import 'placement_provider.dart';
 import 'service_providers.dart';
 
@@ -72,6 +73,21 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
       }
     }
 
+    var cached = await api.getOnboardingState();
+    if (cached.name == null || cached.name!.isEmpty) {
+      try {
+        final profile = await api.getUserProfile();
+        final name = profile['profile']?['name'] as String?;
+        final ageVal = profile['profile']?['age'];
+        final int? age = ageVal is int
+            ? ageVal
+            : (ageVal != null ? int.tryParse(ageVal.toString()) : null);
+        if (name != null && name.isNotEmpty) {
+          await api.saveOnboarding(name: name, age: age ?? 10);
+          cached = await api.getOnboardingState();
+        }
+      } catch (_) {}
+    }
     return OnboardingState(
       done: cached.done,
       name: cached.name,
@@ -118,6 +134,10 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
     ref.read(placementProvider.notifier).seedProfile(name: name, age: age);
 
     state = AsyncData(OnboardingState(done: true, name: name, age: age));
+
+    // Force chatProvider to refresh so RootGate sees the new memory.name and 
+    // advances to PlacementIntroScreen (Garden) instead of bouncing back to Onboarding.
+    ref.invalidate(chatProvider);
   }
 
   Future<void> updateProfile({required String name, required int age}) async {
@@ -132,6 +152,13 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
 
     final currentDone = state.valueOrNull?.done ?? true;
     state = AsyncData(OnboardingState(done: currentDone, name: name, age: age));
+  }
+
+  Future<void> seedFromServer({required String name, required int? age}) async {
+    final api = ref.read(ellaApiServiceProvider);
+    await api.saveOnboarding(name: name, age: age ?? 0);
+    ref.read(placementProvider.notifier).seedProfile(name: name, age: age ?? 0);
+    state = AsyncData(OnboardingState(done: true, name: name, age: age));
   }
 
   Future<void> reset() async {

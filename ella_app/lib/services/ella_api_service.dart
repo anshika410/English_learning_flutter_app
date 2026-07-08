@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -57,7 +58,6 @@ class SessionAnalysisApiResult {
 class EllaApiService {
   static const _tokenKey = 'ella_api_access_token';
   static const _userIdKey = 'ella_api_user_id';
-  static const _deviceIdKey = 'ella_api_device_id';
 
   // First-run onboarding (name/age) cache. `_onboardingDoneKey` gates the
   // onboarding flow so it runs once; name/age are cached for the greeting and
@@ -70,9 +70,10 @@ class EllaApiService {
   final http.Client _client;
 
   EllaApiService({
-    this.baseUrl = 'https://ella.navgurukul.org/api',
+    String? baseUrl,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  })  : baseUrl = baseUrl ?? dotenv.env['ELLA_API_BASE_URL'] ?? 'https://ella.navgurukul.org/api',
+        _client = client ?? http.Client();
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -122,6 +123,10 @@ class EllaApiService {
       _log('Anonymous Auth Error', e.toString());
       return false;
     }
+    await prefs.remove(_onboardingDoneKey);
+    await prefs.remove(_childNameKey);
+    await prefs.remove(_childAgeKey);
+    await prefs.remove('ella_api_device_id');
   }
 
   Future<bool> loginWithGoogle(String idToken) async {
@@ -133,6 +138,9 @@ class EllaApiService {
         auth: false,
         body: {'token': idToken, 'device_id': deviceId},
       );
+      final data = await _request('POST', '/auth/google', auth: false, body: {
+        'token': idToken,
+      });
       final accessToken = data['access_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
@@ -158,6 +166,7 @@ class EllaApiService {
       }
 
       final deviceId = await getDeviceId();
+      
       await _request(
         'POST',
         '/auth/magic-link/request',
@@ -167,6 +176,7 @@ class EllaApiService {
           'redirect_url': redirectUrl,
           'device_id': deviceId,
         },
+        }
       );
       return true;
     } catch (e) {
@@ -280,6 +290,11 @@ class EllaApiService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw EllaApiException('HTTP ${response.statusCode}: ${response.body}');
     }
+    await _request('DELETE', '/users/me/memory');
+  }
+
+  Future<void> deleteAccount() async {
+    await _request('DELETE', '/users/me');
   }
 
   // ── Onboarding cache (local) ────────────────────────────────────────────────
@@ -308,8 +323,6 @@ class EllaApiService {
     await prefs.remove(_onboardingDoneKey);
     await prefs.remove(_childNameKey);
     await prefs.remove(_childAgeKey);
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userIdKey);
   }
 
   /// Cache just the name/age (onboarding NOT yet done) — written the moment
@@ -526,18 +539,15 @@ class EllaApiService {
     final uri = Uri.parse(path.startsWith('http') ? path : '$baseUrl$path');
     final headers = <String, String>{
       'Accept': 'application/json',
+      'Bypass-Tunnel-Reminder': 'true',
       if (body != null) 'Content-Type': 'application/json',
     };
     if (auth) {
-      var token = await getToken();
+      final token = await getToken();
       if (token == null || token.isEmpty) {
-        _log('AUTH', 'No token found, grabbing anonymous token for demo.');
-        await loginAnonymous();
-        token = await getToken();
+        throw const EllaApiException('not_authenticated');
       }
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
+      headers['Authorization'] = 'Bearer $token';
     }
 
     _log('REQUEST  $method $uri', body != null ? jsonEncode(body) : null);
@@ -563,9 +573,9 @@ class EllaApiService {
 
     _log('RESPONSE $method $path  HTTP ${response.statusCode}', response.body);
 
-    if (response.statusCode == 401 && auth) {
+    if ((response.statusCode == 401 || response.statusCode == 403 || (response.statusCode == 404 && response.body.toLowerCase().contains("user not found"))) && auth) {
       await _clearToken();
-      return _request(method, path, auth: auth, body: body);
+      throw const EllaApiException('not_authenticated');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw EllaApiException(
@@ -623,21 +633,15 @@ class EllaApiService {
     await prefs.remove(_userIdKey);
   }
 
-  Future<String> getDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    var did = prefs.getString(_deviceIdKey);
-    if (did == null) {
-      final now = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
-      did = 'ella-flutter-$now';
-      await prefs.setString(_deviceIdKey, did);
-    }
-    return did;
-  }
+
 
   static MemoryState _memoryFromApi(Map<String, dynamic> j) {
     final id = j['id'] as String? ?? j['user_id'] as String? ?? 'api-user';
     final effort = Map<String, dynamic>.from((j['effort'] as Map?) ?? {});
     final interests = (j['interests'] as List? ?? const []).join(', ');
+    final profile = j['profile'] is Map ? Map<String, dynamic>.from(j['profile'] as Map) : null;
+    final name = profile?['name'] as String?;
+    final age = (profile?['age'] as num?)?.toInt();
     return MemoryState(
       childId: id,
       level: j['level'] as String? ?? 'A1',
@@ -659,6 +663,8 @@ class EllaApiService {
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      name: name,
+      age: age,
       placement: j['placement'] is Map
           ? PlacementInfo.fromJson(
               Map<String, dynamic>.from(j['placement'] as Map),

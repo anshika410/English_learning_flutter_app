@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import uuid
@@ -19,42 +20,27 @@ from ..schemas.auth import AnonymousAuthRequest, TokenResponse, GoogleAuthReques
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-async def _handle_login_and_merge(email: str, device_id: str | None, db: AsyncSession) -> tuple[User, bool]:
+async def _get_or_create_user_by_email(email: str, db: AsyncSession) -> tuple[User, bool]:
+    """Look up a user by email, creating one if they don't exist.
+    Returns (user, is_new). This is the canonical path for Google and magic-link login.
+    device_id is no longer used for user identity.
+    """
     email = email.lower().strip()
-    user = None
 
-    if device_id:
-        # 1. Look for anonymous user by device_id
-        result = await db.execute(select(User).where(User.device_id == device_id))
-        user = result.scalar_one_or_none()
-
-    if user:
-        if user.email and user.email != email:
-            # Device ID is associated with a different email. Just lookup by email instead.
-            result = await db.execute(select(User).where(User.email == email))
-            user = result.scalar_one_or_none()
-        else:
-            # Anonymous account found. See if target email already exists.
-            existing_email_result = await db.execute(select(User).where(User.email == email))
-            existing_email_user = existing_email_result.scalar_one_or_none()
-
-            if existing_email_user and existing_email_user.id != user.id:
-                # Account already exists for this email. Use it (anonymous progress on device_id abandoned)
-                user = existing_email_user
-            else:
-                # Merge: Upgrade anonymous account by adding the email
-                user.email = email
-                await db.flush()
-    else:
-        # No device_id or no user found with it, lookup by email
-        result = await db.execute(select(User).where(User.email == email))
-        user = result.scalar_one_or_none()
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
 
     is_new = user is None
     if is_new:
-        user = User(email=email, device_id=device_id or str(uuid.uuid4()))
-        db.add(user)
-        await db.flush()
+        try:
+            user = User(email=email)
+            db.add(user)
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one()
+            is_new = False
 
     return user, is_new
 
@@ -80,11 +66,15 @@ async def _create_token_response(user: User, is_new: bool, db: AsyncSession) -> 
     )
 
 
-@router.post("/anonymous", response_model=TokenResponse)
+@router.post("/anonymous", response_model=TokenResponse, deprecated=True)
 async def anonymous_auth(
     body: AnonymousAuthRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    """DEPRECATED: Anonymous auth via device_id is no longer used by the app.
+    This endpoint is kept temporarily to avoid breaking old app versions still in the field.
+    All new auth flows use Google Sign-In or Magic Link which identify users by email.
+    """
     result = await db.execute(
         select(User).where(User.device_id == body.device_id)
     )
@@ -112,7 +102,7 @@ async def google_auth(
             # Verify the ID token with Google
             # We accept both Web and Android client IDs as valid audiences depending on how the frontend requested it.
             valid_audiences = [
-                aud for aud in [settings.google_web_client_id, settings.google_android_client_id] if aud
+                aud for aud in [settings.google_client_id, settings.google_web_client_id, settings.google_android_client_id] if aud
             ]
             idinfo = id_token.verify_oauth2_token(
                 body.token, google_requests.Request(), valid_audiences
@@ -133,7 +123,7 @@ async def google_auth(
         if not email:
             raise HTTPException(status_code=400, detail="Google token does not contain email")
 
-        user, is_new = await _handle_login_and_merge(email, body.device_id, db)
+        user, is_new = await _get_or_create_user_by_email(email, db)
         return await _create_token_response(user, is_new, db)
 
     except ValueError:
@@ -145,7 +135,8 @@ async def request_magic_link(
     body: MagicLinkRequest,
 ):
     email = body.email.lower().strip()
-    token = create_magic_token(email, device_id=body.device_id, redirect_url=body.redirect_url)
+    # device_id is no longer used — user identity is purely email-based
+    token = create_magic_token(email, redirect_url=body.redirect_url)
     send_magic_link_email(email, token)
     return {"message": "Email sent"}
 
@@ -158,10 +149,9 @@ async def verify_magic_link(
     # Decodes and verifies expiration/type
     payload = decode_magic_token(token)
     email = payload["email"]
-    device_id = payload.get("device_id")
     redirect_url = payload.get("redirect_url")
 
-    user, is_new = await _handle_login_and_merge(email, device_id, db)
+    user, is_new = await _get_or_create_user_by_email(email, db)
     
     # We need to generate the refresh token and attach it to the redirect URL
     settings = get_settings()

@@ -10,8 +10,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_toast.dart';
+import '../providers/chat_provider.dart';
 import '../core/text_styles.dart';
 import '../core/theme_colors.dart';
 import '../services/audio_service.dart';
@@ -34,18 +36,23 @@ class LoginScreen extends StatefulWidget {
   final bool enableGoogleAuth;
 
   const LoginScreen({super.key, this.api, this.enableGoogleAuth = true});
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   late final EllaApiService _api;
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final EllaApiService _api = EllaApiService();
 
-  bool _isLoading = false;
+    bool _isLoading = false;
   bool _showEmailInput = false;
   bool _magicLinkSent = false;
+  bool _isSigningIn = false;
 
   // Intro animation: the mascot slides up into place first, then the title +
   // login options fade/slide in behind it. Runs once on the initial login stage.
@@ -124,9 +131,31 @@ class _LoginScreenState extends State<LoginScreen>
               }
             } catch (e) {
               _showError('Google Login Error: $e');
+      if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
+        if (_isSigningIn) return;
+        _isSigningIn = true;
+        final account = event.user;
+        try {
+          final gsi.GoogleSignInAuthentication googleAuth =
+              account.authentication;
+          final String? idToken = googleAuth.idToken;
+          if (idToken != null) {
+            final success = await _api.loginWithGoogle(idToken);
+            if (success && mounted) {
+              ref.invalidate(chatProvider);
+              Navigator.of(context).pushReplacementNamed('/');
+            } else {
+              _showError('Google Login failed on backend.');
             }
           }
         });
+        } catch (e) {
+          _showError('Google Login Error: $e');
+        } finally {
+          _isSigningIn = false;
+        }
+      }
+    });
 
     // Automatically prompt Google One Tap / FedCM when visiting the site (Web only)
     if (kIsWeb) {
@@ -137,14 +166,21 @@ class _LoginScreenState extends State<LoginScreen>
           if (lightweightAuth != null) {
             final googleUser = await lightweightAuth;
             if (googleUser != null) {
-              final auth = googleUser.authentication;
+              final auth = await googleUser.authentication;
               final idToken = auth.idToken;
               if (idToken != null) {
-                final success = await _api.loginWithGoogle(idToken);
-                if (success && mounted) {
-                  Navigator.of(context).pushReplacementNamed('/');
-                } else {
-                  _showError('One Tap Login failed on backend.');
+                if (_isSigningIn) return;
+                _isSigningIn = true;
+                try {
+                  final success = await _api.loginWithGoogle(idToken);
+                  if (success && mounted) {
+                    ref.invalidate(chatProvider);
+                    Navigator.of(context).pushReplacementNamed('/');
+                  } else {
+                    _showError('One Tap Login failed on backend.');
+                  }
+                } finally {
+                  _isSigningIn = false;
                 }
               } else {
                 _showError('One Tap failed: no idToken.');
@@ -186,15 +222,13 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (_isSigningIn) return;
+    _isSigningIn = true;
     setState(() => _isLoading = true);
     try {
       gsi.GoogleSignInAccount? googleUser;
 
       try {
-        // Clear credential state first to force the plugin to drop the 'authorized accounts' filter
-        // and fetch ALL accounts on the device, matching native apps like ChatGPT.
-        await gsi.GoogleSignIn.instance.signOut();
-        
         // In google_sign_in v7+, attemptLightweightAuthentication() triggers the
         // Android Credential Manager's "One-Tap" bottom sheet UI (useButtonFlow: false).
         googleUser =
@@ -206,6 +240,7 @@ class _LoginScreenState extends State<LoginScreen>
           setState(() {
             _isLoading = false;
           });
+          _isSigningIn = false;
           return;
         }
       } catch (e) {
@@ -213,14 +248,10 @@ class _LoginScreenState extends State<LoginScreen>
         if (errorStr.contains('cancel') || errorStr.contains('interrupted')) {
           // User cancelled the standard account picker. Quietly return.
           if (mounted) setState(() => _isLoading = false);
+          _isSigningIn = false;
           return;
         }
         rethrow;
-      }
-
-      if (googleUser == null) {
-        if (mounted) setState(() => _isLoading = false);
-        return;
       }
 
       final gsi.GoogleSignInAuthentication googleAuth =
@@ -230,6 +261,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (idToken != null) {
         final success = await _api.loginWithGoogle(idToken);
         if (success && mounted) {
+          ref.invalidate(chatProvider);
           // Restart app to pick up auth state
           Navigator.of(context).pushReplacementNamed('/');
         } else {
@@ -238,8 +270,10 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       _showError('Google Sign In Error: $e');
+    } finally {
+      _isSigningIn = false;
+      if (mounted) setState(() => _isLoading = false);
     }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _sendMagicLink() async {

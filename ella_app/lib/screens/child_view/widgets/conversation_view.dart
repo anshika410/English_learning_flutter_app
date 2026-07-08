@@ -331,6 +331,14 @@ class _ZoeBubble extends StatelessWidget {
           bottomRight: Radius.circular(18),
         ),
         side: const BorderSide(color: EllaColors.info, width: 2.5),
+        border: Border.all(color: EllaColors.info, width: 2.5),
+      ),
+      child: TypewriterText(
+        text: text,
+        style: EllaTextStyles.bodySemibold,
+        highlightStart: highlightStart,
+        highlightEnd: highlightEnd,
+        animate: false,
       ),
       child: _highlightedText(),
     );

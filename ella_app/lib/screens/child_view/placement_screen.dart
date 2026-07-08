@@ -35,6 +35,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final _textController = TextEditingController();
   bool _keyboardMode = false;
   bool _navigated = false;
+  bool _advanceTimerStarted = false;
 
   // True while the End-Call closing line is playing (before we hand off to the
   // placement garden). Drives the ending phase: Zoe speaks a fixed farewell that
@@ -63,6 +64,15 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     // While the End-Call farewell is playing, _exit owns the transition — don't
     // let the LLM-completion auto-advance cut it short.
     if (_ending || !s.isComplete || _navigated) return;
+    if (!s.isComplete || _navigated) return;
+    if (s.currentlySpeakingMessageId != null) {
+      if (!_advanceTimerStarted) {
+        _advanceTimerStarted = true;
+        // Safety net: force navigation after 5 seconds even if TTS completion handler fails to fire
+        Future.delayed(const Duration(seconds: 5), _goToComplete);
+      }
+      return;
+    }
     Future.delayed(const Duration(milliseconds: 1600), _goToComplete);
   }
 
@@ -260,5 +270,6 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     } finally {
       if (mounted) setState(() => _replaying = false);
     }
+    await ref.read(placementProvider.notifier).replayZoeLine(text);
   }
 }

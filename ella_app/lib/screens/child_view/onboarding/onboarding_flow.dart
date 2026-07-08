@@ -28,6 +28,7 @@ import '../placement_garden_screen.dart';
 import '../widgets/chat_reply_composer.dart';
 import '../widgets/garden_sky_background.dart';
 import '../widgets/zoe_mascot.dart';
+import '../chat_bubble.dart';
 
 enum _Step { name, age, congrats }
 
@@ -60,6 +61,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating — same pattern as GardenScreen's audio handle).
   late final TtsInterface _tts;
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
 
   // ── Zoe's script (Figma copy) ───────────────────────────────────────────────
 
@@ -83,6 +88,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void initState() {
     super.initState();
     _tts = ref.read(ttsProvider);
+    
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
     // saveProfile persisted the name/age the moment they were collected; when
     // they're already cached, resume straight on the first-sprout garden.
     final cached = ref.read(onboardingProvider).valueOrNull;
@@ -107,6 +130,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void dispose() {
     _replyCtrl.dispose();
     _replyFocus.dispose();
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
     // Cut Zoe off if the flow is left mid-utterance.
     _tts.stop().catchError((_) {});
     super.dispose();
@@ -122,10 +147,20 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     try {
       await tts.stop();
       if (!mounted) return;
-      setState(() => _mascot = ZoeMascotMode.speaking);
+      setState(() {
+        _highlightStart = -1;
+        _highlightEnd = -1;
+        _mascot = ZoeMascotMode.speaking;
+      });
       await tts.speak(text);
     } catch (_) {}
-    if (mounted) setState(() => _mascot = ZoeMascotMode.listening);
+    if (mounted) {
+      setState(() {
+        _mascot = ZoeMascotMode.listening;
+        _highlightStart = -1;
+        _highlightEnd = -1;
+      });
+    }
   }
 
   /// Sound-button replays: a no-op while TTS is already speaking, so a tap can
@@ -309,6 +344,32 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             onSend: _onSend,
             onReplay: () => _replay(_zoeText),
           ),
+          child: _step == _Step.garden
+              ? _GardenIntro(
+                  key: const ValueKey('garden'),
+                  name: _name,
+                  mascotMode: _mascot,
+                  reducedMotion: reducedMotion,
+                  playIntro: !_resumed,
+                  onNudge: () => _replay(_kNudgeText),
+                  onLetsTalk: _onLetsTalk,
+                )
+              : _ChatStep(
+                  key: const ValueKey('chat'),
+                  zoeText: _zoeText,
+                  userReply: _userReply,
+                  mascotMode: _mascot,
+                  reducedMotion: reducedMotion,
+                  showComposer: _step != _Step.congrats,
+                  controller: _replyCtrl,
+                  focusNode: _replyFocus,
+                  error: _fieldError,
+                  sendEnabled: !_busy,
+                  onSend: _onSend,
+                  onReplay: () => _replay(_zoeText),
+                  highlightStart: _highlightStart,
+                  highlightEnd: _highlightEnd,
+                ),
         ),
       ),
     );
@@ -328,6 +389,8 @@ class _ChatStep extends StatelessWidget {
   final bool sendEnabled;
   final VoidCallback onSend;
   final VoidCallback onReplay;
+  final int highlightStart;
+  final int highlightEnd;
 
   const _ChatStep({
     super.key,
@@ -341,6 +404,8 @@ class _ChatStep extends StatelessWidget {
     required this.sendEnabled,
     required this.onSend,
     required this.onReplay,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override
@@ -372,6 +437,8 @@ class _ChatStep extends StatelessWidget {
                       key: ValueKey(zoeText),
                       text: zoeText,
                       onReplay: onReplay,
+                      highlightStart: highlightStart,
+                      highlightEnd: highlightEnd,
                     ),
                   ),
                   if (userReply != null) ...[
@@ -405,8 +472,16 @@ class _ChatStep extends StatelessWidget {
 class _ZoeBubble extends StatelessWidget {
   final String text;
   final VoidCallback onReplay;
+  final int highlightStart;
+  final int highlightEnd;
 
-  const _ZoeBubble({super.key, required this.text, required this.onReplay});
+  const _ZoeBubble({
+    super.key,
+    required this.text,
+    required this.onReplay,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +510,16 @@ class _ZoeBubble extends StatelessWidget {
               ),
             ],
           ),
-          child: Text(text, style: EllaTextStyles.bodySemibold),
+          child: TypewriterText(
+            text: text,
+            animate: false,
+            highlightStart: highlightStart,
+            highlightEnd: highlightEnd,
+            style: EllaTextStyles.bodySemibold,
+            highlightStyle: EllaTextStyles.bodySemibold.copyWith(
+              color: const Color(0xFFE91E63),
+            ),
+          ),
         ),
         Positioned(
           top: -14,
