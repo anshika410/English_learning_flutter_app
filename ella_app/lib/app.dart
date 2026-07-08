@@ -5,7 +5,7 @@ import 'package:app_links/app_links.dart';
 import 'services/ella_api_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
-import 'screens/privacy_policy_screen.dart';
+import 'screens/privacy_policy_webview_screen.dart';
 
 import 'route_observer.dart';
 import 'core/theme_colors.dart';
@@ -118,6 +118,14 @@ class _EllaAppState extends State<EllaApp> {
       // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
       // because we handle deep links manually via the app_links package.
       onGenerateInitialRoutes: (String initialRouteName) {
+        if (initialRouteName.startsWith('/privacy-policy')) {
+          return [
+            MaterialPageRoute(
+              settings: const RouteSettings(name: '/privacy-policy'),
+              builder: (context) => const PrivacyPolicyWebviewScreen(),
+            ),
+          ];
+        }
         return [
           MaterialPageRoute(
             settings: const RouteSettings(name: '/splash'),
@@ -133,15 +141,23 @@ class _EllaAppState extends State<EllaApp> {
         if (path == '/splash') {
           return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
         } else if (path == '/login') {
-          return MaterialPageRoute(builder: (_) => const LoginScreen(), settings: settings);
+          return PageRouteBuilder(
+            settings: settings,
+            pageBuilder: (_, __, ___) => const LoginScreen(),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          );
         } else if (path == '/privacy-policy') {
-          return MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen(), settings: settings);
+          return MaterialPageRoute(builder: (_) => const PrivacyPolicyWebviewScreen(), settings: settings);
         } else if (path == '/' || path == '/home') {
-          return MaterialPageRoute(builder: (_) => const RootGate(), settings: settings);
+          return PageRouteBuilder(
+            settings: settings,
+            pageBuilder: (_, __, ___) => const RootGate(),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          );
         }
         
         // Fallback
-        return MaterialPageRoute(builder: (_) => const SplashScreen(), settings: settings);
+        return MaterialPageRoute(builder: (_) => const RootGate(), settings: settings);
       },
     );
   }

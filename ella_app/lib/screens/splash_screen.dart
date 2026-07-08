@@ -4,6 +4,10 @@
 // Routes to /home or /login once the auth check completes.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/chat_provider.dart';
+import '../providers/onboarding_provider.dart';
 
 import '../core/text_styles.dart';
 import '../core/theme_colors.dart';
@@ -12,14 +16,14 @@ import '../services/update_service.dart';
 import 'child_view/widgets/onboarding_scenery.dart';
 import 'child_view/widgets/zoe_mascot.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -27,8 +31,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    // Artificial delay for splash screen aesthetics
-    await Future.delayed(const Duration(seconds: 2));
+    // Removed artificial delay for faster loading
 
     if (!mounted) return;
 
@@ -43,11 +46,27 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (isAuthenticated) {
+      try {
+        await ref.read(chatProvider.future);
+        await ref.read(onboardingProvider.future);
+      } catch (_) {
+        // If it fails, RootGate will show error or reload
+      }
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
       Navigator.of(context).pushReplacementNamed('/login');
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return const SplashUI();
+  }
+}
+
+class SplashUI extends StatelessWidget {
+  const SplashUI({super.key});
 
   @override
   Widget build(BuildContext context) {

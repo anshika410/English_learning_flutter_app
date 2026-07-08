@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

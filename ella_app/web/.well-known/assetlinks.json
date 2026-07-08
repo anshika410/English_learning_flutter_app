@@ -1,0 +1,16 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "org.navgurukul.ella",
+      "sha256_cert_fingerprints": [
+        "34:27:83:C3:85:4D:6A:A8:FF:68:09:64:C3:D8:E1:8A:34:4B:2A:50:BB:FA:33:6B:C1:95:71:47:D2:A6:39:C6",
+        "D2:50:9A:4E:A7:22:C1:E3:E8:C7:6F:5B:55:24:E9:26:0D:BD:4B:BD:81:E6:62:F3:55:A0:B4:D5:45:0D:CB:5E",
+        "FE:2D:60:EA:D1:A1:0C:A7:DA:AF:67:B6:A7:0B:59:E1:5C:97:47:9D:61:2A:45:F4:F6:75:D1:14:F7:F6:AC:0A"
+      ]
+    }
+  }
+]

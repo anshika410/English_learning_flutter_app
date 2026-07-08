@@ -36,8 +36,17 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Accepts URIs that begin with "ella://login" -->
+                <!-- Accepts URIs that begin with "ella://login" (Legacy) -->
                 <data android:scheme="ella" android:host="login" />
+            </intent-filter>
+
+            <!-- App Links for magic link auth (Bypasses Browser) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="ella.navgurukul.org" />
+                <data android:scheme="http" android:host="ella.navgurukul.org" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
