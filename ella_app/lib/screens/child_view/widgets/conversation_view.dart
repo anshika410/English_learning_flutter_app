@@ -248,7 +248,6 @@ class _ZoeBubble extends StatelessWidget {
         border: Border.all(color: EllaColors.info, width: 2.5),
       ),
       child: TypewriterText(
-        key: ValueKey(text),
         text: text,
         style: EllaTextStyles.bodySemibold,
         highlightStart: highlightStart,
