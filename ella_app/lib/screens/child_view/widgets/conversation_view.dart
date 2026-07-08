@@ -316,13 +316,6 @@ class _ZoeBubble extends StatelessWidget {
         side: const BorderSide(color: EllaColors.info, width: 2.5),
       ),
       child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
-      child: TypewriterText(
-        text: text,
-        style: EllaTextStyles.bodySemibold,
-        highlightStart: highlightStart,
-        highlightEnd: highlightEnd,
-        animate: false,
-      ),
     );
 
     if (onSpeakAgain == null) return bubble;

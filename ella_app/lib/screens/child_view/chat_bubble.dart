@@ -9,7 +9,6 @@ import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 
-class ChatBubble extends StatelessWidget {
 /// Strip markdown syntax for plain text (used for TTS).
 String stripMarkdown(String text) {
   return text
@@ -113,6 +112,141 @@ class ChatBubble extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+
+/// Reveals text word-by-word with a typing animation for Zoe's messages.
+/// Also supports karaoke highlight when [highlightStart] and [highlightEnd] are provided.
+class TypewriterText extends StatefulWidget {
+  final String text;
+  final int highlightStart;
+  final int highlightEnd;
+  final TextStyle? style;
+  final TextStyle? highlightStyle;
+  final bool animate;
+
+  const TypewriterText({
+    super.key,
+    required this.text,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+    this.style,
+    this.highlightStyle,
+    this.animate = true,
+  });
+
+  @override
+  State<TypewriterText> createState() => _TypewriterTextState();
+}
+
+class _TypewriterTextState extends State<TypewriterText> {
+  late List<String> _words;
+  int _visibleWords = 0;
+  bool _done = false;
+  int _animationId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _words = widget.text.split(' ');
+    if (widget.animate) {
+      _animate();
+    } else {
+      _visibleWords = _words.length;
+      _done = true;
+    }
+  }
+
+  void _animate() async {
+    final currentId = ++_animationId;
+    for (int i = 1; i <= _words.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (!mounted || _animationId != currentId) return;
+      setState(() => _visibleWords = i);
+    }
+    if (mounted && _animationId == currentId) {
+      setState(() => _done = true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant TypewriterText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _words = widget.text.split(' ');
+      if (widget.animate) {
+        _visibleWords = 0;
+        _done = false;
+        _animate();
+      } else {
+        _visibleWords = _words.length;
+        _done = true;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayed = _done
+        ? widget.text
+        : _words.take(_visibleWords).join(' ');
+
+    final baseStyle = widget.style ??
+        EllaTextStyles.bodyBase.copyWith(color: EllaColors.ink, height: 1.4);
+    final highlightStyle = widget.highlightStyle ??
+        baseStyle.copyWith(
+          color: const Color(0xFFE91E63),
+        );
+
+    // If we have highlight range, build RichText with highlighted span
+    if (_done &&
+        widget.highlightStart >= 0 &&
+        widget.highlightEnd > widget.highlightStart &&
+        widget.highlightEnd <= widget.text.length) {
+      return RichText(
+        text: TextSpan(
+          style: baseStyle,
+          children: [
+            TextSpan(text: widget.text.substring(0, widget.highlightStart)),
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Transform.scale(
+                scale: 1.12, // Magnify the active word by 12% without shifting text layout
+                child: Text(
+                  widget.text.substring(
+                    widget.highlightStart,
+                    widget.highlightEnd,
+                  ),
+                  style: highlightStyle,
+                ),
+              ),
+            ),
+            TextSpan(text: widget.text.substring(widget.highlightEnd)),
+          ],
+        ),
+      );
+    }
+
+    return _done
+        ? MarkdownBody(
+            data: widget.text,
+            styleSheet: MarkdownStyleSheet(
+              p: baseStyle,
+              strong: baseStyle.copyWith(fontWeight: FontWeight.w700),
+              em: baseStyle.copyWith(fontStyle: FontStyle.italic),
+              code: baseStyle.copyWith(
+                fontFamily: 'monospace',
+                color: EllaColors.greenDark,
+                backgroundColor: const Color(0xFFE8F5E9),
+              ),
+            ),
+            softLineBreak: true,
+          )
+        : Text(
+            displayed,
+            style: baseStyle,
+          );
   }
 }
 

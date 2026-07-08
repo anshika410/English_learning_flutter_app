@@ -150,6 +150,12 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
+    await tester.pump();
+
+    expect(find.textContaining("couldn't get your name"), findsNothing);
+    expect(find.textContaining('What is your name?'), findsOneWidget);
+  });
+
   testWidgets('invalid name shows error and stays on the name step', (
     tester,
   ) async {
@@ -161,7 +167,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 950));
 
-    expect(find.textContaining("couldn't get your name"), findsNothing);
+    expect(find.textContaining("couldn't get your name"), findsOneWidget);
     expect(find.textContaining('What is your name?'), findsOneWidget);
   });
 

@@ -309,8 +309,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             sendEnabled: !_busy,
             onSend: _onSend,
             onReplay: () => _replay(_zoeText),
-            highlightStart: _highlightStart,
-            highlightEnd: _highlightEnd,
             keyboardType: _step == _Step.age 
                 ? TextInputType.number 
                 : TextInputType.text,
@@ -334,8 +332,6 @@ class _ChatStep extends StatelessWidget {
   final bool sendEnabled;
   final VoidCallback onSend;
   final VoidCallback onReplay;
-  final int highlightStart;
-  final int highlightEnd;
   final TextInputType keyboardType;
 
   const _ChatStep({
@@ -350,8 +346,6 @@ class _ChatStep extends StatelessWidget {
     required this.sendEnabled,
     required this.onSend,
     required this.onReplay,
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
     this.keyboardType = TextInputType.text,
   });
 
