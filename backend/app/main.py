@@ -97,6 +97,41 @@ if settings.docs_enabled:
         )
 
 
+from fastapi.responses import HTMLResponse
+
+PRIVACY_POLICY_HTML = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Privacy Policy - Ella</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <h1>Privacy Policy</h1>
+    <p>Last updated: July 8, 2026</p>
+    <p>Ella is committed to protecting your privacy. This privacy policy describes how we collect, use, and process your personal data in connection with the Ella English learning application.</p>
+    <h2>1. Information We Collect</h2>
+    <p>We may collect voice recordings, names, and ages to customize the conversational learning experience and place learners at the appropriate CEFR level.</p>
+    <h2>2. How We Use Information</h2>
+    <p>Your data is used solely to improve your speaking skills, run AI conversation simulations, and track your learning progress.</p>
+    <h2>3. Data Deletion</h2>
+    <p>You can request data deletion at any time via the profile settings inside the app.</p>
+</body>
+</html>"""
+
+
+@app.get("/v2/privacypolicy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_policy_v2():
+    return PRIVACY_POLICY_HTML
+
+
+@app.get("/privacypolicy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_policy():
+    return PRIVACY_POLICY_HTML
+
+
 @app.get("/", include_in_schema=False)
 async def root():
     if settings.docs_enabled:
@@ -107,3 +142,4 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
