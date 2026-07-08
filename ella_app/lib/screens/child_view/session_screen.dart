@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_toast.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
@@ -115,9 +116,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   void _snack(Object e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
+    if (!mounted) return;
+    debugPrint('[Session] $e');
+    showEllaErrorToast(context);
   }
 
   /// Whether a real conversation is under way (at least one non-system turn and

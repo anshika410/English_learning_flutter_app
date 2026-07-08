@@ -11,8 +11,10 @@ import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
 import 'providers/chat_provider.dart';
+import 'providers/connectivity_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'screens/child_view/home_screen.dart';
+import 'screens/child_view/offline_screen.dart';
 import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
 import 'screens/child_view/placement_intro_screen.dart';
@@ -134,7 +136,10 @@ class _EllaAppState extends State<EllaApp> {
               maxScaleFactor: 1.3,
             ),
           ),
-          child: child ?? const SizedBox.shrink(),
+          // Global offline gate: overlays OfflineScreen over whatever route is
+          // showing the moment the device goes offline, and removes it on
+          // reconnect. Sits above every screen so it works app-wide.
+          child: _ConnectivityGate(child: child ?? const SizedBox.shrink()),
         );
       },
       navigatorObservers: [appRouteObserver],
@@ -181,6 +186,28 @@ class _EllaAppState extends State<EllaApp> {
           settings: settings,
         );
       },
+    );
+  }
+}
+
+/// Overlays [OfflineScreen] above the whole app whenever the device is offline.
+/// While the initial connectivity check is still loading (or on error) it shows
+/// nothing, so a momentary unknown state never flashes the offline screen.
+class _ConnectivityGate extends ConsumerWidget {
+  final Widget child;
+  const _ConnectivityGate({required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offline = ref
+        .watch(connectivityProvider)
+        .maybeWhen(data: (online) => !online, orElse: () => false);
+    return Stack(
+      textDirection: TextDirection.ltr,
+      children: [
+        child,
+        if (offline) const Positioned.fill(child: OfflineScreen()),
+      ],
     );
   }
 }

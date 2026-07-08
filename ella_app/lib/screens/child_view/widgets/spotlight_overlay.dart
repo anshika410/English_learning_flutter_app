@@ -13,7 +13,7 @@ class SpotlightOverlay extends StatelessWidget {
   const SpotlightOverlay({
     super.key,
     this.center = const Alignment(0, 0.25),
-    this.radius = 0.85,
+    this.radius = 0.95,
   });
 
   @override
@@ -23,13 +23,16 @@ class SpotlightOverlay extends StatelessWidget {
         gradient: RadialGradient(
           center: center,
           radius: radius,
+          // The transparent plateau (first two stops) is held wide so the whole
+          // plant sits in clear space before the scrim ramps in — the darkening
+          // only starts at 45% of the radius.
           colors: const [
             Color(0x00185E35),
             Color(0x00185E35),
             Color(0x7A123B23),
             Color(0xB3102F1D),
           ],
-          stops: const [0.0, 0.35, 0.75, 1.0],
+          stops: const [0.0, 0.45, 0.8, 1.0],
         ),
       ),
     );

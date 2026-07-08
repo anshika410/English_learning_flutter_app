@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 
+import '../core/app_toast.dart';
 import '../core/text_styles.dart';
 import '../core/theme_colors.dart';
 import '../services/audio_service.dart';
@@ -23,6 +24,7 @@ import 'google_sign_in_button.dart';
 const String _kGoogleLoginAsset = 'assets/auth/google-login.svg';
 const String _kEnvelopeOpenAsset = 'assets/auth/envelope-open.svg';
 const String _kPaperPlaneRightAsset = 'assets/auth/paper-plane-right.svg';
+const String _kShieldCheckAsset = 'assets/auth/shield-check.svg';
 
 class LoginScreen extends StatefulWidget {
   final EllaApiService? api;
@@ -57,7 +59,6 @@ class _LoginScreenState extends State<LoginScreen>
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
-  Timer? _focusScrollTimer;
 
   StreamSubscription<gsi.GoogleSignInAuthenticationEvent>?
   _googleSignInSubscription;
@@ -66,7 +67,6 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
     _api = widget.api ?? EllaApiService();
-    _emailFocusNode.addListener(_onFocusChange);
 
     _introController = AnimationController(
       vsync: this,
@@ -179,27 +179,10 @@ class _LoginScreenState extends State<LoginScreen>
   void dispose() {
     _introController.dispose();
     _googleSignInSubscription?.cancel();
-    _focusScrollTimer?.cancel();
-    _emailFocusNode.removeListener(_onFocusChange);
     _emailFocusNode.dispose();
     _emailController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onFocusChange() {
-    if (_emailFocusNode.hasFocus) {
-      _focusScrollTimer?.cancel();
-      _focusScrollTimer = Timer(const Duration(milliseconds: 300), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -262,7 +245,8 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _sendMagicLink() async {
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      _showError('Please enter a valid email address.');
+      // Input-validation feedback keeps its own specific copy (not a server error).
+      showEllaErrorToast(context, 'Please enter a valid email address.');
       return;
     }
 
@@ -279,9 +263,13 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  void _showError(String msg) {
+  // Any Google / One-Tap / magic-link backend or network failure surfaces the
+  // one standard server-error toast — the descriptive [debug] string is logged
+  // only, never shown to the user.
+  void _showError(String debug) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    debugPrint('[Login] $debug');
+    showEllaErrorToast(context);
   }
 
   void _resetToButtons() {
@@ -302,6 +290,10 @@ class _LoginScreenState extends State<LoginScreen>
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF0FAFA),
+        // Don't resize the body when the keyboard opens: the email stage stays
+        // fixed (mascot + title + field + button all hold their positions)
+        // instead of the form re-centring/shifting up as the keyboard appears.
+        resizeToAvoidBottomInset: false,
         body: OnboardingScenery(
           child: Stack(
             children: [
@@ -384,6 +376,8 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                       SizedBox(height: metrics.loginActionsGap),
                       _buildLoginButtons(metrics),
+                      SizedBox(height: metrics.buttonGap),
+                      _buildPrivacyNote(),
                     ],
                   ),
                 ),
@@ -401,35 +395,23 @@ class _LoginScreenState extends State<LoginScreen>
     required _AuthLayoutMetrics metrics,
     required Widget child,
   }) {
-    final groupHeight = _magicLinkSent ? 164.0 : 296.0;
-    final minStageHeight =
-        2 *
-        (metrics.topMascotInset +
-            metrics.mascotSize +
-            metrics.centeredGroupGap +
-            groupHeight / 2);
-    final stageHeight = math.max(metrics.safeHeight, minStageHeight);
-
-    return SingleChildScrollView(
-      controller: _scrollController,
+    // Non-scrolling email / magic-link stage: the mascot is pinned near the top
+    // and the form is centred in the available height. With the keyboard up,
+    // resizeToAvoidBottomInset shrinks this area so the form re-centres above the
+    // keyboard — the page itself never scrolls off-screen.
+    return Padding(
       padding: EdgeInsets.symmetric(horizontal: metrics.horizontalPadding),
-      child: SizedBox(
-        height: stageHeight,
-        child: Stack(
-          alignment: Alignment.topCenter,
-          children: [
-            Positioned(
-              top: metrics.topMascotInset,
-              child: _buildMascot(metrics),
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned(top: metrics.topMascotInset, child: _buildMascot(metrics)),
+          Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: metrics.contentWidth),
+              child: child,
             ),
-            Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: metrics.contentWidth),
-                child: child,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -493,6 +475,24 @@ class _LoginScreenState extends State<LoginScreen>
           onTap: _isLoading
               ? null
               : () => setState(() => _showEmailInput = true),
+        ),
+      ],
+    );
+  }
+
+  // Privacy reassurance under the login buttons (Figma 441:26073): shield icon +
+  // body copy, left-aligned.
+  Widget _buildPrivacyNote() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SvgPicture.asset(_kShieldCheckAsset, width: 32, height: 32),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Your learning data stays private and is never shared with anyone',
+            style: EllaTextStyles.authBody.copyWith(fontSize: 15),
+          ),
         ),
       ],
     );

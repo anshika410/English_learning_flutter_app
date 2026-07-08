@@ -54,6 +54,11 @@ class ConversationView extends StatelessWidget {
   /// target, so it passes null.
   final double? progress;
 
+  /// Character range `[highlightStart, highlightEnd)` of [zoeLine] currently
+  /// being spoken (TTS karaoke highlight). `-1` on either disables it.
+  final int highlightStart;
+  final int highlightEnd;
+
   const ConversationView({
     super.key,
     required this.phase,
@@ -71,6 +76,8 @@ class ConversationView extends StatelessWidget {
     this.onEnd,
     this.onSpeakAgain,
     this.progress,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override
@@ -138,6 +145,8 @@ class ConversationView extends StatelessWidget {
                               onSpeakAgain: onSpeakAgain,
                               speaking: mascotSpeaking,
                               maxWidth: bubbleMaxWidth,
+                              highlightStart: highlightStart,
+                              highlightEnd: highlightEnd,
                             ),
                           const SizedBox(height: 12),
                         ],
@@ -226,6 +235,8 @@ class _Bubbles extends StatelessWidget {
   final VoidCallback? onSpeakAgain;
   final bool speaking;
   final double maxWidth;
+  final int highlightStart;
+  final int highlightEnd;
 
   const _Bubbles({
     required this.zoeLine,
@@ -233,6 +244,8 @@ class _Bubbles extends StatelessWidget {
     required this.onSpeakAgain,
     required this.speaking,
     required this.maxWidth,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override
@@ -260,6 +273,8 @@ class _Bubbles extends StatelessWidget {
                       text: zoeLine!,
                       onSpeakAgain: onSpeakAgain,
                       speaking: speaking,
+                      highlightStart: highlightStart,
+                      highlightEnd: highlightEnd,
                     ),
             ),
           ),
@@ -288,11 +303,18 @@ class _ZoeBubble extends StatelessWidget {
   final VoidCallback? onSpeakAgain;
   final bool speaking;
 
+  /// Character range `[highlightStart, highlightEnd)` of [text] currently being
+  /// spoken; `-1` disables the karaoke highlight.
+  final int highlightStart;
+  final int highlightEnd;
+
   const _ZoeBubble({
     super.key,
     required this.text,
     required this.onSpeakAgain,
     this.speaking = false,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override
@@ -310,7 +332,7 @@ class _ZoeBubble extends StatelessWidget {
         ),
         side: const BorderSide(color: EllaColors.info, width: 2.5),
       ),
-      child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
+      child: _highlightedText(),
     );
 
     if (onSpeakAgain == null) return bubble;
@@ -333,6 +355,31 @@ class _ZoeBubble extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  // Renders the line, tinting the `[highlightStart, highlightEnd)` slice berry
+  // as TTS speaks it (karaoke highlight). Falls back to plain text whenever the
+  // range is absent or out of bounds, so a stale offset can never crash.
+  Widget _highlightedText() {
+    final baseStyle = EllaTextStyles.bodySemiboldLarge;
+    final start = highlightStart;
+    final end = highlightEnd;
+    final hasHighlight =
+        start >= 0 && end > start && end <= text.length;
+    if (!hasHighlight) return Text(text, style: baseStyle);
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          if (start > 0) TextSpan(text: text.substring(0, start)),
+          TextSpan(
+            text: text.substring(start, end),
+            style: const TextStyle(color: EllaColors.berryDark),
+          ),
+          if (end < text.length) TextSpan(text: text.substring(end)),
+        ],
+      ),
     );
   }
 }

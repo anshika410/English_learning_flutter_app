@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_toast.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/onboarding_provider.dart';
@@ -138,9 +139,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   }
 
   void _snack(Object e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
+    if (!mounted) return;
+    debugPrint('[Placement] $e');
+    showEllaErrorToast(context);
   }
 
   // Proportional progress placeholder: fraction of the (assumed) turn target
