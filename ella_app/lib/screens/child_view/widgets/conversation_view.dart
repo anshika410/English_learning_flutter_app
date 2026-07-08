@@ -9,6 +9,7 @@
 // "Switch to Speaking"). Prepare and ending phases replace the middle/dock.
 
 import 'package:flutter/material.dart';
+import 'package:dotted_border/dotted_border.dart';
 
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
@@ -143,6 +144,8 @@ class ConversationView extends StatelessWidget {
                               onSpeakAgain: onSpeakAgain,
                               speaking: mascotSpeaking,
                               maxWidth: bubbleMaxWidth,
+                              highlightStart: highlightStart,
+                              highlightEnd: highlightEnd,
                             ),
                           const SizedBox(height: 12),
                         ],
@@ -231,6 +234,8 @@ class _Bubbles extends StatelessWidget {
   final VoidCallback? onSpeakAgain;
   final bool speaking;
   final double maxWidth;
+  final int highlightStart;
+  final int highlightEnd;
 
   const _Bubbles({
     required this.zoeLine,
@@ -238,6 +243,8 @@ class _Bubbles extends StatelessWidget {
     required this.onSpeakAgain,
     required this.speaking,
     required this.maxWidth,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override
@@ -265,6 +272,8 @@ class _Bubbles extends StatelessWidget {
                       text: zoeLine!,
                       onSpeakAgain: onSpeakAgain,
                       speaking: speaking,
+                      highlightStart: highlightStart,
+                      highlightEnd: highlightEnd,
                     ),
             ),
           ),
@@ -286,6 +295,8 @@ class _Bubbles extends StatelessWidget {
 
 class _ZoeBubble extends StatelessWidget {
   final String text;
+  final int highlightStart;
+  final int highlightEnd;
 
   /// Toggles TTS for this line. When set, a speaker dot straddles the bubble's
   /// top-right border (Figma placement flow): replay when idle, stop while
@@ -298,6 +309,8 @@ class _ZoeBubble extends StatelessWidget {
     required this.text,
     required this.onSpeakAgain,
     this.speaking = false,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
   });
 
   @override
@@ -315,7 +328,13 @@ class _ZoeBubble extends StatelessWidget {
         ),
         side: const BorderSide(color: EllaColors.info, width: 2.5),
       ),
-      child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
+      child: TypewriterText(
+        text: text,
+        style: EllaTextStyles.bodySemiboldLarge,
+        highlightStart: highlightStart,
+        highlightEnd: highlightEnd,
+        animate: false,
+      ),
     );
 
     if (onSpeakAgain == null) return bubble;
@@ -348,22 +367,26 @@ class _StudentBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: ellaSmoothDecoration(
-        // Pale pink (#FFF2F7) with a berryDark border and squared bottom-right
-        // tail — matching speaking.svg.
-        color: _studentFill,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(18),
-          topRight: Radius.circular(18),
-          bottomLeft: Radius.circular(18),
-          bottomRight: Radius.circular(4),
+    return DottedBorder(
+      color: const Color(0xFFE91E63),
+      strokeWidth: 2.5,
+      dashPattern: const [8, 4],
+      borderType: BorderType.RRect,
+      radius: const Radius.circular(18),
+      padding: const EdgeInsets.all(2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: _studentFill,
+          borderRadius: BorderRadius.circular(18),
         ),
-        side: const BorderSide(color: EllaColors.berryDark, width: 2.5),
+        child: Text(
+          text,
+          style: EllaTextStyles.bodySemiboldLarge.copyWith(
+            color: const Color(0xFF880E4F),
+          ),
+        ),
       ),
-      // Same font/weight as every other line (no italic, even while live).
-      child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
     );
   }
 }
