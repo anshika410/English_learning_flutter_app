@@ -38,7 +38,56 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
   @override
   Future<OnboardingState> build() async {
     final api = ref.read(ellaApiServiceProvider);
-    final cached = await api.getOnboardingState();
+    var cached = await api.getOnboardingState();
+
+    // Prefer the authenticated user's server profile (GET /users/me) so the
+    // greeting always reflects the current user — this fixes a stale cached
+    // name after logging out and back in as a different user. Falls back to the
+    // local cache when offline or unauthenticated.
+    if (await api.isAuthenticated()) {
+      try {
+        final profile = await api.getUserProfile();
+        final profMap = profile['profile'] as Map<String, dynamic>? ?? const {};
+        final serverName = (profMap['name'] as String?)?.trim();
+        int? serverAge;
+        final ageVal = profMap['age'];
+        if (ageVal is num) {
+          serverAge = ageVal.toInt();
+        } else if (ageVal is String) {
+          serverAge = int.tryParse(ageVal);
+        }
+        if (serverName != null && serverName.isNotEmpty) {
+          // Keep the local cache (and placement seeding) in sync.
+          await api.saveOnboardingProfile(
+            name: serverName,
+            age: serverAge ?? cached.age ?? 0,
+          );
+          return OnboardingState(
+            done: cached.done,
+            name: serverName,
+            age: serverAge ?? cached.age,
+          );
+        }
+      } catch (_) {
+        // Network / parse failure → fall through to the cached values.
+      }
+    }
+
+    cached = await api.getOnboardingState();
+    if (cached.name == null || cached.name!.isEmpty) {
+      try {
+        final profile = await api.getUserProfile();
+        final name = profile['profile']?['name'] as String?;
+        final ageVal = profile['profile']?['age'];
+        final int? age = ageVal is int
+            ? ageVal
+            : (ageVal != null ? int.tryParse(ageVal.toString()) : null);
+        if (name != null && name.isNotEmpty) {
+          await api.saveOnboarding(name: name, age: age ?? 10);
+          cached = await api.getOnboardingState();
+        }
+      } catch (_) {}
+    }
     return OnboardingState(
       done: cached.done,
       name: cached.name,

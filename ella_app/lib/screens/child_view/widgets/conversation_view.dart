@@ -9,15 +9,16 @@
 // "Switch to Speaking"). Prepare and ending phases replace the middle/dock.
 
 import 'package:flutter/material.dart';
-import 'package:dotted_border/dotted_border.dart';
 
+import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../services/audio_service.dart';
-import '../chat_bubble.dart';
+import 'chat_reply_composer.dart';
 import 'garden_sky_background.dart';
 import 'speaker_dot_button.dart';
 import 'zoe_mascot.dart';
+import '../chat_bubble.dart';
 
 enum ConvPhase { prepare, talking, ending }
 
@@ -48,6 +49,14 @@ class ConversationView extends StatelessWidget {
   /// goodbye). Callers replay when idle and stop while she's speaking. The
   /// student bubble has no such control (by design — only Zoe's lines replay).
   final VoidCallback? onSpeakAgain;
+
+  /// Placement progress in 0..1 (Figma "Placement Flow" top bar). Null hides
+  /// the bar entirely — the normal chat (SessionScreen) has no fixed turn
+  /// target, so it passes null.
+  final double? progress;
+
+  /// Character range `[highlightStart, highlightEnd)` of [zoeLine] currently
+  /// being spoken (TTS karaoke highlight). `-1` on either disables it.
   final int highlightStart;
   final int highlightEnd;
 
@@ -67,6 +76,7 @@ class ConversationView extends StatelessWidget {
     this.onSend,
     this.onEnd,
     this.onSpeakAgain,
+    this.progress,
     this.highlightStart = -1,
     this.highlightEnd = -1,
   });
@@ -78,31 +88,42 @@ class ConversationView extends StatelessWidget {
     final mascotSize = (w * 0.35).clamp(140.0, 158.0);
     final bubbleMaxWidth = w * 0.78;
 
+    final mascot = ZoeMascot(
+      mode: mascotSpeaking
+          ? ZoeMascotMode.speaking
+          : mascotThinking
+          ? ZoeMascotMode.thinking
+          : ZoeMascotMode.listening,
+      size: mascotSize,
+      reducedMotion: MediaQuery.of(context).disableAnimations,
+    );
+
     return GardenSkyBackground(
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
+              // Placement progress bar (Figma "Placement Flow"): a thin rounded
+              // track pinned at the very top that fills as the screening
+              // advances. Null on the normal chat (no fixed turn count).
+              if (progress != null) ...[
+                const SizedBox(height: 8),
+                _ProgressBar(value: progress!),
+                const SizedBox(height: 12),
+              ] else
+                const SizedBox(height: 28),
               // Mascot stays fixed at the top — only the bubbles below it
               // scroll.
-              const SizedBox(height: 28),
-              ZoeMascot(
-                mode: mascotSpeaking
-                    ? ZoeMascotMode.speaking
-                    : mascotThinking
-                        ? ZoeMascotMode.thinking
-                        : ZoeMascotMode.listening,
-                size: mascotSize,
-                reducedMotion: MediaQuery.of(context).disableAnimations,
-              ),
+              mascot,
               const SizedBox(height: 18),
               // Latest-turn bubbles live in a scroll region so a long turn can't
               // overflow the screen (or get clipped when the keyboard is up).
               // `reverse: true` pins the newest bubble just above the dock and
               // lets the older text scroll up and disappear under the fixed
               // mascot; the minHeight box keeps short turns top-aligned (right
-              // under the mascot) exactly as before.
+              // under the mascot) exactly as before. In the prepare phase the
+              // mascot + card centre in the space instead (Figma loader frame).
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) => SingleChildScrollView(
@@ -112,6 +133,9 @@ class ConversationView extends StatelessWidget {
                         minHeight: constraints.maxHeight,
                       ),
                       child: Column(
+                        mainAxisAlignment: phase == ConvPhase.prepare
+                            ? MainAxisAlignment.center
+                            : MainAxisAlignment.start,
                         children: [
                           if (phase == ConvPhase.prepare)
                             const _PrepareCard()
@@ -158,6 +182,52 @@ class ConversationView extends StatelessWidget {
   }
 }
 
+// ── Progress bar (placement screening) ───────────────────────────────────────
+
+/// Thin rounded top bar (Figma "Placement Flow"): a pale track with a green
+/// fill that eases toward [value] (0..1). A small min-fill keeps a sliver
+/// visible once the first turn lands (matches the Figma "listening" frame).
+class _ProgressBar extends StatelessWidget {
+  final double value;
+  const _ProgressBar({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final v = value.clamp(0.0, 1.0);
+    return SizedBox(
+      height: 12,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final full = constraints.maxWidth;
+          // Show at least a rounded sliver once any progress exists.
+          final width = v <= 0 ? 0.0 : (v * full).clamp(12.0, full);
+          return Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: EllaColors.greenLight,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOut,
+                width: width,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [EllaColors.greenMain, EllaColors.greenDeep],
+                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(999)),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 // ── Bubbles (latest turn only) ───────────────────────────────────────────────
 
 class _Bubbles extends StatelessWidget {
@@ -184,20 +254,32 @@ class _Bubbles extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (zoeLine != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: _ZoeBubble(
-                text: zoeLine!,
-                onSpeakAgain: onSpeakAgain,
-                speaking: speaking,
-                highlightStart: highlightStart,
-                highlightEnd: highlightEnd,
-              ),
+        // New Zoe turns cross-fade instead of snapping: the switcher is keyed by
+        // the line text, so a changed line fades the old bubble out and the new
+        // one in (~250ms). An empty box for null keeps the layout stable.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 450),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: zoeLine == null
+                  ? const SizedBox(key: ValueKey('zoe-empty'), width: 1)
+                  : _ZoeBubble(
+                      key: ValueKey(zoeLine),
+                      text: zoeLine!,
+                      onSpeakAgain: onSpeakAgain,
+                      speaking: speaking,
+                      highlightStart: highlightStart,
+                      highlightEnd: highlightEnd,
+                    ),
             ),
           ),
+        ),
         if (studentLine != null) ...[
           const SizedBox(height: 10),
           Align(
@@ -221,10 +303,14 @@ class _ZoeBubble extends StatelessWidget {
   /// [speaking].
   final VoidCallback? onSpeakAgain;
   final bool speaking;
+
+  /// Character range `[highlightStart, highlightEnd)` of [text] currently being
+  /// spoken; `-1` disables the karaoke highlight.
   final int highlightStart;
   final int highlightEnd;
 
   const _ZoeBubble({
+    super.key,
     required this.text,
     required this.onSpeakAgain,
     this.speaking = false,
@@ -236,7 +322,7 @@ class _ZoeBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final bubble = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
+      decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
         // Squared top-left "tail" pointing at Zoe; blue info border (#5898E0).
         borderRadius: const BorderRadius.only(
@@ -245,31 +331,62 @@ class _ZoeBubble extends StatelessWidget {
           bottomLeft: Radius.circular(18),
           bottomRight: Radius.circular(18),
         ),
-        border: Border.all(color: EllaColors.info, width: 2.5),
+        side: const BorderSide(color: EllaColors.info, width: 2.5),
       ),
       child: TypewriterText(
-        key: ValueKey(text),
         text: text,
         style: EllaTextStyles.bodySemibold,
         highlightStart: highlightStart,
         highlightEnd: highlightEnd,
+        animate: false,
       ),
     );
 
     if (onSpeakAgain == null) return bubble;
 
-    // Top padding gives the overhanging dot room inside the Stack's bounds so
-    // it stays tappable (hit tests outside a Stack's rect are dropped).
+    // The 40px dot straddles the bubble's top-right corner (Figma "Placement
+    // Flow"): it hangs above and off the right edge. Top padding + the negative
+    // right offset keep it overhanging while still inside the Stack's hit-test
+    // bounds (hit tests outside a Stack's rect are dropped).
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Padding(padding: const EdgeInsets.only(top: 14), child: bubble),
+        Padding(padding: const EdgeInsets.only(top: 20), child: bubble),
         Positioned(
           top: 0,
-          right: 10,
-          child: SpeakerDotButton(active: speaking, onTap: onSpeakAgain),
+          right: -6,
+          child: SpeakerDotButton(
+            active: speaking,
+            onTap: onSpeakAgain,
+            size: 40,
+          ),
         ),
       ],
+    );
+  }
+
+  // Renders the line, tinting the `[highlightStart, highlightEnd)` slice berry
+  // as TTS speaks it (karaoke highlight). Falls back to plain text whenever the
+  // range is absent or out of bounds, so a stale offset can never crash.
+  Widget _highlightedText() {
+    final baseStyle = EllaTextStyles.bodySemiboldLarge;
+    final start = highlightStart;
+    final end = highlightEnd;
+    final hasHighlight =
+        start >= 0 && end > start && end <= text.length;
+    if (!hasHighlight) return Text(text, style: baseStyle);
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          if (start > 0) TextSpan(text: text.substring(0, start)),
+          TextSpan(
+            text: text.substring(start, end),
+            style: const TextStyle(color: EllaColors.berryDark),
+          ),
+          if (end < text.length) TextSpan(text: text.substring(end)),
+        ],
+      ),
     );
   }
 }
@@ -280,26 +397,22 @@ class _StudentBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DottedBorder(
-      color: const Color(0xFFE91E63),
-      strokeWidth: 2.5,
-      dashPattern: const [8, 4],
-      borderType: BorderType.RRect,
-      radius: const Radius.circular(18),
-      padding: const EdgeInsets.all(2),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFCE4EC),
-          borderRadius: BorderRadius.circular(18),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: ellaSmoothDecoration(
+        // Pale pink (#FFF2F7) with a berryDark border and squared bottom-right
+        // tail — matching speaking.svg.
+        color: _studentFill,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(4),
         ),
-        child: SpokenTextFlow(
-          text: text,
-          style: EllaTextStyles.bodySemibold.copyWith(
-            color: const Color(0xFF880E4F),
-          ),
-        ),
+        side: const BorderSide(color: EllaColors.berryDark, width: 2.5),
       ),
+      // Same font/weight as every other line (no italic, even while live).
+      child: Text(text, style: EllaTextStyles.bodySemiboldLarge),
     );
   }
 }
@@ -316,10 +429,10 @@ class _PrepareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      decoration: BoxDecoration(
+      decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: EllaColors.border, width: 1.5),
+        side: const BorderSide(color: EllaColors.border, width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -546,53 +659,13 @@ class _TextDock extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                autofocus: true,
-                textInputAction: TextInputAction.send,
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: onSend == null ? null : (_) => onSend!(),
-                style: EllaTextStyles.bodyBase,
-                decoration: InputDecoration(
-                  hintText: 'Type your reply…',
-                  hintStyle: EllaTextStyles.bodyBase.copyWith(
-                    color: EllaColors.textTertiary,
-                  ),
-                  filled: true,
-                  fillColor: EllaColors.surface,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  border: _border(EllaColors.border),
-                  enabledBorder: _border(EllaColors.border),
-                  focusedBorder: _border(EllaColors.borderStrong),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: withTapClick(onSend),
-              child: Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: EllaColors.berryMain,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: EllaColors.berryDark, width: 2),
-                ),
-                child: const Icon(
-                  Icons.send_rounded,
-                  size: 20,
-                  color: EllaColors.onPrimary,
-                ),
-              ),
-            ),
-          ],
+        // Shared reply composer (Figma node 441:26724) — the same field + berry
+        // paper-plane send button used across placement, conversation and the
+        // name/age onboarding step.
+        ChatReplyComposer(
+          controller: controller,
+          autofocus: true,
+          onSend: onSend,
         ),
         const SizedBox(height: 12),
         GestureDetector(
@@ -603,13 +676,13 @@ class _TextDock extends StatelessWidget {
             children: [
               const Icon(
                 Icons.mic_rounded,
-                size: 18,
+                size: 22,
                 color: EllaColors.greenDeep,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Text(
                 'Switch to Speaking',
-                style: EllaTextStyles.caption.copyWith(
+                style: EllaTextStyles.bodySemiboldLarge.copyWith(
                   color: EllaColors.greenDeep,
                 ),
               ),
@@ -619,9 +692,4 @@ class _TextDock extends StatelessWidget {
       ],
     );
   }
-
-  OutlineInputBorder _border(Color color) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(24),
-    borderSide: BorderSide(color: color, width: 1.5),
-  );
 }

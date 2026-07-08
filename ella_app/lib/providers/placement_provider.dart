@@ -110,6 +110,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
     });
     final doneSub = nativeTts.doneStream.listen((_) {
       state = state.copyWith(
+        status: ChatStatus.idle,
         clearCurrentlySpeaking: true,
         highlightStart: -1,
         highlightEnd: -1,
@@ -315,6 +316,9 @@ class PlacementNotifier extends Notifier<PlacementState> {
     if (state.status != ChatStatus.idle || state.isComplete) return;
     state = state.copyWith(status: ChatStatus.userSpeaking);
     final stt = ref.read(sttProvider);
+    // Lazily init STT (idempotent) so the mic-permission prompt appears on first
+    // voice use rather than at app/screen load.
+    await stt.initialize();
     await stt.startListening(
       onPartial: (partial) =>
           state = state.copyWith(partialStt: partial),
@@ -361,6 +365,23 @@ class PlacementNotifier extends Notifier<PlacementState> {
         highlightEnd: -1,
       );
     }
+  }
+
+  Future<void> replayZoeLine(String text) async {
+    if (state.status != ChatStatus.idle || state.isComplete) return;
+    state = state.copyWith(
+      status: ChatStatus.zoeSpeaking,
+      highlightStart: -1,
+      highlightEnd: -1,
+    );
+    try {
+      await ref.read(ttsProvider).speak(text);
+    } catch (_) {}
+    state = state.copyWith(
+      status: ChatStatus.idle,
+      highlightStart: -1,
+      highlightEnd: -1,
+    );
   }
 }
 

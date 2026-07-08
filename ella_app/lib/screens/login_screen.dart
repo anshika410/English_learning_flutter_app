@@ -1,14 +1,10 @@
 // Login — Figma "Onboarding / Login / Email login / Magic Link" frames.
-// Shares the onboarding scenery (peach→cyan sky, hills, garden blooms) and the
-// live listening Zoe mascot with the Splash screen. CTAs use the app-wide
-// EllaPrimaryButton (flat fill + stamp shadow, same as the Home screen):
-//   • Continue With Google — primary, Google logo in a white disc. On web the
-//     platform-rendered GIS button is used instead (required for iframe auth).
-//   • Continue With Email  — outline variant.
-//   • Send Me a Link       — primary with the play-arrow glyph (Figma).
+// Figma provides visual proportions and assets; layout is responsive so the
+// screens hold up across short, tall, narrow, and high-density phones.
 // Auth logic (Google Sign-In events, web One Tap, magic link) is unchanged.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -17,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_toast.dart';
 import '../providers/chat_provider.dart';
 import '../core/text_styles.dart';
 import '../core/theme_colors.dart';
@@ -27,35 +24,88 @@ import 'child_view/widgets/onboarding_scenery.dart';
 import 'child_view/widgets/zoe_mascot.dart';
 import 'google_sign_in_button.dart';
 
-const String _kGoogleLogoSvg =
-    '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>''';
+const String _kGoogleLoginAsset = 'assets/auth/google-login.svg';
+const String _kEnvelopeOpenAsset = 'assets/auth/envelope-open.svg';
+const String _kPaperPlaneRightAsset = 'assets/auth/paper-plane-right.svg';
+const String _kShieldCheckAsset = 'assets/auth/shield-check.svg';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final EllaApiService? api;
+
+  /// Kept true in production. Tests can disable plugin-backed Google listeners
+  /// while still exercising email and magic-link UI states.
+  final bool enableGoogleAuth;
+
+  const LoginScreen({super.key, this.api, this.enableGoogleAuth = true});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final EllaApiService _api = EllaApiService();
+class _LoginScreenState extends ConsumerState<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  late final EllaApiService _api;
 
-    bool _isLoading = false;
+  bool _isLoading = false;
   bool _showEmailInput = false;
   bool _magicLinkSent = false;
   bool _isSigningIn = false;
+
+  // Intro animation: the mascot slides up into place first, then the title +
+  // login options fade/slide in behind it. Runs once on the initial login stage.
+  late final AnimationController _introController;
+  late final Animation<double> _mascotFade;
+  late final Animation<Offset> _mascotSlide;
+  late final Animation<double> _contentFade;
+  late final Animation<Offset> _contentSlide;
+  bool _introStarted = false;
 
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
-  late final StreamSubscription<gsi.GoogleSignInAuthenticationEvent>
-      _googleSignInSubscription;
+  StreamSubscription<gsi.GoogleSignInAuthenticationEvent>?
+  _googleSignInSubscription;
 
   @override
   void initState() {
     super.initState();
-    _emailFocusNode.addListener(_onFocusChange);
+    _api = widget.api ?? EllaApiService();
+
+    _introController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    );
+    _mascotFade = CurvedAnimation(
+      parent: _introController,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+    _mascotSlide =
+        Tween<Offset>(
+          begin: const Offset(0, 0.5),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _introController,
+            curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+          ),
+        );
+    _contentFade = CurvedAnimation(
+      parent: _introController,
+      curve: const Interval(0.55, 1.0, curve: Curves.easeOut),
+    );
+    _contentSlide =
+        Tween<Offset>(
+          begin: const Offset(0, 0.25),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _introController,
+            curve: const Interval(0.55, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
+
+    if (!widget.enableGoogleAuth) return;
 
     // Listen to Google Sign-In account changes (crucial for Web iframe button clicks)
     _googleSignInSubscription = gsi.GoogleSignIn.instance.authenticationEvents
@@ -76,8 +126,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             } else {
               _showError('Google Login failed on backend.');
             }
-          } else {
-            _showError('Google Login failed: no idToken.');
           }
         } catch (e) {
           _showError('Google Login Error: $e');
@@ -91,8 +139,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (kIsWeb) {
       Future.microtask(() async {
         try {
-          final lightweightAuth =
-              gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+          final lightweightAuth = gsi.GoogleSignIn.instance
+              .attemptLightweightAuthentication();
           if (lightweightAuth != null) {
             final googleUser = await lightweightAuth;
             if (googleUser != null) {
@@ -127,27 +175,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Start the intro once we can read reduced-motion. If animations are
+    // disabled, jump straight to the settled state.
+    if (!_introStarted) {
+      _introStarted = true;
+      if (MediaQuery.of(context).disableAnimations) {
+        _introController.value = 1.0;
+      } else {
+        _introController.forward();
+      }
+    }
+  }
+
+  @override
   void dispose() {
-    _googleSignInSubscription.cancel();
-    _emailFocusNode.removeListener(_onFocusChange);
+    _introController.dispose();
+    _googleSignInSubscription?.cancel();
     _emailFocusNode.dispose();
     _emailController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onFocusChange() {
-    if (_emailFocusNode.hasFocus) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -208,27 +257,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _sendMagicLink() async {
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      _showError('Please enter a valid email address.');
+      // Input-validation feedback keeps its own specific copy (not a server error).
+      showEllaErrorToast(context, 'Please enter a valid email address.');
       return;
     }
 
     setState(() => _isLoading = true);
     final success = await _api.requestMagicLink(email);
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        if (success) {
-          _magicLinkSent = true;
-        } else {
-          _showError('Failed to send magic link. Please try again.');
-        }
-      });
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+      _magicLinkSent = success;
+    });
+    if (!success) {
+      _showError('Failed to send magic link. Please try again.');
     }
   }
 
-  void _showError(String msg) {
+  // Any Google / One-Tap / magic-link backend or network failure surfaces the
+  // one standard server-error toast — the descriptive [debug] string is logged
+  // only, never shown to the user.
+  void _showError(String debug) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    debugPrint('[Login] $debug');
+    showEllaErrorToast(context);
   }
 
   void _resetToButtons() {
@@ -249,66 +302,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF0FAFA),
+        // Don't resize the body when the keyboard opens: the email stage stays
+        // fixed (mascot + title + field + button all hold their positions)
+        // instead of the form re-centring/shifting up as the keyboard appears.
+        resizeToAvoidBottomInset: false,
         body: OnboardingScenery(
           child: Stack(
             children: [
-              // Main Scrollable Content
               SafeArea(
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  slivers: [
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 40,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Spacer(),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final metrics = _AuthLayoutMetrics.from(
+                      Size(constraints.maxWidth, constraints.maxHeight),
+                    );
 
-                            // Listening Zoe — same native mascot animation as
-                            // the Home screen.
-                            ZoeMascot(
-                              mode: ZoeMascotMode.listening,
-                              size: 148,
-                              reducedMotion:
-                                  MediaQuery.of(context).disableAnimations,
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            // Keep the CTA column phone-width on web.
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 360),
-                              child: Column(
-                                children: [
-                                  if (!_magicLinkSent && !_showEmailInput)
-                                    ..._buildLoginButtons()
-                                  else if (_showEmailInput && !_magicLinkSent)
-                                    ..._buildEmailForm()
-                                  else
-                                    ..._buildMagicLinkSent(),
-                                ],
-                              ),
-                            ),
-
-                            const Spacer(),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                    if (!_showEmailInput && !_magicLinkSent) {
+                      return _buildLoginStage(context, metrics);
+                    }
+                    return _buildCenteredStage(
+                      context: context,
+                      metrics: metrics,
+                      child: _showEmailInput && !_magicLinkSent
+                          ? _buildEmailForm(metrics)
+                          : _buildMagicLinkSent(metrics),
+                    );
+                  },
                 ),
               ),
 
               // Back button for the email input / success states.
               if (_showEmailInput || _magicLinkSent)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + 16,
-                  left: 16,
+                  top:
+                      MediaQuery.of(context).padding.top +
+                      _AuthLayoutMetrics.backButtonInsetFor(
+                        MediaQuery.sizeOf(context).height,
+                      ),
+                  left: _AuthLayoutMetrics.horizontalPaddingFor(
+                    MediaQuery.sizeOf(context).width,
+                  ),
                   child: _BackCircleButton(onTap: _resetToButtons),
                 ),
             ],
@@ -318,197 +350,386 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  List<Widget> _buildLoginButtons() {
-    return [
-      Text(
-        'ZoSpeak',
-        style: EllaFonts.bricolage(
-          const TextStyle(
-            fontSize: 44,
-            fontWeight: FontWeight.w700,
-            color: EllaColors.ink,
-          ),
+  Widget _buildLoginStage(BuildContext context, _AuthLayoutMetrics metrics) {
+    return SingleChildScrollView(
+      controller: _scrollController,
+      padding: EdgeInsets.symmetric(horizontal: metrics.horizontalPadding),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: metrics.safeHeight),
+        child: Column(
+          children: [
+            SizedBox(height: metrics.topMascotInset),
+            FadeTransition(
+              opacity: _mascotFade,
+              child: SlideTransition(
+                position: _mascotSlide,
+                child: _buildMascot(metrics),
+              ),
+            ),
+            SizedBox(height: metrics.loginTitleGap),
+            FadeTransition(
+              opacity: _contentFade,
+              child: SlideTransition(
+                position: _contentSlide,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: metrics.contentWidth),
+                  child: Column(
+                    children: [
+                      Text(
+                        'ZoSpeak',
+                        textAlign: TextAlign.center,
+                        style: EllaTextStyles.authDisplay,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Talk More. Grow Your English',
+                        textAlign: TextAlign.center,
+                        style: EllaTextStyles.authTitle,
+                      ),
+                      SizedBox(height: metrics.loginActionsGap),
+                      _buildLoginButtons(metrics),
+                      SizedBox(height: metrics.buttonGap),
+                      _buildPrivacyNote(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: metrics.backdropReserve),
+          ],
         ),
       ),
-      const SizedBox(height: 8),
-      Text(
-        'Talk More. Grow Your English',
-        style: EllaTextStyles.bodySemibold.copyWith(height: 1.2),
-      ),
-      const SizedBox(height: 40),
+    );
+  }
 
-      // Google Login — on web the platform-rendered GIS button must be used
-      // (auth happens inside its iframe); native gets the home-style button.
-      if (kIsWeb)
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: getGoogleSignInButton(),
-        )
-      else
+  Widget _buildCenteredStage({
+    required BuildContext context,
+    required _AuthLayoutMetrics metrics,
+    required Widget child,
+  }) {
+    // Non-scrolling email / magic-link stage: the mascot is pinned near the top
+    // and the form is centred in the available height. With the keyboard up,
+    // resizeToAvoidBottomInset shrinks this area so the form re-centres above the
+    // keyboard — the page itself never scrolls off-screen.
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: metrics.horizontalPadding),
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned(top: metrics.topMascotInset, child: _buildMascot(metrics)),
+          Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: metrics.contentWidth),
+              child: child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMascot(_AuthLayoutMetrics metrics) {
+    return ZoeMascot(
+      mode: ZoeMascotMode.listening,
+      size: metrics.mascotSize,
+      reducedMotion: MediaQuery.of(context).disableAnimations,
+    );
+  }
+
+  Widget _buildLoginButtons(_AuthLayoutMetrics metrics) {
+    final indicatorSize = _clampDouble(metrics.buttonHeight * 0.32, 20, 24);
+
+    return Column(
+      children: [
+        // Google Login — on web the platform-rendered GIS button must be used
+        // (auth happens inside its iframe); native gets the Figma-styled button.
+        if (kIsWeb)
+          SizedBox(
+            width: double.infinity,
+            height: metrics.buttonHeight,
+            child: getGoogleSignInButton(),
+          )
+        else
+          EllaPrimaryButton(
+            label: 'Continue With Google',
+            height: metrics.buttonHeight,
+            horizontalPadding: 16,
+            leadingGap: 12,
+            leading: _isLoading
+                ? SizedBox(
+                    width: indicatorSize,
+                    height: indicatorSize,
+                    child: const CircularProgressIndicator(
+                      color: EllaColors.onPrimary,
+                      strokeWidth: 3,
+                    ),
+                  )
+                : SvgPicture.asset(
+                    _kGoogleLoginAsset,
+                    width: metrics.googleIconSize,
+                    height: metrics.googleIconSize,
+                  ),
+            onTap: _isLoading ? null : _handleGoogleSignIn,
+          ),
+        SizedBox(height: metrics.buttonGap),
+
         EllaPrimaryButton(
-          label: 'Continue With Google',
-          height: 56,
+          label: 'Continue With Email',
+          height: metrics.buttonHeight,
+          horizontalPadding: 16,
+          leadingGap: 12,
+          variant: EllaButtonVariant.outline,
+          leading: SvgPicture.asset(
+            _kEnvelopeOpenAsset,
+            width: metrics.authIconSize,
+            height: metrics.authIconSize,
+          ),
+          onTap: _isLoading
+              ? null
+              : () => setState(() => _showEmailInput = true),
+        ),
+      ],
+    );
+  }
+
+  // Privacy reassurance under the login buttons (Figma 441:26073): shield icon +
+  // body copy, left-aligned.
+  Widget _buildPrivacyNote() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SvgPicture.asset(_kShieldCheckAsset, width: 32, height: 32),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Your learning data stays private and is never shared with anyone',
+            style: EllaTextStyles.authBody.copyWith(fontSize: 15),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmailForm(_AuthLayoutMetrics metrics) {
+    final indicatorSize = _clampDouble(metrics.buttonHeight * 0.32, 20, 24);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Sign In With Email',
+          textAlign: TextAlign.center,
+          style: EllaTextStyles.authTitle,
+        ),
+        SizedBox(height: metrics.emailTitleGap),
+        Text(
+          'We will send you a link. No password needed',
+          textAlign: TextAlign.center,
+          style: EllaTextStyles.authBody,
+        ),
+        SizedBox(height: metrics.formGap),
+        SizedBox(
+          height: metrics.buttonHeight,
+          child: TextField(
+            controller: _emailController,
+            focusNode: _emailFocusNode,
+            keyboardType: TextInputType.emailAddress,
+            textAlignVertical: TextAlignVertical.center,
+            style: EllaTextStyles.authBody,
+            decoration: InputDecoration(
+              hintText: 'Eg. xyz@gmail.com',
+              hintStyle: EllaTextStyles.authBody.copyWith(
+                color: EllaColors.textTertiary,
+              ),
+              filled: true,
+              fillColor: EllaColors.surface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: const BorderSide(
+                  color: EllaColors.border,
+                  width: 1,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: const BorderSide(
+                  color: EllaColors.border,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: const BorderSide(
+                  color: EllaColors.berryDark,
+                  width: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: metrics.formGap),
+        EllaPrimaryButton(
+          label: 'Send Me a Link',
+          height: metrics.buttonHeight,
+          horizontalPadding: 16,
+          leadingGap: 12,
           leading: _isLoading
-              ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
+              ? SizedBox(
+                  width: indicatorSize,
+                  height: indicatorSize,
+                  child: const CircularProgressIndicator(
                     color: EllaColors.onPrimary,
                     strokeWidth: 3,
                   ),
                 )
-              : Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: SvgPicture.string(
-                    _kGoogleLogoSvg,
-                    width: 20,
-                    height: 20,
-                  ),
+              : SvgPicture.asset(
+                  _kPaperPlaneRightAsset,
+                  width: metrics.authIconSize,
+                  height: metrics.authIconSize,
                 ),
-          onTap: _isLoading ? null : _handleGoogleSignIn,
+          onTap: _isLoading ? null : _sendMagicLink,
         ),
-      const SizedBox(height: 16),
-
-      // Email Login Button — outline variant of the same button family.
-      EllaPrimaryButton(
-        label: 'Continue With Email',
-        height: 56,
-        variant: EllaButtonVariant.outline,
-        leading: const Icon(
-          Icons.mail_outline_rounded,
-          size: 22,
-          color: EllaColors.berryDark,
-        ),
-        onTap: _isLoading
-            ? null
-            : () => setState(() => _showEmailInput = true),
-      ),
-      const SizedBox(height: 24),
-      _PrivacyFooter(
-        onReadPolicy: () => Navigator.of(context).pushNamed('/privacy-policy'),
-      ),
-    ];
+      ],
+    );
   }
 
-  List<Widget> _buildEmailForm() {
-    return [
-      Text('Sign In With Email', style: EllaTextStyles.titleSmall),
-      const SizedBox(height: 12),
-      Text(
-        'We will send you a link. No password needed',
-        style: EllaTextStyles.bodySmall.copyWith(
-          color: EllaColors.textSecondary,
+  Widget _buildMagicLinkSent(_AuthLayoutMetrics metrics) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          decoration: BoxDecoration(
+            color: EllaColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: EllaColors.info, width: 3),
+          ),
+          child: Column(
+            children: [
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: EllaTextStyles.authBodySemibold,
+                  children: [
+                    const TextSpan(text: 'We have sent a link to '),
+                    TextSpan(
+                      text: _emailController.text,
+                      style: EllaTextStyles.button.copyWith(
+                        color: EllaColors.berryMain,
+                        letterSpacing: 0.07,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Check your Inbox!',
+                textAlign: TextAlign.center,
+                style: EllaTextStyles.authBodySemibold,
+              ),
+            ],
+          ),
         ),
-      ),
-      const SizedBox(height: 24),
-      TextField(
-        controller: _emailController,
-        focusNode: _emailFocusNode,
-        keyboardType: TextInputType.emailAddress,
-        style: EllaTextStyles.bodyBase,
-        decoration: InputDecoration(
-          hintText: 'Eg. xyz@gmail.com',
-          hintStyle: EllaTextStyles.bodySmall.copyWith(
-            color: EllaColors.textTertiary,
-          ),
-          filled: true,
-          fillColor: EllaColors.surface,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: EllaColors.border, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: EllaColors.border, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: EllaColors.berryDark,
-              width: 1.5,
+        SizedBox(height: metrics.formGap),
+        TextButton(
+          onPressed: withTapClick(_resetToButtons),
+          child: Text(
+            'Use a Different Email',
+            style: EllaTextStyles.authBodySemibold.copyWith(
+              color: EllaColors.berryMain,
             ),
           ),
         ),
-      ),
-      const SizedBox(height: 24),
-      // "Send Me a Link" — primary button with the Figma play-arrow glyph.
-      EllaPrimaryButton(
-        label: 'Send Me a Link',
-        height: 56,
-        leading: _isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  color: EllaColors.onPrimary,
-                  strokeWidth: 3,
-                ),
-              )
-            : const Icon(
-                Icons.play_arrow_rounded,
-                size: 24,
-                color: EllaColors.onPrimary,
-              ),
-        onTap: _isLoading ? null : _sendMagicLink,
-      ),
-    ];
-  }
-
-  List<Widget> _buildMagicLinkSent() {
-    return [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        decoration: BoxDecoration(
-          color: EllaColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: EllaColors.info, width: 1.5),
-        ),
-        child: Column(
-          children: [
-            RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                style: EllaTextStyles.bodySemibold.copyWith(height: 1.5),
-                children: [
-                  const TextSpan(text: 'We have sent a link to '),
-                  TextSpan(
-                    text: _emailController.text,
-                    style: const TextStyle(color: EllaColors.berryDark),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text('Check your Inbox!', style: EllaTextStyles.titleSmall),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-      TextButton(
-        onPressed: withTapClick(_resetToButtons),
-        child: Text(
-          'Use a Different Email',
-          style: EllaTextStyles.button.copyWith(
-            fontSize: 16,
-            color: EllaColors.berryDark,
-          ),
-        ),
-      ),
-    ];
+      ],
+    );
   }
 }
 
-// Round back control — surface disc with a green ring, matching the Figma
-// email-login / magic-link frames.
+class _AuthLayoutMetrics {
+  const _AuthLayoutMetrics({
+    required this.safeWidth,
+    required this.safeHeight,
+    required this.horizontalPadding,
+    required this.contentWidth,
+    required this.mascotSize,
+    required this.topMascotInset,
+    required this.loginTitleGap,
+    required this.loginActionsGap,
+    required this.buttonHeight,
+    required this.buttonGap,
+    required this.formGap,
+    required this.backdropReserve,
+    required this.authIconSize,
+    required this.googleIconSize,
+    required this.emailTitleGap,
+    required this.centeredGroupGap,
+  });
+
+  final double safeWidth;
+  final double safeHeight;
+  final double horizontalPadding;
+  final double contentWidth;
+  final double mascotSize;
+  final double topMascotInset;
+  final double loginTitleGap;
+  final double loginActionsGap;
+  final double buttonHeight;
+  final double buttonGap;
+  final double formGap;
+  final double backdropReserve;
+  final double authIconSize;
+  final double googleIconSize;
+  final double emailTitleGap;
+  final double centeredGroupGap;
+
+  static const double maxContentWidth = 382;
+
+  factory _AuthLayoutMetrics.from(Size safeSize) {
+    final horizontalPadding = horizontalPaddingFor(safeSize.width);
+    final contentWidth = math.min(
+      maxContentWidth,
+      math.max(0.0, safeSize.width - horizontalPadding * 2),
+    );
+    final shortest = safeSize.shortestSide;
+    final height = safeSize.height;
+    final buttonHeight = _clampDouble(height * 0.077, 56, 72);
+
+    return _AuthLayoutMetrics(
+      safeWidth: safeSize.width,
+      safeHeight: safeSize.height,
+      horizontalPadding: horizontalPadding,
+      contentWidth: contentWidth,
+      mascotSize: _clampDouble(shortest * 0.42, 132, 180),
+      topMascotInset: _clampDouble(height * 0.069, 28, 64),
+      loginTitleGap: _clampDouble(height * 0.026, 18, 24),
+      loginActionsGap: _clampDouble(height * 0.043, 28, 40),
+      buttonHeight: buttonHeight,
+      buttonGap: _clampDouble(height * 0.026, 16, 24),
+      formGap: _clampDouble(height * 0.026, 18, 24),
+      backdropReserve: _clampDouble(height * 0.13, 88, 128),
+      authIconSize: _clampDouble(buttonHeight * 0.44, 28, 32),
+      googleIconSize: _clampDouble(buttonHeight * 0.56, 32, 40),
+      emailTitleGap: _clampDouble(height * 0.017, 12, 16),
+      centeredGroupGap: _clampDouble(height * 0.07, 44, 72),
+    );
+  }
+
+  static double horizontalPaddingFor(double width) {
+    return _clampDouble(width * 0.056, 16, 24);
+  }
+
+  static double backButtonInsetFor(double height) {
+    return _clampDouble(height * 0.026, 16, 24);
+  }
+}
+
+double _clampDouble(double value, double min, double max) {
+  return value.clamp(min, max).toDouble();
+}
+
 class _BackCircleButton extends StatelessWidget {
   final VoidCallback onTap;
   const _BackCircleButton({required this.onTap});
@@ -516,56 +737,26 @@ class _BackCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      key: const ValueKey('auth-back-button'),
       behavior: HitTestBehavior.opaque,
       onTap: withTapClick(onTap),
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: EllaColors.surface,
-          shape: BoxShape.circle,
-          border: Border.all(color: EllaColors.greenDark, width: 2),
-        ),
-        child: const Icon(
-          Icons.arrow_back_rounded,
-          size: 22,
-          color: EllaColors.greenDeep,
+      child: Center(
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: EllaColors.greenLight, // #DDF8E8 circle fill
+            shape: BoxShape.circle,
+            border: Border.all(color: EllaColors.greenDeep, width: 2),
+          ),
+          child: const Icon(
+            Icons.arrow_back_rounded,
+            size: 22,
+            color: EllaColors.greenDeep,
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _PrivacyFooter extends StatelessWidget {
-  final VoidCallback onReadPolicy;
-  const _PrivacyFooter({required this.onReadPolicy});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          'Your learning data stays private and is never shared with anyone',
-          textAlign: TextAlign.center,
-          style: EllaTextStyles.bodySmall.copyWith(
-            fontSize: 12,
-            color: EllaColors.textSecondary,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: onReadPolicy,
-          child: Text(
-            'Read Privacy Policy',
-            style: EllaTextStyles.caption.copyWith(
-              color: EllaColors.berryDark,
-              decoration: TextDecoration.underline,
-              decorationColor: EllaColors.berryDark,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

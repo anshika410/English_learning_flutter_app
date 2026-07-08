@@ -10,6 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/app_toast.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import 'chat_bubble.dart';
@@ -117,12 +118,7 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
               loading: () => const Center(
                 child: CircularProgressIndicator(color: Colors.white),
               ),
-              error: (e, _) => Center(
-                child: Text(
-                  'Error: $e',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
+              error: (_, _) => const SizedBox.shrink(),
             ),
           ),
 
@@ -187,9 +183,9 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
   }
 
   void _snack(Object e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    }
+    if (!mounted) return;
+    debugPrint('[ChildChat] $e');
+    showEllaErrorToast(context);
   }
 
   // ── Confirms ──────────────────────────────────────────────────────────────

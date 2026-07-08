@@ -94,42 +94,46 @@ class _SkyScenePainter extends CustomPainter {
   }
 
   void _paintHills(Canvas canvas, double w, double h) {
-    // Back hill — lighter field, gentle hump toward the right.
+    // Back dome — a broad, full-width lighter arch cresting near the top third
+    // (Figma "Rectangle 7": full width, crest ~29% down). It rises from the left
+    // edge, sweeps over a wide crest right-of-centre, and comes down the right
+    // edge, filling everything below.
     final backHill = Path()
-      ..moveTo(0, h * 0.62)
-      ..quadraticBezierTo(w * 0.30, h * 0.50, w * 0.62, h * 0.44)
-      ..quadraticBezierTo(w * 0.82, h * 0.40, w, h * 0.50)
+      ..moveTo(0, h * 0.42)
+      ..cubicTo(w * 0.20, h * 0.30, w * 0.44, h * 0.28, w * 0.60, h * 0.29)
+      ..cubicTo(w * 0.80, h * 0.30, w * 0.92, h * 0.36, w, h * 0.44)
       ..lineTo(w, h)
       ..lineTo(0, h)
       ..close();
     canvas.drawPath(
       backHill,
       Paint()
+        // Figma hill gradient (top half): crest #D7F2C4 → #8DD67C.
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [EllaColors.fieldLight, EllaColors.fieldMain],
-        ).createShader(Rect.fromLTWH(0, h * 0.40, w, h * 0.60)),
+          colors: [Color(0xFFD7F2C4), Color(0xFF8DD67C)],
+        ).createShader(Rect.fromLTWH(0, h * 0.28, w, h * 0.72)),
     );
 
-    // Front hill — deeper field, hump toward the left, overlapping the back one.
+    // Front dome — the big, more-saturated foreground mass anchored to the
+    // bottom-left (Figma "Rectangle 8": x=0, only ~72% of the width). Its
+    // rounded right edge sweeps from the upper-left down to the bottom-right.
     final frontHill = Path()
-      ..moveTo(0, h * 0.74)
-      ..quadraticBezierTo(w * 0.22, h * 0.63, w * 0.44, h * 0.66)
-      ..quadraticBezierTo(w * 0.74, h * 0.70, w, h * 0.82)
-      ..lineTo(w, h)
+      ..moveTo(0, h * 0.40)
+      ..cubicTo(w * 0.18, h * 0.40, w * 0.42, h * 0.42, w * 0.58, h * 0.52)
+      ..cubicTo(w * 0.70, h * 0.60, w * 0.74, h * 0.80, w * 0.72, h)
       ..lineTo(0, h)
       ..close();
     canvas.drawPath(
       frontHill,
       Paint()
-        // Figma foreground ground gradient (#99C963 → #8AC645), lighter than the
-        // old fieldMain→fieldDark ramp.
+        // Figma hill gradient (lower half): #8DD67C → base #4E9A45.
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF99C963), Color(0xFF8AC645)],
-        ).createShader(Rect.fromLTWH(0, h * 0.60, w, h * 0.40)),
+          colors: [Color(0xFF8DD67C), Color(0xFF4E9A45)],
+        ).createShader(Rect.fromLTWH(0, h * 0.40, w, h * 0.60)),
     );
   }
 

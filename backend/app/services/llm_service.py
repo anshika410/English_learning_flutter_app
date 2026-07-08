@@ -441,7 +441,7 @@ def _build_placement_result(data: dict) -> dict:
     import logging
     logging.info(f"Placement JSON interests: {data.get('interests')}")
     return {
-        "reply": None,
+        "reply": data.get("reply"),
         "is_complete": True,
         "name": data.get("name"),
         "age": data.get("age"),

@@ -16,6 +16,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../services/audio_service.dart';
@@ -29,6 +30,8 @@ class EllaPrimaryButton extends StatefulWidget {
   final bool uppercase;
   final BorderRadius borderRadius;
   final EllaButtonVariant variant;
+  final double horizontalPadding;
+  final double leadingGap;
 
   /// Optional leading glyph rendered before the label (e.g. the voice icon on
   /// the home "Let's Talk" CTA). Callers tint it to match [_labelColor].
@@ -42,6 +45,8 @@ class EllaPrimaryButton extends StatefulWidget {
     this.uppercase = false,
     this.variant = EllaButtonVariant.primary,
     this.leading,
+    this.horizontalPadding = 18,
+    this.leadingGap = 10,
     // Pill by default, per the flat-fill button spec.
     this.borderRadius = const BorderRadius.all(Radius.circular(999)),
   });
@@ -57,21 +62,21 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
   bool get _isOutline => widget.variant == EllaButtonVariant.outline;
 
   Color get _fill => switch (widget.variant) {
-        EllaButtonVariant.primary => EllaColors.berryMain,
-        EllaButtonVariant.secondary => EllaColors.greenMain,
-        EllaButtonVariant.outline => EllaColors.surface,
-      };
+    EllaButtonVariant.primary => EllaColors.berryMain,
+    EllaButtonVariant.secondary => EllaColors.greenMain,
+    EllaButtonVariant.outline => EllaColors.surface,
+  };
   // Primary berry edge is berryDeep #7B163C at 3px (matches the mic button);
   // secondary green keeps its greenDark 2px edge. Outline shares the berryDeep
   // edge so the two login CTAs read as one family.
   Color get _edge =>
       _isPrimary || _isOutline ? EllaColors.berryDeep : EllaColors.greenDark;
-  double get _edgeWidth => _isPrimary ? 3 : 2;
+  double get _edgeWidth => _isPrimary || _isOutline ? 3 : 2;
   Color get _labelColor => switch (widget.variant) {
-        EllaButtonVariant.primary => EllaColors.onPrimary,
-        EllaButtonVariant.secondary => EllaColors.ink,
-        EllaButtonVariant.outline => EllaColors.berryDark,
-      };
+    EllaButtonVariant.primary => EllaColors.onPrimary,
+    EllaButtonVariant.secondary => EllaColors.ink,
+    EllaButtonVariant.outline => EllaColors.berryDark,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -97,22 +102,22 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
         transform: Matrix4.translationValues(0, translateY, 0),
         width: double.infinity,
         height: widget.height,
-        decoration: BoxDecoration(
+        decoration: ellaSmoothDecoration(
           color: enabled ? _fill : _fill.withValues(alpha: 0.5),
           borderRadius: widget.borderRadius,
-          border: Border.all(color: _edge, width: _edgeWidth),
-          boxShadow: boxShadow,
+          side: BorderSide(color: _edge, width: _edgeWidth),
+          shadows: boxShadow,
         ),
         // Full-width centred row; the label truncates with "…" at full size
         // rather than shrinking to fit.
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (widget.leading != null) ...[
                 widget.leading!,
-                const SizedBox(width: 10),
+                SizedBox(width: widget.leadingGap),
               ],
               Flexible(
                 child: Text(
@@ -135,7 +140,11 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
 /// moments. Same flat treatment as [EllaPrimaryButton]: 2px stroke + 3px stamp,
 /// no gloss. Icon is onPrimary on berry; ink on green (onPrimary fails AA there).
 class EllaIconButton extends StatefulWidget {
-  final IconData icon;
+  final IconData? icon;
+
+  /// Custom glyph rendered in place of [icon] (e.g. an exported Figma SVG such
+  /// as the paper-plane send icon). Provide exactly one of [icon] / [glyph].
+  final Widget? glyph;
   final VoidCallback? onTap;
   final double size;
 
@@ -144,11 +153,15 @@ class EllaIconButton extends StatefulWidget {
 
   const EllaIconButton({
     super.key,
-    required this.icon,
+    this.icon,
+    this.glyph,
     this.onTap,
     this.size = 60,
     this.secondary = false,
-  });
+  }) : assert(
+         icon != null || glyph != null,
+         'EllaIconButton needs an icon or a glyph',
+       );
 
   @override
   State<EllaIconButton> createState() => _EllaIconButtonState();
@@ -190,7 +203,9 @@ class _EllaIconButtonState extends State<EllaIconButton> {
           boxShadow: boxShadow,
         ),
         child: Center(
-          child: Icon(widget.icon, size: widget.size * 0.5, color: iconColor),
+          child:
+              widget.glyph ??
+              Icon(widget.icon, size: widget.size * 0.5, color: iconColor),
         ),
       ),
     );

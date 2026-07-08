@@ -44,7 +44,9 @@ dependencies:
   audioplayers: ^6.1.0
   path_drawing: ^1.0.1
   dotted_border: ^2.1.0
+  flutter_markdown: ^0.7.6+2
   google_sign_in: ^7.2.0
+  connectivity_plus: ^6.1.0
   app_links: ^7.0.0
   url_launcher: ^6.3.2
   in_app_update: ^4.2.5
@@ -79,6 +81,7 @@ flutter:
   assets:
     - .env
     - assets/mascot-animations/
+    - assets/auth/
     - assets/chillax/
     - assets/homescreen/
     - assets/homescreen/new/
@@ -87,6 +90,7 @@ flutter:
     - assets/garden/props/
     - assets/garden/ambient/
     - assets/garden/tiles/
+    - assets/profile/
     - assets/information-box/
     - assets/sounds/sfx/
     - assets/sounds/music/
