@@ -10,6 +10,7 @@ import '../../providers/chat_provider.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'widgets/profile_scenery.dart';
 import 'widgets/sound_toggle.dart';
