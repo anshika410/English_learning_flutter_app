@@ -645,6 +645,9 @@ class EllaApiService {
     final id = j['id'] as String? ?? j['user_id'] as String? ?? 'api-user';
     final effort = Map<String, dynamic>.from((j['effort'] as Map?) ?? {});
     final interests = (j['interests'] as List? ?? const []).join(', ');
+    final profile = j['profile'] is Map ? Map<String, dynamic>.from(j['profile'] as Map) : null;
+    final name = profile?['name'] as String?;
+    final age = (profile?['age'] as num?)?.toInt();
     return MemoryState(
       childId: id,
       level: j['level'] as String? ?? 'A1',
@@ -661,11 +664,13 @@ class EllaApiService {
       lastTimeRecap: j['last_time_recap'] as String? ?? '',
       nextTopics: j['next_topics'] is Map
           ? NextTopics.fromJson(
-              Map<String, dynamic>.from(j['next_topics'] as Map),
-            )
+               Map<String, dynamic>.from(j['next_topics'] as Map),
+             )
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      name: name,
+      age: age,
       placement: j['placement'] is Map
           ? PlacementInfo.fromJson(
               Map<String, dynamic>.from(j['placement'] as Map),
