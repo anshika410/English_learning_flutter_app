@@ -16,6 +16,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dotted_border/dotted_border.dart';
+import '../chat_bubble.dart';
 
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
@@ -57,6 +59,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   bool _busy = false; // guards the send button during step transitions
 
+  int _highlightStart = -1;
+  int _highlightEnd = -1;
+  bool _speaking = false;
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
+
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating — same pattern as GardenScreen's audio handle).
   late final TtsInterface _tts;
@@ -83,6 +91,26 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void initState() {
     super.initState();
     _tts = ref.read(ttsProvider);
+
+    final nativeTts = ref.read(nativeTtsProvider);
+    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+      if (mounted && _speaking) {
+        setState(() {
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
+
     // saveProfile persisted the name/age the moment they were collected; when
     // they're already cached, resume straight on the first-sprout garden.
     final cached = ref.read(onboardingProvider).valueOrNull;
@@ -105,6 +133,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   @override
   void dispose() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
     _replyCtrl.dispose();
     _replyFocus.dispose();
     // Cut Zoe off if the flow is left mid-utterance.
@@ -119,13 +149,29 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   /// non-fatal — the bubble is on screen either way.
   Future<void> _speak(String text) async {
     final tts = ref.read(ttsProvider);
+    setState(() {
+      _speaking = true;
+      _highlightStart = -1;
+      _highlightEnd = -1;
+    });
     try {
       await tts.stop();
       if (!mounted) return;
       setState(() => _mascot = ZoeMascotMode.speaking);
       await tts.speak(text);
-    } catch (_) {}
-    if (mounted) setState(() => _mascot = ZoeMascotMode.listening);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+        });
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _speaking = false;
+        _mascot = ZoeMascotMode.listening;
+      });
+    }
   }
 
   /// Sound-button replays: a no-op while TTS is already speaking, so a tap can
@@ -312,6 +358,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             keyboardType: _step == _Step.age 
                 ? TextInputType.number 
                 : TextInputType.text,
+            highlightStart: _highlightStart,
+            highlightEnd: _highlightEnd,
+            speaking: _speaking,
           ),
         ),
       ),
@@ -333,6 +382,9 @@ class _ChatStep extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onReplay;
   final TextInputType keyboardType;
+  final int highlightStart;
+  final int highlightEnd;
+  final bool speaking;
 
   const _ChatStep({
     super.key,
@@ -347,6 +399,9 @@ class _ChatStep extends StatelessWidget {
     required this.onSend,
     required this.onReplay,
     this.keyboardType = TextInputType.text,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+    this.speaking = false,
   });
 
   @override
@@ -378,6 +433,9 @@ class _ChatStep extends StatelessWidget {
                       key: ValueKey(zoeText),
                       text: zoeText,
                       onReplay: onReplay,
+                      highlightStart: highlightStart,
+                      highlightEnd: highlightEnd,
+                      speaking: speaking,
                     ),
                   ),
                   if (userReply != null) ...[
@@ -412,8 +470,18 @@ class _ChatStep extends StatelessWidget {
 class _ZoeBubble extends StatelessWidget {
   final String text;
   final VoidCallback onReplay;
+  final int highlightStart;
+  final int highlightEnd;
+  final bool speaking;
 
-  const _ZoeBubble({super.key, required this.text, required this.onReplay});
+  const _ZoeBubble({
+    super.key,
+    required this.text,
+    required this.onReplay,
+    this.highlightStart = -1,
+    this.highlightEnd = -1,
+    this.speaking = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -442,7 +510,13 @@ class _ZoeBubble extends StatelessWidget {
               ),
             ],
           ),
-          child: Text(text, style: EllaTextStyles.bodySemibold),
+          child: TypewriterText(
+            text: text,
+            style: EllaTextStyles.bodySemibold,
+            highlightStart: highlightStart,
+            highlightEnd: highlightEnd,
+            animate: false,
+          ),
         ),
         Positioned(
           top: -14,
@@ -454,12 +528,12 @@ class _ZoeBubble extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: EllaColors.berryMain,
+                color: speaking ? EllaColors.berryDark : EllaColors.berryMain,
                 shape: BoxShape.circle,
                 border: Border.all(color: EllaColors.berryDeep, width: 2),
               ),
-              child: const Icon(
-                Icons.volume_up_rounded,
+              child: Icon(
+                speaking ? Icons.volume_off_rounded : Icons.volume_up_rounded,
                 size: 18,
                 color: EllaColors.onPrimary,
               ),
@@ -488,25 +562,28 @@ class _UserBubble extends StatelessWidget {
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.72,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: ellaSmoothDecoration(
-        color: _fill,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(18),
-          topRight: Radius.circular(18),
-          bottomLeft: Radius.circular(18),
-          bottomRight: Radius.circular(4),
-        ),
-        side: const BorderSide(color: EllaColors.berryDark, width: 2.5),
-        shadows: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            offset: const Offset(0, 3),
-            blurRadius: 8,
+      child: DottedBorder(
+        color: const Color(0xFFE91E63),
+        strokeWidth: 2.5,
+        dashPattern: const [8, 4],
+        borderType: BorderType.RRect,
+        radius: const Radius.circular(18),
+        padding: const EdgeInsets.all(2),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: _fill,
+            borderRadius: BorderRadius.circular(18),
           ),
-        ],
+          child: SpokenTextFlow(
+            text: text,
+            style: EllaTextStyles.bodySemibold.copyWith(
+              color: const Color(0xFF880E4F),
+            ),
+          ),
+        ),
       ),
-      child: Text(text, style: EllaTextStyles.bodySemibold),
     );
   }
 }
