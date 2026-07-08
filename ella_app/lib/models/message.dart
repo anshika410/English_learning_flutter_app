@@ -17,7 +17,12 @@ class ChatMessage {
   })  : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
         timestamp = timestamp ?? DateTime.now(),
         text = sender == MessageSender.zoe
-            ? text.replaceAll('"', '').replaceAll('“', '').replaceAll('”', '')
+            ? text
+                .replaceAll('"', '')
+                .replaceAll('“', '')
+                .replaceAll('”', '')
+                .replaceAll('**', '')
+                .replaceAll('*', '')
             : text;
 
   // transcript table row — matches ELLA-Final-Build-Spec.md Part C.
