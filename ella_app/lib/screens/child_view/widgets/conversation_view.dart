@@ -111,10 +111,12 @@ class ConversationView extends StatelessWidget {
                 const SizedBox(height: 12),
               ] else
                 const SizedBox(height: 28),
-              // Mascot stays fixed at the top — only the bubbles below it
-              // scroll.
-              mascot,
-              const SizedBox(height: 18),
+              // During prepare phase, mascot and card are centered together.
+              // Otherwise, mascot stays fixed at the top.
+              if (phase != ConvPhase.prepare) ...[
+                mascot,
+                const SizedBox(height: 18),
+              ],
               // Latest-turn bubbles live in a scroll region so a long turn can't
               // overflow the screen (or get clipped when the keyboard is up).
               // `reverse: true` pins the newest bubble just above the dock and
@@ -135,9 +137,11 @@ class ConversationView extends StatelessWidget {
                             ? MainAxisAlignment.center
                             : MainAxisAlignment.start,
                         children: [
-                          if (phase == ConvPhase.prepare)
-                            const _PrepareCard()
-                          else
+                          if (phase == ConvPhase.prepare) ...[
+                            mascot,
+                            const SizedBox(height: 18),
+                            const _PrepareCard(),
+                          ] else
                             _Bubbles(
                               zoeLine: zoeLine,
                               studentLine: studentLine,
@@ -401,27 +405,26 @@ class _PrepareCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: EllaColors.border, width: 1.5),
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: EllaColors.info, width: 3),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
             Icons.hourglass_bottom_rounded,
-            size: 24,
-            color: EllaColors.textSecondary,
+            size: 28,
+            color: EllaColors.ink,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
-            'Preparing your conversation.\nHang on a moment…',
+            'Getting things ready...',
             textAlign: TextAlign.center,
-            style: EllaTextStyles.bodySmall.copyWith(
-              height: 1.4,
-              color: EllaColors.textSecondary,
+            style: EllaTextStyles.bodySemiboldLarge.copyWith(
+              color: EllaColors.ink,
             ),
           ),
         ],

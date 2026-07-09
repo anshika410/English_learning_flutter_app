@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'widgets/profile_scenery.dart';
 import 'widgets/sound_toggle.dart';
 import 'widgets/edit_profile_dialog.dart';
+import 'widgets/mascot_loading_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -246,10 +247,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: EllaColors.canvas,
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const MascotLoadingScreen(message: 'Loading profile...');
     }
 
     final initial = _name.isNotEmpty ? _name[0].toUpperCase() : 'S';

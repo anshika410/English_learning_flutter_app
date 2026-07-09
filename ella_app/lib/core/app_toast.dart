@@ -11,7 +11,7 @@ import 'theme_colors.dart';
 
 /// The single copy shown for any backend / server-side failure across the app.
 const String kGenericServerErrorMessage =
-    'There is some issue please try again later';
+    'Something went wrong. Please try again later.';
 
 /// Shows the standard server-error toast. Pass a custom [message] only for a
 /// deliberately different, non-server message (input validation stays as its

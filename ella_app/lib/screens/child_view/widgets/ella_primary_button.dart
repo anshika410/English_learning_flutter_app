@@ -123,9 +123,12 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
                 child: Text(
                   widget.uppercase ? widget.label.toUpperCase() : widget.label,
                   textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: EllaTextStyles.button.copyWith(color: _labelColor),
+                  maxLines: 2,
+                  overflow: TextOverflow.visible,
+                  style: EllaTextStyles.button.copyWith(
+                    color: _labelColor,
+                    height: 1.15,
+                  ),
                 ),
               ),
             ],

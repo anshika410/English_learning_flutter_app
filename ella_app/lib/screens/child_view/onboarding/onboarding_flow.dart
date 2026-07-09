@@ -242,7 +242,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         // Re-ask as Zoe's next bubble (child's reply shown, Zoe asks again).
         await _reask(
           typed,
-          "I couldn't get your name properly. Can you tell me your name again?",
+          "Hmm, I don't think that was your name. Can you tell me your name again?",
         );
         return;
       }
