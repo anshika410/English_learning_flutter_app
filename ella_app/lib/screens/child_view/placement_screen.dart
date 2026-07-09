@@ -173,17 +173,33 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     } catch (e) {
       _snack(e);
     }
-    // Speak the farewell with the speaking animation, then hold a beat so it can
-    // land before the transition. Cap the total wait so a slow/failed TTS still
-    // advances promptly.
+
     if (!mounted) return;
-    final reducedMotion = MediaQuery.of(context).disableAnimations;
+
+    // First stop any current speech explicitly to clear active playback
+    final nativeTts = ref.read(nativeTtsProvider);
+    await nativeTts.stop();
+    // Allow any pending stop callback events to drain from the native channel
+    await Future.delayed(const Duration(milliseconds: 150));
+
+    // Safety net: force navigation after 4.5 seconds if TTS done callback fails
+    final safetyTimer = Timer(const Duration(milliseconds: 4500), _goToComplete);
+
+    // Listen for TTS done stream to transition as soon as speech finishes
+    StreamSubscription? doneSub;
+    doneSub = nativeTts.doneStream.listen((_) {
+      safetyTimer.cancel();
+      doneSub?.cancel();
+      Future.delayed(const Duration(milliseconds: 400), _goToComplete);
+    });
+
     try {
-      await ref.read(ttsProvider).speak(_closingLine());
-    } catch (_) {}
-    if (!mounted) return;
-    await Future.delayed(Duration(milliseconds: reducedMotion ? 0 : 800));
-    _goToComplete();
+      await nativeTts.speak(_closingLine());
+    } catch (_) {
+      safetyTimer.cancel();
+      doneSub.cancel();
+      _goToComplete();
+    }
   }
 
   void _snack(Object e) {

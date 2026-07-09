@@ -111,10 +111,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
     _ => _Phase.empty,
   };
 
-  int _highlightStart = -1;
-  int _highlightEnd = -1;
-  StreamSubscription? _ttsProgressSub;
-  StreamSubscription? _ttsDoneSub;
+
 
   final List<Timer> _timers = [];
   bool _started = false;
@@ -158,23 +155,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
     _audio = ref.read(audioProvider);
     _audio.playMusic(Sounds.gardenMusic);
 
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
-      if (mounted) {
-        setState(() {
-          _highlightStart = event.start;
-          _highlightEnd = event.end;
-        });
-      }
-    });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
-      if (mounted) {
-        setState(() {
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-    });
+
   }
 
   @override
@@ -425,8 +406,6 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
 
   @override
   void dispose() {
-    _ttsProgressSub?.cancel();
-    _ttsDoneSub?.cancel();
     for (final timer in _timers) {
       timer.cancel();
     }
@@ -507,10 +486,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                         metrics: metrics,
                         zoeMode: _zoeMode,
                         reducedMotion: _reducedMotion,
-                        bubble: _RevealBubble(
-                          highlightStart: _highlightStart,
-                          highlightEnd: _highlightEnd,
-                        ),
+                        bubble: const _RevealBubble(),
                       )
                     : _sproutRevealLayerOn
                     ? _RevealCallout(
@@ -519,10 +495,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                         zoeMode: _zoeMode,
                         reducedMotion: _reducedMotion,
                         placementStyle: true,
-                        bubble: _PlacementSproutBubble(
-                          highlightStart: _highlightStart,
-                          highlightEnd: _highlightEnd,
-                        ),
+                        bubble: const _PlacementSproutBubble(),
                       )
                     : _placementRevealLayerOn
                     ? _RevealCallout(
@@ -531,10 +504,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
                         zoeMode: _zoeMode,
                         reducedMotion: _reducedMotion,
                         placementStyle: true,
-                        bubble: _PlacementBloomBubble(
-                          highlightStart: _highlightStart,
-                          highlightEnd: _highlightEnd,
-                        ),
+                        bubble: const _PlacementBloomBubble(),
                       )
                     : const SizedBox.shrink(),
               ),
@@ -1126,43 +1096,26 @@ class _RevealCallout extends StatelessWidget {
 }
 
 class _RevealBubble extends StatelessWidget {
-  final int highlightStart;
-  final int highlightEnd;
-  const _RevealBubble({
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
-  });
+  const _RevealBubble();
 
   @override
   Widget build(BuildContext context) {
-    return SpotlightCalloutBubble(
-      key: const ValueKey('placement-garden-reveal-bubble'),
+    return const SpotlightCalloutBubble(
+      key: ValueKey('placement-garden-reveal-bubble'),
       title: 'Look, your first plant',
       body: 'Every conversation grows something new here',
-      highlightStart: highlightStart,
-      highlightEnd: highlightEnd,
+      highlightStart: -1,
+      highlightEnd: -1,
     );
   }
 }
 
 class _PlacementBloomBubble extends StatelessWidget {
-  final int highlightStart;
-  final int highlightEnd;
-  const _PlacementBloomBubble({
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
-  });
+  const _PlacementBloomBubble();
 
   @override
   Widget build(BuildContext context) {
     final title = 'Your flower is blooming!';
-    final titleHighlightStart = highlightStart < title.length ? highlightStart : -1;
-    final titleHighlightEnd = highlightStart < title.length ? highlightEnd : -1;
-
-    final titleLength = title.length + 1; // account for newline
-    final bodyHighlightStart = highlightStart >= titleLength ? highlightStart - titleLength : -1;
-    final bodyHighlightEnd = highlightStart >= titleLength ? highlightEnd - titleLength : -1;
-
     return Container(
       key: const ValueKey('placement-garden-bloom-bubble'),
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
@@ -1189,8 +1142,6 @@ class _PlacementBloomBubble extends StatelessWidget {
                   style: EllaTextStyles.bodySemiboldLarge.copyWith(
                     color: EllaColors.greenDeep,
                   ),
-                  highlightStart: titleHighlightStart,
-                  highlightEnd: titleHighlightEnd,
                   animate: false,
                 ),
               ),
@@ -1204,8 +1155,6 @@ class _PlacementBloomBubble extends StatelessWidget {
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.ink,
             ),
-            highlightStart: bodyHighlightStart,
-            highlightEnd: bodyHighlightEnd,
             animate: false,
           ),
         ],
@@ -1218,23 +1167,11 @@ class _PlacementBloomBubble extends StatelessWidget {
 /// leading the first line, then the encouragement to talk again. Same shell as
 /// the bloom bubble so the two spotlight callouts read consistently.
 class _PlacementSproutBubble extends StatelessWidget {
-  final int highlightStart;
-  final int highlightEnd;
-  const _PlacementSproutBubble({
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
-  });
+  const _PlacementSproutBubble();
 
   @override
   Widget build(BuildContext context) {
     final title = 'Your plant is soaking up';
-    final titleHighlightStart = highlightStart < title.length ? highlightStart : -1;
-    final titleHighlightEnd = highlightStart < title.length ? highlightEnd : -1;
-
-    final titleLength = title.length + 1; // account for space/newline
-    final bodyHighlightStart = highlightStart >= titleLength ? highlightStart - titleLength : -1;
-    final bodyHighlightEnd = highlightStart >= titleLength ? highlightEnd - titleLength : -1;
-
     return Container(
       key: const ValueKey('placement-garden-sprout-bubble'),
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
@@ -1264,8 +1201,6 @@ class _PlacementSproutBubble extends StatelessWidget {
                   style: EllaTextStyles.bodySemiboldLarge.copyWith(
                     color: EllaColors.greenDeep,
                   ),
-                  highlightStart: titleHighlightStart,
-                  highlightEnd: titleHighlightEnd,
                   animate: false,
                 ),
               ),
@@ -1277,8 +1212,6 @@ class _PlacementSproutBubble extends StatelessWidget {
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.greenDeep,
             ),
-            highlightStart: bodyHighlightStart,
-            highlightEnd: bodyHighlightEnd,
             animate: false,
           ),
         ],
