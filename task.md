@@ -1,9 +1,7 @@
-- [x] Update LLM Judge prompt in `frontend/assets/prompts/end-result-prompt.md`
-- [x] Add `zoe_recap` column to `backend/app/models/session_analysis.py`
-- [x] Update `llm.py` and `user.py` Schemas
-- [x] Save `zoe_recap` in `backend/app/routers/analysis_shared.py`
-- [x] Retrieve and expose `last_time_recap` in `backend/app/routers/users.py`
-- [x] Update loop simulator `docs/loop-simulator.html` to show `last_time_recap` in Memory Tab
-- [x] Test compile checks locally
-- [x] Commit, push, and deploy updates to the production server
-- [x] Verify that zoe_recap is generated at the end of a conversation
+# Garden Analytics Dashboard Checklist
+
+- [x] Update `AdminUserOut` schema and `admin_stats()` response in `backend/app/routers/admin.py`
+- [x] Add the "Progress" column to the user table in `ella-admin.html`
+- [x] Implement the detailed skills and speech evidence progress Modal in `ella-admin.html`
+- [x] Verify backend compilation
+- [/] Deploy and verify the dashboard visual styling and data loading

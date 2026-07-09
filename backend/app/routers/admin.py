@@ -33,6 +33,7 @@ class AdminUserOut(BaseModel):
     completed_sessions: int
     total_speaking_seconds: int
     created_at: datetime
+    skills_progress: dict | None = None
 
 
 class AdminConversationOut(BaseModel):
@@ -121,6 +122,7 @@ async def admin_stats(
             completed_sessions=completed,
             total_speaking_seconds=stats["speaking_secs"],
             created_at=u.created_at,
+            skills_progress=u.skills_progress,
         ))
 
     # Recent conversations with message counts
@@ -276,6 +278,56 @@ async def get_admin_prompts():
         )
 
 
+class JumpRequest(BaseModel):
+    email: str
+    level: str  # A0, A1, A2, B1, B2, C1
+    reset_progress: bool = False  # if True, wipes skills_progress so unit starts fresh
+
+
+@router.post("/jump")
+async def jump_user_to_level(
+    body: JumpRequest,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    🚀 Jump API — instantly move any user to any CEFR level by email.
+    Perfect for QA and PM testing without going through placement.
+
+    - email: the user's registered email address
+    - level: one of A0, A1, A2, B1, B2, C1
+    - reset_progress: set true to start fresh at Unit 1 of that level (recommended for clean testing)
+
+    After calling this, just open the app — Zoe will immediately behave at the new level.
+    """
+    valid_levels = {"A0", "A1", "A2", "B1", "B2", "C1"}
+    if body.level.upper() not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"Invalid level. Must be one of: {sorted(valid_levels)}")
+
+    result = await db.execute(select(User).where(User.email == body.email.lower().strip()))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"No user found with email '{body.email}'")
+
+    user.level = body.level.upper()
+
+    if body.reset_progress:
+        user.skills_progress = {
+            "owned": [], "emerging": [], "sightings": {},
+            "strength": {}, "last_seen": {}, "effort": {"times_spoken_total": 0}
+        }
+        user.due_next = {}
+
+    db.add(user)
+    await db.flush()
+
+    return {
+        "status": "ok",
+        "email": body.email,
+        "level": user.level,
+        "progress_reset": body.reset_progress,
+        "message": f"User '{body.email}' is now at level {user.level}. Open the app to start a session.",
+    }
 @router.delete("/reset-user/{device_id}")
 async def reset_user(
     device_id: str,
@@ -314,3 +366,13 @@ async def reset_user(
         "user_id": user.id,
         "message": "All placements deleted. Level, skills, memory reset to fresh state."
     }
+
+
+@router.get("/curriculum")
+async def get_admin_curriculum(
+    _: None = Depends(_check_key),
+):
+    """Get dynamic curriculum structure representing levels, steps, and flat skills."""
+    from ..core.curriculum_data import UNITS
+    return UNITS
+

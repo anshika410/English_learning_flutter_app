@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'analytics_service.dart';
 import '../models/child_memory.dart';
 import '../models/garden.dart';
 import '../models/home_topic.dart';
@@ -118,6 +119,10 @@ class EllaApiService {
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
         await saveTokens(accessToken, userId);
+        try {
+          await AnalyticsService.setUserProfile(userId: userId);
+          await AnalyticsService.logLogin('anonymous');
+        } catch (_) {}
         return true;
       }
       return false;
@@ -140,6 +145,10 @@ class EllaApiService {
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
         await saveTokens(accessToken, userId);
+        try {
+          await AnalyticsService.setUserProfile(userId: userId);
+          await AnalyticsService.logLogin('google');
+        } catch (_) {}
         return true;
       }
       return false;

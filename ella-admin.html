@@ -71,6 +71,42 @@
     .refresh-btn:hover { background: rgba(255,255,255,0.1); }
     .zoe-dot { width: 8px; height: 8px; border-radius: 50%; background: #4CAF82; display: inline-block; margin-right: 6px; }
     
+    /* Garden modal layout and components */
+    .garden-modal-box { max-width: 800px !important; }
+    .progress-stacked { display: flex; height: 20px; border-radius: 10px; overflow: hidden; background: #eee; margin: 16px 0; }
+    .progress-segment { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; transition: width 0.3s ease; }
+    .progress-segment.owned { background: #10b981; }
+    .progress-segment.emerging { background: #f59e0b; }
+    .progress-segment.locked { background: #9ca3af; }
+    .progress-legend { display: flex; gap: 16px; font-size: 12px; margin-bottom: 20px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-box { width: 12px; height: 12px; border-radius: 3px; }
+    .legend-box.owned { background: #10b981; }
+    .legend-box.emerging { background: #f59e0b; }
+    .legend-box.locked { background: #9ca3af; }
+    
+    .unit-card { background: #FDFBFA; border: 1px solid #F0E4CC; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .unit-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #2C1E0F; border-bottom: 1px solid #F5EFE0; padding-bottom: 8px; }
+    .skills-list { display: flex; flex-direction: column; gap: 10px; }
+    .skill-row { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 8px; background: #FFFDF8; border: 1px solid #FAF6EE; }
+    .skill-meta { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+    .skill-title { font-weight: 600; color: #2C1E0F; }
+    .skill-id { font-size: 11px; color: #8C7C6D; background: #F5EFE0; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
+    
+    .status-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; }
+    .status-badge.owned { background: #E6FDF4; color: #059669; }
+    .status-badge.emerging { background: #FFFBEB; color: #D97706; }
+    .status-badge.locked { background: #F3F4F6; color: #6B7280; }
+    
+    .evidence-box { margin-top: 6px; padding: 8px 12px; background: #FDFCF7; border-left: 2.5px solid #10b981; border-radius: 0 6px 6px 0; font-size: 12.5px; color: #5C4D3C; font-style: italic; }
+    .evidence-item { margin-bottom: 4px; }
+    .evidence-item:last-child { margin-bottom: 0; }
+    .evidence-topic { font-size: 10px; color: #A08C75; font-style: normal; margin-top: 2px; }
+    
+    .mini-progress-bar { background: #EAE5D9; height: 6px; border-radius: 3px; overflow: hidden; width: 80px; display: inline-block; vertical-align: middle; margin-left: 8px; }
+    .mini-progress-fill { background: #10b981; height: 100%; border-radius: 3px; }
+
+    
     /* Metrics tab navigation and layout */
     .tab-btn {
       background: none;
@@ -191,8 +227,9 @@
                 <th>Location</th>
                 <th>Level</th>
                 <th>Label</th>
+                <th>Progress</th>
                 <th>Joined</th>
-                <th>Transcript</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="users-table"></tbody>
@@ -328,9 +365,19 @@
   </div>
 </div>
 
+<!-- Garden modal -->
+<div class="modal" id="garden-modal">
+  <div class="modal-box garden-modal-box">
+    <button class="modal-close" onclick="closeGardenModal()">×</button>
+    <h3 id="garden-modal-title">Student Garden & Skill Progress</h3>
+    <div id="garden-modal-content"></div>
+  </div>
+</div>
+
 <script>
   let BASE_URL = '';
   let ADMIN_KEY = '';
+  let CURRICULUM = null;
 
   const LEVEL_COLORS = { A1: '#f59e0b', A2: '#3b82f6', B1: '#10b981', B2: '#8b5cf6', C1: '#ec4899' };
 
@@ -382,9 +429,10 @@
     document.getElementById('error').style.display = 'none';
 
     try {
-      const [statsRes, metricsRes] = await Promise.all([
+      const [statsRes, metricsRes, curriculumRes] = await Promise.all([
         fetch(`${BASE_URL}/admin/stats?key=${encodeURIComponent(ADMIN_KEY)}`),
-        fetch(`${BASE_URL}/admin/metrics?key=${encodeURIComponent(ADMIN_KEY)}`)
+        fetch(`${BASE_URL}/admin/metrics?key=${encodeURIComponent(ADMIN_KEY)}`),
+        fetch(`${BASE_URL}/admin/curriculum?key=${encodeURIComponent(ADMIN_KEY)}`)
       ]);
 
       if (!statsRes.ok) {
@@ -395,9 +443,14 @@
         const err = await metricsRes.json().catch(() => ({ detail: metricsRes.statusText }));
         throw new Error(`Metrics Error: ${err.detail || metricsRes.status}`);
       }
+      if (!curriculumRes.ok) {
+        const err = await curriculumRes.json().catch(() => ({ detail: curriculumRes.statusText }));
+        throw new Error(`Curriculum Error: ${err.detail || curriculumRes.status}`);
+      }
 
       const statsData = await statsRes.json();
       const metricsData = await metricsRes.json();
+      CURRICULUM = await curriculumRes.json();
 
       renderDashboard(statsData);
       renderMetrics(metricsData);
@@ -407,6 +460,32 @@
     } finally {
       document.getElementById('loading').style.display = 'none';
     }
+  }
+
+  function getUserProgressHTML(u) {
+    if (!u.level || !CURRICULUM) return '—';
+    const steps = CURRICULUM[u.level.toUpperCase()] || [];
+    let totalSkills = 0;
+    steps.forEach(step => totalSkills += step.skills.length);
+    if (totalSkills === 0) return '—';
+    
+    const ownedList = (u.skills_progress && u.skills_progress.owned) || [];
+    let ownedCount = 0;
+    steps.forEach(step => {
+      step.skills.forEach(s => {
+        if (ownedList.includes(s.id)) ownedCount++;
+      });
+    });
+    
+    const pct = Math.round((ownedCount / totalSkills) * 100);
+    return `
+      <div style="white-space: nowrap; display: flex; align-items: center; gap: 8px;">
+        <strong>${ownedCount}/${totalSkills}</strong>
+        <div class="mini-progress-bar" title="${pct}% mastered">
+          <div class="mini-progress-fill" style="width: ${pct}%"></div>
+        </div>
+      </div>
+    `;
   }
 
   function renderDashboard(data) {
@@ -433,6 +512,8 @@
       `).join('');
     document.getElementById('level-bar').innerHTML = levelBar || '<span style="color:#888;font-size:13px">No placement data yet</span>';
 
+    window.USERS = data.users;
+
     const sorted = [...data.users].sort((a, b) => {
       if (a.level && !b.level) return -1;
       if (!a.level && b.level) return 1;
@@ -447,10 +528,16 @@
         <td>${u.location || '—'}</td>
         <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
         <td>${u.level_label || '—'}</td>
+        <td>${getUserProgressHTML(u)}</td>
         <td>${formatDate(u.created_at)}</td>
-        <td>${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">View</button>` : '—'}</td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
+            ${u.level ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
+          </div>
+        </td>
       </tr>
-    `).join('') || '<tr><td colspan="7" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
+    `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
 
     document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
       <tr>
@@ -594,6 +681,157 @@
 
   function closeModal() {
     document.getElementById('transcript-modal').classList.remove('open');
+  }
+
+  const GARDEN_NAMES = {
+    A0: 'Dawn Glade',
+    A1: 'Morning Meadow',
+    A2: 'Midday Grove',
+    B1: 'Golden Orchard',
+    B2: 'Twilight Valley',
+    C1: 'Starlight Summit'
+  };
+
+  function viewStudentGarden(userId) {
+    const u = (window.USERS || []).find(x => x.id === userId);
+    if (!u) return;
+
+    const name = u.name || 'Student';
+    document.getElementById('garden-modal-title').textContent = `${name} — Garden & Skill Progress`;
+    document.getElementById('garden-modal').classList.add('open');
+
+    if (!u.level) {
+      document.getElementById('garden-modal-content').innerHTML = '<p style="color:#aaa;padding:20px;text-align:center;">No level assigned yet (placement screening pending).</p>';
+      return;
+    }
+
+    if (!CURRICULUM) {
+      document.getElementById('garden-modal-content').innerHTML = '<p style="color:#aaa;padding:20px;text-align:center;">Curriculum data not loaded.</p>';
+      return;
+    }
+
+    const levelUpper = u.level.toUpperCase();
+    const steps = CURRICULUM[levelUpper] || [];
+    const gardenName = GARDEN_NAMES[levelUpper] || 'Unknown Garden';
+    
+    // Calculate progress segments
+    let totalSkills = 0;
+    steps.forEach(step => totalSkills += step.skills.length);
+
+    const progress = u.skills_progress || {};
+    const ownedList = progress.owned || [];
+    const emergingList = progress.emerging || [];
+
+    let ownedCount = 0;
+    let emergingCount = 0;
+    steps.forEach(step => {
+      step.skills.forEach(s => {
+        if (ownedList.includes(s.id)) ownedCount++;
+        else if (emergingList.includes(s.id)) emergingCount++;
+      });
+    });
+
+    const lockedCount = totalSkills - (ownedCount + emergingCount);
+
+    const ownedPct = totalSkills > 0 ? Math.round((ownedCount / totalSkills) * 100) : 0;
+    const emergingPct = totalSkills > 0 ? Math.round((emergingCount / totalSkills) * 100) : 0;
+    const lockedPct = totalSkills > 0 ? (100 - ownedPct - emergingPct) : 100;
+
+    // Render header details & progress bar
+    let html = `
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 15px; margin-bottom: 6px; color: #2C1E0F;">
+          <strong>Active Garden:</strong> <span style="color: #FF9500; font-weight:700;">${gardenName}</span> (CEFR Level ${u.level})
+        </div>
+        <div style="font-size: 13px; color: #6B5740;">
+          Level Progress: <strong>${ownedCount} Mastered</strong>, <strong>${emergingCount} Emerging</strong>, <strong>${lockedCount} Locked</strong> (out of ${totalSkills} total)
+        </div>
+        
+        <div class="progress-stacked">
+          ${ownedPct > 0 ? `<div class="progress-segment owned" style="width: ${ownedPct}%;" title="${ownedCount} Mastered (${ownedPct}%)">${ownedPct >= 8 ? ownedPct + '%' : ''}</div>` : ''}
+          ${emergingPct > 0 ? `<div class="progress-segment emerging" style="width: ${emergingPct}%;" title="${emergingCount} Emerging (${emergingPct}%)">${emergingPct >= 8 ? emergingPct + '%' : ''}</div>` : ''}
+          ${lockedPct > 0 ? `<div class="progress-segment locked" style="width: ${lockedPct}%;" title="${lockedCount} Locked (${lockedPct}%)">${lockedPct >= 8 ? lockedPct + '%' : ''}</div>` : ''}
+        </div>
+        
+        <div class="progress-legend">
+          <div class="legend-item"><div class="legend-box owned"></div><span>Mastered (${ownedCount})</span></div>
+          <div class="legend-item"><div class="legend-box emerging"></div><span>Emerging (${emergingCount})</span></div>
+          <div class="legend-item"><div class="legend-box locked"></div><span>Locked (${lockedCount})</span></div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 24px;">
+        <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 12px; color: #2C1E0F;">Level Curriculum & Unlocked Skills</h3>
+    `;
+
+    // Render Steps/Units
+    if (steps.length === 0) {
+      html += '<p style="color:#aaa">No steps configured for this level.</p>';
+    } else {
+      steps.forEach(step => {
+        let stepSkillsHtml = '';
+        step.skills.forEach(s => {
+          let status = 'locked';
+          let statusText = 'Locked';
+          if (ownedList.includes(s.id)) {
+            status = 'owned';
+            statusText = 'Mastered';
+          } else if (emergingList.includes(s.id)) {
+            status = 'emerging';
+            statusText = 'Emerging';
+          }
+
+          // Build evidence logs
+          let evidenceHtml = '';
+          const rawEvidence = (progress.evidence && progress.evidence[s.id]) || [];
+          if (rawEvidence.length > 0) {
+            evidenceHtml = `<div class="evidence-box">`;
+            rawEvidence.forEach(ev => {
+              const text = typeof ev === 'string' ? ev : (ev.evidence || '');
+              const confidence = typeof ev === 'string' ? 1.0 : (ev.confidence || 1.0);
+              const pct = Math.round(confidence * 100);
+              const topic = typeof ev === 'string' ? 'General Conversation' : (ev.topic || 'General Conversation');
+              evidenceHtml += `
+                <div class="evidence-item" style="margin-bottom: 4px;">
+                  “${text}”
+                  <div class="evidence-topic">confidence ${pct}% · topic "${topic}"</div>
+                </div>
+              `;
+            });
+            evidenceHtml += `</div>`;
+          }
+
+          stepSkillsHtml += `
+            <div class="skill-row" style="margin-bottom: 6px;">
+              <div class="skill-meta">
+                <div>
+                  <span class="skill-title">${s.text}</span>
+                  <span class="skill-id">${s.id} · ${s.strand}</span>
+                </div>
+                <span class="status-badge ${status}">${statusText}</span>
+              </div>
+              ${evidenceHtml}
+            </div>
+          `;
+        });
+
+        html += `
+          <div class="unit-card">
+            <h4>Step ${step.step}: ${step.name || 'Unit'} (${step.focus || 'Focus'})</h4>
+            <div class="skills-list">
+              ${stepSkillsHtml}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    html += `</div>`;
+    document.getElementById('garden-modal-content').innerHTML = html;
+  }
+
+  function closeGardenModal() {
+    document.getElementById('garden-modal').classList.remove('open');
   }
 
   document.getElementById('admin-key').addEventListener('keydown', e => {
