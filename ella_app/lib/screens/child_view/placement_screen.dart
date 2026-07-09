@@ -57,8 +57,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     super.initState();
     final nativeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = nativeTts.progressStream.listen((event) {
-      if (mounted && _speaking) {
+      if (mounted) {
         setState(() {
+          _speaking = true;
           _highlightStart = event.start;
           _highlightEnd = event.end;
         });

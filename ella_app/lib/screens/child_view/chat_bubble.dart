@@ -141,6 +141,7 @@ class TypewriterText extends StatefulWidget {
 }
 
 class _TypewriterTextState extends State<TypewriterText> {
+  late String _cleanText;
   late List<String> _words;
   int _visibleWords = 0;
   bool _done = false;
@@ -149,8 +150,9 @@ class _TypewriterTextState extends State<TypewriterText> {
   @override
   void initState() {
     super.initState();
-    _words = widget.text.split(' ');
-    if (widget.animate) {
+    _cleanText = stripMarkdown(widget.text);
+    _words = _cleanText.split(' ');
+    if (widget.animate && widget.highlightStart < 0) {
       _animate();
     } else {
       _visibleWords = _words.length;
@@ -174,8 +176,9 @@ class _TypewriterTextState extends State<TypewriterText> {
   void didUpdateWidget(covariant TypewriterText oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text) {
-      _words = widget.text.split(' ');
-      if (widget.animate) {
+      _cleanText = stripMarkdown(widget.text);
+      _words = _cleanText.split(' ');
+      if (widget.animate && widget.highlightStart < 0) {
         _visibleWords = 0;
         _done = false;
         _animate();
@@ -183,13 +186,20 @@ class _TypewriterTextState extends State<TypewriterText> {
         _visibleWords = _words.length;
         _done = true;
       }
+    } else {
+      if (widget.highlightStart >= 0 && !_done) {
+        setState(() {
+          _done = true;
+          _visibleWords = _words.length;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final displayed = _done
-        ? widget.text
+        ? _cleanText
         : _words.take(_visibleWords).join(' ');
 
     final baseStyle = widget.style ??
@@ -203,18 +213,18 @@ class _TypewriterTextState extends State<TypewriterText> {
     if (_done &&
         widget.highlightStart >= 0 &&
         widget.highlightEnd > widget.highlightStart &&
-        widget.highlightEnd <= widget.text.length) {
+        widget.highlightEnd <= _cleanText.length) {
       return RichText(
         text: TextSpan(
           style: baseStyle,
           children: [
-            TextSpan(text: widget.text.substring(0, widget.highlightStart)),
+            TextSpan(text: _cleanText.substring(0, widget.highlightStart)),
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
               child: Transform.scale(
                 scale: 1.12, // Magnify the active word by 12% without shifting text layout
                 child: Text(
-                  widget.text.substring(
+                  _cleanText.substring(
                     widget.highlightStart,
                     widget.highlightEnd,
                   ),
@@ -222,31 +232,16 @@ class _TypewriterTextState extends State<TypewriterText> {
                 ),
               ),
             ),
-            TextSpan(text: widget.text.substring(widget.highlightEnd)),
+            TextSpan(text: _cleanText.substring(widget.highlightEnd)),
           ],
         ),
       );
     }
 
-    return _done
-        ? MarkdownBody(
-            data: widget.text,
-            styleSheet: MarkdownStyleSheet(
-              p: baseStyle,
-              strong: baseStyle.copyWith(fontWeight: FontWeight.w700),
-              em: baseStyle.copyWith(fontStyle: FontStyle.italic),
-              code: baseStyle.copyWith(
-                fontFamily: 'monospace',
-                color: EllaColors.greenDark,
-                backgroundColor: const Color(0xFFE8F5E9),
-              ),
-            ),
-            softLineBreak: true,
-          )
-        : Text(
-            displayed,
-            style: baseStyle,
-          );
+    return Text(
+      displayed,
+      style: baseStyle,
+    );
   }
 }
 
