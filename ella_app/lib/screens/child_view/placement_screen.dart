@@ -4,6 +4,7 @@
 // is complete (or the child ends the chat), it hands off to the
 // PlacementGardenScreen, which resolves into the bloom or sprout branch.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
