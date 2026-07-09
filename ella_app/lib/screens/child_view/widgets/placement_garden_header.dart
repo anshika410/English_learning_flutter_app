@@ -162,6 +162,13 @@ class _CircleControl extends StatelessWidget {
           color: fill,
           shape: BoxShape.circle,
           border: Border.all(color: ring, width: 2.4),
+          boxShadow: const [
+            BoxShadow(
+              color: EllaColors.greenDeep,
+              offset: Offset(0, 3),
+              blurRadius: 0,
+            ),
+          ],
         ),
         child: child,
       ),

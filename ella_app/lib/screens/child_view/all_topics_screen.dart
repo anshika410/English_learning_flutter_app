@@ -59,7 +59,7 @@ class AllTopicsScreen extends ConsumerWidget {
                                 crossAxisCount: 3,
                                 mainAxisSpacing: 14,
                                 crossAxisSpacing: 14,
-                                childAspectRatio: 0.9,
+                                childAspectRatio: 1.0,
                               ),
                           itemCount: topics.length,
                           itemBuilder: (_, i) => _TopicCard(
@@ -187,7 +187,7 @@ class _TopicCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
+        padding: const EdgeInsets.all(16),
         decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
           borderRadius: BorderRadius.circular(18),
@@ -196,23 +196,27 @@ class _TopicCard extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TopicIcon(
-              icon: topic.icon,
-              size: 34,
-              fallbackColor: EllaColors.ink,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              topic.display,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: EllaTextStyles.bodySmall,
-            ),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TopicIcon(
+                icon: topic.icon,
+                size: 48,
+                fallbackColor: EllaColors.ink,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                topic.display,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: EllaTextStyles.bodySmall,
+              ),
+            ],
+          ),
         ),
       ),
     );

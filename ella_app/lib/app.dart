@@ -20,6 +20,9 @@ import 'screens/child_view/profile_screen.dart';
 import 'screens/child_view/conversation_states_preview.dart';
 import 'screens/child_view/widgets/garden_sky_background.dart';
 import 'screens/glass_box/glass_box_screen.dart';
+import 'providers/connectivity_provider.dart';
+import 'screens/child_view/offline_screen.dart';
+import 'screens/child_view/widgets/mascot_loading_screen.dart';
 
 // kShowGlassBox: flip to true to expose the Glass Box (engine testing) screen
 // via a floating debug button. Hidden by default so the child-facing build shows
@@ -115,6 +118,17 @@ class _EllaAppState extends State<EllaApp> {
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
       navigatorObservers: [appRouteObserver],
+      builder: (context, child) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+            if (!isOnline) {
+              return const OfflineScreen();
+            }
+            return child ?? const SizedBox();
+          },
+        );
+      },
       // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
       // because we handle deep links manually via the app_links package.
       onGenerateInitialRoutes: (String initialRouteName) {
@@ -176,14 +190,7 @@ class RootGate extends ConsumerWidget {
     final chatAsync = ref.watch(chatProvider);
     
     if (chatAsync.isLoading) {
-      return const GardenSkyBackground(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Center(
-            child: CircularProgressIndicator(color: EllaColors.berryDark),
-          ),
-        ),
-      );
+      return const MascotLoadingScreen(message: 'Getting home ready...');
     }
 
     return chatAsync.when(
@@ -213,14 +220,7 @@ class RootGate extends ConsumerWidget {
         // returning (onboarded-but-unplaced) child doesn't flash the flow.
         final onboarding = ref.watch(onboardingProvider);
         if (onboarding.isLoading) {
-          return const GardenSkyBackground(
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              body: Center(
-                child: CircularProgressIndicator(color: EllaColors.berryDark),
-              ),
-            ),
-          );
+          return const MascotLoadingScreen(message: 'Loading onboarding...');
         }
         
         // Use the remote state to force onboarding if they bypassed it locally.

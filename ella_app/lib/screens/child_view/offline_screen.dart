@@ -40,13 +40,13 @@ class OfflineScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    "You're offline",
+                    "No Internet Connection",
                     textAlign: TextAlign.center,
                     style: EllaTextStyles.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Check your network and try again',
+                    'Please check your internet connection and try again.',
                     textAlign: TextAlign.center,
                     style: EllaTextStyles.authBody.copyWith(
                       color: EllaColors.textSecondary,
@@ -56,7 +56,7 @@ class OfflineScreen extends ConsumerWidget {
                   SizedBox(
                     width: 200,
                     child: EllaPrimaryButton(
-                      label: 'Retry',
+                      label: 'Refresh',
                       height: 56,
                       leading: const Icon(
                         Icons.refresh_rounded,
@@ -64,8 +64,7 @@ class OfflineScreen extends ConsumerWidget {
                         size: 24,
                       ),
                       // Re-run the connectivity check; when the network is back
-                      // the provider emits `true` and app.dart removes this
-                      // overlay automatically.
+                      // the provider emits `true` and the overlay is dismissed automatically.
                       onTap: () => ref.invalidate(connectivityProvider),
                     ),
                   ),
