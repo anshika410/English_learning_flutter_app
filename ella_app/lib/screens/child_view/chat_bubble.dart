@@ -225,13 +225,14 @@ class _TypewriterTextState extends State<TypewriterText> {
           children: [
             TextSpan(text: _cleanText.substring(0, widget.highlightStart)),
             WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
+              alignment: PlaceholderAlignment.baseline,
+              baseline: TextBaseline.alphabetic,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                 margin: const EdgeInsets.symmetric(horizontal: 1),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFCE4EC), // Soft pink/berry background pill
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   _cleanText.substring(
