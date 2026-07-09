@@ -42,7 +42,7 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
   
   "scores": [
     {
-      "id": "<id>",
+      "id": "<COPY the skill id EXACTLY as given in the TARGET SKILLS list below — do not invent or rephrase>",
       "confidence": <0..1 float>,
       "prompted": <bool>,
       "evidence": "<short learner quote or ''>"
@@ -64,6 +64,8 @@ ANALYSIS & SKILL-GRADING RULES:
 
 1. GENERAL SCORING RULES:
    - Score ONLY the learner's language. Zoe's words are never evidence.
+   - CRITICAL: The `id` in each score entry MUST be copied EXACTLY from the TARGET SKILLS list. Do not invent, shorten, or rephrase IDs. If the target skill id is "U1-VOC-01", the score id must be "U1-VOC-01" — not "A1-VOC-01" or anything else.
+   - Only return scores for skills that appear in the TARGET SKILLS list. Do not add extra skills.
    - confidence 0..1 = strength of evidence the learner showed this skill.
    - Thresholds: >=0.70 = strong evidence (qualifying). 0.30–0.69 = honest attempt (partial credit — this matters, do not zero it). <0.30 = no real evidence.
    - REWARD EFFORT, NOT ACCURACY: a wrong-but-clearly-trying attempt at the skill scores in the 0.30–0.69 band. "I goed to market" is a real attempt at past tense.
