@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ella_app/models/child_memory.dart';
 import 'package:ella_app/models/garden.dart';
@@ -14,6 +15,10 @@ import 'package:ella_app/screens/child_view/garden_screen.dart';
 import 'package:ella_app/services/audio_service.dart';
 import 'package:ella_app/services/sounds.dart';
 import 'package:ella_app/services/stt_tts_service.dart';
+
+const String _testUserId = 'garden-test-user';
+const String _testCompletedIntroPrefsKey =
+    '$completedGardenIntroSeenPrefsKeyPrefix:$_testUserId';
 
 class _FakeAudioService extends AudioService {
   final List<AudioClip> playedSfx = [];
@@ -319,7 +324,25 @@ Future<void> _pumpUntilSfx(WidgetTester tester, _FakeAudioService audio) async {
   }
 }
 
+Future<void> _pumpUntilPrefsContain(
+  WidgetTester tester,
+  String key,
+  String value,
+) async {
+  for (var i = 0; i < 12; i++) {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getStringList(key) ?? const <String>[]).contains(value)) {
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+}
+
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({'ella_api_user_id': _testUserId});
+  });
+
   test('preview mock data has multiple units and mixed growth states', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -473,6 +496,44 @@ void main() {
     expect(find.byKey(plantKey), findsOneWidget);
   });
 
+  testWidgets('preview can trigger two skills in different units', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _harness(_gardenData(level: 'A0'), usePreviewProvider: true),
+    );
+    await tester.pump();
+
+    await tester.longPress(find.byKey(const ValueKey('garden-level-selector')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(
+      find.byKey(const ValueKey('garden-preview-trigger-two-growth')),
+    );
+    await tester.pump();
+    await _pumpUntilRevealCard(tester);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(GardenScreen)),
+    );
+    final queue = container.read(gardenGrowthRevealProvider);
+    expect(queue, hasLength(2));
+    expect(queue.map((item) => item.skillId), [
+      'preview-two-a-c0',
+      'preview-two-b-c0',
+    ]);
+    expect(queue.map((item) => item.stepIndex), [1, 3]);
+    expect(find.text('Connect two ideas'), findsOneWidget);
+    expect(find.text('See Next Plant'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-growth-reveal-cta')));
+    await tester.pump();
+    await _pumpUntilFound(tester, find.text('Use but for contrast'));
+
+    expect(find.text('Use but for contrast'), findsOneWidget);
+    expect(find.text('Explore Garden'), findsOneWidget);
+  });
+
   test('growth reveal diff uses garden order and skips missing snapshot', () {
     final before = _gardenData(
       level: 'A1',
@@ -600,7 +661,7 @@ void main() {
     }
   });
 
-  testWidgets('growth reveal uses refreshed skill copy on card and TTS', (
+  testWidgets('growth reveal uses refreshed skill copy without TTS', (
     tester,
   ) async {
     final tts = _ImmediateTtsService();
@@ -638,11 +699,20 @@ void main() {
 
     expect(find.text('Use words like yesterday, last week'), findsOneWidget);
     expect(find.text('Canonical framework skill statement'), findsNothing);
-    expect(tts.lastSpoken, contains('Use words like yesterday, last week'));
-    expect(
-      tts.lastSpoken,
-      isNot(contains('Canonical framework skill statement')),
+    expect(tts.lastSpoken, isNull);
+
+    final cardTop = tester.getTopLeft(
+      find.byKey(const ValueKey('garden-growth-reveal-card')),
     );
+    final zoeTop = tester.getTopLeft(
+      find.byKey(const ValueKey('garden-growth-reveal-zoe')),
+    );
+    final plantCenter = tester.getCenter(
+      find.byKey(const ValueKey('garden-plant-slot-display-copy-growth')),
+    );
+    expect(cardTop.dy, lessThan(plantCenter.dy));
+    expect(zoeTop.dx, lessThan(cardTop.dx + 8));
+    expect(zoeTop.dy, lessThan(cardTop.dy));
   });
 
   testWidgets('multiple growth reveal items advance with See Next Plant', (
@@ -839,12 +909,7 @@ void main() {
         level: 'A0',
         steps: [
           _step(level: 'A0', step: 1, name: 'Finding Better Words', count: 3),
-          _step(
-            level: 'A0',
-            step: 2,
-            name: 'A Very Long Unit Name That Should Wrap Gracefully',
-            count: 3,
-          ),
+          _step(level: 'A0', step: 2, name: 'Saying what I can do', count: 3),
         ],
       ),
     );
@@ -853,8 +918,13 @@ void main() {
     final labels = find.byKey(const ValueKey('garden-unit-sign-label'));
     expect(boards, findsNWidgets(2));
     expect(labels, findsNWidgets(2));
-    expect(tester.getSize(boards.at(0)).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(boards.at(0)).width, greaterThanOrEqualTo(246));
+    expect(tester.getSize(boards.at(0)).height, 48);
     expect(tester.getSize(boards.at(1)).height, 64);
+    expect(
+      tester.getSize(labels.at(0)).height,
+      lessThan(tester.getSize(labels.at(1)).height),
+    );
 
     final leftLegs = find.byKey(const ValueKey('garden-unit-sign-leg-left'));
     expect(
@@ -866,6 +936,117 @@ void main() {
       tester.getBottomLeft(boards.at(1)).dy,
     );
   });
+
+  testWidgets('garden sheet board grows and keeps content below it', (
+    tester,
+  ) async {
+    await _pumpGarden(
+      tester,
+      _gardenData(
+        level: 'A0',
+        steps: [
+          _step(
+            level: 'A0',
+            step: 1,
+            name: 'Finding Better Words',
+            displayDescription: 'Short unit description',
+            count: 3,
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('garden-unit-sign-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final shortBoard = find.byKey(const ValueKey('garden-sheet-board'));
+    final shortCard = find.byKey(const ValueKey('garden-sheet-card'));
+    final shortDescription = find.text('Short unit description');
+    expect(tester.getSize(shortBoard).width, greaterThan(268));
+    expect(tester.getSize(shortBoard).height, 48);
+    final shortContentGap =
+        tester.getTopLeft(shortDescription).dy -
+        tester.getTopLeft(shortCard).dy;
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      _harness(
+        _gardenData(
+          level: 'A0',
+          steps: [
+            _step(
+              level: 'A0',
+              step: 1,
+              name: 'Saying what I can do',
+              displayDescription: 'Tall unit description',
+              count: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    await tester.tap(find.byKey(const ValueKey('garden-unit-sign-1')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final tallBoard = find.byKey(const ValueKey('garden-sheet-board'));
+    final tallCard = find.byKey(const ValueKey('garden-sheet-card'));
+    final tallDescription = find.text('Tall unit description');
+    expect(tester.getSize(tallBoard).height, 64);
+    expect(
+      tester.getTopLeft(tallDescription).dy - tester.getTopLeft(tallCard).dy,
+      greaterThan(shortContentGap),
+    );
+  });
+
+  testWidgets(
+    'unit sheet skill rows use title heading larger icons and semibold names',
+    (tester) async {
+      final step = GardenStep(
+        step: 1,
+        name: 'Finding Better Words',
+        focus: '',
+        displayDescription: 'Skill row polish check',
+        isCompleted: false,
+        skills: [
+          _skill(id: 'voc-skill', strand: Strand.voc, text: 'Precise Word'),
+          _skill(id: 'gra-skill', strand: Strand.gra, text: 'Grammar Shape'),
+          _skill(id: 'flu-skill', strand: Strand.flu, text: 'Fluent Thread'),
+        ],
+      );
+      await _pumpGarden(tester, _gardenData(level: 'A0', steps: [step]));
+
+      await tester.tap(find.byKey(const ValueKey('garden-unit-sign-1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('On Mastery, You Will Be Able To'), findsOneWidget);
+      expect(find.text('ON MASTERY, YOU WILL BE ABLE TO'), findsNothing);
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey('garden-unit-skill-icon-voc-skill')),
+        ),
+        const Size(48, 48),
+      );
+      final skillName = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(const ValueKey('garden-unit-skill-row-voc-skill')),
+          matching: find.text('Precise Word'),
+        ),
+      );
+      expect(skillName.style?.fontWeight, FontWeight.w600);
+      expect(find.text('Vocabulary'), findsOneWidget);
+      expect(find.text('Grammar'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('garden-unit-show-more')));
+      await tester.pump();
+
+      expect(find.text('Fluency'), findsOneWidget);
+    },
+  );
 
   testWidgets('unit signboard is painted behind plot art in row stack', (
     tester,
@@ -920,7 +1101,7 @@ void main() {
       }
       expect(
         tester.getSize(find.byKey(ValueKey('garden-fence-${entry.key}-0-0'))),
-        const Size(48, 29),
+        const Size(57.6, 34.8),
       );
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -949,7 +1130,7 @@ void main() {
       if (entry.key == 'A1') {
         expect(
           tester.getSize(find.byKey(const ValueKey('garden-ambient-bird'))),
-          const Size(64, 54),
+          const Size(76.8, 64.8),
         );
       }
 
@@ -973,7 +1154,8 @@ void main() {
       ),
     );
 
-    final expectedHeights = {'sprout': 75.0, 'bud': 106.0, 'bloom': 137.0};
+    final expectedHeights = {'sprout': 82.5, 'bud': 116.6, 'bloom': 150.7};
+    final expectedVerticalNudges = {'sprout': -12.0, 'bud': 0.0, 'bloom': 12.0};
     for (final entry in expectedHeights.entries) {
       final tile = find.byKey(ValueKey('garden-skill-tile-${entry.key}'));
       final plantSlot = find.byKey(ValueKey('garden-plant-slot-${entry.key}'));
@@ -989,12 +1171,14 @@ void main() {
             (tester.getBottomLeft(plantSlot).dy -
                     tester.getTopLeft(plantSlot).dy) *
                 0.92,
-        closeTo(
-          tester.getTopLeft(tile).dy +
-              (tester.getBottomLeft(tile).dy - tester.getTopLeft(tile).dy) *
-                  0.62,
-          0.5,
-        ),
+        closeTo(() {
+          final renderedTileHeight =
+              tester.getBottomLeft(tile).dy - tester.getTopLeft(tile).dy;
+          final rowScale = renderedTileHeight / 80;
+          return tester.getTopLeft(tile).dy +
+              renderedTileHeight * 0.50 +
+              expectedVerticalNudges[entry.key]! * rowScale;
+        }(), 0.5),
       );
     }
   });
@@ -1236,37 +1420,33 @@ void main() {
     expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
   });
 
-  test(
-    "completed previous A0 garden uses A0's own framework, all bloomed",
-    () {
-      final current = _gardenData(
-        level: 'B1',
-        steps: [_step(level: 'B1', step: 1, name: 'Current Unit', count: 2)],
-      );
-      final projected = completedPreviousGardenData(
-        currentGarden: current,
-        viewedLevel: 'A0',
-      );
+  test("completed previous A0 garden uses A0's own framework, all bloomed", () {
+    final current = _gardenData(
+      level: 'B1',
+      steps: [_step(level: 'B1', step: 1, name: 'Current Unit', count: 2)],
+    );
+    final projected = completedPreviousGardenData(
+      currentGarden: current,
+      viewedLevel: 'A0',
+    );
 
-      expect(projected.level, 'A0');
-      // A0's own 5 units, not the current garden's units.
-      expect(projected.steps, hasLength(5));
-      expect(projected.steps.first.displayName, 'Naming the world');
-      expect(projected.steps.first.name, 'Naming the world');
+    expect(projected.level, 'A0');
+    // A0's own 5 units, not the current garden's units.
+    expect(projected.steps, hasLength(5));
+    expect(projected.steps.first.displayName, 'Naming the world');
+    expect(projected.steps.first.name, 'Naming the world');
 
-      final skills = projected.steps.expand((step) => step.skills).toList();
-      expect(skills, hasLength(20));
-      expect(skills.first.id, 'U1-VOC-01');
-      expect(skills.first.strand, Strand.voc);
-      expect(skills.first.displayText, 'Colours and numbers up to ten');
-      expect(
-        skills.every((skill) => skill.status == SkillStatus.owned),
-        isTrue,
-      );
-      expect(skills.every((skill) => skill.sightings == 3), isTrue);
-      expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
-    },
-  );
+    final skills = projected.steps.expand((step) => step.skills).toList();
+    expect(skills, hasLength(20));
+    expect(skills.first.id, 'U1-VOC-01');
+    expect(skills.first.strand, Strand.voc);
+    expect(skills.first.displayText, 'Colours and numbers up to ten');
+    expect(skills.last.id, 'U5-FLU-02');
+    expect(skills.last.displayText, 'Keep trying even with just a few words');
+    expect(skills.every((skill) => skill.status == SkillStatus.owned), isTrue);
+    expect(skills.every((skill) => skill.sightings == 3), isTrue);
+    expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
+  });
 
   Future<void> openSwitcher(WidgetTester tester) async {
     await tester.tap(find.byKey(const ValueKey('garden-level-selector')));
@@ -1402,6 +1582,9 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    await _pumpUntilPrefsContain(tester, _testCompletedIntroPrefsKey, 'A1');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList(_testCompletedIntroPrefsKey), contains('A1'));
 
     expect(
       find.byKey(const ValueKey('garden-completed-previous-intro')),
@@ -1420,7 +1603,12 @@ void main() {
       find.byKey(const ValueKey('garden-growth-state-bloomed')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('garden-strand-chip-voc')),
+      findsOneWidget,
+    );
     expect(find.text('Bloomed'), findsOneWidget);
+    expect(find.text('What You Said'), findsNothing);
     expect(
       find.text('Talk with Zoe to start growing this skill'),
       findsNothing,
@@ -1456,6 +1644,32 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'persisted completed previous intro is not repeated after restart',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'ella_api_user_id': _testUserId,
+        _testCompletedIntroPrefsKey: ['A1'],
+      });
+
+      await _pumpGarden(tester, _gardenData(level: 'B1'));
+      await openSwitcher(tester);
+      await tester.tap(find.byKey(const ValueKey('garden-switcher-card-A1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byKey(const ValueKey('garden-backdrop-A1')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('garden-completed-previous-intro')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('garden-talk-bar-layer')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('current garden and preview mode skip completed previous intro', (
     tester,

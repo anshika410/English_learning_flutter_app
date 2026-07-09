@@ -728,11 +728,12 @@ class _PlacementGardenMetrics {
         : (height * 200 / 932).clamp(minBubbleTop, maxBubbleTop).toDouble();
 
     // Spotlight hole centred on the plant (which sits in the upper part of the
-    // plot box and, when bloomed, rises ~40px above plotTop), with a wide radius
-    // so the whole plant stays in clear space on every screen size.
+    // plot box and, when bloomed, rises ~40px above plotTop). A tight radius keeps
+    // the clear circle hugging the plant while the blurred, darkened scrim frames
+    // the rest of the garden.
     final spotlightCenterY = plotTop + plotHeight * 0.20;
     final spotlightCenter = Alignment(0, (spotlightCenterY / height) * 2 - 1);
-    const spotlightRadius = 0.98;
+    const spotlightRadius = 0.68;
     // Spotlight bubble spans the full screen width with 24px side padding.
     final placementBubbleLeft = 24.0;
     final placementBubbleWidth = width - 48;
@@ -826,16 +827,18 @@ class _PlacementGardenBackdropPainter extends CustomPainter {
     );
 
     // One rounded green hill mass over the sky (Figma has a single hill
-    // gradient from the crest to the bottom).
+    // gradient from the crest to the bottom). Crest fractions are pushed down
+    // ~20% from the Figma values so the sky band reads taller; the hill keeps its
+    // shape and simply starts lower.
     final hill = Path()
-      ..moveTo(0, size.height * 0.224)
+      ..moveTo(0, size.height * 0.269)
       ..cubicTo(
         size.width * 0.22,
-        size.height * 0.155,
+        size.height * 0.186,
         size.width * 0.63,
-        size.height * 0.17,
+        size.height * 0.204,
         size.width,
-        size.height * 0.225,
+        size.height * 0.270,
       )
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
@@ -852,9 +855,9 @@ class _PlacementGardenBackdropPainter extends CustomPainter {
             ).createShader(
               Rect.fromLTWH(
                 0,
-                size.height * 0.16,
+                size.height * 0.192,
                 size.width,
-                size.height * 0.84,
+                size.height * 0.808,
               ),
             ),
     );

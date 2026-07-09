@@ -1,5 +1,7 @@
 // Garden detail dialogs — Figma-styled cards opened by tapping a plant or unit.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -75,7 +77,11 @@ void _showGardenSheet(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.45),
     builder: (ctx) {
-      final maxSheetHeight = MediaQuery.sizeOf(ctx).height * 0.78;
+      final mediaSize = MediaQuery.sizeOf(ctx);
+      final maxSheetHeight = mediaSize.height * 0.78;
+      final sheetWidth = math.min(430.0, mediaSize.width - 48);
+      final boardWidth = _sheetBoardWidthFor(boardTitle, sheetWidth);
+      final boardHeight = _sheetBoardHeightFor(boardTitle);
       return Material(
         type: MaterialType.transparency,
         child: Center(
@@ -93,8 +99,8 @@ void _showGardenSheet(
                       key: const ValueKey('garden-sheet-card'),
                       width: double.infinity,
                       constraints: BoxConstraints(maxHeight: maxSheetHeight),
-                      margin: const EdgeInsets.only(top: 24),
-                      padding: const EdgeInsets.fromLTRB(16, 40, 16, 24),
+                      margin: EdgeInsets.only(top: boardHeight / 2),
+                      padding: EdgeInsets.fromLTRB(16, boardHeight + 8, 16, 24),
                       clipBehavior: Clip.antiAlias,
                       decoration: ellaSmoothDecoration(
                         color: _sheetSurface,
@@ -103,7 +109,11 @@ void _showGardenSheet(
                       ),
                       child: SingleChildScrollView(child: child),
                     ),
-                    _SheetBoard(title: boardTitle),
+                    _SheetBoard(
+                      title: boardTitle,
+                      width: boardWidth,
+                      height: boardHeight,
+                    ),
                   ],
                 ),
               ),
@@ -115,16 +125,35 @@ void _showGardenSheet(
   );
 }
 
+int _titleWordCount(String title) =>
+    title.trim().split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
+
+double _sheetBoardWidthFor(String title, double sheetWidth) {
+  final maxWidth = math.max(268.0, sheetWidth - 32);
+  if (_titleWordCount(title) <= 2) return math.min(268.0, maxWidth);
+  if (_titleWordCount(title) <= 3) return math.min(334.0, maxWidth);
+  return math.min(358.0, maxWidth);
+}
+
+double _sheetBoardHeightFor(String title) =>
+    _titleWordCount(title) <= 3 ? 48.0 : 64.0;
+
 class _SheetBoard extends StatelessWidget {
   final String title;
-  const _SheetBoard({required this.title});
+  final double width;
+  final double height;
+  const _SheetBoard({
+    required this.title,
+    required this.width,
+    required this.height,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       key: const ValueKey('garden-sheet-board'),
-      width: 268,
-      height: 48,
+      width: width,
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
@@ -167,8 +196,7 @@ class _SheetBoard extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: height > 48 ? 2 : 1,
               textAlign: TextAlign.center,
               style: EllaFonts.body(
                 const TextStyle(
@@ -301,6 +329,7 @@ class _ResolvedSvgIcon extends StatelessWidget {
   final double size;
 
   const _ResolvedSvgIcon({
+    super.key,
     required this.rawIcon,
     required this.fallbackAsset,
     required this.size,
@@ -745,7 +774,7 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
         const _WoodDivider(),
         const SizedBox(height: 16),
         Text(
-          'ON MASTERY, YOU WILL BE ABLE TO',
+          'On Mastery, You Will Be Able To',
           style: EllaFonts.body(
             const TextStyle(
               fontSize: 14,
@@ -817,9 +846,10 @@ class _SkillRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ResolvedSvgIcon(
+              key: ValueKey('garden-unit-skill-icon-${skill.id}'),
               rawIcon: skill.icon,
               fallbackAsset: skill.strand.icon,
-              size: 32,
+              size: 48,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -833,7 +863,7 @@ class _SkillRow extends StatelessWidget {
                       const TextStyle(
                         fontSize: 16,
                         height: 1.6,
-                        fontWeight: FontWeight.w400,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 0.128,
                         color: _ink,
                       ),
