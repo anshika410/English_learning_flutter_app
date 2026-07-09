@@ -8,8 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source
 COPY backend/ .
 
-# Copy prompt assets
-COPY frontend/assets/prompts /app/assets/prompts
+# Copy prompt assets (source of truth is backend/app/prompts)
+COPY backend/app/prompts /app/assets/prompts
 
 EXPOSE 8000
 

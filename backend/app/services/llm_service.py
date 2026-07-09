@@ -7,10 +7,10 @@ from ..core.config import get_settings
 
 import os
 
-# In Docker: prompts are at /app/assets/prompts (copied by Dockerfile)
-# Locally: fall back to frontend/assets/prompts relative to repo root
+# In Docker: prompts are at /app/assets/prompts (copied by Dockerfile from backend/app/prompts)
+# Locally: fall back to backend/app/prompts relative to repo root
 _DOCKER_PROMPTS = Path("/app/assets/prompts")
-_LOCAL_PROMPTS = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "assets" / "prompts"
+_LOCAL_PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 PROMPTS_DIR = _DOCKER_PROMPTS if _DOCKER_PROMPTS.exists() else _LOCAL_PROMPTS
 
 # ── Level instructions (mirrors Flutter client) ──────────────────────────────

@@ -170,7 +170,6 @@ hide a level.
 # FINAL OUTPUT
 When you finish, output ONLY this JSON (no REPLY prefix, no other text):
 {
-  "reply": "A warm goodbye message to speak to the student (e.g. 'Thanks for chatting with me, Rohan! Let's check out your garden now!').",
   "name": "{{NAME}}",
   "age": {{AGE}},
   "age_group": "10-12|13-15|16-18",
