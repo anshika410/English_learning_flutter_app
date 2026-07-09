@@ -2,8 +2,10 @@
 // Auth token is managed by EllaApiService via SharedPreferences. Refreshable so the
 // Garden tab can pull fresh state after a session ends.
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/curriculum_display_copy.dart';
 import '../core/skill_data.dart';
@@ -249,25 +251,85 @@ GardenData completedPreviousGardenData({
   );
 }
 
-class CompletedGardenIntroSeenController extends StateNotifier<Set<String>> {
-  CompletedGardenIntroSeenController() : super(const {});
+const String completedGardenIntroSeenPrefsKeyPrefix =
+    'ella_completed_previous_garden_intro_seen_v1';
+const String _completedGardenIntroUserIdPrefsKey = 'ella_api_user_id';
+
+class CompletedGardenIntroSeenState {
+  final bool loaded;
+  final Set<String> seenLevels;
+
+  const CompletedGardenIntroSeenState({
+    required this.loaded,
+    required this.seenLevels,
+  });
+
+  const CompletedGardenIntroSeenState.loading()
+    : loaded = false,
+      seenLevels = const {};
+
+  bool contains(String level) =>
+      seenLevels.contains(_canonicalGardenLevel(level));
+}
+
+class CompletedGardenIntroSeenController
+    extends StateNotifier<CompletedGardenIntroSeenState> {
+  String? _prefsKey;
+
+  CompletedGardenIntroSeenController()
+    : super(const CompletedGardenIntroSeenState.loading()) {
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_completedGardenIntroUserIdPrefsKey)?.trim();
+    final scopedUserId = userId == null || userId.isEmpty
+        ? 'anonymous'
+        : userId;
+    final key = '$completedGardenIntroSeenPrefsKeyPrefix:$scopedUserId';
+    final seen = (prefs.getStringList(key) ?? const <String>[])
+        .map(_canonicalGardenLevel)
+        .toSet();
+    _prefsKey = key;
+    if (!mounted) return;
+    state = CompletedGardenIntroSeenState(loaded: true, seenLevels: seen);
+  }
 
   void markSeen(String level) {
     final code = _canonicalGardenLevel(level);
-    if (state.contains(code)) return;
-    state = {...state, code};
+    final next = {...state.seenLevels, code};
+    if (state.loaded && next.length == state.seenLevels.length) return;
+    state = CompletedGardenIntroSeenState(
+      loaded: state.loaded,
+      seenLevels: next,
+    );
+    unawaited(_save(next));
+  }
+
+  Future<void> _save(Set<String> seenLevels) async {
+    final key = _prefsKey;
+    if (key == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final values = seenLevels.toList()..sort();
+    await prefs.setStringList(key, values);
   }
 
   void clear() {
-    if (state.isEmpty) return;
-    state = const {};
+    if (state.seenLevels.isEmpty) return;
+    state = CompletedGardenIntroSeenState(
+      loaded: state.loaded,
+      seenLevels: const {},
+    );
+    unawaited(_save(const {}));
   }
 }
 
 final completedGardenIntroSeenProvider =
-    StateNotifierProvider<CompletedGardenIntroSeenController, Set<String>>(
-      (ref) => CompletedGardenIntroSeenController(),
-    );
+    StateNotifierProvider<
+      CompletedGardenIntroSeenController,
+      CompletedGardenIntroSeenState
+    >((ref) => CompletedGardenIntroSeenController());
 
 /// Extracts the strand from an A0 skill ID such as `U1-VOC-01` → [Strand.voc].
 Strand _strandFromA0SkillId(String skillId) {
@@ -450,7 +512,9 @@ List<GardenGrowthRevealItem> buildGardenGrowthRevealItems({
           before == null &&
           inferFromAfter &&
           skill.sightings > 0 &&
-          (skill.id.startsWith('preview-growth') || items.isEmpty);
+          (skill.id.startsWith('preview-growth') ||
+              skill.id.startsWith('preview-two') ||
+              items.isEmpty);
       final grewExactly =
           previous != null && skill.sightings > previous.sightings;
       if (!grewExactly && !shouldInfer) continue;
@@ -521,7 +585,7 @@ GardenEvidence? _growthEvidenceFor(GardenSkill? before, GardenSkill after) {
 }
 
 final gardenPreviewEnabledProvider = Provider<bool>(
-  (ref) => kDebugMode && const bool.fromEnvironment('GARDEN_PREVIEW'),
+  (ref) => const bool.fromEnvironment('GARDEN_PREVIEW'),
 );
 
 final gardenPreviewControllerProvider =
@@ -548,6 +612,8 @@ class GardenPreviewController extends StateNotifier<GardenData> {
   String _level = gardenPreviewLevels.first.code;
   int _growthSightings = 0;
   int _growthCycle = 0;
+  int _twoSkillGrowthSightings = 0;
+  int _twoSkillGrowthCycle = 0;
 
   GardenPreviewController()
     : super(
@@ -555,6 +621,8 @@ class GardenPreviewController extends StateNotifier<GardenData> {
           level: gardenPreviewLevels.first.code,
           growthSightings: 0,
           growthCycle: 0,
+          twoSkillGrowthSightings: 0,
+          twoSkillGrowthCycle: 0,
         ),
       );
 
@@ -563,6 +631,8 @@ class GardenPreviewController extends StateNotifier<GardenData> {
     _level = level;
     _growthSightings = 0;
     _growthCycle++;
+    _twoSkillGrowthSightings = 0;
+    _twoSkillGrowthCycle++;
     _refresh();
   }
 
@@ -576,11 +646,23 @@ class GardenPreviewController extends StateNotifier<GardenData> {
     _refresh();
   }
 
+  void triggerTwoSkillsGrowth() {
+    if (_twoSkillGrowthSightings >= 3) {
+      _twoSkillGrowthCycle++;
+      _twoSkillGrowthSightings = 1;
+    } else {
+      _twoSkillGrowthSightings++;
+    }
+    _refresh();
+  }
+
   void _refresh() {
     state = _buildPreviewGarden(
       level: _level,
       growthSightings: _growthSightings,
       growthCycle: _growthCycle,
+      twoSkillGrowthSightings: _twoSkillGrowthSightings,
+      twoSkillGrowthCycle: _twoSkillGrowthCycle,
     );
   }
 }
@@ -599,6 +681,8 @@ GardenData _buildPreviewGarden({
   required String level,
   required int growthSightings,
   required int growthCycle,
+  required int twoSkillGrowthSightings,
+  required int twoSkillGrowthCycle,
 }) {
   final label = _previewLabelFor(level);
   return GardenData(
@@ -643,10 +727,10 @@ GardenData _buildPreviewGarden({
         name: 'Telling A Short Story',
         skills: [
           _previewSkill(
-            id: 'preview-u2-s0',
+            id: 'preview-two-a-c$twoSkillGrowthCycle',
             strand: Strand.flu,
             text: 'Connect two ideas',
-            sightings: 0,
+            sightings: twoSkillGrowthSightings,
           ),
           _previewSkill(
             id: 'preview-u2-s1',
@@ -721,10 +805,10 @@ GardenData _buildPreviewGarden({
             sightings: 3,
           ),
           _previewSkill(
-            id: 'preview-u4-s3',
+            id: 'preview-two-b-c$twoSkillGrowthCycle',
             strand: Strand.gra,
             text: 'Use but for contrast',
-            sightings: 0,
+            sightings: twoSkillGrowthSightings,
           ),
         ],
       ),

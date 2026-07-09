@@ -97,7 +97,7 @@ const List<double> _gardenStops = [0, 0.55, 1];
 
 const double _designWidth = 430;
 const double _pinnedSkyHeight = 176;
-const double _scrollStartY = 210;
+const double _scrollStartY = 236;
 const double _ctaFadeHeight = 84;
 const double _unitRowH = 345;
 const double _plotW = 287.32;
@@ -106,15 +106,15 @@ const double _tileW = 105;
 const double _tileH = 80;
 // Slot the flower art sits in; enlarged with the plant heights below.
 const double _plantSlotW = 87.4;
-const double _plantBaseFactor = 0.62;
+const double _plantBaseFactor = 0.50;
 // Plant SVGs share a 90×100 viewBox with the stem base at y≈92 (translate(45,92)),
 // so the visible base sits at this fraction down the plantHeight box. Anchoring by
 // the base (not the box bottom) roots every growth stage at the same tile point.
 const double _plantBaseYFrac = 0.92;
 const double _ellipseW = 287.32;
 const double _ellipseH = 130;
-const double _fenceSegmentW = 48;
-const double _fenceSegmentH = 29;
+const double _fenceSegmentW = 57.6;
+const double _fenceSegmentH = 34.8;
 const double _cloudW = 60;
 const double _headerSidePadding = 24;
 const double _headerTopGap = 16;
@@ -541,7 +541,9 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
         .expand((step) => step.skills)
         .any(
           (skill) =>
-              skill.id.startsWith('preview-growth') && skill.sightings > 0,
+              (skill.id.startsWith('preview-growth') ||
+                  skill.id.startsWith('preview-two')) &&
+              skill.sightings > 0,
         );
     final items = buildGardenGrowthRevealItems(
       before: previous,
@@ -633,11 +635,12 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
           child: AnimatedOpacity(
             opacity: introActive ? 1 : 0,
             duration: Duration(milliseconds: reducedMotion ? 0 : 600),
-            // Wider radius + a slightly lower centre so the first plot's plant is
-            // fully inside the clear spotlight on every screen size.
+            // Tight radius + a slightly lower centre so the clear spotlight hugs
+            // the first plot's plant while the surrounding garden is blurred and
+            // darkened.
             child: const SpotlightOverlay(
               center: Alignment(0, 0.28),
-              radius: 1.05,
+              radius: 0.72,
             ),
           ),
         ),
@@ -700,16 +703,14 @@ class _WelcomeCallout extends StatelessWidget {
         final width = constraints.maxWidth;
         final scale = (width / _designWidth).clamp(0.84, 1.08).toDouble();
         // Same wide callout as the placement sprout reveal: a full-width card
-        // (24px side margins) tucked just under the header controls so the sprout
-        // reads clearly below it, with Zoe perched at its top-left corner
-        // (58px above the bubble top).
+        // (24px side margins) tucked just under the header controls, with Zoe
+        // perched at its top-left corner sitting ON the card (its base overlaps
+        // the top edge by ~14px) rather than floating above it.
         final bubbleWidth = width - 48;
         final bubbleLeft = 24.0;
-        // Bubble sits low enough that the 72px mascot fits fully ABOVE it (feet
-        // land just above the top border) without spilling into the status bar.
         final bubbleTop = media.padding.top + 84 * scale;
         final mascotLeft = math.max(16.0, bubbleLeft - 6 * scale);
-        final mascotTop = math.max(media.padding.top, bubbleTop - 76 * scale);
+        final mascotTop = math.max(media.padding.top, bubbleTop - 58 * scale);
 
         // Bubble first, then the mascot, so Zoe renders IN FRONT of the bubble
         // (consistent with the placement spotlight callout).
@@ -1021,6 +1022,10 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      // Fill the screen so the sheet content can be centered vertically.
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height,
+      ),
       builder: (_) => _GardenSwitcherSheet(
         currentLevel: currentLevel,
         ownerFirstName: ownerFirstName,
@@ -1108,7 +1113,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     if (anchorContext != null) {
       await Scrollable.ensureVisible(
         anchorContext,
-        alignment: 0.18,
+        alignment: 0.48,
         duration: Duration(milliseconds: reducedMotion ? 0 : 520),
         curve: Curves.easeInOutCubic,
       );
@@ -1129,9 +1134,11 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       if (token != _revealToken) return;
       setState(() {
         _cardVisible = true;
-        _revealZoeMode = ZoeMascotMode.speaking;
+        _revealZoeMode = ZoeMascotMode.listening;
       });
-      unawaited(_speakGrowthReveal(item, token));
+      _afterReveal(reducedMotion ? 0 : 700, () {
+        if (token == _revealToken) _markRevealCtaReady();
+      });
     });
   }
 
@@ -1145,29 +1152,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     }
     final global = anchorBox.localToGlobal(anchorBox.size.center(Offset.zero));
     return rootBox.globalToLocal(global);
-  }
-
-  Future<void> _speakGrowthReveal(
-    GardenGrowthRevealItem item,
-    int token,
-  ) async {
-    Timer? fallback;
-    fallback = Timer(const Duration(milliseconds: 5200), () {
-      if (mounted && token == _revealToken) _markRevealCtaReady();
-    });
-    _revealTimers.add(fallback);
-
-    final tts = ref.read(ttsProvider);
-    try {
-      await tts.stop();
-      if (!mounted || token != _revealToken) return;
-      setState(() => _revealZoeMode = ZoeMascotMode.speaking);
-      await tts.speak(_growthRevealSpeech(item));
-    } catch (_) {}
-    fallback.cancel();
-    if (!mounted || token != _revealToken) return;
-    setState(() => _revealZoeMode = ZoeMascotMode.listening);
-    _markRevealCtaReady();
   }
 
   void _markRevealCtaReady() {
@@ -1254,9 +1238,12 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           viewedLevel: viewedLevel,
         );
     final completedIntroSeen = ref.watch(completedGardenIntroSeenProvider);
+    final completedIntroPending =
+        completedPreviousActive && !completedIntroSeen.loaded;
     final completedIntroActive =
         completedPreviousActive &&
-        !completedIntroSeen.contains(_levelCode(viewedLevel));
+        completedIntroSeen.loaded &&
+        !completedIntroSeen.contains(viewedLevel);
     final spec = _visualSpecFor(viewedLevel);
     final media = MediaQuery.of(context);
     final childName =
@@ -1265,10 +1252,11 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     final levelName = _isKnownGardenLevel(viewedLevel)
         ? spec.label
         : _gardenDisplayName(displayData, spec);
-    final scrollClipTop = spec.hillTop + 22;
+    final scrollClipTop = spec.hillTop + 8;
     final revealLayerActive =
         revealQueue.isNotEmpty || _activeRevealItem != null;
-    final modalLayerActive = revealLayerActive || completedIntroActive;
+    final modalLayerActive =
+        revealLayerActive || completedIntroPending || completedIntroActive;
     final activeGrownSkillIds = <String>{?_poppingSkillId};
 
     return Stack(
@@ -1369,8 +1357,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
               ),
               child: SpotlightOverlay(
                 pixelCenter: _spotlightCenter,
-                radius: 0.86,
+                radius: 0.62,
                 figmaStyle: true,
+                intensity: SpotlightIntensity.strong,
               ),
             ),
           ),
@@ -1383,6 +1372,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
               ctaReady: _revealCtaReady,
               hasNext: revealQueue.length > 1,
               zoeMode: _revealZoeMode,
+              spotlightCenter: _spotlightCenter,
               onCta: _onRevealCta,
             ),
           ),
@@ -1905,34 +1895,74 @@ class _GardenPreviewSheet extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 18),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                key: const ValueKey('garden-preview-trigger-growth'),
-                onPressed: () {
-                  controller.triggerGrowth();
-                  Navigator.of(context).pop();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: EllaColors.greenDeep,
-                  foregroundColor: EllaColors.onPrimary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                icon: const Icon(Icons.auto_awesome_rounded, size: 20),
-                label: Text(
-                  'Trigger Growth',
-                  style: EllaFonts.body(
-                    const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      key: const ValueKey('garden-preview-trigger-growth'),
+                      onPressed: () {
+                        controller.triggerGrowth();
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: EllaColors.greenDeep,
+                        foregroundColor: EllaColors.onPrimary,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 20),
+                      label: Text(
+                        'Trigger Growth',
+                        overflow: TextOverflow.ellipsis,
+                        style: EllaFonts.body(
+                          const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      key: const ValueKey('garden-preview-trigger-two-growth'),
+                      onPressed: () {
+                        controller.triggerTwoSkillsGrowth();
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: EllaColors.berryMain,
+                        foregroundColor: EllaColors.onPrimary,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      icon: const Icon(Icons.filter_2_rounded, size: 20),
+                      label: Text(
+                        'Trigger 2 Skills',
+                        overflow: TextOverflow.ellipsis,
+                        style: EllaFonts.body(
+                          const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -2070,53 +2100,53 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
         ? 'Your Gardens'
         : "${widget.ownerFirstName}'s Gardens";
 
+    final content = Column(
+      key: const ValueKey('garden-switcher-sheet'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _GardenSignpostHeader(
+          label: signpostLabel,
+          reducedMotion: reducedMotion,
+          // Bubble sits above the signpost Zoe.
+          bubble: _bubbleGardenName == null
+              ? null
+              : _ZoeGardenBubble(
+                  currentGardenName: _bubbleGardenName!,
+                  controller: _bubbleController,
+                  maxWidth: media.size.width - 48,
+                ),
+        ),
+        const SizedBox(height: 16),
+        for (final entry in entries) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _GardenSwitcherCard(
+              entry: entry,
+              reducedMotion: reducedMotion,
+              onTap: entry.isLocked
+                  ? () => _showBubble(currentEntry.label)
+                  : () => _onUnlockedTap(entry.code),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ],
+    );
+
     return SafeArea(
-      top: false,
       child: GestureDetector(
         // Tapping anywhere in the sheet (outside the bubble/cards) dismisses
         // the bubble, matching the "tap elsewhere" spec.
         behavior: HitTestBehavior.opaque,
         onTap: _dismissBubble,
-        child: Container(
-          key: const ValueKey('garden-switcher-sheet'),
-          constraints: const BoxConstraints(maxHeight: 720),
-          padding: EdgeInsets.only(bottom: 20 + media.padding.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _GardenSignpostHeader(
-                label: signpostLabel,
-                reducedMotion: reducedMotion,
-                // Bubble sits above the signpost Zoe.
-                bubble: _bubbleGardenName == null
-                    ? null
-                    : _ZoeGardenBubble(
-                        currentGardenName: _bubbleGardenName!,
-                        controller: _bubbleController,
-                        maxWidth: media.size.width - 48,
-                      ),
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: [
-                      for (final entry in entries) ...[
-                        _GardenSwitcherCard(
-                          entry: entry,
-                          reducedMotion: reducedMotion,
-                          onTap: entry.isLocked
-                              ? () => _showBubble(currentEntry.label)
-                              : () => _onUnlockedTap(entry.code),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
+        // Centered vertically; a scroll view inside Center only actually
+        // scrolls when the content exceeds the viewport (tiny screens),
+        // otherwise all gardens show centered without scrolling.
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.only(bottom: 20 + media.padding.bottom),
+            child: content,
           ),
         ),
       ),
@@ -2139,7 +2169,8 @@ class _GardenSignpostHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     const headerHeight = 176.0;
     const signpostTop = 120.0;
-    const zoeTop = signpostTop - 46.0;
+    // Raised so Zoe's base clears the signboard text.
+    const zoeTop = signpostTop - 54.0;
     const bubbleGap = 10.0;
     // Stack order matters: the signpost paints first, Zoe paints above it, and
     // the bubble is anchored above Zoe so it never covers her face.
@@ -2313,27 +2344,36 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
         children: [
           SvgPicture.asset(spec.iconAsset, width: 48, height: 48),
           const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              entry.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: EllaFonts.body(
-                const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  height: 1.6,
-                  letterSpacing: 0.016,
-                  color: EllaColors.ink,
+          // Name + chip claim all the slack so the chevron always pins to the
+          // far right. The chip sits outside the Flexible so it never truncates.
+          Expanded(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    entry.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: EllaFonts.body(
+                      const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        height: 1.6,
+                        letterSpacing: 0.016,
+                        color: EllaColors.ink,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                if (entry.isCurrent) ...[
+                  const SizedBox(width: 8),
+                  const _YoureHereChip(),
+                ],
+              ],
             ),
           ),
-          if (entry.isCurrent) ...[
-            const SizedBox(width: 8),
-            const _YoureHereChip(),
-          ],
-          const Spacer(),
+          const SizedBox(width: 8),
           Icon(
             Icons.chevron_right_rounded,
             size: 24,
@@ -2747,7 +2787,9 @@ class _GardenUnitRow extends StatelessWidget {
         final signName = step.displayName;
         final signW = _signWidthFor(signName);
         final signH = _signHeightFor(signName, signW);
-        final signX = plotOnLeft ? _designWidth - 40 - signW : 27.0;
+        final signX = spec.sideProp == _GardenSideProp.lantern && !plotOnLeft
+            ? 76.0
+            : (plotOnLeft ? _designWidth - 40 - signW : 27.0);
         final signY = 5.0;
         final plotX = plotOnLeft ? 40.0 : 101.0;
         final plotY = signH > 48 ? 103.0 : (plotOnLeft ? 83.0 : 76.0);
@@ -2761,11 +2803,14 @@ class _GardenUnitRow extends StatelessWidget {
           plotY: plotY,
           signX: signX,
           signY: signY,
+          signW: signW,
+          signH: signH,
         );
         final ambientOffset = _ambientOffsetFor(
           spec,
           index: index,
           plotOnLeft: plotOnLeft,
+          plotX: plotX,
           plotY: plotY,
         );
 
@@ -2847,8 +2892,8 @@ class _GardenUnitRow extends StatelessWidget {
 
 double _fenceTopFor(int count, {required bool plotOnLeft}) {
   if (plotOnLeft) return 245.0;
-  if (count >= 10) return 170.0;
-  if (count >= 8) return 215.0;
+  if (count >= 10) return 192.0;
+  if (count >= 8) return 233.0;
   if (count >= 6) return 231.0;
   if (count >= 5) return 255.0;
   if (count >= 4) return 239.0;
@@ -2861,7 +2906,17 @@ Offset _sidePropOffsetFor(
   required double plotY,
   required double signX,
   required double signY,
+  required double signW,
+  required double signH,
 }) {
+  if (spec.sideProp == _GardenSideProp.lantern) {
+    final size = _sidePropSize(spec.sideProp);
+    final signCenterY = signY + signH / 2;
+    return Offset(
+      plotOnLeft ? signX - size.width + 12 : signX - size.width + 24,
+      signCenterY - size.height / 2,
+    );
+  }
   final oldOffset = switch (spec.sideProp) {
     _GardenSideProp.grassTuft => Offset(
       plotOnLeft ? 334.0 : 56.0,
@@ -2875,8 +2930,7 @@ Offset _sidePropOffsetFor(
       spec.code == 'B2'
           ? (plotOnLeft ? const Offset(360, 176) : const Offset(53, 187))
           : (plotOnLeft ? const Offset(358, 193) : const Offset(45, 226)),
-    _GardenSideProp.lantern =>
-      plotOnLeft ? Offset(signX - 39, signY - 8) : Offset(signX + 8, signY + 4),
+    _GardenSideProp.lantern => Offset.zero,
   };
   final oldSize = _sidePropBaseSize(spec.sideProp);
   final newSize = _sidePropSize(spec.sideProp);
@@ -2904,36 +2958,39 @@ Offset _ambientOffsetFor(
   _GardenLevelVisualSpec spec, {
   required int index,
   required bool plotOnLeft,
+  required double plotX,
   required double plotY,
 }) {
+  Offset overPlot(double x, double y) => Offset(plotX + x, plotY + y);
   if (spec.code == 'B1') {
-    return plotOnLeft ? const Offset(82, 81) : const Offset(147, 105);
+    return plotOnLeft ? overPlot(132, 36) : overPlot(122, 48);
   }
   if (spec.code == 'B2') {
-    return plotOnLeft ? const Offset(118, 70) : const Offset(344, 62);
+    return plotOnLeft ? overPlot(128, 38) : overPlot(132, 48);
   }
   if (spec.code == 'C1') {
-    return plotOnLeft ? const Offset(74, 77) : const Offset(343, 66);
+    return plotOnLeft ? overPlot(126, 38) : overPlot(132, 48);
   }
   switch (spec.ambientKind) {
     case _GardenAmbientKind.butterfly:
-      return Offset(
-        plotOnLeft ? (index == 0 ? 64.0 : 108.0) : 223.0,
-        plotOnLeft ? plotY - 4.0 : plotY + 44.0,
-      );
+      return plotOnLeft ? overPlot(118, 34) : overPlot(124, 48);
     case _GardenAmbientKind.goldenButterfly:
     case _GardenAmbientKind.firefly:
-      return plotOnLeft ? const Offset(82, 81) : const Offset(147, 105);
+      return plotOnLeft ? overPlot(132, 36) : overPlot(122, 48);
     case _GardenAmbientKind.bird:
-      return plotOnLeft ? const Offset(156, 210) : const Offset(182, 202);
+      // Sits on the circular base (was near the fences at y+126).
+      return plotOnLeft ? overPlot(104, 96) : overPlot(96, 96);
     case _GardenAmbientKind.bee:
-      return plotOnLeft ? const Offset(90, 73) : const Offset(353, 82);
+      return plotOnLeft ? overPlot(130, 34) : overPlot(136, 48);
   }
 }
 
 double _signWidthFor(String name) {
-  if (name.length > 26) return 185;
-  if (name.length > 16) return 177;
+  final words = _unitTitleWordCount(name);
+  if (words <= 2) return 185;
+  if (words <= 3) return 246;
+  if (name.length > 26) return 246;
+  if (name.length > 16) return 232;
   return 163;
 }
 
@@ -2941,12 +2998,14 @@ double _signHeightFor(String name, double width) {
   const horizontalPadding = 16.0 * 2;
   const nailAndGapWidth = 28.0;
   final availableTextWidth = width - horizontalPadding - nailAndGapWidth;
-  final estimatedCharsPerLine = math.max(
-    10,
-    (availableTextWidth / 8.0).floor(),
-  );
-  return name.length > estimatedCharsPerLine ? 64 : 48;
+  final estimatedCharsPerLine = math.max(10, (availableTextWidth / 8.0).floor());
+  final wrapsToTwoLines = name.length > estimatedCharsPerLine;
+  if (_unitTitleWordCount(name) > 3 || wrapsToTwoLines) return 64;
+  return 48;
 }
+
+int _unitTitleWordCount(String name) =>
+    name.trim().split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
 
 class _UnitSignPost extends StatelessWidget {
   final String name;
@@ -3031,7 +3090,6 @@ class _UnitSignPost extends StatelessWidget {
                         name,
                         textAlign: TextAlign.center,
                         maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                         style: EllaFonts.body(
                           const TextStyle(
                             fontSize: 14,
@@ -3440,8 +3498,8 @@ class _PlotBush extends StatelessWidget {
   Widget build(BuildContext context) {
     return SvgPicture.asset(
       'assets/gardent-view/bush.svg',
-      width: 50,
-      height: 35,
+      width: 45,
+      height: 31.5,
       colorFilter: tint == null
           ? null
           : ColorFilter.mode(tint!, BlendMode.modulate),
@@ -3548,10 +3606,15 @@ class _SkillPlant extends StatelessWidget {
   Widget build(BuildContext context) {
     final plantHeight = _plantHeightFor(skill);
     return Positioned(
-      // Anchor by the art's visual base (at _plantBaseYFrac down the box), not
-      // the box bottom, so seedling/young/bloom all root at the same tile point
-      // instead of the smaller stages floating high on the tile.
-      top: spot.top + _tileH * _plantBaseFactor - plantHeight * _plantBaseYFrac,
+      // Anchor by the art's visual base (at _plantBaseYFrac down the box), then
+      // apply a small per-stage nudge so each stage reads centered on its tile:
+      // the tall bloom is pulled down and the short sprout raised, since pure
+      // base-anchoring left bloom floating high and sprout sitting low.
+      top:
+          spot.top +
+          _tileH * _plantBaseFactor -
+          plantHeight * _plantBaseYFrac +
+          _plantVerticalNudgeFor(skill),
       left: spot.left + _tileW / 2 - _plantSlotW / 2,
       child: SizedBox(
         key: anchorKey,
@@ -3577,9 +3640,19 @@ class _SkillPlant extends StatelessWidget {
 
 double _plantHeightFor(GardenSkill skill) => switch (skill.sightings) {
   <= 0 => 0,
-  1 => 75,
-  2 => 106,
-  _ => 137,
+  1 => 82.5,
+  2 => 116.6,
+  _ => 150.7,
+};
+
+// Small per-stage vertical nudge so each growth stage reads centered on its
+// tile (taller stages pulled down, shorter pushed up). Bases intentionally no
+// longer align across stages — this matches the desired per-stage centering.
+double _plantVerticalNudgeFor(GardenSkill skill) => switch (skill.sightings) {
+  <= 0 => 0,
+  1 => -12, // sprout: raise
+  2 => 0, // bud: centered baseline
+  _ => 12, // bloom: lower
 };
 
 // Spring-overshoot curve from the grove handoff: cubic-bezier(0.34,1.56,0.64,1).
@@ -3893,8 +3966,8 @@ class _BirdState extends State<_Bird> with SingleTickerProviderStateMixin {
       },
       child: SizedBox(
         key: const ValueKey('garden-ambient-bird'),
-        width: 64,
-        height: 54,
+        width: 76.8,
+        height: 64.8,
         child: SvgPicture.asset(
           'assets/garden/ambient/bird.svg',
           fit: BoxFit.contain,
@@ -3974,6 +4047,7 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
   final bool ctaReady;
   final bool hasNext;
   final ZoeMascotMode zoeMode;
+  final Offset? spotlightCenter;
   final VoidCallback onCta;
 
   const _GardenGrowthRevealLayer({
@@ -3982,6 +4056,7 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
     required this.ctaReady,
     required this.hasNext,
     required this.zoeMode,
+    required this.spotlightCenter,
     required this.onCta,
   });
 
@@ -3996,17 +4071,39 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
         final scale = (width / _designWidth).clamp(0.86, 1.08).toDouble();
         final cardWidth = math.min(382.0, width - 48);
         final cardLeft = (width - cardWidth) / 2;
-        final minTop = media.padding.top + 128;
+        final minTop = media.padding.top + 96;
+        final estimatedCardHeight = math.min(
+          324.0,
+          math.max(248.0, height - minTop - media.padding.bottom - 132),
+        );
+        final focusY = spotlightCenter?.dy ?? height * 0.56;
         final maxTop = math.max(
           minTop,
           height - media.padding.bottom - 56 - 324,
         );
-        final cardTop = math.min(math.max(415 * scale, minTop), maxTop);
+        final mascotSize = 72 * scale;
+
+        // Adaptive placement: prefer above the spotlit plant, but if the card
+        // plus Zoe's overhang won't fit above it (top garden / top-most plant),
+        // drop the card below the plant so it never covers the spotlight.
+        const plantClearance = 96.0; // clears the spotlight bright hole
+        final zoeOverhang = 58 * scale;
+        final desiredAboveTop = focusY - estimatedCardHeight - plantClearance;
+        final fitsAbove = desiredAboveTop - zoeOverhang >= minTop;
+        final double cardTop;
+        if (fitsAbove) {
+          cardTop = math.min(math.max(desiredAboveTop, minTop), maxTop);
+        } else {
+          final belowTop = focusY + plantClearance;
+          cardTop = math.min(
+            belowTop,
+            math.max(minTop, height - media.padding.bottom - 56 - 220),
+          );
+        }
         final cardMaxHeight = math.max(
           220.0,
           height - cardTop - media.padding.bottom - 112,
         );
-        final mascotSize = 72 * scale;
 
         return Stack(
           children: [
@@ -4030,9 +4127,11 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      left: math.max(16.0, cardLeft + 53 * scale),
+                      left: math.max(16.0, cardLeft - 6 * scale),
+                      // Zoe sits ON the card, overlapping its top edge (~14px),
+                      // rather than floating above it.
                       top: math.max(
-                        media.padding.top + 84,
+                        media.padding.top + 16,
                         cardTop - 58 * scale,
                       ),
                       child: ZoeMascot(
@@ -4376,14 +4475,6 @@ String _growthRevealTitle(GardenGrowthRevealItem item) {
     return 'A new skill is sprouting';
   }
   return 'This skill just grew stronger';
-}
-
-String _growthRevealSpeech(GardenGrowthRevealItem item) {
-  final quote = item.evidence?.quote.trim();
-  final evidenceLine = quote == null || quote.isEmpty
-      ? ''
-      : ' You said, $quote';
-  return '${_growthRevealTitle(item)}. ${item.skill.displayText}.$evidenceLine';
 }
 
 String _resolveRevealSkillIcon(GardenSkill skill) {
