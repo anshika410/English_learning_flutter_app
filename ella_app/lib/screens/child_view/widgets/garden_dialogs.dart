@@ -129,9 +129,10 @@ int _titleWordCount(String title) =>
     title.trim().split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
 
 double _sheetBoardWidthFor(String title, double sheetWidth) {
-  final maxWidth = math.max(268.0, sheetWidth - 32);
-  if (_titleWordCount(title) <= 2) return math.min(268.0, maxWidth);
-  if (_titleWordCount(title) <= 3) return math.min(334.0, maxWidth);
+  final maxWidth = math.max(0.0, sheetWidth);
+  final words = _titleWordCount(title);
+  if (words <= 2) return math.min(268.0, maxWidth);
+  if (words <= 3) return math.min(334.0, maxWidth);
   return math.min(358.0, maxWidth);
 }
 
