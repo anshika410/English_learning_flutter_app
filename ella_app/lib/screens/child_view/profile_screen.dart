@@ -118,7 +118,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         await EllaApiService().resetUserMemory();
         if (!context.mounted) return;
 
-        // Clear local memory (onboarding details & auth token)
+        // Clear local memory (onboarding details)
         await ref.read(onboardingProvider.notifier).reset();
 
         if (!context.mounted) return;

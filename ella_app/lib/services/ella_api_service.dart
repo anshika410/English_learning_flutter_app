@@ -106,32 +106,6 @@ class EllaApiService {
     await prefs.remove(_onboardingDoneKey);
   }
 
-  Future<bool> loginAnonymous() async {
-    try {
-      final deviceId = await getDeviceId();
-      final data = await _request(
-        'POST',
-        '/auth/anonymous',
-        auth: false,
-        body: {'device_id': deviceId},
-      );
-      final accessToken = data['access_token'];
-      final userId = data['user_id'];
-      if (accessToken != null && userId != null) {
-        await saveTokens(accessToken, userId);
-        try {
-          await AnalyticsService.setUserProfile(userId: userId);
-          await AnalyticsService.logLogin('anonymous');
-        } catch (_) {}
-        return true;
-      }
-      return false;
-    } catch (e) {
-      _log('Anonymous Auth Error', e.toString());
-      return false;
-    }
-  }
-
   Future<bool> loginWithGoogle(String idToken) async {
     try {
       final deviceId = await getDeviceId();
@@ -268,30 +242,7 @@ class EllaApiService {
   }
 
   Future<void> resetUserMemory() async {
-    final deviceId = await getDeviceId();
-
-    // First fetch the anonymous token using the device ID as requested
-    final authData = await _request(
-      'POST',
-      '/auth/anonymous',
-      auth: false,
-      body: {'device_id': deviceId},
-    );
-    final anonToken = authData['access_token'];
-
-    // Now call the reset endpoint using this token directly
-    final uri = Uri.parse('$baseUrl/admin/reset-user/$deviceId');
-    final response = await _client.delete(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $anonToken',
-      },
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw EllaApiException('HTTP ${response.statusCode}: ${response.body}');
-    }
+    await _request('DELETE', '/users/me/memory');
   }
 
   Future<void> deleteAccount() async {
@@ -324,8 +275,6 @@ class EllaApiService {
     await prefs.remove(_onboardingDoneKey);
     await prefs.remove(_childNameKey);
     await prefs.remove(_childAgeKey);
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userIdKey);
   }
 
   /// Cache just the name/age (onboarding NOT yet done) — written the moment
@@ -547,13 +496,9 @@ class EllaApiService {
     if (auth) {
       var token = await getToken();
       if (token == null || token.isEmpty) {
-        _log('AUTH', 'No token found, grabbing anonymous token for demo.');
-        await loginAnonymous();
-        token = await getToken();
+        throw const EllaApiException('not_authenticated');
       }
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
+      headers['Authorization'] = 'Bearer $token';
     }
 
     _log('REQUEST  $method $uri', body != null ? jsonEncode(body) : null);
