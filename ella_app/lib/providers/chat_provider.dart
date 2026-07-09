@@ -17,6 +17,7 @@ import '../models/history_entry.dart';
 import '../models/memory_snapshot.dart';
 import '../models/message.dart';
 import '../models/session.dart';
+import '../services/analytics_service.dart';
 import '../services/ella_api_service.dart';
 import 'garden_provider.dart';
 import 'onboarding_provider.dart';
@@ -704,6 +705,28 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       sysText = '$grew · aimed ${aimed.length}, hit ${hitTargets.length}';
     }
     final sysMsg = ChatMessage(sender: MessageSender.system, text: sysText);
+
+    try {
+      await AnalyticsService.logConversationComplete(
+        topic: cur.currentTopic?.topic ?? 'Free Talk',
+        messageCount: cur.turnCount,
+        durationSeconds: 0,
+        level: mem.level,
+        progressionModel: mode,
+      );
+
+      for (final c in effectiveChanges) {
+        if (c.to == 'owned' || c.to == 'emerging') {
+          final parts = c.id.split('-');
+          final strand = parts.length >= 2 ? parts[1] : 'unknown';
+          await AnalyticsService.logSkillGained(
+            skillId: c.id,
+            strand: strand,
+            toState: c.to,
+          );
+        }
+      }
+    } catch (_) {}
 
     state = AsyncValue.data(
       cur.copyWith(

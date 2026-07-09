@@ -33,6 +33,7 @@ class AdminUserOut(BaseModel):
     completed_sessions: int
     total_speaking_seconds: int
     created_at: datetime
+    skills_progress: dict | None = None
 
 
 class AdminConversationOut(BaseModel):
@@ -121,6 +122,7 @@ async def admin_stats(
             completed_sessions=completed,
             total_speaking_seconds=stats["speaking_secs"],
             created_at=u.created_at,
+            skills_progress=u.skills_progress,
         ))
 
     # Recent conversations with message counts
@@ -314,3 +316,13 @@ async def reset_user(
         "user_id": user.id,
         "message": "All placements deleted. Level, skills, memory reset to fresh state."
     }
+
+
+@router.get("/curriculum")
+async def get_admin_curriculum(
+    _: None = Depends(_check_key),
+):
+    """Get dynamic curriculum structure representing levels, steps, and flat skills."""
+    from ..core.curriculum_data import UNITS
+    return UNITS
+

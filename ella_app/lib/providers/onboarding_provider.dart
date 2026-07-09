@@ -11,6 +11,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/analytics_service.dart';
 import 'chat_provider.dart';
 import 'placement_provider.dart';
 import 'service_providers.dart';
@@ -131,6 +132,14 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
     }
 
     // Thread the known name/age into the placement screening.
+    try {
+      await AnalyticsService.logOnboardingComplete(name, age);
+      final userId = await api.getCachedUserId();
+      if (userId != null) {
+        await AnalyticsService.setUserProfile(userId: userId, name: name, age: age);
+      }
+    } catch (_) {}
+
     ref.read(placementProvider.notifier).seedProfile(name: name, age: age);
 
     state = AsyncData(OnboardingState(done: true, name: name, age: age));

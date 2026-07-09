@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "778575174037",
+    "project_id": "ella-2020f",
+    "storage_bucket": "ella-2020f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:778575174037:android:6847fb691d2341c6eefe9c",
+        "android_client_info": {
+          "package_name": "org.navgurukul.ella"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXycuOPu8Rul3jM2MTI4N_YXAXMNBXB_w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

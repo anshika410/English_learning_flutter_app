@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/message.dart';
 import '../models/placement.dart';
+import '../services/analytics_service.dart';
 import 'chat_provider.dart' show ChatStatus, chatProvider;
 import 'service_providers.dart';
 
@@ -303,6 +304,14 @@ class PlacementNotifier extends Notifier<PlacementState> {
         isComplete: true,
         result: result,
       );
+      try {
+        final finalLevel = result.level ?? 'A0';
+        await AnalyticsService.logPlacementComplete(finalLevel, 0);
+        final userId = await ref.read(ellaApiServiceProvider).getCachedUserId();
+        if (userId != null) {
+          await AnalyticsService.setUserProfile(userId: userId, level: finalLevel);
+        }
+      } catch (_) {}
       await ref.read(chatProvider.notifier).refreshAfterPlacement();
       _resolveLevelAssigned();
     } else {

@@ -197,7 +197,7 @@ _LEVEL_BLOCKS = {
         '- Very simple present-simple sentences and high-frequency words. One idea per turn.\n'
         '- Accept fragments. A one-word answer is a success if meaning is clear.\n'
         '- After success, scaffold one small extension: one more word, one detail, or one sentence frame.\n'
-        '- If a question doesn't land, shrink it into a this-or-that choice: "Is it big or small?"\n'
+        "- If a question doesn't land, shrink it into a this-or-that choice: \"Is it big or small?\"\n"
         '- CORRECTION: none. Recast errors naturally; never name grammar rules.\n'
         '- ESCALATE: once the learner answers, MOVE ON to a related detail. NEVER re-ask what they already answered.'
     ),
