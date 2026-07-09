@@ -31,6 +31,8 @@ import 'widgets/garden_dialogs.dart';
 import 'widgets/spotlight_callout_bubble.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
+import 'widgets/network_error_view.dart';
+import 'widgets/mascot_loading_screen.dart';
 
 // Garden values from docs/Garden Themes - Figma Values.md.
 const Color _dawnSkyTop = Color(0xFFFFE3D0);
@@ -613,23 +615,9 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
             onTalk: _returnHome,
           );
         },
-        loading: () => const _SkyScaffold(
-          child: Center(
-            child: CircularProgressIndicator(color: EllaColors.berryDark),
-          ),
-        ),
-        // No separate error screen: the toast (fired from the ref.listen above)
-        // carries the message. Show a calm empty sky with a quiet retry so the
-        // child can try again without a jarring error page.
-        error: (e, _) => _SkyScaffold(
-          child: Center(
-            child: IconButton(
-              onPressed: withTapClick(() => ref.invalidate(gardenProvider)),
-              icon: const Icon(Icons.refresh_rounded, color: EllaColors.ink),
-              iconSize: 32,
-              tooltip: 'Retry',
-            ),
-          ),
+        loading: () => const MascotLoadingScreen(message: 'Preparing your garden...'),
+        error: (e, _) => NetworkErrorView(
+          onRetry: () => ref.invalidate(gardenProvider),
         ),
       ),
     );

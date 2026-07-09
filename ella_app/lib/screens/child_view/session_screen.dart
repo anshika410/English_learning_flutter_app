@@ -18,6 +18,8 @@ import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import 'widgets/conversation_view.dart';
 import 'widgets/garden_sky_background.dart';
+import 'widgets/mascot_loading_screen.dart';
+import 'widgets/network_error_view.dart';
 
 const String _kGoodbye = 'It was great talking to you. See you again later!';
 
@@ -308,19 +310,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       child: Scaffold(
         resizeToAvoidBottomInset: true,
         backgroundColor: EllaColors.surfaceVariant,
-        body: chatAsync.when(
-          loading: () => const GardenSkyBackground(
-            child: Center(
-              child: CircularProgressIndicator(color: EllaColors.berryDark),
-            ),
-          ),
-          error: (e, _) => GardenSkyBackground(
-            child: Center(
-              child: Text(
-                'Error: $e',
-                style: const TextStyle(color: EllaColors.ink),
-              ),
-            ),
+         body: chatAsync.when(
+          loading: () => const MascotLoadingScreen(message: 'Starting session...'),
+          error: (e, _) => NetworkErrorView(
+            onRetry: () => ref.invalidate(chatProvider),
           ),
           data: (s) => _view(s),
         ),

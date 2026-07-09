@@ -563,7 +563,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         SizedBox(height: metrics.formGap),
         SizedBox(
-          height: metrics.buttonHeight,
+          height: 72,
           child: TextField(
             controller: _emailController,
             focusNode: _emailFocusNode,
@@ -577,7 +577,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               ),
               filled: true,
               fillColor: EllaColors.surface,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: const BorderSide(
@@ -605,7 +605,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         SizedBox(height: metrics.formGap),
         EllaPrimaryButton(
           label: 'Send Me a Link',
-          height: metrics.buttonHeight,
+          height: 72,
           horizontalPadding: 16,
           leadingGap: 12,
           leading: _isLoading
@@ -783,9 +783,16 @@ class _BackCircleButton extends StatelessWidget {
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: EllaColors.greenLight, // #DDF8E8 circle fill
+            color: EllaColors.surface, // Changed from greenLight to surface
             shape: BoxShape.circle,
             border: Border.all(color: EllaColors.greenDeep, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: EllaColors.greenDeep,
+                offset: Offset(0, 3),
+                blurRadius: 0,
+              ),
+            ],
           ),
           child: const Icon(
             Icons.arrow_back_rounded,
