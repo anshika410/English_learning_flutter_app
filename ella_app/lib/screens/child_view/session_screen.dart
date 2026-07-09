@@ -348,20 +348,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     bool studentLive = false;
     if (!_ending) {
       if (s.status == ChatStatus.userSpeaking) {
+        // Show live partial while user is actively speaking.
         final p = s.partialStt?.trim() ?? '';
         studentLine = p.isEmpty ? null : p;
         studentLive = true;
-      } else {
-        // Show student's last message until the user starts speaking next turn.
-        // This keeps the bubble visible while Zoe is thinking/speaking.
-        final lastChild = s.messages.lastWhere(
-          (m) => m.sender == MessageSender.child,
-          orElse: () => ChatMessage(sender: MessageSender.system, text: ''),
-        );
-        if (lastChild.sender == MessageSender.child) {
-          studentLine = lastChild.text;
-        }
       }
+      // Once Zoe has replied, hide the student bubble — only Zoe's latest
+      // message should be visible. Student bubble only shows during active speech.
     }
 
     return ConversationView(
