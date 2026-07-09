@@ -169,6 +169,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     // Fire scoring in the background (don't wait)
     unawaited(notifier.endChat().catchError(_snack));
 
+    // First stop any current speech explicitly to clear active playback
+    final nativeTts = ref.read(nativeTtsProvider);
+    await nativeTts.stop();
+    // Allow any pending stop callback events to drain from the native channel
+    await Future.delayed(const Duration(milliseconds: 150));
+
     bool popped = false;
     void doPop() {
       if (popped) return;
@@ -187,7 +193,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     // Listen for TTS done stream to pop as soon as speech finishes
     StreamSubscription? doneSub;
-    final nativeTts = ref.read(nativeTtsProvider);
     doneSub = nativeTts.doneStream.listen((_) {
       safetyTimer.cancel();
       doneSub?.cancel();
