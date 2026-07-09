@@ -30,6 +30,8 @@ import 'widgets/speaker_dot_button.dart';
 import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 import 'chat_bubble.dart';
+import 'widgets/network_error_view.dart';
+import '../../core/app_toast.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
 // 'demo'), so this is a swappable placeholder matching the design demo until a
@@ -72,13 +74,8 @@ class HomeScreen extends ConsumerWidget {
         onOpenGarden: onOpenGarden,
         onOpenProfile: onOpenProfile,
       ),
-      error: (e, _) => GardenSkyBackground(
-        child: Center(
-          child: Text(
-            'Home error: $e',
-            style: const TextStyle(color: EllaColors.ink),
-          ),
-        ),
+      error: (e, _) => NetworkErrorView(
+        onRetry: () => ref.invalidate(chatProvider),
       ),
     );
   }
@@ -654,19 +651,23 @@ class _TopicChip extends StatelessWidget {
           : EllaColors.ink.withValues(alpha: 0.2),
       outlineWidth: selected ? 2.5 : 1.5,
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TopicIcon(icon: icon, size: 26, fallbackColor: content),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            maxLines: 2,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: EllaTextStyles.caption.copyWith(color: content),
-          ),
-        ],
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TopicIcon(icon: icon, size: 48, fallbackColor: content),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: EllaTextStyles.caption.copyWith(color: content),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -682,22 +683,26 @@ class _SeeMoreChip extends StatelessWidget {
       fill: EllaColors.surface,
       outline: EllaColors.ink.withValues(alpha: 0.35),
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.open_in_full_rounded,
-            size: 22,
-            color: EllaColors.ink,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'See More!',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: EllaTextStyles.caption.copyWith(color: EllaColors.ink),
-          ),
-        ],
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.open_in_full_rounded,
+              size: 48,
+              color: EllaColors.ink,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'See More!',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: EllaTextStyles.caption.copyWith(color: EllaColors.ink),
+            ),
+          ],
+        ),
       ),
     );
   }

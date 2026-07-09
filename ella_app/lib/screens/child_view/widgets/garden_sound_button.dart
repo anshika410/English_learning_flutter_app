@@ -54,7 +54,10 @@ class _GardenSoundButtonState extends ConsumerState<GardenSoundButton> {
           decoration: BoxDecoration(
             color: EllaColors.surface,
             shape: BoxShape.circle,
-            border: Border.all(color: EllaColors.greenDark, width: 2),
+            border: Border.all(
+              color: _on ? EllaColors.berryDark : EllaColors.textTertiary,
+              width: 2,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.10),
@@ -66,7 +69,7 @@ class _GardenSoundButtonState extends ConsumerState<GardenSoundButton> {
           child: Icon(
             _on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
             size: widget.size * 0.5,
-            color: EllaColors.greenDeep,
+            color: _on ? EllaColors.berryDark : EllaColors.textTertiary,
           ),
         ),
       ),
