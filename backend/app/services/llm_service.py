@@ -531,6 +531,27 @@ async def analyze_and_grade_session(
         data = json.loads(json_str)
         if "scores" not in data:
             data["scores"] = []
+        
+        # Safety net: discard any score whose ID the LLM hallucinated.
+        # The LLM must only return IDs from target_skill_ids. If it invents
+        # or reformats an ID (e.g. returns "A1-VOC-01" instead of "U1-VOC-01"),
+        # that score would corrupt state_changes with mismatched IDs.
+        if target_skill_ids:
+            valid_ids = set(target_skill_ids)
+            original_scores = data["scores"]
+            data["scores"] = [s for s in original_scores if s.get("id") in valid_ids]
+            # If LLM dropped a targeted skill entirely, add a zero-confidence entry
+            # so apply_merge always sees every aimed skill (just with no evidence).
+            returned_ids = {s.get("id") for s in data["scores"]}
+            for sid in target_skill_ids:
+                if sid not in returned_ids:
+                    data["scores"].append({
+                        "id": sid,
+                        "confidence": 0.0,
+                        "prompted": False,
+                        "evidence": "",
+                    })
+        
         return data
     except Exception as e:
         import logging
