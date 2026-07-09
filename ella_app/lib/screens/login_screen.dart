@@ -5,13 +5,16 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:android_intent_plus/android_intent.dart';
 
 import '../core/app_toast.dart';
 import '../providers/chat_provider.dart';
@@ -63,6 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  late final TapGestureRecognizer _emailTapRecognizer;
 
   StreamSubscription<gsi.GoogleSignInAuthenticationEvent>?
   _googleSignInSubscription;
@@ -71,6 +75,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void initState() {
     super.initState();
     _api = widget.api ?? EllaApiService();
+
+    _emailTapRecognizer = TapGestureRecognizer()
+      ..onTap = () async {
+        if (Platform.isAndroid) {
+          const intent = AndroidIntent(
+            action: 'android.intent.action.MAIN',
+            category: 'android.intent.category.APP_EMAIL',
+          );
+          try {
+            await intent.launch();
+          } catch (_) {
+            if (mounted) showEllaErrorToast(context, 'No mail app installed.');
+          }
+        } else if (Platform.isIOS) {
+          final url = Uri(scheme: 'message');
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url);
+          } else {
+            if (mounted) showEllaErrorToast(context, 'No mail app installed.');
+          }
+        }
+      };
 
     _introController = AnimationController(
       vsync: this,
@@ -196,6 +222,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _emailFocusNode.dispose();
     _emailController.dispose();
     _scrollController.dispose();
+    _emailTapRecognizer.dispose();
     super.dispose();
   }
 
@@ -288,6 +315,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     setState(() {
       _magicLinkSent = false;
       _showEmailInput = false;
+      _emailController.clear();
+    });
+  }
+
+  void _resetToEmailInput() {
+    setState(() {
+      _magicLinkSent = false;
       _emailController.clear();
     });
   }
@@ -619,7 +653,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       style: EllaTextStyles.button.copyWith(
                         color: EllaColors.berryMain,
                         letterSpacing: 0.07,
+                        decoration: TextDecoration.underline,
+                        decorationColor: EllaColors.berryMain,
                       ),
+                      recognizer: _emailTapRecognizer,
                     ),
                   ],
                 ),
@@ -635,7 +672,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         SizedBox(height: metrics.formGap),
         TextButton(
-          onPressed: withTapClick(_resetToButtons),
+          onPressed: withTapClick(_resetToEmailInput),
           child: Text(
             'Use a Different Email',
             style: EllaTextStyles.authBodySemibold.copyWith(
