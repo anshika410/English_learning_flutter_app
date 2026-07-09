@@ -130,11 +130,40 @@ class FlutterTtsService implements TtsInterface {
     _tts.setCompletionHandler(() => _speaking = false);
   }
 
+  /// Strips emojis and other non-speech unicode before handing text to the
+  /// TTS engine — prevents the engine from reading "smiley face" or similar.
+  static String _sanitizeForTts(String text) {
+    return text
+        .replaceAll(
+          RegExp(
+            r'[\u{1F600}-\u{1F64F}' // emoticons
+            r'\u{1F300}-\u{1F5FF}' // misc symbols & pictographs
+            r'\u{1F680}-\u{1F6FF}' // transport & map
+            r'\u{1F700}-\u{1F77F}' // alchemical symbols
+            r'\u{1F780}-\u{1F7FF}' // geometric shapes extended
+            r'\u{1F800}-\u{1F8FF}' // supplemental arrows
+            r'\u{1F900}-\u{1F9FF}' // supplemental symbols & pictographs
+            r'\u{1FA00}-\u{1FA6F}' // chess symbols
+            r'\u{1FA70}-\u{1FAFF}' // symbols & pictographs extended-A
+            r'\u{2600}-\u{26FF}'   // misc symbols (☀️🌙⭐ etc)
+            r'\u{2700}-\u{27BF}'   // dingbats
+            r'\u{FE00}-\u{FE0F}'   // variation selectors
+            r'\u{1F1E0}-\u{1F1FF}' // flags
+            r'\u{200D}]',          // zero-width joiner
+            unicode: true,
+          ),
+          '',
+        )
+        .replaceAll(RegExp(r' {2,}'), ' ') // collapse double spaces left behind
+        .trim();
+  }
+
   @override
   Future<void> speak(String text) async {
-    if (text.trim().isEmpty) return;
+    final sanitized = _sanitizeForTts(text);
+    if (sanitized.isEmpty) return;
     _speaking = true;
-    await _tts.speak(text);
+    await _tts.speak(sanitized);
   }
 
   @override
