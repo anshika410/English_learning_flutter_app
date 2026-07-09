@@ -9,7 +9,6 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
@@ -66,7 +65,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
-  late final TapGestureRecognizer _emailTapRecognizer;
 
   StreamSubscription<gsi.GoogleSignInAuthenticationEvent>?
   _googleSignInSubscription;
@@ -75,28 +73,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void initState() {
     super.initState();
     _api = widget.api ?? EllaApiService();
-
-    _emailTapRecognizer = TapGestureRecognizer()
-      ..onTap = () async {
-        if (Platform.isAndroid) {
-          const intent = AndroidIntent(
-            action: 'android.intent.action.MAIN',
-            category: 'android.intent.category.APP_EMAIL',
-          );
-          try {
-            await intent.launch();
-          } catch (_) {
-            if (mounted) showEllaErrorToast(context, 'No mail app installed.');
-          }
-        } else if (Platform.isIOS) {
-          final url = Uri(scheme: 'message');
-          if (await canLaunchUrl(url)) {
-            await launchUrl(url);
-          } else {
-            if (mounted) showEllaErrorToast(context, 'No mail app installed.');
-          }
-        }
-      };
 
     _introController = AnimationController(
       vsync: this,
@@ -222,7 +198,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _emailFocusNode.dispose();
     _emailController.dispose();
     _scrollController.dispose();
-    _emailTapRecognizer.dispose();
     super.dispose();
   }
 
@@ -647,25 +622,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 text: TextSpan(
                   style: EllaTextStyles.authBodySemibold,
                   children: [
-                    const TextSpan(text: 'We have sent a link to '),
-                    TextSpan(
-                      text: _emailController.text,
-                      style: EllaTextStyles.button.copyWith(
-                        color: EllaColors.berryMain,
-                        letterSpacing: 0.07,
-                        decoration: TextDecoration.underline,
-                        decorationColor: EllaColors.berryMain,
-                      ),
-                      recognizer: _emailTapRecognizer,
-                    ),
+                    TextSpan(text: 'We have sent a link to ${_emailController.text}'),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Check your Inbox!',
-                textAlign: TextAlign.center,
-                style: EllaTextStyles.authBodySemibold,
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: withTapClick(() async {
+                  if (Platform.isAndroid) {
+                    const intent = AndroidIntent(
+                      action: 'android.intent.action.MAIN',
+                      category: 'android.intent.category.APP_EMAIL',
+                    );
+                    try {
+                      await intent.launch();
+                    } catch (_) {
+                      if (mounted) showEllaErrorToast(context, 'No mail app installed.');
+                    }
+                  } else if (Platform.isIOS) {
+                    final url = Uri(scheme: 'message');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url);
+                    } else {
+                      if (mounted) showEllaErrorToast(context, 'No mail app installed.');
+                    }
+                  }
+                }),
+                child: Text(
+                  'Open Your Inbox!',
+                  textAlign: TextAlign.center,
+                  style: EllaTextStyles.authBodySemibold.copyWith(
+                    color: EllaColors.berryMain,
+                  ),
+                ),
               ),
             ],
           ),
