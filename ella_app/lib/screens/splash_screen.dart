@@ -11,8 +11,7 @@ import '../providers/onboarding_provider.dart';
 
 import '../services/ella_api_service.dart';
 import '../services/update_service.dart';
-import 'child_view/widgets/onboarding_scenery.dart';
-import 'child_view/widgets/zoe_mascot.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -51,8 +50,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         // If it fails, RootGate will show error or reload
       }
       if (!mounted) return;
+      FlutterNativeSplash.remove();
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
+      FlutterNativeSplash.remove();
       Navigator.of(context).pushReplacementNamed('/login');
     }
   }
@@ -68,24 +69,8 @@ class SplashUI extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0FAFA),
-      body: OnboardingScenery(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final shortestSide = constraints.biggest.shortestSide;
-            final mascotSize = (shortestSide * 0.42).clamp(136.0, 180.0);
-
-            return Center(
-              child: ZoeMascot(
-                mode: ZoeMascotMode.listening,
-                size: mascotSize,
-                reducedMotion: MediaQuery.of(context).disableAnimations,
-              ),
-            );
-          },
-        ),
-      ),
+    return const Scaffold(
+      backgroundColor: Color(0xFFF0FAFA),
     );
   }
 }

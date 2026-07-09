@@ -1,4 +1,9 @@
 flutter_native_splash:
   color: "#F0FAFA"
+  color_dark: "#F0FAFA"
+  image: "assets/zoe_splash_padded.png"
+  
   android_12:
     color: "#F0FAFA"
+    color_dark: "#F0FAFA"
+    image: "assets/zoe_splash_padded.png"
