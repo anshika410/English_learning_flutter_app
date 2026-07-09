@@ -8,9 +8,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
+Future<void> main() async {
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   // Lock app to portrait mode only
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
