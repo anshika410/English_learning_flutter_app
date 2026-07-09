@@ -657,14 +657,18 @@ class _TopicChip extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TopicIcon(icon: icon, size: 48, fallbackColor: content),
+            TopicIcon(icon: icon, size: 53, fallbackColor: content),
             const SizedBox(height: 4),
             Text(
               label,
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: EllaTextStyles.caption.copyWith(color: content),
+              style: EllaTextStyles.bodySmall.copyWith(
+                fontSize: (EllaTextStyles.bodySmall.fontSize ?? 14.0) + 2.0,
+                fontWeight: FontWeight.w700,
+                color: content,
+              ),
             ),
           ],
         ),
@@ -689,17 +693,25 @@ class _SeeMoreChip extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.open_in_full_rounded,
-              size: 48,
-              color: EllaColors.ink,
+            SvgPicture.asset(
+              'assets/homescreen/new/BoundingBox.svg',
+              width: 53,
+              height: 53,
+              colorFilter: const ColorFilter.mode(
+                EllaColors.berryDark,
+                BlendMode.srcIn,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               'See More!',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: EllaTextStyles.caption.copyWith(color: EllaColors.ink),
+              style: EllaTextStyles.bodySmall.copyWith(
+                fontSize: (EllaTextStyles.bodySmall.fontSize ?? 14.0) + 2.0,
+                fontWeight: FontWeight.w700,
+                color: EllaColors.ink,
+              ),
             ),
           ],
         ),
