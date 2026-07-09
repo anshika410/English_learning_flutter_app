@@ -278,21 +278,27 @@ async def get_admin_prompts():
         )
 
 
-class SetLevelRequest(BaseModel):
+class JumpRequest(BaseModel):
     email: str
     level: str  # A0, A1, A2, B1, B2, C1
     reset_progress: bool = False  # if True, wipes skills_progress so unit starts fresh
 
 
-@router.post("/set-level")
-async def set_user_level(
-    body: SetLevelRequest,
+@router.post("/jump")
+async def jump_user_to_level(
+    body: JumpRequest,
     _: None = Depends(_check_key),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    QA / PM tool — jump any user to a specific CEFR level by email.
-    Optionally reset their skills_progress so they start at Unit 1 of that level.
+    🚀 Jump API — instantly move any user to any CEFR level by email.
+    Perfect for QA and PM testing without going through placement.
+
+    - email: the user's registered email address
+    - level: one of A0, A1, A2, B1, B2, C1
+    - reset_progress: set true to start fresh at Unit 1 of that level (recommended for clean testing)
+
+    After calling this, just open the app — Zoe will immediately behave at the new level.
     """
     valid_levels = {"A0", "A1", "A2", "B1", "B2", "C1"}
     if body.level.upper() not in valid_levels:
@@ -322,8 +328,6 @@ async def set_user_level(
         "progress_reset": body.reset_progress,
         "message": f"User '{body.email}' is now at level {user.level}. Open the app to start a session.",
     }
-
-
 @router.delete("/reset-user/{device_id}")
 async def reset_user(
     device_id: str,
