@@ -275,8 +275,6 @@ class EllaApiService {
     await prefs.remove(_onboardingDoneKey);
     await prefs.remove(_childNameKey);
     await prefs.remove(_childAgeKey);
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userIdKey);
   }
 
   /// Cache just the name/age (onboarding NOT yet done) — written the moment
