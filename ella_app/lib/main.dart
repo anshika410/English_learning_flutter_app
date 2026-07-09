@@ -10,8 +10,11 @@ import 'services/analytics_service.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
 
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   try {
     await Firebase.initializeApp();
@@ -19,7 +22,6 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('⚠️ Firebase initialization failed: $e');
   }
-
   // Lock app to portrait mode only
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
