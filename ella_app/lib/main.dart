@@ -5,11 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/analytics_service.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp();
+    await AnalyticsService.logAppOpen();
+  } catch (e) {
+    debugPrint('⚠️ Firebase initialization failed: $e');
+  }
 
   // Lock app to portrait mode only
   await SystemChrome.setPreferredOrientations([
