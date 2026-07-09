@@ -226,14 +226,22 @@ class _TypewriterTextState extends State<TypewriterText> {
             TextSpan(text: _cleanText.substring(0, widget.highlightStart)),
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
-              child: Transform.scale(
-                scale: 1.12, // Magnify the active word by 12% without shifting text layout
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFCE4EC), // Soft pink/berry background pill
+                  borderRadius: BorderRadius.circular(6),
+                ),
                 child: Text(
                   _cleanText.substring(
                     widget.highlightStart,
                     widget.highlightEnd,
                   ),
-                  style: highlightStyle,
+                  style: highlightStyle.copyWith(
+                    color: const Color(0xFFC2185B), // Deep pink/berry for high contrast and readability
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
