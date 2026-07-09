@@ -2994,8 +2994,13 @@ double _signWidthFor(String name) {
   return 163;
 }
 
-double _signHeightFor(String name, double _) {
-  if (_unitTitleWordCount(name) > 3) return 64;
+double _signHeightFor(String name, double width) {
+  const horizontalPadding = 16.0 * 2;
+  const nailAndGapWidth = 28.0;
+  final availableTextWidth = width - horizontalPadding - nailAndGapWidth;
+  final estimatedCharsPerLine = math.max(10, (availableTextWidth / 8.0).floor());
+  final wrapsToTwoLines = name.length > estimatedCharsPerLine;
+  if (_unitTitleWordCount(name) > 3 || wrapsToTwoLines) return 64;
   return 48;
 }
 
