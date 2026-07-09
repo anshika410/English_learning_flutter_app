@@ -278,6 +278,52 @@ async def get_admin_prompts():
         )
 
 
+class SetLevelRequest(BaseModel):
+    email: str
+    level: str  # A0, A1, A2, B1, B2, C1
+    reset_progress: bool = False  # if True, wipes skills_progress so unit starts fresh
+
+
+@router.post("/set-level")
+async def set_user_level(
+    body: SetLevelRequest,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    QA / PM tool — jump any user to a specific CEFR level by email.
+    Optionally reset their skills_progress so they start at Unit 1 of that level.
+    """
+    valid_levels = {"A0", "A1", "A2", "B1", "B2", "C1"}
+    if body.level.upper() not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"Invalid level. Must be one of: {sorted(valid_levels)}")
+
+    result = await db.execute(select(User).where(User.email == body.email.lower().strip()))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"No user found with email '{body.email}'")
+
+    user.level = body.level.upper()
+
+    if body.reset_progress:
+        user.skills_progress = {
+            "owned": [], "emerging": [], "sightings": {},
+            "strength": {}, "last_seen": {}, "effort": {"times_spoken_total": 0}
+        }
+        user.due_next = {}
+
+    db.add(user)
+    await db.flush()
+
+    return {
+        "status": "ok",
+        "email": body.email,
+        "level": user.level,
+        "progress_reset": body.reset_progress,
+        "message": f"User '{body.email}' is now at level {user.level}. Open the app to start a session.",
+    }
+
+
 @router.delete("/reset-user/{device_id}")
 async def reset_user(
     device_id: str,
