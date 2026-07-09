@@ -204,7 +204,7 @@ class _TopicCard extends StatelessWidget {
             children: [
               TopicIcon(
                 icon: topic.icon,
-                size: 48,
+                size: 53,
                 fallbackColor: EllaColors.ink,
               ),
               const SizedBox(height: 8),
@@ -213,7 +213,11 @@ class _TopicCard extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: EllaTextStyles.bodySmall,
+                style: EllaTextStyles.bodySmall.copyWith(
+                  fontSize: (EllaTextStyles.bodySmall.fontSize ?? 14.0) + 2.0,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
               ),
             ],
           ),

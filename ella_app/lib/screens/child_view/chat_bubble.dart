@@ -104,6 +104,7 @@ class ChatBubble extends ConsumerWidget {
                         color: const Color(0xFF880E4F),
                         fontWeight: FontWeight.w700,
                         height: 1.4,
+                        fontSize: (EllaTextStyles.bodyBase.fontSize ?? 16.0) + 1.0,
                       ),
                     ),
                   ),
@@ -203,7 +204,11 @@ class _TypewriterTextState extends State<TypewriterText> {
         : _words.take(_visibleWords).join(' ');
 
     final baseStyle = widget.style ??
-        EllaTextStyles.bodyBase.copyWith(color: EllaColors.ink, height: 1.4);
+        EllaTextStyles.bodyBase.copyWith(
+          color: EllaColors.ink,
+          height: 1.4,
+          fontSize: (EllaTextStyles.bodyBase.fontSize ?? 16.0) + 1.0,
+        );
     final highlightStyle = widget.highlightStyle ??
         baseStyle.copyWith(
           color: const Color(0xFFE91E63),
