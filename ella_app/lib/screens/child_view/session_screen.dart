@@ -352,9 +352,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         final p = s.partialStt?.trim() ?? '';
         studentLine = p.isEmpty ? null : p;
         studentLive = true;
+      } else {
+        // Show student's last message until the user starts speaking next turn.
+        // This keeps the bubble visible while Zoe is thinking/speaking.
+        final last = s.messages.isNotEmpty ? s.messages.last : null;
+        if (last != null && last.sender == MessageSender.child) {
+          studentLine = last.text;
+        }
       }
-      // Once Zoe has replied, hide the student bubble — only Zoe's latest
-      // message should be visible. Student bubble only shows during active speech.
     }
 
     return ConversationView(
