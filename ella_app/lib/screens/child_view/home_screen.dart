@@ -553,37 +553,84 @@ class _TopicChipsRow extends StatelessWidget {
     }
     final shown = ordered.take(2).toList();
 
-    final slots = <Widget>[];
-    for (final topic in shown) {
-      slots.add(
-        Expanded(
-          child: _TopicChip(
-            label: topic.display,
-            icon: topic.icon,
-            selected: sel != null && topic.name == sel.name,
-            onTap: () => onSelect(topic),
-          ),
-        ),
-      );
-    }
-    // Keep three equal columns even before the topics arrive.
-    for (var i = shown.length; i < 2; i++) {
-      slots.add(const Expanded(child: _ChipPlaceholder()));
-    }
-    slots.add(Expanded(child: _SeeMoreChip(onTap: onSeeMore)));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const horizontalGap = 12.0;
+        const horizontalPadding = 6.0;
+        const verticalPadding = 8.0;
+        const iconSize = 53.0;
+        const iconLabelGap = 4.0;
+        final cardWidth = (constraints.maxWidth - horizontalGap * 2) / 3;
+        final labelWidth = cardWidth - horizontalPadding * 2;
+        final topicLayouts = [
+          for (final topic in shown)
+            measureTopicLabel(
+              context,
+              text: topic.display,
+              maxWidth: labelWidth,
+            ),
+        ];
+        final seeMoreLayout = measureTopicLabel(
+          context,
+          text: 'See More!',
+          maxWidth: labelWidth,
+          allowWrap: false,
+        );
+        var rowLabelHeight = seeMoreLayout.height;
+        for (final layout in topicLayouts) {
+          if (layout.height > rowLabelHeight) rowLabelHeight = layout.height;
+        }
+        final rowHeight =
+            verticalPadding * 2 + iconSize + iconLabelGap + rowLabelHeight;
 
-    return Row(
-      children: [
-        for (var i = 0; i < slots.length; i++) ...[
-          if (i > 0) const SizedBox(width: 12),
-          slots[i],
-        ],
-      ],
+        final slots = <Widget>[];
+        for (var i = 0; i < shown.length; i++) {
+          final topic = shown[i];
+          slots.add(
+            Expanded(
+              child: _TopicChip(
+                label: topic.display,
+                icon: topic.icon,
+                labelLayout: topicLayouts[i],
+                labelSlotHeight: rowLabelHeight,
+                height: rowHeight,
+                selected: sel != null && topic.name == sel.name,
+                onTap: () => onSelect(topic),
+              ),
+            ),
+          );
+        }
+        // Keep three equal columns even before the topics arrive.
+        for (var i = shown.length; i < 2; i++) {
+          slots.add(Expanded(child: _ChipPlaceholder(height: rowHeight)));
+        }
+        slots.add(
+          Expanded(
+            child: _SeeMoreChip(
+              height: rowHeight,
+              labelLayout: seeMoreLayout,
+              labelSlotHeight: rowLabelHeight,
+              onTap: onSeeMore,
+            ),
+          ),
+        );
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < slots.length; i++) ...[
+              if (i > 0) const SizedBox(width: horizontalGap),
+              slots[i],
+            ],
+          ],
+        );
+      },
     );
   }
 }
 
 class _ChipShell extends StatelessWidget {
+  final double height;
   final Color fill;
   final Color outline;
   final double outlineWidth;
@@ -591,6 +638,8 @@ class _ChipShell extends StatelessWidget {
   final VoidCallback? onTap;
 
   const _ChipShell({
+    super.key,
+    required this.height,
     required this.fill,
     required this.outline,
     required this.child,
@@ -612,14 +661,21 @@ class _ChipShell extends StatelessWidget {
               tap();
             },
       child: Container(
-        height: 74,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        height: height,
+        // BoxDecoration contributes its border to the content inset. Offset
+        // it here so every chip keeps the same 6x8 padding and icon position,
+        // including the selected chip's thicker outline.
+        padding: EdgeInsets.symmetric(
+          horizontal: 6 - outlineWidth,
+          vertical: 8 - outlineWidth,
+        ),
+        alignment: Alignment.topCenter,
         decoration: BoxDecoration(
           color: fill,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: outline, width: outlineWidth),
         ),
-        child: Center(child: child),
+        child: child,
       ),
     );
   }
@@ -628,12 +684,18 @@ class _ChipShell extends StatelessWidget {
 class _TopicChip extends StatelessWidget {
   final String label;
   final String icon;
+  final TopicLabelLayout labelLayout;
+  final double labelSlotHeight;
+  final double height;
   final bool selected;
   final VoidCallback onTap;
 
   const _TopicChip({
     required this.label,
     required this.icon,
+    required this.labelLayout,
+    required this.labelSlotHeight,
+    required this.height,
     required this.selected,
     required this.onTap,
   });
@@ -645,86 +707,93 @@ class _TopicChip extends StatelessWidget {
     // memory API's `icon` id) shows when known, else a generic chat glyph.
     final content = selected ? EllaColors.berryDark : EllaColors.ink;
     return _ChipShell(
+      key: ValueKey('home-topic-chip-$label'),
+      height: height,
       fill: selected ? EllaColors.berryLight : EllaColors.surface,
       outline: selected
           ? EllaColors.berryDark
           : EllaColors.ink.withValues(alpha: 0.2),
       outlineWidth: selected ? 2.5 : 1.5,
       onTap: onTap,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TopicIcon(icon: icon, size: 53, fallbackColor: content),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: EllaTextStyles.bodySmall.copyWith(
-                fontSize: (EllaTextStyles.bodySmall.fontSize ?? 14.0) + 2.0,
-                fontWeight: FontWeight.w700,
-                color: content,
-              ),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TopicIcon(
+            key: ValueKey('home-topic-icon-$label'),
+            icon: icon,
+            size: 53,
+            fallbackColor: content,
+          ),
+          const SizedBox(height: 4),
+          TopicCardLabel(
+            key: ValueKey('home-topic-label-$label'),
+            text: label,
+            color: content,
+            layout: labelLayout,
+            slotHeight: labelSlotHeight,
+          ),
+        ],
       ),
     );
   }
 }
 
 class _SeeMoreChip extends StatelessWidget {
+  final double height;
+  final TopicLabelLayout labelLayout;
+  final double labelSlotHeight;
   final VoidCallback onTap;
-  const _SeeMoreChip({required this.onTap});
+
+  const _SeeMoreChip({
+    required this.height,
+    required this.labelLayout,
+    required this.labelSlotHeight,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return _ChipShell(
+      key: const ValueKey('home-see-more-chip'),
+      height: height,
       fill: EllaColors.surface,
       outline: EllaColors.ink.withValues(alpha: 0.35),
       onTap: onTap,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              'assets/homescreen/new/BoundingBox.svg',
-              width: 53,
-              height: 53,
-              colorFilter: const ColorFilter.mode(
-                EllaColors.berryDark,
-                BlendMode.srcIn,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(
+            'assets/homescreen/new/BoundingBox.svg',
+            key: const ValueKey('home-see-more-icon'),
+            width: 53,
+            height: 53,
+            colorFilter: const ColorFilter.mode(
+              EllaColors.berryDark,
+              BlendMode.srcIn,
             ),
-            const SizedBox(height: 4),
-            Text(
-              'See More!',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: EllaTextStyles.bodySmall.copyWith(
-                fontSize: (EllaTextStyles.bodySmall.fontSize ?? 14.0) + 2.0,
-                fontWeight: FontWeight.w700,
-                color: EllaColors.ink,
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          TopicCardLabel(
+            key: const ValueKey('home-see-more-label'),
+            text: 'See More!',
+            color: EllaColors.ink,
+            layout: labelLayout,
+            slotHeight: labelSlotHeight,
+          ),
+        ],
       ),
     );
   }
 }
 
 class _ChipPlaceholder extends StatelessWidget {
-  const _ChipPlaceholder();
+  final double height;
+
+  const _ChipPlaceholder({required this.height});
 
   @override
   Widget build(BuildContext context) => _ChipShell(
+    height: height,
     fill: EllaColors.surface.withValues(alpha: 0.5),
     outline: EllaColors.ink.withValues(alpha: 0.12),
     child: const SizedBox.shrink(),

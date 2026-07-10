@@ -52,23 +52,94 @@ class AllTopicsScreen extends ConsumerWidget {
                             ),
                           ),
                         )
-                      : GridView.builder(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                mainAxisSpacing: 14,
-                                crossAxisSpacing: 14,
-                                childAspectRatio: 1.0,
-                              ),
-                          itemCount: topics.length,
-                          itemBuilder: (_, i) => _TopicCard(
-                            topic: topics[i],
-                            onTap: () {
-                              playTapClick();
-                              Navigator.of(context).pop(topics[i]);
-                            },
-                          ),
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            const columnCount = 3;
+                            const horizontalGap = 14.0;
+                            const horizontalPadding = 16.0;
+                            const verticalPadding = 16.0;
+                            const iconSize = 53.0;
+                            const iconLabelGap = 8.0;
+                            final cardWidth =
+                                (constraints.maxWidth -
+                                    horizontalGap * (columnCount - 1)) /
+                                columnCount;
+                            final labelWidth =
+                                cardWidth - horizontalPadding * 2;
+                            final rowCount =
+                                (topics.length + columnCount - 1) ~/
+                                columnCount;
+
+                            return ListView.separated(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              itemCount: rowCount,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 14),
+                              itemBuilder: (context, rowIndex) {
+                                final start = rowIndex * columnCount;
+                                final end = (start + columnCount).clamp(
+                                  0,
+                                  topics.length,
+                                );
+                                final rowTopics = topics.sublist(start, end);
+                                final layouts = [
+                                  for (final topic in rowTopics)
+                                    measureTopicLabel(
+                                      context,
+                                      text: topic.display,
+                                      maxWidth: labelWidth,
+                                    ),
+                                ];
+                                var rowLabelHeight = 0.0;
+                                for (final layout in layouts) {
+                                  if (layout.height > rowLabelHeight) {
+                                    rowLabelHeight = layout.height;
+                                  }
+                                }
+                                final rowHeight =
+                                    verticalPadding * 2 +
+                                    iconSize +
+                                    iconLabelGap +
+                                    rowLabelHeight;
+
+                                return SizedBox(
+                                  key: ValueKey('all-topics-row-$rowIndex'),
+                                  height: rowHeight,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      for (
+                                        var columnIndex = 0;
+                                        columnIndex < columnCount;
+                                        columnIndex++
+                                      ) ...[
+                                        if (columnIndex > 0)
+                                          const SizedBox(width: horizontalGap),
+                                        Expanded(
+                                          child: columnIndex < rowTopics.length
+                                              ? _TopicCard(
+                                                  topic: rowTopics[columnIndex],
+                                                  labelLayout:
+                                                      layouts[columnIndex],
+                                                  labelSlotHeight:
+                                                      rowLabelHeight,
+                                                  onTap: () {
+                                                    playTapClick();
+                                                    Navigator.of(context).pop(
+                                                      rowTopics[columnIndex],
+                                                    );
+                                                  },
+                                                )
+                                              : const SizedBox.shrink(),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
                         ),
                 ),
               ],
@@ -174,10 +245,14 @@ class _MascotPrompt extends StatelessWidget {
 
 class _TopicCard extends StatelessWidget {
   final TopicChoice topic;
+  final TopicLabelLayout labelLayout;
+  final double labelSlotHeight;
   final VoidCallback onTap;
 
   const _TopicCard({
     required this.topic,
+    required this.labelLayout,
+    required this.labelSlotHeight,
     required this.onTap,
   });
 
@@ -187,7 +262,11 @@ class _TopicCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        key: ValueKey('all-topics-card-${topic.name}'),
+        // The smooth 1.5px outline supplies the remainder of the original
+        // 16px inset.
+        padding: const EdgeInsets.all(14.5),
+        alignment: Alignment.topCenter,
         decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
           borderRadius: BorderRadius.circular(18),
@@ -196,31 +275,24 @@ class _TopicCard extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TopicIcon(
-                icon: topic.icon,
-                size: 53,
-                fallbackColor: EllaColors.ink,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                topic.display,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: EllaTextStyles.bodySmall.copyWith(
-                  fontSize: (EllaTextStyles.bodySmall.fontSize ?? 14.0) + 2.0,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
-                ),
-              ),
-            ],
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TopicIcon(
+              key: ValueKey('all-topics-icon-${topic.name}'),
+              icon: topic.icon,
+              size: 53,
+              fallbackColor: EllaColors.ink,
+            ),
+            const SizedBox(height: 8),
+            TopicCardLabel(
+              key: ValueKey('all-topics-label-${topic.name}'),
+              text: topic.display,
+              color: Colors.black,
+              layout: labelLayout,
+              slotHeight: labelSlotHeight,
+            ),
+          ],
         ),
       ),
     );
