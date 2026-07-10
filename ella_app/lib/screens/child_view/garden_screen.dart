@@ -460,6 +460,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
       _firstGardenPhase = _FirstGardenPhase.speaking;
       _welcomeZoeMode = ZoeMascotMode.speaking;
     });
+    unawaited(_audio.playSfx(Sounds.newGarden));
     unawaited(_speakWelcomeAndUnlockExplore());
   }
 
@@ -1123,12 +1124,13 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     if (!mounted || token != _revealToken) return;
 
     final center = _centerForAnchor(item.skillId);
+    final isBloom = item.toStage == GardenGrowthStage.bloomed;
     setState(() {
       _spotlightCenter = center;
       _spotlightVisible = true;
       _poppingSkillId = item.skillId;
     });
-    unawaited(ref.read(audioProvider).playSfx(Sounds.newSprout));
+    unawaited(ref.read(audioProvider).playSfx(isBloom ? Sounds.bloom : Sounds.sprout));
 
     _afterReveal(reducedMotion ? 0 : 260, () {
       if (token != _revealToken) return;

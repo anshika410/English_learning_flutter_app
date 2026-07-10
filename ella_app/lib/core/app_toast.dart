@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 
 import 'text_styles.dart';
 import 'theme_colors.dart';
+import '../services/audio_service.dart';
+import '../services/sounds.dart';
 
 /// The single copy shown for any backend / server-side failure across the app.
 const String kGenericServerErrorMessage =
@@ -20,6 +22,7 @@ void showEllaErrorToast(
   BuildContext context, [
   String message = kGenericServerErrorMessage,
 ]) {
+  AudioService.maybeInstance?.playSfx(Sounds.error);
   _show(context, message, background: EllaColors.ink, foreground: EllaColors.onDark);
 }
 

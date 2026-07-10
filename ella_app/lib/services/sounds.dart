@@ -28,15 +28,41 @@ class AudioClip {
 class Sounds {
   Sounds._();
 
-  // ── SFX (one-shots) ────────────────────────────────────────────────────────
-  /// Button/control tap click. Played across the whole app.
-  static const tap = AudioClip('music/tapclick.wav');
-  static const newSprout = AudioClip('music/new-sprout.wav');
-  static const newGarden = AudioClip('music/new-garden.wav');
-  static const levelUp = AudioClip('music/level-up.ogg');
+  // ── Playful Gamey SFX (one-shots) ──────────────────────────────────────────
+  static const tap = AudioClip('new-sounds/tap__playful-gamey.wav');
+  static const start = AudioClip('new-sounds/start__playful-gamey.wav');
+  static const listen = AudioClip('new-sounds/listen__playful-gamey.wav');
+  static const send = AudioClip('new-sounds/send__playful-gamey.wav');
+  static const turn = AudioClip('new-sounds/turn__playful-gamey.wav');
+  static const complete = AudioClip('new-sounds/complete__playful-gamey.wav');
+  static const sprout = AudioClip('new-sounds/sprout__playful-gamey.wav');
+  static const bloom = AudioClip('new-sounds/bloom__playful-gamey.wav');
+  static const level = AudioClip('new-sounds/level__playful-gamey.wav');
+  static const newGarden = AudioClip('new-sounds/new-garden__playful-gamey.wav');
+  static const topic = AudioClip('new-sounds/topic__playful-gamey.wav');
+  static const nudge = AudioClip('new-sounds/nudge__playful-gamey.wav');
+  static const error = AudioClip('new-sounds/error__playful-gamey.wav');
+
+  // Deprecated/compatibility aliases
+  static const newSprout = sprout;
+  static const levelUp = level;
 
   /// Every SFX clip — used to preload for low-latency playback.
-  static const List<AudioClip> allSfx = [tap, newSprout, newGarden, levelUp];
+  static const List<AudioClip> allSfx = [
+    tap,
+    start,
+    listen,
+    send,
+    turn,
+    complete,
+    sprout,
+    bloom,
+    level,
+    newGarden,
+    topic,
+    nudge,
+    error,
+  ];
 
   // ── Music (looping) ─────────────────────────────────────────────────────────
   /// Garden screen background loop.
