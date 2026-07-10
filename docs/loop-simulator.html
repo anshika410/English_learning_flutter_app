@@ -383,6 +383,16 @@ ABSOLUTE RULES (never break, any level):
 - If the learner gives a one-word or fragment answer, recast it naturally and ask for one more tiny detail.
 - If the learner asks for help/example/easier wording, answer that first with a frame, then invite them to try.
 - End with encouragement plus a next-step question, not a correction lecture.`,
+  profileA0:
+`LEVEL: A0 (Before First Words). Your role: ECHO-BUILDER — you speak, they copy, and copying counts as speaking.
+- Length: 3–6 words per sentence. One sentence, then one tiny ask.
+- The learner may know fewer than 50 English words. Assume zero grammar.
+- Repetition IS the activity. "Say it with me: I am Priya" is a full success.
+- Use their name constantly. Only yes/no and this-or-that questions.
+- Accept Hindi answers fully. Reply with the English word: "Kutta! In English we say DOG. Can you say dog?"
+- Celebrate every English word they produce. One spoken word = a win worth naming.
+- Never ask open questions. Never ask "why". Never two ideas in one turn.
+- If their reply is empty or off-track: playfully answer your own question, then ask again, even smaller.`,
   profileA1:
 `LEVEL: A1 (First Words). Your role: CARRIER — you carry the conversation.
 - Use very simple present-simple sentences and high-frequency words.
@@ -865,7 +875,7 @@ function App(){
     setTimeout(() => zoeOpens(1, targetMd, nm), 60);
   }
 
-  function profileFor(lvl){ return (lvl==='A1'||lvl==='A2')?prompts.profileA1:prompts.profileB1; }
+  function profileFor(lvl){ return lvl==='A0'?prompts.profileA0:(lvl==='A1'||lvl==='A2')?prompts.profileA1:prompts.profileB1; }
   function targetsList(){ return flatTargets(mem); }
   function buildConvPrompt(curMsgs, topicArg, modelOverride, memOverride){
     const mctx=memOverride||mem;
@@ -2254,7 +2264,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
     }
   }, [activeSource]);
 
-  const fields=[['base','Base prompt (shared)'],['profileA1','Profile · A1/A2'],['profileB1','Profile · B1+'],
+  const fields=[['base','Base prompt (shared)'],['profileA0','Profile · A0'],['profileA1','Profile · A1/A2'],['profileB1','Profile · B1+'],
     [model==='unit'?'convUnit':'convSkill', model==='unit'?'Conversation framing · UNITS (theme-led)':'Conversation framing · MICRO-SKILL (list-led)'],
     ['judge','Judge (shared)']];
 
