@@ -23,6 +23,7 @@ import 'garden_provider.dart';
 import 'onboarding_provider.dart';
 import 'prompts_provider.dart';
 import 'service_providers.dart';
+import '../services/sounds.dart';
 
 const int kAutoMaxTurns = 6;
 
@@ -226,13 +227,18 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     });
     final doneSub = nativeTts.doneStream.listen((_) {
       if (state.hasValue) {
+        final cur = state.requireValue;
+        final wasSpeaking = cur.currentlySpeakingMessageId != null;
         state = AsyncValue.data(
-          state.requireValue.copyWith(
+          cur.copyWith(
             clearCurrentlySpeaking: true,
             highlightStart: -1,
             highlightEnd: -1,
           ),
         );
+        if (wasSpeaking && !cur.sessionEnded) {
+          ref.read(audioProvider).playSfx(Sounds.turn);
+        }
       }
     });
     ref.onDispose(() {
@@ -347,6 +353,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     }
     if (cur.sessionEnded || cur.messages.isNotEmpty) return;
 
+    ref.read(audioProvider).playSfx(Sounds.start);
+
     // A tapped home-screen topic overrides the engine's pick; otherwise the
     // engine chooses the next topic as before.
     final topic = topicOverride ?? pickTopic(cur.memory);
@@ -428,6 +436,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       return;
     }
 
+    ref.read(audioProvider).playSfx(Sounds.send);
+
     final userMsg = ChatMessage(sender: MessageSender.child, text: trimmed);
     final msgs = [...cur.messages, userMsg];
 
@@ -499,6 +509,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   Future<void> endChat() async {
     final cur = state.requireValue;
     if (cur.sessionEnded || cur.messages.isEmpty) return;
+
+    ref.read(audioProvider).playSfx(Sounds.complete);
 
     state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
 
@@ -894,6 +906,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       return;
     }
     state = AsyncValue.data(state.requireValue.copyWith(status: ChatStatus.userSpeaking));
+    ref.read(audioProvider).playSfx(Sounds.listen);
     final stt = ref.read(sttProvider);
     // Lazily init STT (idempotent) so the mic-permission prompt appears now, on
     // first voice use, rather than at app launch.

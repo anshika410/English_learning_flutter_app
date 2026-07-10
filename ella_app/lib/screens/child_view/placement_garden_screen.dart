@@ -213,6 +213,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
       _phase = _Phase.reveal;
       _zoeMode = ZoeMascotMode.speaking;
     });
+    unawaited(_audio.playSfx(Sounds.sprout));
     unawaited(_speakRevealAndUnlockExplore());
   }
 
@@ -222,6 +223,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
       _phase = _Phase.placementBloom;
       _zoeMode = ZoeMascotMode.speaking;
     });
+    unawaited(_audio.playSfx(Sounds.level));
     unawaited(_speakPlacementBloomAndUnlockSeeGarden());
   }
 
@@ -233,6 +235,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
       _phase = _Phase.placementSproutSpotlight;
       _zoeMode = ZoeMascotMode.speaking;
     });
+    unawaited(_audio.playSfx(Sounds.nudge));
     unawaited(_speakSproutAndUnlockExplore());
   }
 

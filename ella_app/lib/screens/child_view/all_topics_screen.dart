@@ -12,7 +12,9 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
 import 'widgets/garden_sky_background.dart';
 import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
@@ -65,7 +67,7 @@ class AllTopicsScreen extends ConsumerWidget {
                           itemBuilder: (_, i) => _TopicCard(
                             topic: topics[i],
                             onTap: () {
-                              playTapClick();
+                              ref.read(audioProvider).playSfx(Sounds.topic);
                               Navigator.of(context).pop(topics[i]);
                             },
                           ),

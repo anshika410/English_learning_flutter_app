@@ -19,6 +19,7 @@ import '../models/placement.dart';
 import '../services/analytics_service.dart';
 import 'chat_provider.dart' show ChatStatus, chatProvider;
 import 'service_providers.dart';
+import '../services/sounds.dart';
 
 class PlacementState {
   final List<ChatMessage> messages;
@@ -110,12 +111,16 @@ class PlacementNotifier extends Notifier<PlacementState> {
       );
     });
     final doneSub = nativeTts.doneStream.listen((_) {
+      final wasSpeaking = state.currentlySpeakingMessageId != null;
       state = state.copyWith(
         status: ChatStatus.idle,
         clearCurrentlySpeaking: true,
         highlightStart: -1,
         highlightEnd: -1,
       );
+      if (wasSpeaking && !state.isComplete) {
+        ref.read(audioProvider).playSfx(Sounds.turn);
+      }
     });
     ref.onDispose(() {
       progressSub.cancel();
@@ -159,6 +164,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
   /// call while already started is a no-op.
   Future<void> start() async {
     if (state.started) return;
+    ref.read(audioProvider).playSfx(Sounds.start);
     state = state.copyWith(started: true, status: ChatStatus.zoeThinking);
 
     final api = ref.read(ellaApiServiceProvider);
@@ -191,6 +197,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
         state.status != ChatStatus.userSpeaking) {
       return;
     }
+    ref.read(audioProvider).playSfx(Sounds.send);
     state = state.copyWith(
       messages: [
         ...state.messages,
@@ -297,6 +304,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
     }
 
     if (result.isComplete) {
+      ref.read(audioProvider).playSfx(Sounds.complete);
       // Backend has persisted the placement; pull the new memory + garden so the
       // gate advances and the garden renders at the placement level.
       state = state.copyWith(
@@ -324,6 +332,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
   Future<void> startListening() async {
     if (state.status != ChatStatus.idle || state.isComplete) return;
     state = state.copyWith(status: ChatStatus.userSpeaking);
+    ref.read(audioProvider).playSfx(Sounds.listen);
     final stt = ref.read(sttProvider);
     // Lazily init STT (idempotent) so the mic-permission prompt appears on first
     // voice use rather than at app/screen load.

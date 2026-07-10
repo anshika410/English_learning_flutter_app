@@ -97,6 +97,7 @@ flutter:
     - assets/information-box/
     - assets/sounds/sfx/
     - assets/sounds/music/
+    - assets/sounds/new-sounds/
     - assets/topic-icons/
     - assets/send-button.svg
 

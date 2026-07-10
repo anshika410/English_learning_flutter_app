@@ -19,6 +19,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
 import 'all_topics_screen.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
@@ -31,7 +32,6 @@ import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 import 'chat_bubble.dart';
 import 'widgets/network_error_view.dart';
-import '../../core/app_toast.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
 // 'demo'), so this is a swappable placeholder matching the design demo until a
@@ -155,10 +155,13 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // API provides it, in which case the card shows its first-chat fallback.
   String get _recap => _memory?.lastTimeRecap ?? '';
 
-  void _selectTopic(TopicChoice topic) => setState(() {
-    _selectedTopic = topic;
-    _promoteSelectedTopic = false;
-  });
+  void _selectTopic(TopicChoice topic) {
+    ref.read(audioProvider).playSfx(Sounds.topic);
+    setState(() {
+      _selectedTopic = topic;
+      _promoteSelectedTopic = false;
+    });
+  }
 
   // Replays the "Last time" recap aloud. Speaks the same fallback line that the
   // card shows when the server hasn't sent a recap yet. A no-op while TTS is
@@ -302,7 +305,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                                 ),
                               ),
                               height: 60,
-                              // EllaPrimaryButton plays the tap click itself.
+                              playTapClickSound: false,
                               onTap: _startSelected,
                             ),
                           ),
@@ -589,6 +592,7 @@ class _ChipShell extends StatelessWidget {
   final double outlineWidth;
   final Widget child;
   final VoidCallback? onTap;
+  final bool playTapClickSound;
 
   const _ChipShell({
     required this.fill,
@@ -596,6 +600,7 @@ class _ChipShell extends StatelessWidget {
     required this.child,
     this.outlineWidth = 1.5,
     this.onTap,
+    this.playTapClickSound = true,
   });
 
   @override
@@ -608,7 +613,9 @@ class _ChipShell extends StatelessWidget {
       onTap: tap == null
           ? null
           : () {
-              playTapClick();
+              if (playTapClickSound) {
+                playTapClick();
+              }
               tap();
             },
       child: Container(
@@ -651,6 +658,7 @@ class _TopicChip extends StatelessWidget {
           : EllaColors.ink.withValues(alpha: 0.2),
       outlineWidth: selected ? 2.5 : 1.5,
       onTap: onTap,
+      playTapClickSound: false,
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.center,

@@ -589,7 +589,7 @@ class _MicButton extends StatelessWidget {
     final edge = busy ? EllaColors.textTertiary : EllaColors.berryDeep;
 
     return GestureDetector(
-      onTap: busy ? null : withTapClick(onTap),
+      onTap: busy ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: size,
