@@ -214,7 +214,7 @@ class _TypewriterTextState extends State<TypewriterText> {
           color: const Color(0xFFE91E63),
         );
 
-    // If we have highlight range, build RichText with highlighted span
+    // Karaoke style: current spoken word lights up in pink, no background pill.
     if (_done &&
         widget.highlightStart >= 0 &&
         widget.highlightEnd > widget.highlightStart &&
@@ -224,26 +224,14 @@ class _TypewriterTextState extends State<TypewriterText> {
           style: baseStyle,
           children: [
             TextSpan(text: _cleanText.substring(0, widget.highlightStart)),
-            WidgetSpan(
-              alignment: PlaceholderAlignment.baseline,
-              baseline: TextBaseline.alphabetic,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                margin: const EdgeInsets.symmetric(horizontal: 1),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFCE4EC), // Soft pink/berry background pill
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  _cleanText.substring(
-                    widget.highlightStart,
-                    widget.highlightEnd,
-                  ),
-                  style: highlightStyle.copyWith(
-                    color: const Color(0xFFC2185B), // Deep pink/berry for high contrast and readability
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+            TextSpan(
+              text: _cleanText.substring(
+                widget.highlightStart,
+                widget.highlightEnd,
+              ),
+              style: baseStyle.copyWith(
+                color: const Color(0xFFE91E63), // Karaoke pink — current word only
+                fontWeight: FontWeight.bold,
               ),
             ),
             TextSpan(text: _cleanText.substring(widget.highlightEnd)),
