@@ -1507,6 +1507,11 @@ function App(){
         {msgs.map((m,i)=>(
           <div key={i} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
             {m.text}
+            {m.role==='me' && (
+              <div style={{marginTop: 4, fontSize: '10.5px', color: 'rgba(255,255,255,0.75)', textAlign: 'right'}}>
+                {m.text.trim().split(/\s+/).filter(Boolean).length} words
+              </div>
+            )}
             {m.role==='zoe' && m.correction && (
               <div style={{marginTop: 6, fontSize: '11.5px', color: 'var(--rust)', borderTop: '1px dashed var(--rule)', paddingTop: 4}}>
                 💡 <i>Correction:</i> <b>{m.correction}</b>
