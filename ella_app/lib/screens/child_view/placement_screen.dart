@@ -331,12 +331,23 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     );
   }
 
-  /// Replays a Zoe line via TTS. A no-op while TTS is already speaking, so a
-  /// tap can never restart or stack utterances. Sets [_replaying] around the
-  /// playback so Zoe runs her speaking animation for the manual replay too.
+  /// Replays a Zoe line via TTS. While TTS is already speaking, tapping it stops
+  /// (mutes) the speech. Sets [_replaying] around the playback so Zoe runs her
+  /// speaking animation for the manual replay too.
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
-    if (tts.isSpeaking || _replaying) return;
+    if (_speaking || _replaying) {
+      await tts.stop();
+      if (mounted) {
+        setState(() {
+          _replaying = false;
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+      return;
+    }
     setState(() {
       _replaying = true;
       _speaking = true;

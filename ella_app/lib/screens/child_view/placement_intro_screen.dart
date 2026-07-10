@@ -113,10 +113,22 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   }
 
   // Speaker dot on the greeting card: replays the greeting when idle. While
-  // it's already playing the tap is a no-op (never restarts the utterance).
-  void _toggleSpeak() {
-    if (_speaking) return;
-    _speakGreeting();
+  // it's already playing, tapping it stops (mutes) the speech.
+  void _toggleSpeak() async {
+    if (_speaking) {
+      try {
+        await _tts.stop();
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    } else {
+      _speakGreeting();
+    }
   }
 
   void _startPlacement() {

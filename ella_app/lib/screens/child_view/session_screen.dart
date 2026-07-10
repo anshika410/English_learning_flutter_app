@@ -404,13 +404,24 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
-  /// Replays a Zoe line via TTS — the speaker dot on her bubble. A no-op while
-  /// TTS is already speaking, so a tap can never restart or stack utterances.
-  /// Sets [_replaying] around the playback so Zoe animates her mouth for the
-  /// manual replay too (not just engine-driven speech).
+  /// Replays a Zoe line via TTS — the speaker dot on her bubble. While TTS is
+  /// already speaking, tapping it stops (mutes) the speech. Sets [_replaying]
+  /// around the playback so Zoe animates her mouth for the manual replay too
+  /// (not just engine-driven speech).
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
-    if (tts.isSpeaking || _replaying) return;
+    if (_speaking || _replaying) {
+      await tts.stop();
+      if (mounted) {
+        setState(() {
+          _replaying = false;
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+      return;
+    }
     setState(() {
       _replaying = true;
       _speaking = true;
