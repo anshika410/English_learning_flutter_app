@@ -19,8 +19,11 @@ import '../models/message.dart';
 import '../models/session.dart';
 import '../services/analytics_service.dart';
 import '../services/ella_api_service.dart';
+import 'dart:async';
+import 'dart:io';
 import 'garden_provider.dart';
 import 'onboarding_provider.dart';
+import 'connectivity_provider.dart';
 import 'prompts_provider.dart';
 import 'service_providers.dart';
 import '../services/sounds.dart';
@@ -29,7 +32,7 @@ const int kAutoMaxTurns = 6;
 
 enum InputMode { voice, text }
 
-enum ChatStatus { idle, zoeThinking, zoeSpeaking, userSpeaking }
+enum ChatStatus { idle, zoeThinking, zoeSpeaking, userSpeaking, offline }
 
 class ChatState {
   // Core conversation
@@ -203,6 +206,29 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // startListening) to avoid blocking screen load / prompting at launch.
     final tts = ref.read(ttsProvider);
     await tts.initialize();
+
+    // Listen to network changes so we can recover from offline mode
+    ref.listen(connectivityProvider, (previous, next) {
+      final isOnline = next.valueOrNull ?? true;
+      if (isOnline != _online) {
+        _online = isOnline;
+        if (isOnline) {
+          final cur = state.valueOrNull;
+          if (cur != null && cur.status == ChatStatus.offline) {
+            state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
+            _zoeTurn(cur.convHistory, cur.currentTopic);
+          } else if (cur == null || cur.messages.isEmpty) {
+            ref.invalidateSelf();
+          }
+        } else {
+          // Went offline
+          final cur = state.valueOrNull;
+          if (cur != null) {
+            state = AsyncValue.data(cur.copyWith(status: ChatStatus.offline));
+          }
+        }
+      }
+    });
     try {
       await tts.initialize();
     } catch (e) {
@@ -1054,6 +1080,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           return;
         }
       } catch (e) {
+        if (e is SocketException || e.toString().contains('network') || e.toString().contains('SocketException')) {
+          state = AsyncValue.data(cur.copyWith(status: ChatStatus.offline));
+          return;
+        }
         state = AsyncValue.data(
           cur.copyWith(lastSyncError: 'Conversation turn API failed: $e'),
         );
@@ -1076,7 +1106,11 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       final llm = ref.read(llmServiceProvider);
       zoeText = await llm.conv(prompt);
       live = true;
-    } catch (_) {
+    } catch (e) {
+      if (e is SocketException || e.toString().contains('network') || e.toString().contains('SocketException')) {
+        state = AsyncValue.data(state.requireValue.copyWith(status: ChatStatus.offline));
+        return;
+      }
       // Fallback so conversation never gets stuck. User can still send turns.
       zoeText = "Hmm, I'm having a moment. What were you saying?";
       live = false;

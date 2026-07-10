@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app_links/app_links.dart';
+import 'services/sounds.dart';
 import 'services/ella_api_service.dart';
+import 'providers/connectivity_provider.dart';
+import 'providers/service_providers.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/privacy_policy_webview_screen.dart';
@@ -21,7 +24,6 @@ import 'screens/child_view/conversation_states_preview.dart';
 import 'screens/child_view/widgets/garden_sky_background.dart';
 import 'screens/glass_box/glass_box_screen.dart';
 import 'providers/connectivity_provider.dart';
-import 'screens/child_view/offline_screen.dart';
 import 'screens/child_view/widgets/mascot_loading_screen.dart';
 
 // kShowGlassBox: flip to true to expose the Glass Box (engine testing) screen
@@ -30,14 +32,14 @@ import 'screens/child_view/widgets/mascot_loading_screen.dart';
 // Flip to true to expose the debug FABs (conversation-states preview + Glass Box).
 const bool kShowGlassBox = false;
 
-class EllaApp extends StatefulWidget {
+class EllaApp extends ConsumerStatefulWidget {
   const EllaApp({super.key});
 
   @override
-  State<EllaApp> createState() => _EllaAppState();
+  ConsumerState<EllaApp> createState() => _EllaAppState();
 }
 
-class _EllaAppState extends State<EllaApp> {
+class _EllaAppState extends ConsumerState<EllaApp> {
   late AppLinks _appLinks;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   
@@ -112,23 +114,20 @@ class _EllaAppState extends State<EllaApp> {
   }
   @override
   Widget build(BuildContext context) {
+    ref.listen(connectivityProvider, (previous, next) {
+      final wasOnline = previous?.valueOrNull ?? true;
+      final isOnline = next.valueOrNull ?? true;
+      if (wasOnline && !isOnline) {
+        ref.read(audioProvider).playSfx(Sounds.error);
+      }
+    });
+
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'ELLA',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
       navigatorObservers: [appRouteObserver],
-      builder: (context, child) {
-        return Consumer(
-          builder: (context, ref, _) {
-            final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
-            if (!isOnline) {
-              return const OfflineScreen();
-            }
-            return child ?? const SizedBox();
-          },
-        );
-      },
       // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
       // because we handle deep links manually via the app_links package.
       onGenerateInitialRoutes: (String initialRouteName) {
@@ -177,8 +176,13 @@ class _EllaAppState extends State<EllaApp> {
   }
 }
 
-/// First-run gate. A student with no `placement` in memory is routed into the
-/// placement screening before the normal topic Home; once placed (or if we're
+final placementCacheProvider = FutureProvider<bool>((ref) {
+  return EllaApiService().isPlacementDone();
+});
+
+/// Gateway logic that resolves which branch of the app the child should see.
+/// When online, users who haven't completed placement are sent to the
+/// [PlacementIntroScreen]. If they are offline (or error out while originally
 /// offline and can't place), the regular Home shows. Watching chatProvider means
 /// the switch happens automatically the moment ChatNotifier.refreshAfterPlacement
 /// lands the new memory after the screening completes.
@@ -211,30 +215,45 @@ class RootGate extends ConsumerWidget {
         final needsOnboarding = online && s.memory.name == null;
         final needsPlacement = online && s.memory.placement == null;
         
-        if (!needsOnboarding && !needsPlacement) return const _EllaHome();
+        if (online) {
+          if (!needsOnboarding && !needsPlacement) return const _EllaHome();
 
-        // Before the placement screening, collect name/age once via onboarding.
-        // Watching onboardingProvider means the final "Let's Talk" flips the gate
-        // and this rebuilds straight into PlacementIntroScreen — no manual nav.
-        // While the cached flag is still loading, hold on the spinner so a
-        // returning (onboarded-but-unplaced) child doesn't flash the flow.
-        final onboarding = ref.watch(onboardingProvider);
-        if (onboarding.isLoading) {
-          return const MascotLoadingScreen(message: 'Loading onboarding...');
+          final onboarding = ref.watch(onboardingProvider);
+          if (onboarding.isLoading) {
+            return const MascotLoadingScreen(message: 'Loading onboarding...');
+          }
+          
+          final showOnboarding = needsOnboarding;
+
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            body: showOnboarding
+                ? const OnboardingFlow()
+                : const PlacementIntroScreen(),
+          );
+        } else {
+          final placementAsync = ref.watch(placementCacheProvider);
+          return placementAsync.when(
+            loading: () => const MascotLoadingScreen(message: 'Loading home...'),
+            error: (_, __) => const _EllaHome(),
+            data: (isPlacementDone) {
+              if (isPlacementDone) return const _EllaHome();
+
+              final onboarding = ref.watch(onboardingProvider);
+              if (onboarding.isLoading) {
+                return const MascotLoadingScreen(message: 'Loading onboarding...');
+              }
+              final onboardingDone = onboarding.valueOrNull?.done ?? false;
+
+              return Scaffold(
+                backgroundColor: Colors.transparent,
+                body: !onboardingDone
+                    ? const OnboardingFlow()
+                    : const PlacementIntroScreen(),
+              );
+            },
+          );
         }
-        
-        // Use the remote state to force onboarding if they bypassed it locally.
-        // But if the backend already has their name, SKIP onboarding, even if
-        // the local device cache was cleared (e.g., app reinstall).
-        final onboardingDone = onboarding.valueOrNull?.done ?? false;
-        final showOnboarding = online ? needsOnboarding : !onboardingDone;
-
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: showOnboarding
-              ? const OnboardingFlow()
-              : const PlacementIntroScreen(),
-        );
       },
     );
   }

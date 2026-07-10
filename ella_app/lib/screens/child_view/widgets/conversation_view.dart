@@ -30,6 +30,7 @@ class ConversationView extends StatelessWidget {
   final ConvPhase phase;
   final bool mascotSpeaking;
   final bool mascotThinking; // Zoe is preparing her reply
+  final bool isOffline;
 
   /// Latest-turn content. Zoe's line is always shown while talking/ending; the
   /// student bubble only appears for the current turn.
@@ -64,6 +65,7 @@ class ConversationView extends StatelessWidget {
     required this.phase,
     required this.mascotSpeaking,
     this.mascotThinking = false,
+    this.isOffline = false,
     this.zoeLine,
     this.studentLine,
     this.studentLive = false,
@@ -88,11 +90,13 @@ class ConversationView extends StatelessWidget {
     final bubbleMaxWidth = w * 0.78;
 
     final mascot = ZoeMascot(
-      mode: mascotSpeaking
-          ? ZoeMascotMode.speaking
-          : mascotThinking
-          ? ZoeMascotMode.thinking
-          : ZoeMascotMode.listening,
+      mode: isOffline
+          ? ZoeMascotMode.sleep
+          : mascotSpeaking
+              ? ZoeMascotMode.speaking
+              : mascotThinking
+                  ? ZoeMascotMode.thinking
+                  : ZoeMascotMode.listening,
       size: mascotSize,
       reducedMotion: MediaQuery.of(context).disableAnimations,
     );

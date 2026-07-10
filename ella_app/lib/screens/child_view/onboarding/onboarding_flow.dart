@@ -22,9 +22,12 @@ import '../chat_bubble.dart';
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
+import '../../../core/offline_alert_popup.dart';
 import '../../../providers/onboarding_provider.dart';
+import '../../../providers/connectivity_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
+import '../../../services/sounds.dart';
 import '../../../services/stt_tts_service.dart';
 import '../placement_garden_screen.dart';
 import '../widgets/chat_reply_composer.dart';
@@ -232,6 +235,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // ── Step transitions ────────────────────────────────────────────────────────
 
   Future<void> _onSend() async {
+    final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
+    if (!isOnline) {
+      ref.read(audioProvider).playSfx(Sounds.error);
+      OfflineAlertPopup.show(context);
+      return;
+    }
+
     if (_busy) return;
     final typed = _replyCtrl.text.trim();
     if (typed.isEmpty) return;

@@ -9,17 +9,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/app_toast.dart';
+import '../../core/offline_alert_popup.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import 'widgets/conversation_view.dart';
-import 'widgets/garden_sky_background.dart';
 import 'widgets/mascot_loading_screen.dart';
 import 'widgets/network_error_view.dart';
+import '../../services/sounds.dart';
+import 'home_screen.dart' show kHomeChildName;
 
 const String _kGoodbye = 'It was great talking to you. See you again later!';
 
@@ -163,6 +167,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   Future<void> _endConversation() async {
     if (_ending) return;
     setState(() => _ending = true);
+    _navigated = true; // Prevent _maybeAdvance from scheduling a duplicate pop
     final notifier = ref.read(chatProvider.notifier);
     await notifier.stopListening();
     
@@ -211,8 +216,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   void _snack(Object e) {
     if (!mounted) return;
-    debugPrint('[Session] $e');
-    showEllaErrorToast(context);
+    OfflineAlertPopup.show(context);
   }
 
   /// Whether a real conversation is under way (at least one non-system turn and
@@ -283,6 +287,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(connectivityProvider, (_, next) {
+      final isOnline = next.valueOrNull ?? true;
+      if (!isOnline) {
+        final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+        ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
+      }
+    });
+
     ref.listen(chatProvider, (previous, next) {
       _maybeStartSession();
       final nextState = next.asData?.value;
@@ -341,13 +353,18 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
       ChatStatus.zoeThinking || ChatStatus.zoeSpeaking => MicState.busy,
-      ChatStatus.idle => MicState.idle,
+      ChatStatus.idle || ChatStatus.offline => MicState.idle,
     };
+
+    final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+    final childName = ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
 
     // Latest-turn content.
     final zoeLine = _ending
         ? _kGoodbye
-        : (_lastFrom(s, MessageSender.zoe) ?? widget.introText);
+        : (!isOnline
+            ? "Hey $childName, I'm having trouble connecting to the internet right now!"
+            : (_lastFrom(s, MessageSender.zoe) ?? widget.introText));
 
     String? studentLine;
     bool studentLive = false;
@@ -372,15 +389,22 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       mascotSpeaking:
           _ending || s.status == ChatStatus.zoeSpeaking || _replaying || _speaking,
       mascotThinking: s.status == ChatStatus.zoeThinking,
+      isOffline: !isOnline,
       zoeLine: zoeLine,
       studentLine: studentLine,
       studentLive: studentLive,
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,
-      onMic: () => _onMic(s),
-      onToggleKeyboard: _toggleKeyboard,
-      onSend: _sendTyped,
+      onMic: isOnline ? () => _onMic(s) : () {
+        OfflineAlertPopup.show(context);
+      },
+      onToggleKeyboard: isOnline ? _toggleKeyboard : () {
+        OfflineAlertPopup.show(context);
+      },
+      onSend: isOnline ? _sendTyped : () {
+        OfflineAlertPopup.show(context);
+      },
       onEnd: _endConversation,
       // Speaker dot on Zoe's bubble: replays the line when idle. While she's
       // already talking the tap is a no-op (never stops or restarts her). Only

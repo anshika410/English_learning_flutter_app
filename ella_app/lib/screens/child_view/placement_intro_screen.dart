@@ -14,9 +14,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
+import '../../core/offline_alert_popup.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'placement_screen.dart';
@@ -113,6 +117,11 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   }
 
   void _startPlacement() {
+    final isOnline = ref.read(connectivityProvider).value ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
     // Start each screening from a clean slate (a prior End left stale state).
     ref.invalidate(placementProvider);
     Navigator.of(
@@ -150,8 +159,22 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     final topGap = (size.height * 0.14).clamp(64.0, 150.0);
     // Prefer the name the child typed during onboarding; fall back to the demo
     // placeholder if it isn't cached yet.
+    final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+
+    ref.listen(connectivityProvider, (_, next) {
+      final isOnlineListen = next.valueOrNull ?? true;
+      if (!isOnlineListen) {
+        final name = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+        ref.read(ttsProvider).speak("Hey $name, I'm having trouble connecting to the internet right now!");
+      }
+    });
+
     final childName =
         ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+        
+    final greetingText = !isOnline 
+        ? "Hey $childName, I'm having trouble connecting to the internet right now!"
+        : _kGreeting;
 
     return GardenSkyBackground(
       child: SafeArea(
@@ -172,9 +195,11 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                       ZoeMascot(
                         // Speak the greeting with the speaking animation; fall
                         // back to the calm listening pose when idle.
-                        mode: _speaking
-                            ? ZoeMascotMode.speaking
-                            : ZoeMascotMode.listening,
+                        mode: !isOnline
+                            ? ZoeMascotMode.sleep
+                            : _speaking
+                                ? ZoeMascotMode.speaking
+                                : ZoeMascotMode.listening,
                         size: mascotW,
                         reducedMotion: MediaQuery.of(context).disableAnimations,
                       ),
@@ -184,6 +209,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                         onToggle: _toggleSpeak,
                         highlightStart: _highlightStart,
                         highlightEnd: _highlightEnd,
+                        text: greetingText,
                       ),
                       const SizedBox(height: 24),
                       EllaPrimaryButton(
@@ -269,10 +295,12 @@ class _GreetingCard extends StatelessWidget {
   final VoidCallback onToggle;
   final int highlightStart;
   final int highlightEnd;
+  final String text;
 
   const _GreetingCard({
     required this.speaking,
     required this.onToggle,
+    required this.text,
     this.highlightStart = -1,
     this.highlightEnd = -1,
   });
@@ -296,7 +324,7 @@ class _GreetingCard extends StatelessWidget {
               side: const BorderSide(color: EllaColors.info, width: 2),
             ),
             child: TypewriterText(
-              text: _kGreeting,
+              text: text,
               style: EllaTextStyles.bodySemiboldLarge,
               highlightStart: highlightStart,
               highlightEnd: highlightEnd,
