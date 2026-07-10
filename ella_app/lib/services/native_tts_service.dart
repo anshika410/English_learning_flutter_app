@@ -98,12 +98,20 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
 
   @override
   Future<void> stop() async {
+    final wasSpeaking = _speaking;
     _speaking = false;
     _highlightStart = 0;
     _highlightEnd = 0;
     try {
       await _channel.invokeMethod('stop');
     } catch (_) {}
+    // Emit doneStream so all karaoke highlight listeners reset to -1.
+    // Without this, navigating away stops audio but leaves the last highlighted
+    // word stuck in pink — the doneStream never fires from the native side
+    // when stop() is called programmatically.
+    if (wasSpeaking) {
+      _doneController.add(null);
+    }
   }
 
   @override
