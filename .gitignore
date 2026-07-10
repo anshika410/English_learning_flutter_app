@@ -84,6 +84,9 @@ assets/piper_voices/*.onnx
 
 # Frontend build artifacts and generated files
 **/build/
+# Gradle build caches (all packages, incl. vendored/patched google_sign_in)
+**/.gradle/
+google_sign_in_android_patched/**/local.properties
 frontend/android/.gradle/
 frontend/android/local.properties
 frontend/ios/Flutter/ephemeral/
