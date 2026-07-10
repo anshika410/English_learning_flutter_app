@@ -17,6 +17,7 @@ import '../../providers/placement_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
+import '../../services/stt_tts_service.dart';
 import 'garden_screen.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'widgets/garden_sound_button.dart';
@@ -102,7 +103,8 @@ class PlacementGardenScreen extends ConsumerStatefulWidget {
       _PlacementGardenScreenState();
 }
 
-class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
+class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
+    with WidgetsBindingObserver {
   late _Phase _phase = switch (widget.mode) {
     PlacementGardenMode.onboardingReveal when !widget.playReveal =>
       _Phase.settled,
@@ -149,13 +151,15 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
   bool get _reducedMotion =>
       MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
+  late final TtsInterface _tts;
+
   @override
   void initState() {
     super.initState();
+    _tts = ref.read(ttsProvider);
     _audio = ref.read(audioProvider);
     _audio.playMusic(Sounds.gardenMusic);
-
-
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
@@ -338,6 +342,9 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
 
   void _onExploreGarden() {
     if (_phase != _Phase.exploreReady) return;
+    try {
+      _tts.stop();
+    } catch (_) {}
     setState(() => _phase = _Phase.settled);
   }
 
@@ -345,11 +352,17 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
   // fade the settled Let's Talk bar in.
   void _onExploreSprout() {
     if (_phase != _Phase.placementSproutSpotlight) return;
+    try {
+      _tts.stop();
+    } catch (_) {}
     setState(() => _phase = _Phase.settled);
   }
 
   void _onSeeMyGarden() {
     if (_phase != _Phase.placementSpotlight) return;
+    try {
+      _tts.stop();
+    } catch (_) {}
     _toLevelGarden();
   }
 
@@ -409,11 +422,27 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final timer in _timers) {
       timer.cancel();
     }
+    try {
+      _tts.stop();
+    } catch (_) {}
     if (!_handingOffToGarden) _audio.stopMusic();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _audio.stopMusic();
+    } else if (state == AppLifecycleState.resumed && mounted) {
+      final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+      if (isCurrent && _audio.musicEnabled) {
+        _audio.playMusic(Sounds.gardenMusic);
+      }
+    }
   }
 
   @override
