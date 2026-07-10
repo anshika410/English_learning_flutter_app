@@ -1402,23 +1402,34 @@ void main() {
     });
   });
 
-  test('completed previous A1 garden uses local skills and all bloom', () {
-    final current = _gardenData(level: 'B1');
-    final projected = completedPreviousGardenData(
-      currentGarden: current,
-      viewedLevel: 'A1',
-    );
+  test(
+    'completed previous A1 garden uses its framework skills and all bloom',
+    () {
+      final current = _gardenData(level: 'B1');
+      final projected = completedPreviousGardenData(
+        currentGarden: current,
+        viewedLevel: 'A1',
+      );
 
-    expect(projected.level, 'A1');
-    expect(projected.steps, hasLength(5));
-    expect(projected.steps.first.name, 'Describing the world');
-    final skills = projected.steps.expand((step) => step.skills).toList();
-    expect(skills, hasLength(20));
-    expect(skills.first.id, 'A1-VOC-01');
-    expect(skills.every((skill) => skill.status == SkillStatus.owned), isTrue);
-    expect(skills.every((skill) => skill.sightings == 3), isTrue);
-    expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
-  });
+      expect(projected.level, 'A1');
+      expect(projected.steps, hasLength(5));
+      expect(projected.steps.first.name, 'Describing the world');
+      final skills = projected.steps.expand((step) => step.skills).toList();
+      expect(skills, hasLength(19));
+      expect(skills.first.id, 'U1-VOC-01');
+      expect(skills.first.icon, 'assets/skill-icons/a1-a2/01-two-faces.svg');
+      expect(
+        projected.steps.first.icon,
+        'assets/unit-icons/a1-a2/u1-globe.svg',
+      );
+      expect(
+        skills.every((skill) => skill.status == SkillStatus.owned),
+        isTrue,
+      );
+      expect(skills.every((skill) => skill.sightings == 3), isTrue);
+      expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
+    },
+  );
 
   test("completed previous A0 garden uses A0's own framework, all bloomed", () {
     final current = _gardenData(
@@ -1573,7 +1584,7 @@ void main() {
     );
     expect(find.byKey(const ValueKey('garden-talk-bar-layer')), findsNothing);
     expect(
-      find.byKey(const ValueKey('garden-plant-scale-A1-VOC-01')),
+      find.byKey(const ValueKey('garden-plant-scale-U1-VOC-01')),
       findsOneWidget,
     );
 
@@ -1593,7 +1604,7 @@ void main() {
     expect(find.byKey(const ValueKey('garden-talk-bar-layer')), findsOneWidget);
 
     await tester.tap(
-      find.byKey(const ValueKey('garden-skill-tile-A1-VOC-01')),
+      find.byKey(const ValueKey('garden-skill-tile-U1-VOC-01')),
       warnIfMissed: false,
     );
     await tester.pump();

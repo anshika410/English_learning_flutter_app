@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/curriculum_display_copy.dart';
-import '../core/skill_data.dart';
+import '../core/curriculum_icons.dart';
 import '../models/garden.dart';
 import 'service_providers.dart';
 
@@ -128,64 +128,7 @@ GardenData completedPreviousGardenData({
 }) {
   final level = _canonicalGardenLevel(viewedLevel);
   final label = _previewLabelFor(level);
-  if (level == 'A0') {
-    final steps = <GardenStep>[];
-    for (final unit in CurriculumDisplayCopy.a0Units) {
-      steps.add(
-        GardenStep(
-          step: unit.unit,
-          name: CurriculumDisplayCopy.unitName(
-            level: level,
-            unit: unit.unit,
-            fallback: '',
-          ),
-          focus: '',
-          description: '',
-          displayName: CurriculumDisplayCopy.unitName(
-            level: level,
-            unit: unit.unit,
-            fallback: '',
-          ),
-          displayDescription: CurriculumDisplayCopy.unitDescription(
-            level: level,
-            unit: unit.unit,
-            fallback: '',
-          ),
-          isCompleted: true,
-          skills: [
-            for (final skillId in unit.skillIds)
-              _completedSkill(
-                id: skillId,
-                strand: _strandFromA0SkillId(skillId),
-                text: CurriculumDisplayCopy.skillText(
-                  level: level,
-                  unit: unit.unit,
-                  skillId: skillId,
-                  fallback: '',
-                ),
-                displayText: CurriculumDisplayCopy.skillText(
-                  level: level,
-                  unit: unit.unit,
-                  skillId: skillId,
-                  fallback: '',
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-    return GardenData(
-      level: level,
-      levelLabel: label,
-      theme: label,
-      activeStepIndex: steps.length,
-      recommendedTopic: 'Placement',
-      steps: steps,
-    );
-  }
-
-  final skills = skillsAtLevel(level);
-  if (skills.isEmpty) {
+  if (CurriculumIcons.transitionForLevel(level) == null) {
     return GardenData(
       level: level,
       levelLabel: label,
@@ -199,42 +142,47 @@ GardenData completedPreviousGardenData({
   }
 
   final steps = <GardenStep>[];
-  var cursor = 0;
-  for (var i = 0; i < kUnitSteps.length; i++) {
-    final remainingSkills = skills.length - cursor;
-    final remainingSteps = kUnitSteps.length - i;
-    if (remainingSkills <= 0) break;
-    final take = (remainingSkills / remainingSteps).ceil();
-    final chunk = skills.skip(cursor).take(take).toList(growable: false);
-    cursor += chunk.length;
-    final unit = kUnitSteps[i];
-    final unitNumber = int.tryParse(unit.step) ?? i + 1;
+  for (var unitNumber = 1; unitNumber <= 5; unitNumber++) {
+    final skillIds = CurriculumIcons.skillIdsForUnit(level, unitNumber);
     final displayName = CurriculumDisplayCopy.unitName(
       level: level,
       unit: unitNumber,
-      fallback: unit.name,
+      fallback: '',
     );
     final displayDescription = CurriculumDisplayCopy.unitDescription(
       level: level,
       unit: unitNumber,
-      fallback: unit.focus,
+      fallback: '',
     );
     steps.add(
       GardenStep(
         step: unitNumber,
-        name: unit.name,
-        focus: unit.focus,
-        description: unit.focus,
+        name: displayName,
+        focus: displayDescription,
+        description: displayDescription,
         displayName: displayName,
         displayDescription: displayDescription,
+        icon: CurriculumIcons.unitAsset(level, unitNumber) ?? '',
         isCompleted: true,
         skills: [
-          for (final skill in chunk)
+          for (final skillId in skillIds)
             _completedSkill(
-              id: skill.id,
-              strand: strandFromString(skill.strand),
-              text: skill.text,
-              displayText: skill.text,
+              id: skillId,
+              strand: _strandFromCurriculumSkillId(skillId),
+              text: CurriculumDisplayCopy.skillText(
+                level: level,
+                unit: unitNumber,
+                skillId: skillId,
+                fallback: skillId,
+              ),
+              displayText: CurriculumDisplayCopy.skillText(
+                level: level,
+                unit: unitNumber,
+                skillId: skillId,
+                fallback: skillId,
+              ),
+              icon:
+                  CurriculumIcons.skillAsset(level, unitNumber, skillId) ?? '',
             ),
         ],
       ),
@@ -331,8 +279,7 @@ final completedGardenIntroSeenProvider =
       CompletedGardenIntroSeenState
     >((ref) => CompletedGardenIntroSeenController());
 
-/// Extracts the strand from an A0 skill ID such as `U1-VOC-01` → [Strand.voc].
-Strand _strandFromA0SkillId(String skillId) {
+Strand _strandFromCurriculumSkillId(String skillId) {
   final parts = skillId.split('-');
   return parts.length >= 2 ? strandFromString(parts[1]) : Strand.unknown;
 }
