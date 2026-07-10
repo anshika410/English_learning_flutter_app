@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'stt_tts_service.dart';
 
 class TtsProgressEvent {
@@ -10,8 +11,9 @@ class TtsProgressEvent {
 
 /// Native Android TTS with karaoke word-highlight via onRangeStart.
 /// Falls back gracefully if the channel isn't available (e.g., on web/iOS).
-class NativeTtsService implements TtsInterface {
+class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
   static const _channel = MethodChannel('ella/native_tts');
+  static NativeTtsService? instance;
 
   bool _speaking = false;
   int _highlightStart = 0;
@@ -31,6 +33,22 @@ class NativeTtsService implements TtsInterface {
 
   NativeTtsService() {
     _channel.setMethodCallHandler(_handleMethod);
+    instance = this;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      stop();
+    }
+  }
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (instance == this) {
+      instance = null;
+    }
   }
 
   @override
@@ -63,6 +81,7 @@ class NativeTtsService implements TtsInterface {
     }
   }
 
+  @override
   Future<void> speak(String text) async {
     // Strip emojis before sending to Android TTS — prevents the engine from
     // reading "waving hand", "laughing face", etc. out loud. Also ensures the
@@ -77,6 +96,7 @@ class NativeTtsService implements TtsInterface {
     }
   }
 
+  @override
   Future<void> stop() async {
     _speaking = false;
     _highlightStart = 0;
@@ -86,6 +106,7 @@ class NativeTtsService implements TtsInterface {
     } catch (_) {}
   }
 
+  @override
   bool get isSpeaking => _speaking;
   int get highlightStart => _highlightStart;
   int get highlightEnd => _highlightEnd;

@@ -16,6 +16,7 @@ import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
+import '../../services/stt_tts_service.dart';
 import 'widgets/conversation_view.dart';
 import 'widgets/garden_sky_background.dart';
 import 'widgets/mascot_loading_screen.dart';
@@ -60,9 +61,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
+  // Captured in initState so dispose() never reads `ref` (unreliable while the
+  // element is deactivating) — otherwise the stop-on-leave can silently fail.
+  late final TtsInterface _tts;
+  late final ChatNotifier _chatNotifier;
+
   @override
   void initState() {
     super.initState();
+    _tts = ref.read(ttsProvider);
+    _chatNotifier = ref.read(chatProvider.notifier);
     final nativeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = nativeTts.progressStream.listen((event) {
       if (mounted) {
@@ -88,7 +96,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   void dispose() {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
-    ref.read(chatProvider.notifier).stopListening();
+    try {
+      _chatNotifier.stopListening();
+      _tts.stop();
+    } catch (_) {}
     _textController.dispose();
     super.dispose();
   }
