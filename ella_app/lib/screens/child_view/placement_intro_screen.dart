@@ -17,6 +17,7 @@ import '../../core/theme_colors.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../services/stt_tts_service.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'placement_screen.dart';
@@ -52,9 +53,12 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
+  late final TtsInterface _tts;
+
   @override
   void initState() {
     super.initState();
+    _tts = ref.read(ttsProvider);
     final nativeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = nativeTts.progressStream.listen((event) {
       if (mounted) {
@@ -81,6 +85,9 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   void dispose() {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
+    try {
+      _tts.stop();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -106,10 +113,22 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   }
 
   // Speaker dot on the greeting card: replays the greeting when idle. While
-  // it's already playing the tap is a no-op (never restarts the utterance).
-  void _toggleSpeak() {
-    if (_speaking) return;
-    _speakGreeting();
+  // it's already playing, tapping it stops (mutes) the speech.
+  void _toggleSpeak() async {
+    if (_speaking) {
+      try {
+        await _tts.stop();
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    } else {
+      _speakGreeting();
+    }
   }
 
   void _startPlacement() {

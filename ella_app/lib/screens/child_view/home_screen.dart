@@ -19,6 +19,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
 import 'all_topics_screen.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
@@ -31,7 +32,6 @@ import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 import 'chat_bubble.dart';
 import 'widgets/network_error_view.dart';
-import '../../core/app_toast.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
 // 'demo'), so this is a swappable placeholder matching the design demo until a
@@ -74,9 +74,8 @@ class HomeScreen extends ConsumerWidget {
         onOpenGarden: onOpenGarden,
         onOpenProfile: onOpenProfile,
       ),
-      error: (e, _) => NetworkErrorView(
-        onRetry: () => ref.invalidate(chatProvider),
-      ),
+      error: (e, _) =>
+          NetworkErrorView(onRetry: () => ref.invalidate(chatProvider)),
     );
   }
 }
@@ -155,17 +154,30 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // API provides it, in which case the card shows its first-chat fallback.
   String get _recap => _memory?.lastTimeRecap ?? '';
 
-  void _selectTopic(TopicChoice topic) => setState(() {
-    _selectedTopic = topic;
-    _promoteSelectedTopic = false;
-  });
+  void _selectTopic(TopicChoice topic) {
+    ref.read(audioProvider).playSfx(Sounds.topic);
+    setState(() {
+      _selectedTopic = topic;
+      _promoteSelectedTopic = false;
+    });
+  }
 
   // Replays the "Last time" recap aloud. Speaks the same fallback line that the
   // card shows when the server hasn't sent a recap yet. A no-op while TTS is
   // already speaking (placement-flow behavior), so taps can't stack utterances.
   Future<void> _speakRecap() async {
     final tts = ref.read(ttsProvider);
-    if (tts.isSpeaking) return;
+    if (_speaking) {
+      await tts.stop();
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+      return;
+    }
     final text = _recap.trim().isNotEmpty
         ? _recap.trim()
         : "This is our first chat together — I can't wait!";
@@ -186,8 +198,18 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   }
 
   Future<void> _openSeeMore() async {
+    final homescreenTopics = getHomescreenTopics(
+      recommended: _recommended,
+      alternatives: _alternatives,
+      selected: _selected,
+      promoteSelected: _promoteSelectedTopic,
+    );
+    final excludeNames = homescreenTopics.map((t) => t.name).toList();
+
     final picked = await Navigator.of(context).push<TopicChoice>(
-      MaterialPageRoute(builder: (_) => const AllTopicsScreen()),
+      MaterialPageRoute(
+        builder: (_) => AllTopicsScreen(excludeTopicNames: excludeNames),
+      ),
     );
     if (picked != null && mounted) {
       setState(() {
@@ -300,7 +322,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                                 ),
                               ),
                               height: 60,
-                              // EllaPrimaryButton plays the tap click itself.
+                              playTapClickSound: false,
                               onTap: _startSelected,
                             ),
                           ),
@@ -518,43 +540,18 @@ class _TopicChipsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ordered = <TopicChoice>[];
+    final shown = getHomescreenTopics(
+      recommended: recommended,
+      alternatives: alternatives,
+      selected: selected,
+      promoteSelected: promoteSelected,
+    );
     final sel = selected;
-    final seen = <String>{};
-    void addTopic(TopicChoice? topic) {
-      if (topic == null || topic.name.isEmpty || !seen.add(topic.name)) return;
-      ordered.add(topic);
-    }
-
-    if (promoteSelected) {
-      // Move the explicit pick to the front (it may be one of the alternatives,
-      // or a See-More pick that isn't — prepend either way), highlighted.
-      addTopic(sel);
-      for (final topic in alternatives) {
-        addTopic(topic);
-      }
-    } else {
-      addTopic(recommended);
-      for (final topic in alternatives) {
-        addTopic(topic);
-      }
-    }
-    if (sel != null && sel.name.isNotEmpty) {
-      final isAlreadyInAlternatives = alternatives.any((t) => t.name == sel.name);
-      if (!isAlreadyInAlternatives) {
-        if (ordered.isNotEmpty) {
-          ordered[0] = sel;
-        } else {
-          ordered.add(sel);
-        }
-      }
-    }
-    final shown = ordered.take(2).toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {
         const horizontalGap = 12.0;
-        const horizontalPadding = 6.0;
+        const horizontalPadding = 8.0;
         const verticalPadding = 8.0;
         const iconSize = 53.0;
         const iconLabelGap = 4.0;
@@ -634,6 +631,7 @@ class _ChipShell extends StatelessWidget {
   final double outlineWidth;
   final Widget child;
   final VoidCallback? onTap;
+  final bool playTapClickSound;
 
   const _ChipShell({
     super.key,
@@ -643,6 +641,7 @@ class _ChipShell extends StatelessWidget {
     required this.child,
     this.outlineWidth = 1.5,
     this.onTap,
+    this.playTapClickSound = true,
   });
 
   @override
@@ -655,18 +654,17 @@ class _ChipShell extends StatelessWidget {
       onTap: tap == null
           ? null
           : () {
-              playTapClick();
+              if (playTapClickSound) {
+                playTapClick();
+              }
               tap();
             },
       child: Container(
         height: height,
         // BoxDecoration contributes its border to the content inset. Offset
-        // it here so every chip keeps the same 6x8 padding and icon position,
+        // it here so every chip keeps the same 8px padding and icon position,
         // including the selected chip's thicker outline.
-        padding: EdgeInsets.symmetric(
-          horizontal: 6 - outlineWidth,
-          vertical: 8 - outlineWidth,
-        ),
+        padding: EdgeInsets.all(8 - outlineWidth),
         alignment: Alignment.topCenter,
         decoration: BoxDecoration(
           color: fill,
@@ -713,6 +711,7 @@ class _TopicChip extends StatelessWidget {
           : EllaColors.ink.withValues(alpha: 0.2),
       outlineWidth: selected ? 2.5 : 1.5,
       onTap: onTap,
+      playTapClickSound: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -796,4 +795,43 @@ class _ChipPlaceholder extends StatelessWidget {
     outline: EllaColors.ink.withValues(alpha: 0.12),
     child: const SizedBox.shrink(),
   );
+}
+
+List<TopicChoice> getHomescreenTopics({
+  required TopicChoice? recommended,
+  required List<TopicChoice> alternatives,
+  required TopicChoice? selected,
+  required bool promoteSelected,
+}) {
+  final ordered = <TopicChoice>[];
+  final seen = <String>{};
+  void addTopic(TopicChoice? topic) {
+    if (topic == null || topic.name.isEmpty || !seen.add(topic.name)) return;
+    ordered.add(topic);
+  }
+
+  if (promoteSelected) {
+    addTopic(selected);
+    for (final topic in alternatives) {
+      addTopic(topic);
+    }
+  } else {
+    addTopic(recommended);
+    for (final topic in alternatives) {
+      addTopic(topic);
+    }
+  }
+  if (selected != null && selected.name.isNotEmpty) {
+    final isAlreadyInAlternatives = alternatives.any(
+      (t) => t.name == selected.name,
+    );
+    if (!isAlreadyInAlternatives) {
+      if (ordered.isNotEmpty) {
+        ordered[0] = selected;
+      } else {
+        ordered.add(selected);
+      }
+    }
+  }
+  return ordered.take(2).toList();
 }

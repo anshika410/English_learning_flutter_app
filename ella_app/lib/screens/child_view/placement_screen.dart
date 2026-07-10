@@ -15,6 +15,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/chat_provider.dart' show ChatStatus;
 import '../../providers/service_providers.dart';
+import '../../services/stt_tts_service.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'widgets/conversation_view.dart';
@@ -53,9 +54,16 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
+  // Captured in initState so dispose() never reads `ref` (unreliable while the
+  // element is deactivating) — otherwise the stop-on-leave can silently fail.
+  late final TtsInterface _tts;
+  late final PlacementNotifier _placementNotifier;
+
   @override
   void initState() {
     super.initState();
+    _tts = ref.read(ttsProvider);
+    _placementNotifier = ref.read(placementProvider.notifier);
     final nativeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = nativeTts.progressStream.listen((event) {
       if (mounted) {
@@ -81,7 +89,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   void dispose() {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
-    ref.read(placementProvider.notifier).stopListening();
+    try {
+      _placementNotifier.stopListening();
+      _tts.stop();
+    } catch (_) {}
     _textController.dispose();
     super.dispose();
   }
@@ -320,12 +331,23 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     );
   }
 
-  /// Replays a Zoe line via TTS. A no-op while TTS is already speaking, so a
-  /// tap can never restart or stack utterances. Sets [_replaying] around the
-  /// playback so Zoe runs her speaking animation for the manual replay too.
+  /// Replays a Zoe line via TTS. While TTS is already speaking, tapping it stops
+  /// (mutes) the speech. Sets [_replaying] around the playback so Zoe runs her
+  /// speaking animation for the manual replay too.
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
-    if (tts.isSpeaking || _replaying) return;
+    if (_speaking || _replaying) {
+      await tts.stop();
+      if (mounted) {
+        setState(() {
+          _replaying = false;
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+      return;
+    }
     setState(() {
       _replaying = true;
       _speaking = true;

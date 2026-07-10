@@ -268,6 +268,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final success = await _api.requestMagicLink(email);
     if (!mounted) return;
 
+    // If the user dismissed the email input while the request was in flight, discard the result
+    if (!_showEmailInput) return;
+
     setState(() {
       _isLoading = false;
       _magicLinkSent = success;
@@ -290,6 +293,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     setState(() {
       _magicLinkSent = false;
       _showEmailInput = false;
+      _isLoading = false;
       _emailController.clear();
     });
   }

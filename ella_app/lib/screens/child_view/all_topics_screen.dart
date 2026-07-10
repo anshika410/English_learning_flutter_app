@@ -12,13 +12,17 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
 import 'widgets/garden_sky_background.dart';
 import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 
 class AllTopicsScreen extends ConsumerWidget {
-  const AllTopicsScreen({super.key});
+  final List<String> excludeTopicNames;
+
+  const AllTopicsScreen({super.key, this.excludeTopicNames = const []});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,10 +60,10 @@ class AllTopicsScreen extends ConsumerWidget {
                           builder: (context, constraints) {
                             const columnCount = 3;
                             const horizontalGap = 14.0;
-                            const horizontalPadding = 16.0;
-                            const verticalPadding = 16.0;
+                            const horizontalPadding = 8.0;
+                            const verticalPadding = 8.0;
                             const iconSize = 53.0;
-                            const iconLabelGap = 8.0;
+                            const iconLabelGap = 4.0;
                             final cardWidth =
                                 (constraints.maxWidth -
                                     horizontalGap * (columnCount - 1)) /
@@ -125,7 +129,9 @@ class AllTopicsScreen extends ConsumerWidget {
                                                   labelSlotHeight:
                                                       rowLabelHeight,
                                                   onTap: () {
-                                                    playTapClick();
+                                                    ref
+                                                        .read(audioProvider)
+                                                        .playSfx(Sounds.topic);
                                                     Navigator.of(context).pop(
                                                       rowTopics[columnIndex],
                                                     );
@@ -151,7 +157,7 @@ class AllTopicsScreen extends ConsumerWidget {
   }
 
   // Recommended first, then alternatives, de-duplicated by name.
-  static List<TopicChoice> _topicsFrom(MemoryState? memory) {
+  List<TopicChoice> _topicsFrom(MemoryState? memory) {
     if (memory == null) return const [];
     final next = memory.nextTopics;
     final out = <TopicChoice>[];
@@ -160,7 +166,11 @@ class AllTopicsScreen extends ConsumerWidget {
       if (next.recommended != null) next.recommended!,
       ...next.alternatives,
     ]) {
-      if (t.name.isNotEmpty && seen.add(t.name)) out.add(t);
+      if (t.name.isNotEmpty && seen.add(t.name)) {
+        if (!excludeTopicNames.contains(t.name)) {
+          out.add(t);
+        }
+      }
     }
     return out;
   }
@@ -264,8 +274,8 @@ class _TopicCard extends StatelessWidget {
       child: Container(
         key: ValueKey('all-topics-card-${topic.name}'),
         // The smooth 1.5px outline supplies the remainder of the original
-        // 16px inset.
-        padding: const EdgeInsets.all(14.5),
+        // 8px inset.
+        padding: const EdgeInsets.all(6.5),
         alignment: Alignment.topCenter,
         decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
@@ -284,7 +294,7 @@ class _TopicCard extends StatelessWidget {
               size: 53,
               fallbackColor: EllaColors.ink,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             TopicCardLabel(
               key: ValueKey('all-topics-label-${topic.name}'),
               text: topic.display,

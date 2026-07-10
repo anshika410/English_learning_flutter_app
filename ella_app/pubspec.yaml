@@ -109,7 +109,9 @@ flutter:
     - assets/unit-icons/c1-c2/
     - assets/sounds/sfx/
     - assets/sounds/music/
+    - assets/sounds/new-sounds/
     - assets/topic-icons/
+    - assets/send-button.svg
 
   fonts:
     - family: Chillax

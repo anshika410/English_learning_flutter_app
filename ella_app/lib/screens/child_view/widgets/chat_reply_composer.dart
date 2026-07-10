@@ -85,6 +85,7 @@ class ChatReplyComposer extends StatelessWidget {
         EllaIconButton(
           key: const ValueKey('chat-reply-send'),
           size: 72,
+          playTapClickSound: false,
           onTap: enabled ? onSend : null,
           glyph: SvgPicture.asset(_kPaperPlaneIcon, width: 24, height: 24),
         ),

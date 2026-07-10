@@ -47,6 +47,11 @@ class _EllaAppState extends State<EllaApp> {
     _initAuthAndDeepLinks();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> _initAuthAndDeepLinks() async {
     // Initialize App Links for Magic Link handling
     _appLinks = AppLinks();

@@ -14,6 +14,11 @@ class MainActivity : FlutterActivity() {
         channel.setMethodCallHandler(ttsPlugin)
     }
 
+    override fun onPause() {
+        ttsPlugin?.stop()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         ttsPlugin?.dispose()
         super.onDestroy()

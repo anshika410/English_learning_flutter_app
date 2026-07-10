@@ -27,6 +27,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
+import '../../services/stt_tts_service.dart';
 import 'widgets/garden_dialogs.dart';
 import 'widgets/spotlight_callout_bubble.dart';
 import 'widgets/spotlight_overlay.dart';
@@ -402,7 +403,8 @@ class GardenScreen extends ConsumerStatefulWidget {
   ConsumerState<GardenScreen> createState() => _GardenScreenState();
 }
 
-class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
+class _GardenScreenState extends ConsumerState<GardenScreen>
+    with RouteAware, WidgetsBindingObserver {
   // Last-seen garden payload while this screen is mounted. Used for preview
   // growth and for the rare case where a conversation ends while the garden is
   // already visible. Normal post-chat reveals are queued by ChatNotifier from
@@ -412,6 +414,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
   late final AudioInterface _audio;
+  late final TtsInterface _tts;
 
   late _FirstGardenPhase _firstGardenPhase = widget.firstTime
       ? _FirstGardenPhase.waiting
@@ -425,10 +428,12 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
   void initState() {
     super.initState();
     _audio = ref.read(audioProvider);
+    _tts = ref.read(ttsProvider);
     _soundOn = _audio.musicEnabled && _audio.sfxEnabled;
     // Start on every mount so the loop is audible each time the garden opens
     // (not just the first time).
     _startMusic();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
@@ -460,6 +465,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
       _firstGardenPhase = _FirstGardenPhase.speaking;
       _welcomeZoeMode = ZoeMascotMode.speaking;
     });
+    unawaited(_audio.playSfx(Sounds.newGarden));
     unawaited(_speakWelcomeAndUnlockExplore());
   }
 
@@ -496,6 +502,9 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
 
   void _onExploreFirstGarden() {
     if (_firstGardenPhase != _FirstGardenPhase.exploreReady) return;
+    try {
+      _tts.stop();
+    } catch (_) {}
     setState(() => _firstGardenPhase = _FirstGardenPhase.settled);
   }
 
@@ -558,12 +567,28 @@ class _GardenScreenState extends ConsumerState<GardenScreen> with RouteAware {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final timer in _timers) {
       timer.cancel();
     }
+    try {
+      _tts.stop();
+    } catch (_) {}
     appRouteObserver.unsubscribe(this);
     _stopMusic();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _stopMusic();
+    } else if (state == AppLifecycleState.resumed && mounted) {
+      final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+      if (isCurrent && _soundOn) {
+        _startMusic();
+      }
+    }
   }
 
   @override
@@ -1123,12 +1148,13 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     if (!mounted || token != _revealToken) return;
 
     final center = _centerForAnchor(item.skillId);
+    final isBloom = item.toStage == GardenGrowthStage.bloomed;
     setState(() {
       _spotlightCenter = center;
       _spotlightVisible = true;
       _poppingSkillId = item.skillId;
     });
-    unawaited(ref.read(audioProvider).playSfx(Sounds.newSprout));
+    unawaited(ref.read(audioProvider).playSfx(isBloom ? Sounds.bloom : Sounds.sprout));
 
     _afterReveal(reducedMotion ? 0 : 260, () {
       if (token != _revealToken) return;
@@ -1184,6 +1210,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
   }
 
   void _onExploreCompletedPreviousGarden(String viewedLevel) {
+    try {
+      ref.read(ttsProvider).stop();
+    } catch (_) {}
     ref.read(completedGardenIntroSeenProvider.notifier).markSeen(viewedLevel);
   }
 

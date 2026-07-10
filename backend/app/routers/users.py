@@ -191,7 +191,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     has_completed_onboarding = user.first_session_done or bool(user.placements)
     if fresh and has_completed_onboarding:
         rec = _topic_item(fresh[0])
-        alts = [_topic_item(t) for t in fresh[1:4]]
+        alts = [_topic_item(t) for t in fresh[1:]]  # send all remaining fresh topics
         next_topics_obj = NextTopics(
             recommended=NextTopicItem(**rec),
             alternatives=[NextTopicItem(**a) for a in alts]

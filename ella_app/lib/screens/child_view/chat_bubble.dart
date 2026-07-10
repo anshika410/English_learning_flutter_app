@@ -8,20 +8,26 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../services/stt_tts_service.dart' show stripEmojis;
 
-/// Strip markdown syntax for plain text (used for TTS).
+/// Strip markdown syntax and emojis for plain text display in TypewriterText.
+/// Stripping emojis here ensures the displayed character offsets always match
+/// what NativeTtsService sends to Android TTS (which also strips emojis),
+/// so karaoke highlights never land on an emoji character.
 String stripMarkdown(String text) {
-  return text
-      .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1')
-      .replaceAll(RegExp(r'\*(.+?)\*'), r'$1')
-      .replaceAll(RegExp(r'__(.+?)__'), r'$1')
-      .replaceAll(RegExp(r'_(.+?)_'), r'$1')
-      .replaceAll(RegExp(r'`(.+?)`'), r'$1')
-      .replaceAll(RegExp(r'~~(.+?)~~'), r'$1')
-      .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)'), r'$1')
-      .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-      .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
-      .trim();
+  return stripEmojis(
+    text
+        .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1')
+        .replaceAll(RegExp(r'\*(.+?)\*'), r'$1')
+        .replaceAll(RegExp(r'__(.+?)__'), r'$1')
+        .replaceAll(RegExp(r'_(.+?)_'), r'$1')
+        .replaceAll(RegExp(r'`(.+?)`'), r'$1')
+        .replaceAll(RegExp(r'~~(.+?)~~'), r'$1')
+        .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)'), r'$1')
+        .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
+        .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
+        .trim(),
+  );
 }
 
 class ChatBubble extends ConsumerWidget {
@@ -214,7 +220,7 @@ class _TypewriterTextState extends State<TypewriterText> {
           color: const Color(0xFFE91E63),
         );
 
-    // If we have highlight range, build RichText with highlighted span
+    // Karaoke style: current spoken word lights up in pink, no background pill.
     if (_done &&
         widget.highlightStart >= 0 &&
         widget.highlightEnd > widget.highlightStart &&
@@ -224,26 +230,14 @@ class _TypewriterTextState extends State<TypewriterText> {
           style: baseStyle,
           children: [
             TextSpan(text: _cleanText.substring(0, widget.highlightStart)),
-            WidgetSpan(
-              alignment: PlaceholderAlignment.baseline,
-              baseline: TextBaseline.alphabetic,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                margin: const EdgeInsets.symmetric(horizontal: 1),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFCE4EC), // Soft pink/berry background pill
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  _cleanText.substring(
-                    widget.highlightStart,
-                    widget.highlightEnd,
-                  ),
-                  style: highlightStyle.copyWith(
-                    color: const Color(0xFFC2185B), // Deep pink/berry for high contrast and readability
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+            TextSpan(
+              text: _cleanText.substring(
+                widget.highlightStart,
+                widget.highlightEnd,
+              ),
+              style: baseStyle.copyWith(
+                color: const Color(0xFFE91E63), // Karaoke pink — current word only
+                fontWeight: FontWeight.bold,
               ),
             ),
             TextSpan(text: _cleanText.substring(widget.highlightEnd)),
