@@ -88,7 +88,7 @@ void main() {
     await tester.pump();
 
     expect(api.requestedEmail, 'xyz@gmail.com');
-    expect(find.text('Check your Inbox!'), findsOneWidget);
+    expect(find.text('Open Your Inbox!'), findsOneWidget);
     expect(find.text('Use a Different Email'), findsOneWidget);
     expect(
       find.byWidgetPredicate(

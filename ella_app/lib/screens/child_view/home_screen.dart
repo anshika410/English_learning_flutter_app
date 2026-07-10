@@ -612,8 +612,8 @@ class _ChipShell extends StatelessWidget {
               tap();
             },
       child: Container(
-        height: 74,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        height: 112,
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: fill,
           borderRadius: BorderRadius.circular(16),

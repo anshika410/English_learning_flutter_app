@@ -19,6 +19,7 @@ import 'chat_reply_composer.dart';
 import 'garden_sky_background.dart';
 import 'speaker_dot_button.dart';
 import 'zoe_mascot.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../chat_bubble.dart';
 
 enum ConvPhase { prepare, talking, ending }
@@ -607,10 +608,22 @@ class _MicButton extends StatelessWidget {
                   ),
                 ],
         ),
-        child: Icon(
-          listening ? Icons.stop_rounded : Icons.mic_rounded,
-          size: size * 0.44,
-          color: EllaColors.onPrimary,
+        child: Center(
+          child: listening
+              ? SvgPicture.asset(
+                  'assets/send-button.svg',
+                  width: size * 0.44,
+                  height: size * 0.44,
+                  colorFilter: const ColorFilter.mode(
+                    EllaColors.onPrimary,
+                    BlendMode.srcIn,
+                  ),
+                )
+              : Icon(
+                  Icons.mic_rounded,
+                  size: size * 0.44,
+                  color: EllaColors.onPrimary,
+                ),
         ),
       ),
     );

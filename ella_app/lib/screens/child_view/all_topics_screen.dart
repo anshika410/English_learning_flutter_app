@@ -187,7 +187,7 @@ class _TopicCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(8),
         decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
           borderRadius: BorderRadius.circular(18),
@@ -207,7 +207,7 @@ class _TopicCard extends StatelessWidget {
                 size: 53,
                 fallbackColor: EllaColors.ink,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
                 topic.display,
                 maxLines: 2,
