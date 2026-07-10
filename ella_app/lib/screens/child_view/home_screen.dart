@@ -234,9 +234,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     final ctaLabel = selectedLabel.isNotEmpty
         ? "Let's Talk About $selectedLabel"
         : "Let's Talk";
-    final pickPrompt = selectedLabel.isNotEmpty
-        ? 'Not the $selectedLabel? Pick your own'
-        : 'Not this topic? Pick your own';
+    const pickPrompt = 'Not this topic. Pick your own.';
 
     final mascotW = (MediaQuery.of(context).size.width * _kMascotWidthFactor)
         .clamp(128.0, 168.0);
