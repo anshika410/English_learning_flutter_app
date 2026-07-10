@@ -1514,12 +1514,49 @@ function App(){
         (()=>{const ms=studentMission(flatTargets(mem)[0], level); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()
       )}
       <div className="chat" ref={chatRef}>
-        {msgs.map((m,i)=>(
-          <div key={i} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
+        {msgs.map((m,i)=>{
+          // ── Per-turn rule checker for Zoe bubbles ──────────────────────────
+          let ruleColor = null;
+          let ruleIssues = [];
+          let ruleOk = [];
+          if (m.role === 'zoe') {
+            const words = m.text.trim().split(/\s+/).filter(Boolean);
+            const wc = words.length;
+            const txt = m.text;
+            // Word count limits per level
+            const limits = {A0:[3,6], A1:[4,18], A2:[4,20], B1:[6,35], B2:[6,40], C1:[6,45]};
+            const [minW, maxW] = limits[level] || [4, 35];
+            if (wc < minW) ruleIssues.push(`too short (${wc}w, min ${minW})`);
+            else if (wc > maxW) ruleIssues.push(`too long (${wc}w, max ${maxW})`);
+            else ruleOk.push(`${wc} words ✓`);
+            // Open question check for A0 (should be yes/no or this-or-that only)
+            const openQWords = /\b(what|why|how|tell me|describe|explain|where|when|who)\b/i;
+            const hasQuestion = /\?/.test(txt);
+            if (level === 'A0' && hasQuestion && openQWords.test(txt)) {
+              ruleIssues.push('open question ✗ (A0: yes/no only)');
+            }
+            // Stacked questions check (more than 1 question mark)
+            const qCount = (txt.match(/\?/g)||[]).length;
+            if (qCount > 1) ruleIssues.push(`stacked ${qCount} questions`);
+            // Echo check for A0 (should prompt repetition)
+            const echoWords = /say it|can you say|repeat|say with me/i;
+            if (level === 'A0' && !echoWords.test(txt) && hasQuestion) {
+              ruleIssues.push('no echo prompt (A0 should ask to repeat)');
+            }
+            // Correction check — A0/A1 should never correct explicitly
+            const correctionWords = /\b(wrong|incorrect|mistake|should be|you said.*but|actually it's)\b/i;
+            if ((level === 'A0' || level === 'A1') && correctionWords.test(txt)) {
+              ruleIssues.push('explicit correction at A0/A1 ✗');
+            }
+            ruleColor = ruleIssues.length === 0 ? '#2e7d32' : ruleIssues.some(x=>x.includes('too long')||x.includes('open question')||x.includes('correction')) ? '#c62828' : '#e65100';
+          }
+          return (
+          <div key={i} style={m.role==='zoe' ? {borderLeft: `3px solid ${ruleColor}`, borderRadius:14, marginBottom:2} : {}} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
             {m.text}
             {m.role==='zoe' && (
-              <div style={{marginTop: 4, fontSize: '10.5px', color: '#999', textAlign: 'right'}}>
-                {m.text.trim().split(/\s+/).filter(Boolean).length} words
+              <div style={{marginTop: 5, paddingTop: 4, borderTop: '1px dashed #e0e0e0', fontSize: '10.5px', display:'flex', flexWrap:'wrap', gap:4, alignItems:'center'}}>
+                {ruleOk.map((r,i)=><span key={i} style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:4,padding:'1px 5px'}}>{r}</span>)}
+                {ruleIssues.map((r,i)=><span key={i} style={{background: r.includes('too long')||r.includes('open question')||r.includes('correction') ? '#ffebee':'#fff3e0', color: r.includes('too long')||r.includes('open question')||r.includes('correction') ? '#c62828':'#e65100', borderRadius:4, padding:'1px 5px'}}>{r}</span>)}
               </div>
             )}
             {m.role==='zoe' && m.correction && (
@@ -1528,7 +1565,8 @@ function App(){
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
         {busy&&<div className="bub sys">…thinking…</div>}
         {placementAssessment && (
           <div style={{
