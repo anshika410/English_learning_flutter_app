@@ -64,10 +64,14 @@ class NativeTtsService implements TtsInterface {
   }
 
   Future<void> speak(String text) async {
-    if (text.trim().isEmpty) return;
+    // Strip emojis before sending to Android TTS — prevents the engine from
+    // reading "waving hand", "laughing face", etc. out loud. Also ensures the
+    // character offsets from onRangeStart align with what TypewriterText shows.
+    final sanitized = stripEmojis(text);
+    if (sanitized.trim().isEmpty) return;
     _speaking = true;
     try {
-      await _channel.invokeMethod('speak', {'text': text});
+      await _channel.invokeMethod('speak', {'text': sanitized});
     } catch (e) {
       _speaking = false;
     }

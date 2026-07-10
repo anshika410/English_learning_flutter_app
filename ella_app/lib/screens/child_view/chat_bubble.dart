@@ -8,20 +8,26 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../services/stt_tts_service.dart' show stripEmojis;
 
-/// Strip markdown syntax for plain text (used for TTS).
+/// Strip markdown syntax and emojis for plain text display in TypewriterText.
+/// Stripping emojis here ensures the displayed character offsets always match
+/// what NativeTtsService sends to Android TTS (which also strips emojis),
+/// so karaoke highlights never land on an emoji character.
 String stripMarkdown(String text) {
-  return text
-      .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1')
-      .replaceAll(RegExp(r'\*(.+?)\*'), r'$1')
-      .replaceAll(RegExp(r'__(.+?)__'), r'$1')
-      .replaceAll(RegExp(r'_(.+?)_'), r'$1')
-      .replaceAll(RegExp(r'`(.+?)`'), r'$1')
-      .replaceAll(RegExp(r'~~(.+?)~~'), r'$1')
-      .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)'), r'$1')
-      .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-      .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
-      .trim();
+  return stripEmojis(
+    text
+        .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1')
+        .replaceAll(RegExp(r'\*(.+?)\*'), r'$1')
+        .replaceAll(RegExp(r'__(.+?)__'), r'$1')
+        .replaceAll(RegExp(r'_(.+?)_'), r'$1')
+        .replaceAll(RegExp(r'`(.+?)`'), r'$1')
+        .replaceAll(RegExp(r'~~(.+?)~~'), r'$1')
+        .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)'), r'$1')
+        .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
+        .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
+        .trim(),
+  );
 }
 
 class ChatBubble extends ConsumerWidget {
