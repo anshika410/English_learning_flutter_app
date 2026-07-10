@@ -20,7 +20,12 @@ import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 
 class AllTopicsScreen extends ConsumerWidget {
-  const AllTopicsScreen({super.key});
+  final List<String> excludeTopicNames;
+
+  const AllTopicsScreen({
+    super.key,
+    this.excludeTopicNames = const [],
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -82,7 +87,7 @@ class AllTopicsScreen extends ConsumerWidget {
   }
 
   // Recommended first, then alternatives, de-duplicated by name.
-  static List<TopicChoice> _topicsFrom(MemoryState? memory) {
+  List<TopicChoice> _topicsFrom(MemoryState? memory) {
     if (memory == null) return const [];
     final next = memory.nextTopics;
     final out = <TopicChoice>[];
@@ -91,7 +96,11 @@ class AllTopicsScreen extends ConsumerWidget {
       if (next.recommended != null) next.recommended!,
       ...next.alternatives,
     ]) {
-      if (t.name.isNotEmpty && seen.add(t.name)) out.add(t);
+      if (t.name.isNotEmpty && seen.add(t.name)) {
+        if (!excludeTopicNames.contains(t.name)) {
+          out.add(t);
+        }
+      }
     }
     return out;
   }
