@@ -36,6 +36,7 @@ class EllaPrimaryButton extends StatefulWidget {
   /// Optional leading glyph rendered before the label (e.g. the voice icon on
   /// the home "Let's Talk" CTA). Callers tint it to match [_labelColor].
   final Widget? leading;
+  final bool playTapClickSound;
 
   const EllaPrimaryButton({
     super.key,
@@ -49,6 +50,7 @@ class EllaPrimaryButton extends StatefulWidget {
     this.leadingGap = 10,
     // Pill by default, per the flat-fill button spec.
     this.borderRadius = const BorderRadius.all(Radius.circular(999)),
+    this.playTapClickSound = true,
   });
 
   @override
@@ -91,7 +93,9 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
       onTapUp: enabled
           ? (_) {
               setState(() => _pressed = false);
-              playTapClick();
+              if (widget.playTapClickSound) {
+                playTapClick();
+              }
               widget.onTap?.call();
             }
           : null,
@@ -154,6 +158,8 @@ class EllaIconButton extends StatefulWidget {
   /// When true the fill uses greenMain instead of berryMain.
   final bool secondary;
 
+  final bool playTapClickSound;
+
   const EllaIconButton({
     super.key,
     this.icon,
@@ -161,6 +167,7 @@ class EllaIconButton extends StatefulWidget {
     this.onTap,
     this.size = 60,
     this.secondary = false,
+    this.playTapClickSound = true,
   }) : assert(
          icon != null || glyph != null,
          'EllaIconButton needs an icon or a glyph',
@@ -188,7 +195,9 @@ class _EllaIconButtonState extends State<EllaIconButton> {
       onTapUp: enabled
           ? (_) {
               setState(() => _pressed = false);
-              playTapClick();
+              if (widget.playTapClickSound) {
+                playTapClick();
+              }
               widget.onTap?.call();
             }
           : null,
