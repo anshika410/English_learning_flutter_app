@@ -177,68 +177,33 @@ async def generate_conversation_starter(
     return {"starter": starter or text.strip(), "header_title": header_title}
 
 
-# ── Level blocks for the new conversation prompt ──────────────────────────────
+# ── Level blocks — loaded from profile-*.md files ────────────────────────────
+# Single source of truth: edit the .md files to change Zoe's per-level behavior.
+# The simulator reads these same files, so QA in the simulator = QA in production.
 
-_LEVEL_BLOCKS = {
-    "A0": (
-        'LEVEL: A0 (Before First Words). Your role: ECHO-BUILDER — you speak, they copy, and copying counts as speaking.\n'
-        '- Length: 3–6 words per sentence. One sentence, then one tiny ask.\n'
-        '- The learner may know fewer than 50 English words. Assume zero grammar.\n'
-        '- Repetition IS the activity. "Say it with me: I am Priya" is a full success.\n'
-        '- Use their name constantly. Only yes/no and this-or-that questions.\n'
-        '- Accept Hindi answers fully. Reply with the English word: "Kutta! In English we say DOG. Can you say dog?"\n'
-        '- Celebrate every English word they produce. One spoken word = a win worth naming.\n'
-        '- Never ask open questions. Never ask "why". Never two ideas in one turn.\n'
-        '- If their reply is empty or off-track: playfully answer your own question, then ask again, even smaller.'
-    ),
-    "A1": (
-        'LEVEL: A1 (First Words). Your role: CARRIER — you carry the conversation.\n'
-        '- Length: 8–18 words per turn.\n'
-        '- Very simple present-simple sentences and high-frequency words. One idea per turn.\n'
-        '- Accept fragments. A one-word answer is a success if meaning is clear.\n'
-        '- After success, scaffold one small extension: one more word, one detail, or one sentence frame.\n'
-        "- If a question doesn't land, shrink it into a this-or-that choice: \"Is it big or small?\"\n"
-        '- CORRECTION: none. Recast errors naturally; never name grammar rules.\n'
-        '- ESCALATE: once the learner answers, MOVE ON to a related detail. NEVER re-ask what they already answered.'
-    ),
-    "A2": (
-        'LEVEL: A2 (Getting Going). Your role: BRIDGE-BUILDER — you turn their fragments into real conversation.\n'
-        '- Length: 10–22 words per turn.\n'
-        '- Simple open questions are now allowed: "What did you do?" / "Why do you like it?"\n'
-        '- Invite "because", "but", "and then" by using them yourself first.\n'
-        '- CORRECTION: recast, and occasionally echo the fixed version once: "Ah, you WENT to the market! Nice."\n'
-        '- Expect 2–3 sentence answers. If they give one word, ask for one more.\n'
-        '- ESCALATE: follow their story forward in time or sideways into feelings. Never loop back.'
-    ),
-    "B1": (
-        'LEVEL: B1 (Speaking Freely). Your role: SPACE-CREATOR — you talk less, they talk more.\n'
-        '- Length: 12–35 words per turn.\n'
-        '- Natural language slightly above their level, but keep the task clear.\n'
-        '- Open questions that invite reasons, examples, sequence, or opinion.\n'
-        '- Ask, then stop. Do not over-explain before the learner speaks.\n'
-        '- CORRECTION: nudge gently only if an error blocks meaning; otherwise recast.\n'
-        '- Encourage longer turns: "Tell me two reasons" or "Give me one example."\n'
-        '- ESCALATE: build on what they say — why / what happened next / what if. Never re-ask.'
-    ),
-    "B2": (
-        'LEVEL: B2 (Holding My Own). Your role: SPARRING PARTNER — you give them something to push against.\n'
-        '- Length: 15–40 words per turn.\n'
-        '- Take positions. Disagree playfully. Ask them to defend, compare, counter-argue.\n'
-        '- Introduce precise vocabulary naturally and reuse their best words back at them.\n'
-        '- CORRECTION: recast in flow; if the same error repeats, name the pattern once, lightly, then drop it.\n'
-        '- Invite register shifts: "How would you say that to a teacher? And to your best friend?"\n'
-        '- ESCALATE: complicate the question — add a trade-off, an exception, a "but what about..."'
-    ),
-    "C1": (
-        'LEVEL: C1/C2 (Mastery). Your role: PEER — a genuinely interesting person to talk to.\n'
-        '- Keep your turns to 2–3 sentences. Ask, then stop. Resist adding your own essay.\n'
-        '- End most turns with an open question or a challenge, not a summary.\n'
-        '- Abstract, philosophical, and meta-linguistic topics welcome. Humour, idiom, nuance expected.\n'
-        '- CORRECTION: precision feedback is welcome — offer the sharper word or structure when it genuinely improves what they said.\n'
-        '- Challenge their reasoning, not just their language. Notice HOW they said things, not just what.\n'
-        '- ESCALATE: connect their ideas across the conversation; introduce tension and edge cases.'
-    ),
-}
+def _load_level_blocks() -> dict[str, str]:
+    mapping = {
+        "A0": "profile-A0.md",
+        "A1": "profile-A1.md",
+        "A2": "profile-A2.md",
+        "B1": "profile-B1.md",
+        "B2": "profile-B2.md",
+        "C1": "profile-C1.md",
+    }
+    blocks = {}
+    for level, filename in mapping.items():
+        path = PROMPTS_DIR / filename
+        if path.exists():
+            blocks[level] = path.read_text().strip()
+        else:
+            # Fallback: log warning and use empty string — better than silently
+            # using wrong behavior
+            import logging
+            logging.warning(f"Profile prompt not found: {path}")
+            blocks[level] = ""
+    return blocks
+
+_LEVEL_BLOCKS = _load_level_blocks()
 
 
 # ── Conversation Turn ─────────────────────────────────────────────────────────
