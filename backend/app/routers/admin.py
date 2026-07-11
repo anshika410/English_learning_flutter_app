@@ -38,6 +38,7 @@ class AdminUserOut(BaseModel):
 
 class AdminConversationOut(BaseModel):
     id: str
+    user_id: str
     user_name: str | None
     user_level: str | None
     topic: str | None
@@ -145,6 +146,7 @@ async def admin_stats(
         u = user_map.get(c.user_id)
         conv_list.append(AdminConversationOut(
             id=c.id,
+            user_id=c.user_id,
             user_name=u.name if u else None,
             user_level=u.level if u else None,
             topic=c.topic,

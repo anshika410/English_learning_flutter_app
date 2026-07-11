@@ -218,7 +218,10 @@
 
         <!-- Screening results table -->
         <div class="section">
-          <h2>Screening Results</h2>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <h2 style="margin-bottom:0;">Screening Results</h2>
+            <input id="user-search" type="text" placeholder="🔍 Search by name..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
+          </div>
           <table>
             <thead>
               <tr>
@@ -237,8 +240,11 @@
         </div>
 
         <!-- Recent conversations -->
-        <div class="section">
-          <h2>Recent Conversations</h2>
+        <div class="section" id="convs-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <h2 style="margin-bottom:0;">Recent Conversations <span id="convs-filter-label" style="font-size:12px;color:#FF9500;font-weight:600;"></span></h2>
+            <button id="convs-clear-filter" onclick="clearConvsFilter()" style="display:none;background:none;border:1.5px solid #FF9500;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;color:#FF9500;font-weight:600;">✕ Show all</button>
+          </div>
           <table>
             <thead>
               <tr>
@@ -534,13 +540,14 @@
           <div style="display: flex; gap: 6px;">
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
             ${u.level ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
+            ${u.level ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions</button>` : ''}
           </div>
         </td>
       </tr>
     `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
 
     document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
-      <tr>
+      <tr data-user-id="${c.user_id || ''}">
         <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
         <td>${c.header_title || c.topic || '—'}</td>
         <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
@@ -828,6 +835,43 @@
 
     html += `</div>`;
     document.getElementById('garden-modal-content').innerHTML = html;
+  }
+
+  function filterUsers() {
+    const q = document.getElementById('user-search').value.toLowerCase();
+    const rows = document.querySelectorAll('#users-table tr');
+    rows.forEach(row => {
+      const name = row.querySelector('td strong');
+      const text = name ? name.textContent.toLowerCase() : '';
+      row.style.display = (!q || text.includes(q)) ? '' : 'none';
+    });
+  }
+
+  let _convsFilterUserId = null;
+  let _allConvRows = [];
+
+  function filterConvsByUser(userId, name) {
+    _convsFilterUserId = userId;
+    document.getElementById('convs-filter-label').textContent = `· showing ${name}'s sessions`;
+    document.getElementById('convs-clear-filter').style.display = 'inline-block';
+    // Scroll to conversations section
+    document.getElementById('convs-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Filter rows
+    const rows = document.querySelectorAll('#convs-table tr');
+    rows.forEach(row => {
+      const uid = row.getAttribute('data-user-id');
+      row.style.display = (!uid || uid === userId) ? '' : 'none';
+    });
+  }
+
+  function clearConvsFilter() {
+    _convsFilterUserId = null;
+    document.getElementById('convs-filter-label').textContent = '';
+    document.getElementById('convs-clear-filter').style.display = 'none';
+    document.getElementById('user-search').value = '';
+    const rows = document.querySelectorAll('#convs-table tr');
+    rows.forEach(row => row.style.display = '');
+    filterUsers();
   }
 
   function closeGardenModal() {
