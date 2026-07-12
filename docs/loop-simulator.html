@@ -1525,6 +1525,12 @@ function App(){
           let ruleIssues = [];
           let ruleOk = [];
           if (m.role === 'zoe') {
+            // Skip rule checker during placement — placement uses its own prompt
+            // with completely different rules (no word limits, no echo requirement)
+            if (sessionType === 'placement') {
+              ruleColor = '#9e9e9e';
+              ruleOk = ['placement mode — rules N/A'];
+            } else {
             const words = m.text.trim().split(/\s+/).filter(Boolean);
             const wc = words.length;
             const txt = m.text;
@@ -1554,6 +1560,7 @@ function App(){
               ruleIssues.push('explicit correction at A0/A1 ✗');
             }
             ruleColor = ruleIssues.length === 0 ? '#2e7d32' : ruleIssues.some(x=>x.includes('too long')||x.includes('open question')||x.includes('correction')) ? '#c62828' : '#e65100';
+            } // end else (not placement)
           }
           return (
           <div key={i} style={m.role==='zoe' ? {borderLeft: `3px solid ${ruleColor}`, borderRadius:14, marginBottom:2} : {}} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
