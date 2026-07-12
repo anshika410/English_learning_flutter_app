@@ -3442,6 +3442,37 @@ function ApiCallsView({logs, onClear}){
                     wordBreak: 'break-all'
                   }}>{log.responseBody ? <JsonViewer value={log.responseBody} /> : '(empty)'}</pre>
                 </div>
+                {log.responseBody && log.responseBody.prompt_debug && (
+                  <div style={{marginTop: 10}}>
+                    <div style={{fontSize: 10, fontWeight: 'bold', color: '#FF9500', textTransform: 'uppercase', marginBottom: 6}}>
+                      📝 Assembled System Prompt (what was sent to DeepSeek)
+                    </div>
+                    <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:8}}>
+                      <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'2px 8px',borderRadius:4,fontSize:11,fontWeight:700}}>Level: {log.responseBody.prompt_debug.level}</span>
+                      <span style={{background:'#e3f2fd',color:'#1565c0',padding:'2px 8px',borderRadius:4,fontSize:11}}>Unit: {log.responseBody.prompt_debug.unit_name}</span>
+                      <span style={{background:'#fff3e0',color:'#e65100',padding:'2px 8px',borderRadius:4,fontSize:11}}>Turn: {log.responseBody.prompt_debug.current_turn}</span>
+                      <span style={{background:'#f3e5f5',color:'#6a1b9a',padding:'2px 8px',borderRadius:4,fontSize:11}}>Targets: {(log.responseBody.prompt_debug.target_ids||[]).join(', ') || 'none'}</span>
+                    </div>
+                    {log.responseBody.prompt_debug.student_memory && log.responseBody.prompt_debug.student_memory !== 'None' && (
+                      <div style={{marginBottom:6,padding:'6px 10px',background:'#f9f3ff',border:'1px solid #ce93d8',borderRadius:6,fontSize:11}}>
+                        <b>🧠 Student Memory:</b> {log.responseBody.prompt_debug.student_memory}
+                      </div>
+                    )}
+                    <pre style={{
+                      background: '#1a1a2e',
+                      color: '#a8d8a8',
+                      padding: 10,
+                      borderRadius: 6,
+                      fontSize: 11,
+                      overflowX: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      maxHeight: 400,
+                      overflowY: 'auto',
+                      border: '1px solid #FF9500'
+                    }}>{log.responseBody.prompt_debug.system_prompt}</pre>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -310,7 +310,22 @@ async def send_conversation_turn(
     reply = reply_text.strip()
     correction = None
 
-    return {"reply": reply, "correction": correction, "conversation_complete": complete}
+    return {
+        "reply": reply,
+        "correction": correction,
+        "conversation_complete": complete,
+        "prompt_debug": {
+            "system_prompt": system_prompt,
+            "level": level_upper,
+            "unit_name": unit_name,
+            "unit_focus": unit_focus,
+            "target_ids": target_ids,
+            "targets_str": targets_str,
+            "elicitation_str": elicitation_str,
+            "student_memory": memory_str,
+            "current_turn": current_turn,
+        },
+    }
 
 
 # ── Placement Turn ────────────────────────────────────────────────────────────
