@@ -1816,7 +1816,7 @@ function App(){
         {tab==='session'&&<SessionView sessions={sessions}/>}
         {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)}/>}
-        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI}/>}
+        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI} sessionType={sessionType} level={level}/>}
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
         {tab==='units'&&<UnitsView mem={mem}/>}
         {tab==='hist'&&<HistView history={history}/>}
@@ -2285,7 +2285,7 @@ function PromptView({text}){
     <small className="note">Base + level profile + the due_next/unit steering block + transcript. The target skills here ARE due_next.</small>
   </div>);
 }
-function EditView({prompts,setPrompts,model,callEllaAPI}){
+function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
   const [activeSource, setActiveSource] = React.useState('client'); // 'client' | 'server'
   const [serverPrompts, setServerPrompts] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
