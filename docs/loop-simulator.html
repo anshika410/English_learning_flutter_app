@@ -1044,7 +1044,12 @@ function App(){
   }
 
   function fallbackZoeOpens(activeChatNum, activeModel, primary, topic, lvl) {
-    const plannedOpen=primary ? ('Hi! I’m Zoe. '+skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
+    // Level-aware opener: A0 must be short echo-style, not a fluent question
+    const a0Open = primary
+      ? ('Say it with me: ' + (skillPlan(primary, lvl).question.split(' ')[0] || 'hello') + '!')
+      : "Hi! Say — hello!";
+    const defaultOpen = primary ? ("Hi! I'm Zoe. " + skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
+    const plannedOpen = lvl === 'A0' ? a0Open : defaultOpen;
     setMsgs([
       {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(topic?(' — topic: '+topic.topic):'')},
       {role:'zoe',text:plannedOpen}

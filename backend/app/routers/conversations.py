@@ -93,7 +93,7 @@ async def create_conversation(
 
     # Generate starter using LLM
     try:
-        starter_data = await llm_service.generate_conversation_starter(topic=topic_name, starters=starters)
+        starter_data = await llm_service.generate_conversation_starter(topic=topic_name, starters=starters, level=user.level or "A1")
         starter_text = starter_data["starter"]
     except Exception as e:
         # Fallback starter if LLM fails

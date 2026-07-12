@@ -52,7 +52,10 @@ _LEVEL_INSTRUCTIONS = {
 
 _STARTER_PROMPT = """\
 You are Zoe. Write a short first message (1-2 sentences) that starts a friendly
-English conversation. Keep it natural, encouraging, and age-appropriate.
+English conversation on the given topic. Keep it natural, encouraging, and age-appropriate.
+
+CRITICAL — follow the level profile below exactly for your opening line:
+{level_block}
 
 After the starter, on a new line output:
 TITLE: <3-4 word header for this conversation, no punctuation>
@@ -152,8 +155,10 @@ Return ONLY the JSON object or null. No explanation."""
 # ── Conversation Starter ──────────────────────────────────────────────────────
 
 async def generate_conversation_starter(
-    topic: str | None = None, starters: list[str] | None = None
+    topic: str | None = None, starters: list[str] | None = None, level: str = "A1"
 ) -> dict:
+    level_block = _LEVEL_BLOCKS.get(level.upper(), _LEVEL_BLOCKS.get("A1", ""))
+    system_prompt = _STARTER_PROMPT.format(level_block=level_block)
     topic_line = (
         "Topic: free conversation."
         if not topic or not topic.strip()
@@ -165,7 +170,7 @@ async def generate_conversation_starter(
 
     text = await _chat_completion(
         messages=[
-            {"role": "system", "content": _STARTER_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": topic_line},
         ],
         max_tokens=160,
