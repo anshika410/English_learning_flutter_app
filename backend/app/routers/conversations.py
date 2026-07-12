@@ -445,6 +445,7 @@ async def conversation_turn(
     return ConversationTurnResponse(
         transcript=transcript,
         conversation_complete=conv.completed,
+        prompt_debug=llm_result.get("prompt_debug"),
     )
 
 
