@@ -2337,36 +2337,51 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
         {error && <div style={{ color: 'var(--rust)', padding: 20 }}>Error: {error}</div>}
         {serverPrompts && (
           <>
+            {/* Active prompt indicator */}
+            <div style={{marginBottom:12, padding:'6px 10px', background:'#e8f5e9', border:'1.5px solid #2e7d32', borderRadius:8, fontSize:11, color:'#1b5e20', fontWeight:600}}>
+              🟢 Active in current conversation:
+              {sessionType === 'placement'
+                ? ' placement-check-prompt.md'
+                : ` conversation-prompt.md + profile-${level}.md`}
+            </div>
+
             <div className="lbl">Placement</div>
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 14, border: sessionType === 'placement' ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: sessionType === 'placement' ? 4 : 0 }}>
+              {sessionType === 'placement' && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
               <div className="lbl" style={{fontSize:9}}>placement-check-prompt.md</div>
               <textarea 
                 value={serverPrompts.placement} 
                 readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 220 }}
+                style={{ background: sessionType === 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 220 }}
               />
             </div>
 
             <div className="lbl" style={{marginTop:20}}>Conversation — Base (shared)</div>
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 14, border: sessionType !== 'placement' ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: sessionType !== 'placement' ? 4 : 0 }}>
+              {sessionType !== 'placement' && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
               <textarea 
                 value={serverPrompts.base} 
                 readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 150 }}
+                style={{ background: sessionType !== 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 150 }}
               />
             </div>
 
             <div className="lbl">Conversation — Level Profiles</div>
-            {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => (
-              <div key={lvl} style={{ marginBottom: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 10, color: 'var(--purple)', marginBottom: 2 }}>Profile · {lvl}</div>
+            {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => {
+              const isActive = sessionType !== 'placement' && lvl === level;
+              return (
+              <div key={lvl} style={{ marginBottom: 6, border: isActive ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: isActive ? 4 : 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 10, color: isActive ? '#2e7d32' : 'var(--purple)', marginBottom: 2 }}>
+                  {isActive ? '🟢 ACTIVE — ' : ''}Profile · {lvl}
+                </div>
                 <textarea 
                   value={txt} 
                   readOnly={true} 
-                  style={{ background: '#f4f1ea', cursor: 'default', height: 50, fontSize: 11 }}
+                  style={{ background: isActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: isActive ? 120 : 50, fontSize: 11 }}
                 />
               </div>
-            ))}
+              );
+            })}
 
             <div className="lbl" style={{marginTop:16}}>Conversation — Unit Framing</div>
             <div style={{ marginBottom: 14 }}>
