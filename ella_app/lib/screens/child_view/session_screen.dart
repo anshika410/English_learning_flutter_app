@@ -188,8 +188,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     bool popped = false;
     void doPop() {
-      if (popped) return;
+      if (popped || _navigated) return;
       popped = true;
+      _navigated = true;
       if (mounted) {
         final onEnded = widget.onEnded;
         Navigator.of(context).pop();
