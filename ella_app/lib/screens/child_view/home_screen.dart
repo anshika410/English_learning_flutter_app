@@ -238,12 +238,15 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   @override
   Widget build(BuildContext context) {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+    final showBackOnline = ref.watch(showBackOnlineProvider);
 
     ref.listen(connectivityProvider, (_, next) {
       final isOnlineListen = next.valueOrNull ?? true;
       if (!isOnlineListen) {
-        final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
-        ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
+        if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+          final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+          ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
+        }
       }
     });
 
@@ -301,7 +304,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                           ),
                           const SizedBox(height: 20),
                           _LastTimeCard(
-                            recap: _recap,
+                            recap: !isOnline 
+                                ? "I'm having trouble connecting to the internet right now!" 
+                                : (showBackOnline ? "Yay, we're back online!" : _recap),
                             onSpeak: _speakRecap,
                             highlightStart: _highlightStart,
                             highlightEnd: _highlightEnd,

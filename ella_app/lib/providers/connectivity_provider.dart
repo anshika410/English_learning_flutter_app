@@ -51,3 +51,6 @@ final connectivityProvider = StreamProvider<bool>((ref) {
 
   return controller.stream;
 });
+
+/// A temporary flag that stays true for 3.5 seconds after coming back online.
+final showBackOnlineProvider = StateProvider<bool>((ref) => false);

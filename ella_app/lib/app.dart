@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,10 +44,18 @@ class _EllaAppState extends ConsumerState<EllaApp> {
   late AppLinks _appLinks;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   
+  Timer? _backOnlineTimer;
+
   @override
   void initState() {
     super.initState();
     _initAuthAndDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    _backOnlineTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initAuthAndDeepLinks() async {
@@ -117,8 +126,24 @@ class _EllaAppState extends ConsumerState<EllaApp> {
     ref.listen(connectivityProvider, (previous, next) {
       final wasOnline = previous?.valueOrNull ?? true;
       final isOnline = next.valueOrNull ?? true;
+      
+      // If the app is in the background, DO NOT play sounds, speak, or show UI prompts.
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+         return;
+      }
+
       if (wasOnline && !isOnline) {
         ref.read(audioProvider).playSfx(Sounds.error);
+      } else if (!wasOnline && isOnline) {
+        if (!ref.read(ttsProvider).isSpeaking) {
+          ref.read(ttsProvider).speak("Yay, we're back online!");
+          
+          ref.read(showBackOnlineProvider.notifier).state = true;
+          _backOnlineTimer?.cancel();
+          _backOnlineTimer = Timer(const Duration(milliseconds: 3500), () {
+             ref.read(showBackOnlineProvider.notifier).state = false;
+          });
+        }
       }
     });
 
@@ -192,6 +217,7 @@ class RootGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatAsync = ref.watch(chatProvider);
+    final placementAsync = ref.watch(placementCacheProvider);
     
     if (chatAsync.isLoading) {
       return const MascotLoadingScreen(message: 'Getting home ready...');
@@ -232,18 +258,18 @@ class RootGate extends ConsumerWidget {
                 : const PlacementIntroScreen(),
           );
         } else {
-          final placementAsync = ref.watch(placementCacheProvider);
-          return placementAsync.when(
-            loading: () => const MascotLoadingScreen(message: 'Loading home...'),
-            error: (_, __) => const _EllaHome(),
-            data: (isPlacementDone) {
-              if (isPlacementDone) return const _EllaHome();
+          // Because placementAsync is watched unconditionally, it stays cached!
+          if (placementAsync.isLoading) {
+             return const MascotLoadingScreen(message: 'Loading home...');
+          }
+          final isPlacementDone = placementAsync.valueOrNull ?? false;
+          if (isPlacementDone || placementAsync.hasError) return const _EllaHome();
 
-              final onboarding = ref.watch(onboardingProvider);
-              if (onboarding.isLoading) {
-                return const MascotLoadingScreen(message: 'Loading onboarding...');
-              }
-              final onboardingDone = onboarding.valueOrNull?.done ?? false;
+          final onboarding = ref.watch(onboardingProvider);
+          if (onboarding.isLoading) {
+            return const MascotLoadingScreen(message: 'Loading onboarding...');
+          }
+          final onboardingDone = onboarding.valueOrNull?.done ?? false;
 
               return Scaffold(
                 backgroundColor: Colors.transparent,
@@ -251,8 +277,6 @@ class RootGate extends ConsumerWidget {
                     ? const OnboardingFlow()
                     : const PlacementIntroScreen(),
               );
-            },
-          );
         }
       },
     );

@@ -55,7 +55,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _advanceTimerStarted = false;
 
   // True while a tapped-speaker replay is speaking — drives Zoe's speaking
-  // animation for manual replays (engine status only covers auto-speech).
+  // Replay
   bool _replaying = false;
 
   int _highlightStart = -1;
@@ -287,11 +287,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(connectivityProvider, (_, next) {
-      final isOnline = next.valueOrNull ?? true;
-      if (!isOnline) {
-        final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
-        ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
+    ref.listen(connectivityProvider, (previous, next) {
+      final isOnlineListen = next.valueOrNull ?? true;
+      if (!isOnlineListen) {
+        if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+          final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+          ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
+        }
       }
     });
 
@@ -357,6 +359,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     };
 
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+    final showBackOnline = ref.watch(showBackOnlineProvider);
     final childName = ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
 
     // Latest-turn content.
@@ -364,7 +367,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         ? _kGoodbye
         : (!isOnline
             ? "Hey $childName, I'm having trouble connecting to the internet right now!"
-            : (_lastFrom(s, MessageSender.zoe) ?? widget.introText));
+            : (showBackOnline 
+                ? "Yay, we're back online!" 
+                : (_lastFrom(s, MessageSender.zoe) ?? widget.introText)));
 
     String? studentLine;
     bool studentLive = false;
