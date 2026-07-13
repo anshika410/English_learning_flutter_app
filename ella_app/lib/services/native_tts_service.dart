@@ -16,6 +16,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
   static NativeTtsService? instance;
 
   bool _speaking = false;
+  bool _pendingSpeak = false; // true while speak() is awaiting the channel invoke
   int _highlightStart = 0;
   int _highlightEnd = 0;
 
@@ -83,17 +84,11 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
 
   @override
   Future<void> speak(String text) async {
-    // Strip emojis before sending to Android TTS — prevents the engine from
-    // reading "waving hand", "laughing face", etc. out loud. Also ensures the
-    // character offsets from onRangeStart align with what TypewriterText shows.
     final sanitized = stripEmojis(text);
     if (sanitized.trim().isEmpty) return;
     _speaking = true;
+    _pendingSpeak = true; // guard against stop() completing our completer
     try {
-      // Wait for TTS to actually finish playing, not just queuing.
-      // Without this, speak() returns as soon as Android queues the utterance,
-      // causing callers (e.g. endChat after conversation_complete) to fire
-      // while Zoe is still mid-sentence.
       final completer = Completer<void>();
       late StreamSubscription sub;
       sub = _doneController.stream.listen((_) {
@@ -101,14 +96,14 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
         if (!completer.isCompleted) completer.complete();
       });
       await _channel.invokeMethod('speak', {'text': sanitized});
-      // 30s safety timeout — if doneStream never fires (e.g. TTS error),
-      // we don't block forever.
+      _pendingSpeak = false;
       await completer.future.timeout(
         const Duration(seconds: 30),
         onTimeout: () { sub.cancel(); },
       );
     } catch (e) {
       _speaking = false;
+      _pendingSpeak = false;
     }
   }
 
@@ -121,11 +116,10 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
     try {
       await _channel.invokeMethod('stop');
     } catch (_) {}
-    // Emit doneStream so all karaoke highlight listeners reset to -1.
-    // Without this, navigating away stops audio but leaves the last highlighted
-    // word stuck in pink — the doneStream never fires from the native side
-    // when stop() is called programmatically.
-    if (wasSpeaking) {
+    // Only emit doneStream if we're NOT in the middle of queuing a new speak()
+    // call. If _pendingSpeak is true, speak() hasn't started yet and emitting
+    // here would prematurely resolve its completer, causing double-speak.
+    if (wasSpeaking && !_pendingSpeak) {
       _doneController.add(null);
     }
   }
