@@ -23,6 +23,24 @@ async def run_and_save_session_analysis(
     db: AsyncSession,
     turns_total: int | None = None,
 ) -> dict:
+    # Guard — if the learner never spoke, skip analysis entirely.
+    # This prevents Zoe's own starter message from being scored as learner evidence
+    # when the user ends a session immediately without saying anything.
+    user_turn_count = len([m for m in messages if m.get("role") in ("user", "learner")])
+    if user_turn_count == 0:
+        return {
+            "overall": "okay",
+            "best_moment": {"quote": "", "note": ""},
+            "courage_or_motivation": {"type": "motivation", "content": ""},
+            "try_next_time": {"skill": "", "example": ""},
+            "extracted_memory_facts": [],
+            "transcript_notes": [],
+            "scores": [],
+            "aimed_at": [],
+            "hit_targets": [],
+            "skills_evidenced": [],
+            "state_changes": [],
+        }
     # Initialize progress if empty
     progress = user.skills_progress or {}
     if not isinstance(progress, dict):

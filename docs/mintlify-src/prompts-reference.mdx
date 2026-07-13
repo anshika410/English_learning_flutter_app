@@ -1,10 +1,138 @@
 ---
 title: "Prompts Reference"
 sidebarTitle: "All Prompts"
-description: "Every LLM prompt used in the system — conversation, placement, judge, and correction extraction."
+description: "Every LLM prompt used in the system — what it does, when it's called, and what variables it takes."
 ---
 
-This page documents all LLM prompts used in the Ella backend. There are 4 prompts total, each serving a different purpose in the learning loop.
+There are **12 prompt files** in the system across 4 categories.
+
+---
+
+## Quick Reference
+
+| File | Category | Used By | Variables |
+|---|---|---|---|
+| `conversation-prompt.md` | Dynamic Template | Live app — every turn | 7 |
+| `placement-check-prompt.md` | Dynamic Template | Live app — placement | 2 |
+| `end-result-prompt.md` | Dynamic Template | Live app — post session | 5 |
+| `profile-A0.md` | Level Profile | Live app + Simulator | 0 (static) |
+| `profile-A1.md` | Level Profile | Live app + Simulator | 0 (static) |
+| `profile-A2.md` | Level Profile | Live app + Simulator | 0 (static) |
+| `profile-B1.md` | Level Profile | Live app + Simulator | 0 (static) |
+| `profile-B2.md` | Level Profile | Live app + Simulator | 0 (static) |
+| `profile-C1.md` | Level Profile | Live app + Simulator | 0 (static) |
+| `base-prompt.md` | Simulator Only | Simulator Client tab | 0 (static) |
+| `conv-unit-framing.md` | Simulator Only | Simulator Client tab | 6 |
+| `zoe-judge-prompt.md` | Simulator Only | Simulator Judge tab | 0 (static) |
+
+Plus 1 hardcoded in Python: `_STARTER_PROMPT` in `llm_service.py`.
+
+---
+
+## 1. `conversation-prompt.md` — Main Conversation
+
+**Called by:** `POST /session/{id}/turn`
+**Temperature:** 0.75 | **Max tokens:** 280
+
+The shell template that assembles the full system prompt for every conversation turn.
+Injects the level profile + unit + skills + memory at runtime.
+
+**Variables:** `{{LEVEL_BLOCK}}`, `{{UNITNAME}}`, `{{UNITFOCUS}}`, `{{TARGETS}}`, `{{ELICITATION}}`, `{{STUDENT_MEMORY}}`, `{{CURRENT_TURN}}`
+
+**Key output:** Zoe's next spoken turn (plain text). At turn 6 also outputs `{"conversation_complete": true}`.
+
+---
+
+## 2. `placement-check-prompt.md` — Placement Screening
+
+**Called by:** `POST /llm/placement-turn`
+**Temperature:** 0.7 | **Max tokens:** 600
+
+Standalone screening interview. Zoe chats naturally to assess CEFR level without the student knowing they're being tested.
+
+**Variables:** `{{NAME}}`, `{{AGE}}`
+
+**Key output:** Either `REPLY: <question>` (still in conversation) or final JSON with level, confidence, interests.
+
+---
+
+## 3. `end-result-prompt.md` — Post-Session Analysis
+
+**Called by:** after conversation ends (internal)
+**Temperature:** 0.4 | **Max tokens:** 2500
+
+Analyzes the full transcript, grades each targeted skill (0–1 confidence), extracts best moment, generates encouragement.
+
+**Variables:** `{{LEVEL}}`, `{{UNIT_LABEL}}`, `{{TOPIC}}`, `{{TARGET_SKILLS}}`, `{{FULL_TRANSCRIPT}}`
+
+**Key output:** JSON with `scores`, `best_moment`, `correction_highlight`, `state_changes`, `overall`.
+
+---
+
+## 4–9. Level Profile Files — Static
+
+These 6 files define Zoe's behavior at each CEFR level. No variables — loaded as plain text and injected as `{{LEVEL_BLOCK}}` into `conversation-prompt.md`.
+
+| File | Role | Word Limit | Key Behavior |
+|---|---|---|---|
+| `profile-A0.md` | ECHO-BUILDER | 3–6 words | Repeat-after-me, yes/no only, celebrate every word |
+| `profile-A1.md` | CARRIER | 8–18 words | Carry conversation, accept fragments, no correction |
+| `profile-A2.md` | BRIDGE-BUILDER | 10–22 words | Open questions allowed, occasional echo of correction |
+| `profile-B1.md` | SPACE-CREATOR | 12–35 words | Talk less, learner talks more, gentle nudge correction |
+| `profile-B2.md` | SPARRING PARTNER | 15–40 words | Take positions, disagree playfully, register shifts |
+| `profile-C1.md` | PEER | 2–3 sentences | Abstract topics, precision feedback, challenge reasoning |
+
+**Edit these files to change how Zoe behaves at any level.** Changes take effect after backend redeploy.
+
+---
+
+## 10. `base-prompt.md` — Simulator Only
+
+Zoe's identity and absolute rules as a standalone file. Used only in the simulator's Client tab.
+
+<Note>
+In the live app, these rules are **embedded directly inside `conversation-prompt.md`**. Editing `base-prompt.md` does NOT change the live app.
+</Note>
+
+---
+
+## 11. `conv-unit-framing.md` — Simulator Only
+
+The unit/skill framing section as a standalone template. Used only in the simulator's Client tab.
+
+<Note>
+In the live app, this content is **embedded directly inside `conversation-prompt.md`**. Editing this file does NOT change the live app.
+</Note>
+
+---
+
+## 12. `zoe-judge-prompt.md` — Simulator Only
+
+QA audit prompt. Scores Zoe's behavior on 10 dimensions (warmth, turn length, question stacking, escalation, correction handling, safety, etc.).
+
+**Only used in the simulator's Judge tab.** Never sent to DeepSeek in the live app.
+
+**Output:** JSON with scores 0–2 per dimension, violations with quoted lines, overall verdict.
+
+---
+
+## 13. `_STARTER_PROMPT` — Hardcoded in Python
+
+Short prompt that generates Zoe's opening line for a new conversation. Lives in `llm_service.py → generate_conversation_starter()`.
+
+**Output:** 1–2 sentence opener + `TITLE: <3-4 word header>`
+
+---
+
+## Token Budget
+
+| Prompt | max_tokens | Typical response |
+|---|---|---|
+| Conversation turn | 280 | 30–80 tokens |
+| Placement turn | 600 | 50–200 tokens (JSON: ~300) |
+| Session analysis | 2500 | 800–1500 tokens |
+| Correction extraction | 200 | 30–60 tokens |
+
 
 ---
 
