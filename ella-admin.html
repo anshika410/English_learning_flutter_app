@@ -521,6 +521,10 @@
     window.USERS = data.users;
 
     const sorted = [...data.users].sort((a, b) => {
+      // Users with both name AND email come first
+      const aFull = (a.name && a.email) ? 0 : (a.name || a.email) ? 1 : 2;
+      const bFull = (b.name && b.email) ? 0 : (b.name || b.email) ? 1 : 2;
+      if (aFull !== bFull) return aFull - bFull;
       if (a.level && !b.level) return -1;
       if (!a.level && b.level) return 1;
       const order = ['A1','A2','B1','B2','C1'];
