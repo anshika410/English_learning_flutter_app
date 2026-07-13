@@ -226,6 +226,7 @@
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Email</th>
                 <th>Age</th>
                 <th>Location</th>
                 <th>Level</th>
@@ -530,6 +531,7 @@
     document.getElementById('users-table').innerHTML = sorted.map(u => `
       <tr>
         <td><strong>${u.name || '<span style="color:#aaa">—</span>'}</strong></td>
+        <td style="font-size:11px;color:#6B5740;">${u.email || '<span style="color:#aaa">—</span>'}</td>
         <td>${u.age || '—'}</td>
         <td>${u.location || '—'}</td>
         <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>

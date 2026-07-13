@@ -27,6 +27,7 @@ class AdminUserOut(BaseModel):
     name: str | None
     age: str | None
     location: str | None
+    email: str | None
     level: str | None
     unit_label: str | None
     total_sessions: int
@@ -117,6 +118,7 @@ async def admin_stats(
             name=u.name,
             age=u.age,
             location=u.location,
+            email=u.email,
             level=u.level,
             unit_label=u.unit_label,
             total_sessions=stats["total"],
