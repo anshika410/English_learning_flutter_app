@@ -230,8 +230,7 @@
                 <th>Email</th>
                 <th>Age</th>
                 <th>Level</th>
-                <th>Label</th>
-                <th>Progress</th>
+                <th>Skill Progress</th>
                 <th>Joined</th>
                 <th>Actions</th>
               </tr>
@@ -541,7 +540,6 @@
         <td style="font-size:11px;color:#6B5740;">${u.email || '<span style="color:#aaa">—</span>'}</td>
         <td>${u.age || '—'}</td>
         <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
-        <td>${u.level_label || '—'}</td>
         <td>${getUserProgressHTML(u)}</td>
         <td>${formatDate(u.created_at)}</td>
         <td>
