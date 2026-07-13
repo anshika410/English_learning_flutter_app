@@ -27,24 +27,23 @@ class SpeakerDotButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tap = active ? null : onTap;
     return Semantics(
       button: true,
-      label: 'Speak again',
+      label: active ? 'Mute' : 'Speak again',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: tap == null ? null : withTapClick(tap),
+        onTap: onTap == null ? null : withTapClick(onTap!),
         child: Container(
           width: size,
           height: size,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: EllaColors.berryMain,
+            color: active ? EllaColors.berryDark : EllaColors.berryMain,
             shape: BoxShape.circle,
-            border: Border.all(color: EllaColors.berryDark, width: 2),
+            border: Border.all(color: EllaColors.berryDeep, width: 2),
           ),
           child: Icon(
-            Icons.volume_up_rounded,
+            active ? Icons.volume_off_rounded : Icons.volume_up_rounded,
             size: size * 0.55,
             color: EllaColors.onPrimary,
           ),

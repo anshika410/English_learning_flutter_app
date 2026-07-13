@@ -27,6 +27,7 @@ class AdminUserOut(BaseModel):
     name: str | None
     age: str | None
     location: str | None
+    email: str | None
     level: str | None
     unit_label: str | None
     total_sessions: int
@@ -38,6 +39,7 @@ class AdminUserOut(BaseModel):
 
 class AdminConversationOut(BaseModel):
     id: str
+    user_id: str
     user_name: str | None
     user_level: str | None
     topic: str | None
@@ -116,6 +118,7 @@ async def admin_stats(
             name=u.name,
             age=u.age,
             location=u.location,
+            email=u.email,
             level=u.level,
             unit_label=u.unit_label,
             total_sessions=stats["total"],
@@ -145,6 +148,7 @@ async def admin_stats(
         u = user_map.get(c.user_id)
         conv_list.append(AdminConversationOut(
             id=c.id,
+            user_id=c.user_id,
             user_name=u.name if u else None,
             user_level=u.level if u else None,
             topic=c.topic,
@@ -164,6 +168,103 @@ async def admin_stats(
         users=user_list,
         recent_conversations=conv_list,
     )
+
+
+@router.get("/conversations/{conversation_id}/analysis")
+async def get_conversation_analysis(
+    conversation_id: str,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """PM-friendly session analysis — skills aimed, evidenced, state changes, miss reasons."""
+    from ..models.session_analysis import SessionAnalysis
+    from ..models.message import Message
+    from ..core.curriculum_data import get_skill_text, FLOOR
+
+    conv_result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    conv = conv_result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    user_result = await db.execute(select(User).where(User.id == conv.user_id))
+    user = user_result.scalar_one_or_none()
+    level = (user.level if user and user.level else "A1")
+
+    msg_result = await db.execute(
+        select(Message).where(Message.conversation_id == conversation_id)
+        .order_by(Message.turn_number, Message.created_at)
+    )
+    transcript = [
+        {"role": "zoe" if m.role in ("zoe", "assistant") else "me", "content": m.content}
+        for m in msg_result.scalars().all()
+    ]
+
+    analysis_result = await db.execute(
+        select(SessionAnalysis).where(SessionAnalysis.conversation_id == conversation_id)
+    )
+    sa = analysis_result.scalar_one_or_none()
+
+    if not sa:
+        return {
+            "available": False,
+            "session_id": conversation_id,
+            "user_name": user.name if user else None,
+            "level": level,
+            "topic": conv.header_title or conv.topic,
+            "turns_total": len([m for m in transcript if m["role"] == "me"]),
+            "transcript": transcript,
+            "message": "Analysis not available — conversation may still be in progress or analysis did not run.",
+        }
+
+    def miss_reason(confidence: float) -> str:
+        if confidence >= FLOOR:
+            return ""
+        elif confidence >= 0.3:
+            return "Evidence too weak — Zoe should elicit a clearer answer next time."
+        else:
+            return "No evidence found. Likely Zoe did not create a chance, learner stayed off-topic, or chat was too short."
+
+    enriched_scores = []
+    for sc in (sa.skills_evidenced or []):
+        conf = sc.get("confidence", 0.0)
+        enriched_scores.append({
+            "id": sc.get("id", ""),
+            "skill_text": get_skill_text(sc.get("id", ""), level),
+            "confidence_pct": round(conf * 100),
+            "prompted": sc.get("prompted", False),
+            "evidence": sc.get("evidence", ""),
+            "passed": conf >= FLOOR,
+            "miss_reason": miss_reason(conf),
+        })
+
+    enriched_changes = [
+        {
+            "id": ch.get("id", ""),
+            "skill_text": get_skill_text(ch.get("id", ""), level),
+            "from": ch.get("from", ""),
+            "to": ch.get("to", ""),
+        }
+        for ch in (sa.state_changes or [])
+    ]
+
+    return {
+        "available": True,
+        "session_id": conversation_id,
+        "user_name": user.name if user else None,
+        "level": level,
+        "topic": conv.header_title or conv.topic,
+        "turns_total": len([m for m in transcript if m["role"] == "me"]),
+        "garden_grew": len(enriched_changes) > 0,
+        "overall": sa.overall,
+        "aimed_at": sa.aimed_at or [],
+        "hit_targets": sa.hit_targets or [],
+        "scores": enriched_scores,
+        "state_changes": enriched_changes,
+        "best_moment": {"quote": sa.best_moment_quote, "note": sa.best_moment_note},
+        "correction_highlight": sa.correction_highlight,
+        "floor_pct": round(FLOOR * 100),
+        "transcript": transcript,
+    }
 
 
 @router.get("/conversations/{conversation_id}/transcript")

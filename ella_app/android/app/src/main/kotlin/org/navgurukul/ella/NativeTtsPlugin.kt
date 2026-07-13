@@ -77,6 +77,10 @@ class NativeTtsPlugin(private val context: Context, private val channel: MethodC
         }
     }
 
+    fun stop() {
+        tts?.stop()
+    }
+
     fun dispose() {
         tts?.stop()
         tts?.shutdown()

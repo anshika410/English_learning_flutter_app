@@ -178,7 +178,17 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // already speaking (placement-flow behavior), so taps can't stack utterances.
   Future<void> _speakRecap() async {
     final tts = ref.read(ttsProvider);
-    if (tts.isSpeaking) return;
+    if (_speaking) {
+      await tts.stop();
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+      return;
+    }
     final text = _recap.trim().isNotEmpty
         ? _recap.trim()
         : "This is our first chat together — I can't wait!";
@@ -199,8 +209,18 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   }
 
   Future<void> _openSeeMore() async {
+    final homescreenTopics = getHomescreenTopics(
+      recommended: _recommended,
+      alternatives: _alternatives,
+      selected: _selected,
+      promoteSelected: _promoteSelectedTopic,
+    );
+    final excludeNames = homescreenTopics.map((t) => t.name).toList();
+
     final picked = await Navigator.of(context).push<TopicChoice>(
-      MaterialPageRoute(builder: (_) => const AllTopicsScreen()),
+      MaterialPageRoute(
+        builder: (_) => AllTopicsScreen(excludeTopicNames: excludeNames),
+      ),
     );
     if (picked != null && mounted) {
       setState(() {
@@ -555,38 +575,13 @@ class _TopicChipsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ordered = <TopicChoice>[];
+    final shown = getHomescreenTopics(
+      recommended: recommended,
+      alternatives: alternatives,
+      selected: selected,
+      promoteSelected: promoteSelected,
+    );
     final sel = selected;
-    final seen = <String>{};
-    void addTopic(TopicChoice? topic) {
-      if (topic == null || topic.name.isEmpty || !seen.add(topic.name)) return;
-      ordered.add(topic);
-    }
-
-    if (promoteSelected) {
-      // Move the explicit pick to the front (it may be one of the alternatives,
-      // or a See-More pick that isn't — prepend either way), highlighted.
-      addTopic(sel);
-      for (final topic in alternatives) {
-        addTopic(topic);
-      }
-    } else {
-      addTopic(recommended);
-      for (final topic in alternatives) {
-        addTopic(topic);
-      }
-    }
-    if (sel != null && sel.name.isNotEmpty) {
-      final isAlreadyInAlternatives = alternatives.any((t) => t.name == sel.name);
-      if (!isAlreadyInAlternatives) {
-        if (ordered.isNotEmpty) {
-          ordered[0] = sel;
-        } else {
-          ordered.add(sel);
-        }
-      }
-    }
-    final shown = ordered.take(2).toList();
 
     final slots = <Widget>[];
     for (final topic in shown) {
@@ -769,4 +764,41 @@ class _ChipPlaceholder extends StatelessWidget {
     outline: EllaColors.ink.withValues(alpha: 0.12),
     child: const SizedBox.shrink(),
   );
+}
+
+List<TopicChoice> getHomescreenTopics({
+  required TopicChoice? recommended,
+  required List<TopicChoice> alternatives,
+  required TopicChoice? selected,
+  required bool promoteSelected,
+}) {
+  final ordered = <TopicChoice>[];
+  final seen = <String>{};
+  void addTopic(TopicChoice? topic) {
+    if (topic == null || topic.name.isEmpty || !seen.add(topic.name)) return;
+    ordered.add(topic);
+  }
+
+  if (promoteSelected) {
+    addTopic(selected);
+    for (final topic in alternatives) {
+      addTopic(topic);
+    }
+  } else {
+    addTopic(recommended);
+    for (final topic in alternatives) {
+      addTopic(topic);
+    }
+  }
+  if (selected != null && selected.name.isNotEmpty) {
+    final isAlreadyInAlternatives = alternatives.any((t) => t.name == selected.name);
+    if (!isAlreadyInAlternatives) {
+      if (ordered.isNotEmpty) {
+        ordered[0] = selected;
+      } else {
+        ordered.add(selected);
+      }
+    }
+  }
+  return ordered.take(2).toList();
 }

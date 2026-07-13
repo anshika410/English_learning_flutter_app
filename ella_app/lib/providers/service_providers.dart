@@ -36,7 +36,11 @@ final sttProvider = Provider<SpeechToTextService>(
 final ttsProvider = Provider<TtsInterface>((ref) => ref.read(nativeTtsProvider));
 
 /// Native Android TTS with karaoke word-highlight support.
-final nativeTtsProvider = Provider<NativeTtsService>((ref) => NativeTtsService());
+final nativeTtsProvider = Provider<NativeTtsService>((ref) {
+  final service = NativeTtsService();
+  ref.onDispose(service.dispose);
+  return service;
+});
 
 /// App-wide SFX + background-music player. Initialized once in main().
 final audioProvider = Provider<AudioService>((ref) {

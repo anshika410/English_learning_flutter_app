@@ -383,6 +383,16 @@ ABSOLUTE RULES (never break, any level):
 - If the learner gives a one-word or fragment answer, recast it naturally and ask for one more tiny detail.
 - If the learner asks for help/example/easier wording, answer that first with a frame, then invite them to try.
 - End with encouragement plus a next-step question, not a correction lecture.`,
+  profileA0:
+`LEVEL: A0 (Before First Words). Your role: ECHO-BUILDER — you speak, they copy, and copying counts as speaking.
+- Length: 3–6 words per sentence. One sentence, then one tiny ask.
+- The learner may know fewer than 50 English words. Assume zero grammar.
+- Repetition IS the activity. "Say it with me: I am Priya" is a full success.
+- Use their name constantly. Only yes/no and this-or-that questions.
+- Accept Hindi answers fully. Reply with the English word: "Kutta! In English we say DOG. Can you say dog?"
+- Celebrate every English word they produce. One spoken word = a win worth naming.
+- Never ask open questions. Never ask "why". Never two ideas in one turn.
+- If their reply is empty or off-track: playfully answer your own question, then ask again, even smaller.`,
   profileA1:
 `LEVEL: A1 (First Words). Your role: CARRIER — you carry the conversation.
 - Use very simple present-simple sentences and high-frequency words.
@@ -865,7 +875,7 @@ function App(){
     setTimeout(() => zoeOpens(1, targetMd, nm), 60);
   }
 
-  function profileFor(lvl){ return (lvl==='A1'||lvl==='A2')?prompts.profileA1:prompts.profileB1; }
+  function profileFor(lvl){ return lvl==='A0'?prompts.profileA0:(lvl==='A1'||lvl==='A2')?prompts.profileA1:prompts.profileB1; }
   function targetsList(){ return flatTargets(mem); }
   function buildConvPrompt(curMsgs, topicArg, modelOverride, memOverride){
     const mctx=memOverride||mem;
@@ -1034,7 +1044,12 @@ function App(){
   }
 
   function fallbackZoeOpens(activeChatNum, activeModel, primary, topic, lvl) {
-    const plannedOpen=primary ? ('Hi! I’m Zoe. '+skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
+    // Level-aware opener: A0 must be short echo-style, not a fluent question
+    const a0Open = primary
+      ? ('Say it with me: ' + (skillPlan(primary, lvl).question.split(' ')[0] || 'hello') + '!')
+      : "Hi! Say — hello!";
+    const defaultOpen = primary ? ("Hi! I'm Zoe. " + skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
+    const plannedOpen = lvl === 'A0' ? a0Open : defaultOpen;
     setMsgs([
       {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(topic?(' — topic: '+topic.topic):'')},
       {role:'zoe',text:plannedOpen}
@@ -1504,16 +1519,66 @@ function App(){
         (()=>{const ms=studentMission(flatTargets(mem)[0], level); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()
       )}
       <div className="chat" ref={chatRef}>
-        {msgs.map((m,i)=>(
-          <div key={i} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
+        {msgs.map((m,i)=>{
+          // ── Per-turn rule checker for Zoe bubbles ──────────────────────────
+          let ruleColor = null;
+          let ruleIssues = [];
+          let ruleOk = [];
+          if (m.role === 'zoe') {
+            // Skip rule checker during placement — placement uses its own prompt
+            // with completely different rules (no word limits, no echo requirement)
+            if (sessionType === 'placement') {
+              ruleColor = '#9e9e9e';
+              ruleOk = ['placement mode — rules N/A'];
+            } else {
+            const words = m.text.trim().split(/\s+/).filter(Boolean);
+            const wc = words.length;
+            const txt = m.text;
+            // Word count limits per level
+            const limits = {A0:[3,6], A1:[4,18], A2:[4,20], B1:[6,35], B2:[6,40], C1:[6,45]};
+            const [minW, maxW] = limits[level] || [4, 35];
+            if (wc < minW) ruleIssues.push(`too short (${wc}w, min ${minW})`);
+            else if (wc > maxW) ruleIssues.push(`too long (${wc}w, max ${maxW})`);
+            else ruleOk.push(`${wc} words ✓`);
+            // Open question check for A0 (should be yes/no or this-or-that only)
+            const openQWords = /\b(what|why|how|tell me|describe|explain|where|when|who)\b/i;
+            const hasQuestion = /\?/.test(txt);
+            if (level === 'A0' && hasQuestion && openQWords.test(txt)) {
+              ruleIssues.push('open question ✗ (A0: yes/no only)');
+            }
+            // Stacked questions check (more than 1 question mark)
+            const qCount = (txt.match(/\?/g)||[]).length;
+            if (qCount > 1) ruleIssues.push(`stacked ${qCount} questions`);
+            // Echo check for A0 (should prompt repetition)
+            const echoWords = /say it|can you say|repeat|say with me/i;
+            if (level === 'A0' && !echoWords.test(txt) && hasQuestion) {
+              ruleIssues.push('no echo prompt (A0 should ask to repeat)');
+            }
+            // Correction check — A0/A1 should never correct explicitly
+            const correctionWords = /\b(wrong|incorrect|mistake|should be|you said.*but|actually it's)\b/i;
+            if ((level === 'A0' || level === 'A1') && correctionWords.test(txt)) {
+              ruleIssues.push('explicit correction at A0/A1 ✗');
+            }
+            ruleColor = ruleIssues.length === 0 ? '#2e7d32' : ruleIssues.some(x=>x.includes('too long')||x.includes('open question')||x.includes('correction')) ? '#c62828' : '#e65100';
+            } // end else (not placement)
+          }
+          return (
+          <div key={i} style={m.role==='zoe' ? {borderLeft: `3px solid ${ruleColor}`, borderRadius:14, marginBottom:2} : {}} className={'bub '+(m.role==='zoe'?'zoe':m.role==='me'?'me':m.role==='sys good'?'sys good':'sys')}>
             {m.text}
+            {m.role==='zoe' && (
+              <div style={{marginTop: 5, paddingTop: 4, borderTop: '1px dashed #e0e0e0', fontSize: '10.5px', display:'flex', flexWrap:'wrap', gap:4, alignItems:'center'}}>
+                {ruleOk.map((r,i)=><span key={i} style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:4,padding:'1px 5px'}}>{r}</span>)}
+                {ruleIssues.map((r,i)=><span key={i} style={{background: r.includes('too long')||r.includes('open question')||r.includes('correction') ? '#ffebee':'#fff3e0', color: r.includes('too long')||r.includes('open question')||r.includes('correction') ? '#c62828':'#e65100', borderRadius:4, padding:'1px 5px'}}>{r}</span>)}
+              </div>
+            )}
             {m.role==='zoe' && m.correction && (
               <div style={{marginTop: 6, fontSize: '11.5px', color: 'var(--rust)', borderTop: '1px dashed var(--rule)', paddingTop: 4}}>
                 💡 <i>Correction:</i> <b>{m.correction}</b>
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
         {busy&&<div className="bub sys">…thinking…</div>}
         {placementAssessment && (
           <div style={{
@@ -1758,7 +1823,7 @@ function App(){
         {tab==='session'&&<SessionView sessions={sessions}/>}
         {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
         {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)}/>}
-        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI}/>}
+        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI} sessionType={sessionType} level={level}/>}
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
         {tab==='units'&&<UnitsView mem={mem}/>}
         {tab==='hist'&&<HistView history={history}/>}
@@ -2227,7 +2292,7 @@ function PromptView({text}){
     <small className="note">Base + level profile + the due_next/unit steering block + transcript. The target skills here ARE due_next.</small>
   </div>);
 }
-function EditView({prompts,setPrompts,model,callEllaAPI}){
+function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
   const [activeSource, setActiveSource] = React.useState('client'); // 'client' | 'server'
   const [serverPrompts, setServerPrompts] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
@@ -2249,7 +2314,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
     }
   }, [activeSource]);
 
-  const fields=[['base','Base prompt (shared)'],['profileA1','Profile · A1/A2'],['profileB1','Profile · B1+'],
+  const fields=[['base','Base prompt (shared)'],['profileA0','Profile · A0'],['profileA1','Profile · A1/A2'],['profileB1','Profile · B1+'],
     [model==='unit'?'convUnit':'convSkill', model==='unit'?'Conversation framing · UNITS (theme-led)':'Conversation framing · MICRO-SKILL (list-led)'],
     ['judge','Judge (shared)']];
 
@@ -2279,36 +2344,51 @@ function EditView({prompts,setPrompts,model,callEllaAPI}){
         {error && <div style={{ color: 'var(--rust)', padding: 20 }}>Error: {error}</div>}
         {serverPrompts && (
           <>
+            {/* Active prompt indicator */}
+            <div style={{marginBottom:12, padding:'6px 10px', background:'#e8f5e9', border:'1.5px solid #2e7d32', borderRadius:8, fontSize:11, color:'#1b5e20', fontWeight:600}}>
+              🟢 Active in current conversation:
+              {sessionType === 'placement'
+                ? ' placement-check-prompt.md'
+                : ` conversation-prompt.md + profile-${level}.md`}
+            </div>
+
             <div className="lbl">Placement</div>
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 14, border: sessionType === 'placement' ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: sessionType === 'placement' ? 4 : 0 }}>
+              {sessionType === 'placement' && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
               <div className="lbl" style={{fontSize:9}}>placement-check-prompt.md</div>
               <textarea 
                 value={serverPrompts.placement} 
                 readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 220 }}
+                style={{ background: sessionType === 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 220 }}
               />
             </div>
 
             <div className="lbl" style={{marginTop:20}}>Conversation — Base (shared)</div>
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 14, border: sessionType !== 'placement' ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: sessionType !== 'placement' ? 4 : 0 }}>
+              {sessionType !== 'placement' && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
               <textarea 
                 value={serverPrompts.base} 
                 readOnly={true} 
-                style={{ background: '#f4f1ea', cursor: 'default', height: 150 }}
+                style={{ background: sessionType !== 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 150 }}
               />
             </div>
 
             <div className="lbl">Conversation — Level Profiles</div>
-            {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => (
-              <div key={lvl} style={{ marginBottom: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 10, color: 'var(--purple)', marginBottom: 2 }}>Profile · {lvl}</div>
+            {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => {
+              const isActive = sessionType !== 'placement' && lvl === level;
+              return (
+              <div key={lvl} style={{ marginBottom: 6, border: isActive ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: isActive ? 4 : 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 10, color: isActive ? '#2e7d32' : 'var(--purple)', marginBottom: 2 }}>
+                  {isActive ? '🟢 ACTIVE — ' : ''}Profile · {lvl}
+                </div>
                 <textarea 
                   value={txt} 
                   readOnly={true} 
-                  style={{ background: '#f4f1ea', cursor: 'default', height: 50, fontSize: 11 }}
+                  style={{ background: isActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: isActive ? 120 : 50, fontSize: 11 }}
                 />
               </div>
-            ))}
+              );
+            })}
 
             <div className="lbl" style={{marginTop:16}}>Conversation — Unit Framing</div>
             <div style={{ marginBottom: 14 }}>
@@ -3384,6 +3464,37 @@ function ApiCallsView({logs, onClear}){
                     wordBreak: 'break-all'
                   }}>{log.responseBody ? <JsonViewer value={log.responseBody} /> : '(empty)'}</pre>
                 </div>
+                {log.responseBody && log.responseBody.prompt_debug && (
+                  <div style={{marginTop: 10}}>
+                    <div style={{fontSize: 10, fontWeight: 'bold', color: '#FF9500', textTransform: 'uppercase', marginBottom: 6}}>
+                      📝 Assembled System Prompt (what was sent to DeepSeek)
+                    </div>
+                    <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:8}}>
+                      <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'2px 8px',borderRadius:4,fontSize:11,fontWeight:700}}>Level: {log.responseBody.prompt_debug.level}</span>
+                      <span style={{background:'#e3f2fd',color:'#1565c0',padding:'2px 8px',borderRadius:4,fontSize:11}}>Unit: {log.responseBody.prompt_debug.unit_name}</span>
+                      <span style={{background:'#fff3e0',color:'#e65100',padding:'2px 8px',borderRadius:4,fontSize:11}}>Turn: {log.responseBody.prompt_debug.current_turn}</span>
+                      <span style={{background:'#f3e5f5',color:'#6a1b9a',padding:'2px 8px',borderRadius:4,fontSize:11}}>Targets: {(log.responseBody.prompt_debug.target_ids||[]).join(', ') || 'none'}</span>
+                    </div>
+                    {log.responseBody.prompt_debug.student_memory && log.responseBody.prompt_debug.student_memory !== 'None' && (
+                      <div style={{marginBottom:6,padding:'6px 10px',background:'#f9f3ff',border:'1px solid #ce93d8',borderRadius:6,fontSize:11}}>
+                        <b>🧠 Student Memory:</b> {log.responseBody.prompt_debug.student_memory}
+                      </div>
+                    )}
+                    <pre style={{
+                      background: '#1a1a2e',
+                      color: '#a8d8a8',
+                      padding: 10,
+                      borderRadius: 6,
+                      fontSize: 11,
+                      overflowX: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      maxHeight: 400,
+                      overflowY: 'auto',
+                      border: '1px solid #FF9500'
+                    }}>{log.responseBody.prompt_debug.system_prompt}</pre>
+                  </div>
+                )}
               </div>
             )}
           </div>

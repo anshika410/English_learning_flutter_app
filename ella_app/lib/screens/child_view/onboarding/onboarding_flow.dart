@@ -178,11 +178,22 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     }
   }
 
-  /// Sound-button replays: a no-op while TTS is already speaking, so a tap can
-  /// never restart or stack the utterance.
+  /// Sound-button replays: while TTS is already speaking, tapping it stops
+  /// (mutes) the speech. Otherwise, it replays the prompt.
   Future<void> _replay(String text) async {
-    if (_tts.isSpeaking) return;
-    await _speak(text);
+    if (_speaking) {
+      await _tts.stop();
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+          _mascot = ZoeMascotMode.listening;
+        });
+      }
+    } else {
+      await _speak(text);
+    }
   }
 
   // ── Reply parsing ───────────────────────────────────────────────────────────

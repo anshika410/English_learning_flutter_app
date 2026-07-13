@@ -39,6 +39,7 @@
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: #FFFDF8; }
     .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-a0 { background: #E8F5E9; color: #2E7D32; }
     .badge-a1 { background: #FFF3E0; color: #C87000; }
     .badge-a2 { background: #E8F4FF; color: #1A6CC8; }
     .badge-b1 { background: #F0FBE8; color: #4E9A00; }
@@ -216,18 +217,20 @@
           <div class="level-bar" id="level-bar"></div>
         </div>
 
-        <!-- Screening results table -->
+        <!-- Placement results table -->
         <div class="section">
-          <h2>Screening Results</h2>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <h2 style="margin-bottom:0;">Placement Results</h2>
+            <input id="user-search" type="text" placeholder="🔍 Search by name..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
+          </div>
           <table>
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Email</th>
                 <th>Age</th>
-                <th>Location</th>
                 <th>Level</th>
-                <th>Label</th>
-                <th>Progress</th>
+                <th>Skill Progress</th>
                 <th>Joined</th>
                 <th>Actions</th>
               </tr>
@@ -237,8 +240,11 @@
         </div>
 
         <!-- Recent conversations -->
-        <div class="section">
-          <h2>Recent Conversations</h2>
+        <div class="section" id="convs-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <h2 style="margin-bottom:0;">Recent Conversations <span id="convs-filter-label" style="font-size:12px;color:#FF9500;font-weight:600;"></span></h2>
+            <button id="convs-clear-filter" onclick="clearConvsFilter()" style="display:none;background:none;border:1.5px solid #FF9500;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;color:#FF9500;font-weight:600;">✕ Show all</button>
+          </div>
           <table>
             <thead>
               <tr>
@@ -515,32 +521,38 @@
     window.USERS = data.users;
 
     const sorted = [...data.users].sort((a, b) => {
+      // Users with both name AND email come first
+      const aFull = (a.name && a.email) ? 0 : (a.name || a.email) ? 1 : 2;
+      const bFull = (b.name && b.email) ? 0 : (b.name || b.email) ? 1 : 2;
+      if (aFull !== bFull) return aFull - bFull;
       if (a.level && !b.level) return -1;
       if (!a.level && b.level) return 1;
       const order = ['A1','A2','B1','B2','C1'];
       return order.indexOf(a.level) - order.indexOf(b.level);
-    });
+    }).filter(u => u.name || u.email);
 
-    document.getElementById('users-table').innerHTML = sorted.map(u => `
+    document.getElementById('users-table').innerHTML = sorted.map(u => {
+      // v2 = has email (signed in with Google/email); v1 = anonymous device only
+      const isV2 = !!u.email;
+      return `
       <tr>
         <td><strong>${u.name || '<span style="color:#aaa">—</span>'}</strong></td>
+        <td style="font-size:11px;color:#6B5740;">${u.email || '<span style="color:#aaa">—</span>'}</td>
         <td>${u.age || '—'}</td>
-        <td>${u.location || '—'}</td>
         <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
-        <td>${u.level_label || '—'}</td>
         <td>${getUserProgressHTML(u)}</td>
         <td>${formatDate(u.created_at)}</td>
         <td>
           <div style="display: flex; gap: 6px;">
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
-            ${u.level ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
+            ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
+            ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions</button>` : ''}
           </div>
-        </td>
-      </tr>
-    `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>';
+        </td>`
+    }).join('') + (sorted.length === 0 ? '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
 
     document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
-      <tr>
+      <tr data-user-id="${c.user_id || ''}">
         <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
         <td>${c.header_title || c.topic || '—'}</td>
         <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
@@ -830,8 +842,138 @@
     document.getElementById('garden-modal-content').innerHTML = html;
   }
 
+  function filterUsers() {
+    const q = document.getElementById('user-search').value.toLowerCase();
+    const rows = document.querySelectorAll('#users-table tr');
+    rows.forEach(row => {
+      const name = row.querySelector('td strong');
+      const text = name ? name.textContent.toLowerCase() : '';
+      row.style.display = (!q || text.includes(q)) ? '' : 'none';
+    });
+  }
+
+  let _convsFilterUserId = null;
+  let _allConvRows = [];
+
+  function filterConvsByUser(userId, name) {
+    _convsFilterUserId = userId;
+    document.getElementById('convs-filter-label').textContent = `· showing ${name}'s sessions`;
+    document.getElementById('convs-clear-filter').style.display = 'inline-block';
+    // Scroll to conversations section
+    document.getElementById('convs-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Filter rows
+    const rows = document.querySelectorAll('#convs-table tr');
+    rows.forEach(row => {
+      const uid = row.getAttribute('data-user-id');
+      row.style.display = (!uid || uid === userId) ? '' : 'none';
+    });
+  }
+
+  function clearConvsFilter() {
+    _convsFilterUserId = null;
+    document.getElementById('convs-filter-label').textContent = '';
+    document.getElementById('convs-clear-filter').style.display = 'none';
+    document.getElementById('user-search').value = '';
+    const rows = document.querySelectorAll('#convs-table tr');
+    rows.forEach(row => row.style.display = '');
+    filterUsers();
+  }
+
   function closeGardenModal() {
     document.getElementById('garden-modal').classList.remove('open');
+  }
+
+  async function viewSessionAnalysis(convId, studentName, topic) {
+    document.getElementById('modal-title').textContent = `${studentName} — ${topic} · Session Analysis`;
+    document.getElementById('modal-content').innerHTML = '<div style="color:#888;text-align:center;padding:20px">Loading session analysis...</div>';
+    document.getElementById('transcript-modal').classList.add('open');
+
+    try {
+      const res = await fetch(`${BASE_URL}/admin/conversations/${convId}/analysis?key=${encodeURIComponent(ADMIN_KEY)}`);
+      const d = await res.json();
+
+      if (!d.available) {
+        document.getElementById('modal-content').innerHTML = `
+          <div style="color:#888;padding:16px;background:#f9f9f9;border-radius:8px;font-size:13px;">
+            ⚠️ ${d.message || 'Analysis not available for this session.'}
+          </div>
+          ${d.transcript && d.transcript.length ? `
+            <div style="margin-top:16px;font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript</div>
+            ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+          ` : ''}
+        `;
+        return;
+      }
+
+      const gardenBadge = d.garden_grew
+        ? `<span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">🌱 Garden grew · ${d.state_changes.length} skill${d.state_changes.length !== 1 ? 's' : ''} advanced</span>`
+        : `<span style="background:#fff3e0;color:#e65100;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">⏳ Garden did not grow this session</span>`;
+
+      let html = `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <span style="background:#f3f4f6;color:#374151;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">Level ${d.level}</span>
+          <span style="background:#f3f4f6;color:#374151;padding:3px 10px;border-radius:12px;font-size:12px;">${d.turns_total} learner turns</span>
+          ${gardenBadge}
+        </div>
+      `;
+
+      // State changes
+      if (d.state_changes && d.state_changes.length > 0) {
+        html += `<div style="margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🌸 Skills that grew this session</div>`;
+        d.state_changes.forEach(ch => {
+          const arrow = ch.to === 'owned' ? '🌸 Mastered' : '🌱 Emerging';
+          html += `<div style="background:#e8f5e9;border-left:3px solid #2e7d32;padding:8px 12px;border-radius:0 8px 8px 0;margin-bottom:6px;font-size:13px;">
+            <strong>${ch.skill_text || ch.id}</strong>
+            <span style="color:#6b7280;font-size:11px;margin-left:8px;">${ch.id}</span><br>
+            <span style="color:#2e7d32;font-size:12px;">${ch.from} → ${arrow}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Skills aimed this session
+      if (d.scores && d.scores.length > 0) {
+        html += `<div style="margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Skills aimed this session (threshold: ${d.floor_pct}%)</div>`;
+        d.scores.forEach(sc => {
+          const bg = sc.passed ? '#f0fdf4' : sc.confidence_pct >= 30 ? '#fffbeb' : '#fef2f2';
+          const border = sc.passed ? '#86efac' : sc.confidence_pct >= 30 ? '#fcd34d' : '#fca5a5';
+          const icon = sc.passed ? '✅' : sc.confidence_pct >= 30 ? '⚠️' : '❌';
+          const promptedTag = sc.prompted ? `<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:6px;">prompted</span>` : `<span style="background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:6px;">organic</span>`;
+          html += `<div style="background:${bg};border:1px solid ${border};padding:10px 12px;border-radius:8px;margin-bottom:8px;font-size:13px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+              <strong>${icon} ${sc.skill_text || sc.id}</strong>
+              <span style="font-size:12px;font-weight:700;color:${sc.passed ? '#15803d' : '#b45309'};">${sc.confidence_pct}% confidence${promptedTag}</span>
+            </div>
+            ${sc.evidence ? `<div style="color:#4b5563;font-size:12px;margin-top:4px;font-style:italic;">"${sc.evidence}"</div>` : ''}
+            ${sc.miss_reason ? `<div style="color:#b45309;font-size:11px;margin-top:4px;">💡 ${sc.miss_reason}</div>` : ''}
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Best moment
+      if (d.best_moment && d.best_moment.quote) {
+        html += `<div style="margin-bottom:16px;background:#fffbeb;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:0 8px 8px 0;">
+          <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:4px;">⭐ Best moment</div>
+          <div style="font-size:13px;font-style:italic;color:#4b5563;">"${d.best_moment.quote}"</div>
+          ${d.best_moment.note ? `<div style="font-size:12px;color:#6b7280;margin-top:4px;">${d.best_moment.note}</div>` : ''}
+        </div>`;
+      }
+
+      // Transcript
+      if (d.transcript && d.transcript.length > 0) {
+        html += `<div style="margin-top:8px;">
+          <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript (${d.transcript.length} turns)</div>
+          ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+        </div>`;
+      }
+
+      document.getElementById('modal-content').innerHTML = html;
+    } catch(e) {
+      document.getElementById('modal-content').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+    }
   }
 
   document.getElementById('admin-key').addEventListener('keydown', e => {
