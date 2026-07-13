@@ -216,10 +216,10 @@
           <div class="level-bar" id="level-bar"></div>
         </div>
 
-        <!-- Screening results table -->
+        <!-- Placement results table -->
         <div class="section">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-            <h2 style="margin-bottom:0;">Screening Results</h2>
+            <h2 style="margin-bottom:0;">Placement Results</h2>
             <input id="user-search" type="text" placeholder="🔍 Search by name..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
           </div>
           <table>
@@ -525,7 +525,7 @@
       if (!a.level && b.level) return 1;
       const order = ['A1','A2','B1','B2','C1'];
       return order.indexOf(a.level) - order.indexOf(b.level);
-    });
+    }).filter(u => u.name || u.email);
 
     document.getElementById('users-table').innerHTML = sorted.map(u => `
       <tr>
