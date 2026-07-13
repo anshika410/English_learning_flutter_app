@@ -535,12 +535,9 @@
     document.getElementById('users-table').innerHTML = sorted.map(u => {
       // v2 = has email (signed in with Google/email); v1 = anonymous device only
       const isV2 = !!u.email;
-      const vTag = isV2
-        ? '<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;">v2</span>'
-        : '<span style="background:#f3f4f6;color:#9ca3af;padding:1px 6px;border-radius:8px;font-size:10px;">v1</span>';
       return `
       <tr>
-        <td><strong>${u.name || '<span style="color:#aaa">—</span>'}</strong> ${vTag}</td>
+        <td><strong>${u.name || '<span style="color:#aaa">—</span>'}</strong></td>
         <td style="font-size:11px;color:#6B5740;">${u.email || '<span style="color:#aaa">—</span>'}</td>
         <td>${u.age || '—'}</td>
         <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
@@ -550,8 +547,8 @@
         <td>
           <div style="display: flex; gap: 6px;">
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
-            ${u.level ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
-            ${u.level ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions</button>` : ''}
+            ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
+            ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions</button>` : ''}
           </div>
         </td>`
     }).join('') + (sorted.length === 0 ? '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
