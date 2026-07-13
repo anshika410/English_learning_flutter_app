@@ -43,8 +43,6 @@ class EllaApp extends ConsumerStatefulWidget {
 class _EllaAppState extends ConsumerState<EllaApp> {
   late AppLinks _appLinks;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  
-  Timer? _backOnlineTimer;
 
   @override
   void initState() {
@@ -54,7 +52,6 @@ class _EllaAppState extends ConsumerState<EllaApp> {
 
   @override
   void dispose() {
-    _backOnlineTimer?.cancel();
     super.dispose();
   }
 
@@ -123,29 +120,6 @@ class _EllaAppState extends ConsumerState<EllaApp> {
   }
   @override
   Widget build(BuildContext context) {
-    ref.listen(connectivityProvider, (previous, next) {
-      final wasOnline = previous?.valueOrNull ?? true;
-      final isOnline = next.valueOrNull ?? true;
-      
-      // If the app is in the background, DO NOT play sounds, speak, or show UI prompts.
-      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-         return;
-      }
-
-      if (wasOnline && !isOnline) {
-        ref.read(audioProvider).playSfx(Sounds.error);
-      } else if (!wasOnline && isOnline) {
-        if (!ref.read(ttsProvider).isSpeaking) {
-          ref.read(ttsProvider).speak("Yay, we're back online!");
-          
-          ref.read(showBackOnlineProvider.notifier).state = true;
-          _backOnlineTimer?.cancel();
-          _backOnlineTimer = Timer(const Duration(milliseconds: 3500), () {
-             ref.read(showBackOnlineProvider.notifier).state = false;
-          });
-        }
-      }
-    });
 
     return MaterialApp(
       navigatorKey: _navigatorKey,

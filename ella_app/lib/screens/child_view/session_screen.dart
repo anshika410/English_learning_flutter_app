@@ -299,15 +299,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(connectivityProvider, (previous, next) {
-      final isOnlineListen = next.valueOrNull ?? true;
-      if (!isOnlineListen) {
-        if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-          final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
-          ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
-        }
-      }
-    });
 
     ref.listen(chatProvider, (previous, next) {
       _maybeStartSession();
@@ -371,17 +362,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     };
 
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
-    final showBackOnline = ref.watch(showBackOnlineProvider);
-    final childName = ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
 
     // Latest-turn content.
     final zoeLine = _ending
         ? _kGoodbye
-        : (!isOnline
-            ? "Hey $childName, I'm having trouble connecting to the internet right now!"
-            : (showBackOnline 
-                ? "Yay, we're back online!" 
-                : (_lastFrom(s, MessageSender.zoe) ?? widget.introText)));
+        : (_lastFrom(s, MessageSender.zoe) ?? widget.introText);
 
     String? studentLine;
     bool studentLive = false;

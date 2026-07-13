@@ -253,14 +253,6 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       }
     });
     
-    ref.listen(connectivityProvider, (_, next) {
-      final isOnlineListen = next.valueOrNull ?? true;
-      if (!isOnlineListen) {
-        final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
-        ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
-      }
-    });
-
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStart());
     final s = ref.watch(placementProvider);
     final isOnline = ref.watch(connectivityProvider).value ?? true;
@@ -284,12 +276,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
     // While ending, Zoe speaks the fixed farewell (which cross-fades in over the
     // last turn); otherwise show her latest line.
-    final childName = ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
     final zoeLine = _ending
         ? _closingLine()
-        : (!isOnline
-            ? "Hey $childName, I'm having trouble connecting to the internet right now!"
-            : _lastFrom(s, MessageSender.zoe));
+        : _lastFrom(s, MessageSender.zoe);
             
     String? studentLine;
     bool studentLive = false;

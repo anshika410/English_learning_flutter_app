@@ -258,17 +258,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   @override
   Widget build(BuildContext context) {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
-    final showBackOnline = ref.watch(showBackOnlineProvider);
-
-    ref.listen(connectivityProvider, (_, next) {
-      final isOnlineListen = next.valueOrNull ?? true;
-      if (!isOnlineListen) {
-        if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-          final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
-          ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
-        }
-      }
-    });
 
     // Keep the CTA tappable even while memory is still loading so it doesn't
     // visibly flip from disabled→enabled on launch; _startSelected safely no-ops
@@ -324,9 +313,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                           ),
                           const SizedBox(height: 20),
                           _LastTimeCard(
-                            recap: !isOnline 
-                                ? "I'm having trouble connecting to the internet right now!" 
-                                : (showBackOnline ? "Yay, we're back online!" : _recap),
+                            recap: _recap,
                             onSpeak: _speakRecap,
                             highlightStart: _highlightStart,
                             highlightEnd: _highlightEnd,

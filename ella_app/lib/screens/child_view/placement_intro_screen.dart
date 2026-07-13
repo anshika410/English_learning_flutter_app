@@ -180,20 +180,10 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     // placeholder if it isn't cached yet.
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
 
-    ref.listen(connectivityProvider, (_, next) {
-      final isOnlineListen = next.valueOrNull ?? true;
-      if (!isOnlineListen) {
-        final name = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
-        ref.read(ttsProvider).speak("Hey $name, I'm having trouble connecting to the internet right now!");
-      }
-    });
-
     final childName =
         ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
         
-    final greetingText = !isOnline 
-        ? "Hey $childName, I'm having trouble connecting to the internet right now!"
-        : _kGreeting;
+    final greetingText = _kGreeting;
 
     return GardenSkyBackground(
       child: SafeArea(

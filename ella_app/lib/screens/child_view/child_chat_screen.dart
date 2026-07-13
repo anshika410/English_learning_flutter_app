@@ -71,14 +71,7 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(connectivityProvider, (_, next) {
-      final isOnline = next.valueOrNull ?? true;
-      if (!isOnline) {
-        final childName = ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
-        ref.read(audioProvider).playSfx(Sounds.error);
-        ref.read(ttsProvider).speak("Hey $childName, I'm having trouble connecting to the internet right now!");
-      }
-    });
+
 
     ref.listen(chatProvider, (_, next) {
       _maybeStartSession();

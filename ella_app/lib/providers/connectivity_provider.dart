@@ -1,56 +1,40 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-/// `true` when the device has a usable network interface AND can reach the internet.
-/// Streams live updates using internet_connection_checker_plus which safely handles
-/// app lifecycle events. It uses a debounce for offline states to prevent network
-/// jitter (dropped packets) from causing random "offline" interruptions.
+/// `true` when the device has a usable network interface (Wi-Fi, Cellular, etc).
+/// Streams live updates using connectivity_plus which hooks into the OS for instant,
+/// battery-efficient network state reporting.
 final connectivityProvider = StreamProvider<bool>((ref) {
   final controller = StreamController<bool>();
-  final checker = InternetConnection();
-  
-  Timer? debounceTimer;
+  final checker = Connectivity();
   bool lastEmitted = true;
 
-  void emit(bool isOnline) {
-    if (lastEmitted != isOnline) {
-      lastEmitted = isOnline;
+  void emit(List<ConnectivityResult> results) {
+    // If there is ANY connection other than 'none', we consider it online.
+    final online = results.any((result) => result != ConnectivityResult.none);
+    
+    if (lastEmitted != online) {
+      lastEmitted = online;
       if (!controller.isClosed) {
-        controller.add(isOnline);
+        controller.add(online);
       }
     }
   }
 
   // Initial check
-  checker.hasInternetAccess.then((hasAccess) {
-    emit(hasAccess);
+  checker.checkConnectivity().then((results) {
+    emit(results);
   });
   
-  final sub = checker.onStatusChange.listen((status) {
-    final isOnline = status == InternetStatus.connected;
-    
-    if (isOnline) {
-      // Instantly go online and cancel any pending offline debounce
-      debounceTimer?.cancel();
-      emit(true);
-    } else {
-      // Debounce the offline state by 4 seconds to ignore random jitter/dropped pings
-      debounceTimer?.cancel();
-      debounceTimer = Timer(const Duration(seconds: 4), () {
-        emit(false);
-      });
-    }
+  final sub = checker.onConnectivityChanged.listen((results) {
+    emit(results);
   });
 
   ref.onDispose(() {
-    debounceTimer?.cancel();
     sub.cancel();
     controller.close();
   });
 
   return controller.stream;
 });
-
-/// A temporary flag that stays true for 3.5 seconds after coming back online.
-final showBackOnlineProvider = StateProvider<bool>((ref) => false);
