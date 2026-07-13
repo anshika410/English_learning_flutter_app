@@ -3113,8 +3113,6 @@ function SettingsView({isApiAuthed,onConfigChange}){
           );
         })()}
       </div>
-        <span style={{fontSize:12,marginLeft:8}}>{healthStatus}</span>
-      </div>
     </div>}
     {C.mode==='direct'&&<div className="ev">Browser calls the provider directly with your key. <b>Works for CORS-friendly providers (OpenRouter reliably; DeepSeek sometimes).</b> Most providers BLOCK this — if you get a CORS error, use Ella API mode.</div>}
     {C.mode==='direct'&&<div>{roleBlock('conv','🗣️ Conversation (Zoe)')}{roleBlock('judge','⚖️ Judge — use a DIFFERENT model than Zoe')}</div>}
