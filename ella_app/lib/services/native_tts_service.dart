@@ -90,7 +90,23 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
     if (sanitized.trim().isEmpty) return;
     _speaking = true;
     try {
+      // Wait for TTS to actually finish playing, not just queuing.
+      // Without this, speak() returns as soon as Android queues the utterance,
+      // causing callers (e.g. endChat after conversation_complete) to fire
+      // while Zoe is still mid-sentence.
+      final completer = Completer<void>();
+      late StreamSubscription sub;
+      sub = _doneController.stream.listen((_) {
+        sub.cancel();
+        if (!completer.isCompleted) completer.complete();
+      });
       await _channel.invokeMethod('speak', {'text': sanitized});
+      // 30s safety timeout — if doneStream never fires (e.g. TTS error),
+      // we don't block forever.
+      await completer.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () { sub.cancel(); },
+      );
     } catch (e) {
       _speaking = false;
     }
