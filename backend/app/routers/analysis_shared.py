@@ -23,36 +23,11 @@ async def run_and_save_session_analysis(
     db: AsyncSession,
     turns_total: int | None = None,
 ) -> dict:
-    import logging
-    import re
-
-    # ── Meaningful participation guard ───────────────────────────────────────
-    # Session analysis must not run unless the learner actually said something
-    # meaningful. This prevents:
-    #   - Sessions where the user ended immediately (0 learner turns)
-    #   - STT noise: empty "", whitespace "   ", punctuation-only "...", "."
-    #   - Single characters or very short non-word fragments
-    #
-    # Definition of "learner participated":
-    #   At least one learner message with ≥ 3 non-whitespace, non-punctuation
-    #   characters that form a meaningful attempt at speech.
-
-    def _has_meaningful_learner_turn(msgs: list[dict]) -> bool:
-        for m in msgs:
-            if m.get("role") not in ("user", "learner"):
-                continue
-            content = (m.get("content") or "").strip()
-            # Strip punctuation and whitespace to check for real word content
-            meaningful = re.sub(r'[\s.,!?;:\-_\'\"]+', '', content)
-            if len(meaningful) >= 3:
-                return True
-        return False
-
-    if not _has_meaningful_learner_turn(messages):
-        logging.info(
-            f"[analysis_shared] Skipping session analysis for {conversation_id} "
-            f"— no meaningful learner participation detected."
-        )
+    # Guard — if the learner never spoke, skip analysis entirely.
+    # This prevents Zoe's own starter message from being scored as learner evidence
+    # when the user ends a session immediately without saying anything.
+    user_turn_count = len([m for m in messages if m.get("role") in ("user", "learner")])
+    if user_turn_count == 0:
         return {
             "overall": "okay",
             "best_moment": {"quote": "", "note": ""},
