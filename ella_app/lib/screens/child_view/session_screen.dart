@@ -9,17 +9,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/app_toast.dart';
-import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/service_providers.dart';
-import '../../services/audio_service.dart';
 import '../../services/stt_tts_service.dart';
 import 'widgets/conversation_view.dart';
-import 'widgets/garden_sky_background.dart';
 import 'widgets/mascot_loading_screen.dart';
+import 'widgets/need_to_go_sheet.dart';
 import 'widgets/network_error_view.dart';
 
 const String _kGoodbye = 'It was great talking to you. See you again later!';
@@ -50,6 +48,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _ending = false;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
+
+  // Back-button "Need to go?" sheet: while it's up Zoe rests (paused/sway) and
+  // her in-flight speech is stopped. [_sheetOpen] guards the second back press
+  // (double-back → leave). [_interruptedZoeLine] is the line to resume on
+  // "Keep talking" if she was mid-speech when the sheet opened.
+  bool _paused = false;
+  bool _sheetOpen = false;
+  String? _interruptedZoeLine;
 
   // True while a tapped-speaker replay is speaking — drives Zoe's speaking
   // animation for manual replays (engine status only covers auto-speech).
@@ -173,10 +179,15 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   /// line, then return to the garden.
   Future<void> _endConversation() async {
     if (_ending) return;
-    setState(() => _ending = true);
+    setState(() {
+      _ending = true;
+      _paused = false;
+      _sheetOpen = false;
+      _speaking = true;
+    });
     final notifier = ref.read(chatProvider.notifier);
     await notifier.stopListening();
-    
+
     // Fire scoring in the background (don't wait)
     unawaited(notifier.endChat().catchError(_snack));
 
@@ -234,45 +245,52 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       !s.sessionEnded &&
       s.messages.any((m) => m.sender != MessageSender.system);
 
-  /// Back pressed mid-chat: confirm, then discard the in-progress chat (no
-  /// scoring) so any topic picked next starts a fresh session, and leave.
-  Future<void> _confirmExit() async {
-    final leave = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: EllaColors.surface,
-        title: Text('Leave this chat?', style: EllaTextStyles.titleSmall),
-        content: Text(
-          "If you go back now, this chat won't be saved.",
-          style: EllaTextStyles.bodyBase,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              playTapClick();
-              Navigator.of(dialogContext).pop(false);
-            },
-            child: Text(
-              'Keep talking',
-              style: EllaTextStyles.button.copyWith(color: EllaColors.greenDeep),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              playTapClick();
-              Navigator.of(dialogContext).pop(true);
-            },
-            child: Text(
-              'Leave',
-              style: EllaTextStyles.button.copyWith(color: EllaColors.berryDark),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (leave != true || !mounted) return;
-    await ref.read(chatProvider.notifier).abandonSession();
-    if (mounted) Navigator.of(context).pop();
+  /// Back pressed mid-chat: open the "Need to go?" sheet. Zoe rests (paused +
+  /// sway) behind a dimmed scrim and any in-flight speech/listening is stopped.
+  /// "Keep talking" restores her (resuming an interrupted line); "Bye for now,
+  /// Zoe" runs the normal end flow (score → goodbye → garden). Dismissing the
+  /// scrim is treated as "keep talking".
+  Future<void> _showNeedToGoSheet() async {
+    if (_sheetOpen || _ending) return;
+
+    // Pause Zoe: remember the line she was speaking so we can resume it, then
+    // stop TTS + STT. (TTS exposes no mid-utterance resume, so we re-speak the
+    // whole line on "Keep talking".)
+    final s = ref.read(chatProvider).asData?.value;
+    _interruptedZoeLine = (_speaking || _replaying) && s != null
+        ? _lastFrom(s, MessageSender.zoe)
+        : null;
+    await ref.read(chatProvider.notifier).stopListening();
+    await ref.read(ttsProvider).stop();
+    await ref.read(nativeTtsProvider).stop();
+    if (!mounted) return;
+
+    setState(() {
+      _paused = true;
+      _sheetOpen = true;
+      _replaying = false;
+      _speaking = false;
+      _highlightStart = -1;
+      _highlightEnd = -1;
+    });
+
+    final result = await showNeedToGoSheet(context);
+    if (!mounted) return;
+    _sheetOpen = false;
+
+    if (result == NeedToGoResult.leave) {
+      // The pause sheet is gone; Zoe speaks the farewell before navigation.
+      await _endConversation();
+      return;
+    }
+
+    // Keep talking (or dismissed): resume the conversation.
+    final resumeLine = _interruptedZoeLine;
+    _interruptedZoeLine = null;
+    setState(() => _paused = false);
+    if (resumeLine != null && resumeLine.trim().isNotEmpty) {
+      _speakLine(resumeLine);
+    }
   }
 
   // ── ChatState → display mapping ──────────────────────────────────────────────
@@ -280,13 +298,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   String? _lastFrom(ChatState s, MessageSender who) {
     for (final m in s.messages.reversed) {
       if (m.sender == who) return m.text;
-    }
-    return null;
-  }
-
-  ChatMessage? _lastTurn(ChatState s) {
-    for (final m in s.messages.reversed) {
-      if (m.sender != MessageSender.system) return m;
     }
     return null;
   }
@@ -322,16 +333,22 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       // button and the confirmed-exit path pop imperatively, which is unaffected.
       canPop: !active,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _confirmExit();
+        if (didPop) return;
+        if (_sheetOpen) {
+          // Double-back: dismiss the sheet and run the full leave flow.
+          Navigator.of(context).pop(NeedToGoResult.leave);
+        } else {
+          _showNeedToGoSheet();
+        }
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true,
         backgroundColor: EllaColors.surfaceVariant,
-         body: chatAsync.when(
-          loading: () => const MascotLoadingScreen(message: 'Starting session...'),
-          error: (e, _) => NetworkErrorView(
-            onRetry: () => ref.invalidate(chatProvider),
-          ),
+        body: chatAsync.when(
+          loading: () =>
+              const MascotLoadingScreen(message: 'Starting session...'),
+          error: (e, _) =>
+              NetworkErrorView(onRetry: () => ref.invalidate(chatProvider)),
           data: (s) => _view(s),
         ),
       ),
@@ -381,8 +398,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     return ConversationView(
       phase: phase,
+      mascotPaused: _paused,
       mascotSpeaking:
-          _ending || s.status == ChatStatus.zoeSpeaking || _replaying || _speaking,
+          _ending ||
+          s.status == ChatStatus.zoeSpeaking ||
+          _replaying ||
+          _speaking,
       mascotThinking: s.status == ChatStatus.zoeThinking,
       zoeLine: zoeLine,
       studentLine: studentLine,

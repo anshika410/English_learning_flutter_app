@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/curriculum_display_copy.dart';
 import '../core/curriculum_icons.dart';
+import '../models/child_memory.dart';
 import '../models/garden.dart';
 import 'service_providers.dart';
 
@@ -392,6 +393,17 @@ class GardenGrowthRevealItem {
   final GardenGrowthStage toStage;
   final GardenEvidence? evidence;
 
+  /// When true, this reveal only waters the plant (no stage change / no plant
+  /// pop). Used for the post-conversation "You watered your garden today"
+  /// acknowledgement when a session aimed at a skill but nothing levelled up.
+  final bool wateringOnly;
+
+  /// When true, the session was a "quick hello" — no growth and fewer than a
+  /// few turns. Suppresses all plant visuals (no spotlight, no watering can, no
+  /// scroll-to-plant): shows only a plain black overlay + a simple sheet. The
+  /// [step]/[skill] anchor is structural only and isn't rendered.
+  final bool quickHello;
+
   const GardenGrowthRevealItem({
     required this.step,
     required this.skill,
@@ -400,12 +412,15 @@ class GardenGrowthRevealItem {
     required this.fromStage,
     required this.toStage,
     this.evidence,
+    this.wateringOnly = false,
+    this.quickHello = false,
   });
 
   String get skillId => skill.id;
 
   String get revealKey =>
-      '${skill.id}:${fromStage.key}:${toStage.key}:${evidence?.quote ?? ''}';
+      '${skill.id}:${fromStage.key}:${toStage.key}:${evidence?.quote ?? ''}'
+      '${wateringOnly ? ':water' : ''}${quickHello ? ':quick' : ''}';
 }
 
 class GardenGrowthRevealController
@@ -432,6 +447,178 @@ final gardenGrowthRevealProvider =
       GardenGrowthRevealController,
       List<GardenGrowthRevealItem>
     >((ref) => GardenGrowthRevealController());
+
+enum PostConversationGardenRevealStatus { analyzing, resolved }
+
+/// A retained, one-shot handoff from the conversation engine to the garden.
+///
+/// Unlike a widget-local flag, this survives the route transition from the
+/// conversation screen to a newly mounted [GardenScreen]. The garden consumes
+/// it only after fresh garden data is available and the reveal has been queued.
+class PostConversationGardenReveal {
+  final PostConversationGardenRevealStatus status;
+  final int chatNumber;
+  final int turnCount;
+  final List<String> targetSkillIds;
+  final Map<String, int> beforeSightings;
+  final Map<String, int> afterSightings;
+  final Set<String> beforeOwned;
+  final Set<String> beforeEmerging;
+  final Set<String> afterOwned;
+  final Set<String> afterEmerging;
+  final List<SkillScore> sessionScores;
+
+  const PostConversationGardenReveal({
+    required this.status,
+    required this.chatNumber,
+    required this.turnCount,
+    required this.targetSkillIds,
+    required this.beforeSightings,
+    this.afterSightings = const {},
+    required this.beforeOwned,
+    required this.beforeEmerging,
+    this.afterOwned = const {},
+    this.afterEmerging = const {},
+    this.sessionScores = const [],
+  });
+
+  bool get isResolved => status == PostConversationGardenRevealStatus.resolved;
+}
+
+class PostConversationGardenRevealController
+    extends StateNotifier<PostConversationGardenReveal?> {
+  PostConversationGardenRevealController() : super(null);
+
+  void begin({
+    required int chatNumber,
+    required int turnCount,
+    required List<String> targetSkillIds,
+    required MemoryState before,
+  }) {
+    state = PostConversationGardenReveal(
+      status: PostConversationGardenRevealStatus.analyzing,
+      chatNumber: chatNumber,
+      turnCount: turnCount,
+      targetSkillIds: List.unmodifiable(targetSkillIds),
+      beforeSightings: Map.unmodifiable(before.sightings),
+      beforeOwned: Set.unmodifiable(before.owned),
+      beforeEmerging: Set.unmodifiable(before.emerging),
+    );
+  }
+
+  void resolve({
+    required int chatNumber,
+    required int turnCount,
+    required List<String> targetSkillIds,
+    required MemoryState before,
+    required MemoryState after,
+    required List<SkillScore> sessionScores,
+  }) {
+    state = PostConversationGardenReveal(
+      status: PostConversationGardenRevealStatus.resolved,
+      chatNumber: chatNumber,
+      turnCount: turnCount,
+      targetSkillIds: List.unmodifiable(targetSkillIds),
+      beforeSightings: Map.unmodifiable(before.sightings),
+      afterSightings: Map.unmodifiable(after.sightings),
+      beforeOwned: Set.unmodifiable(before.owned),
+      beforeEmerging: Set.unmodifiable(before.emerging),
+      afterOwned: Set.unmodifiable(after.owned),
+      afterEmerging: Set.unmodifiable(after.emerging),
+      sessionScores: List.unmodifiable(sessionScores),
+    );
+  }
+
+  void consume(int chatNumber) {
+    if (state?.chatNumber == chatNumber) state = null;
+  }
+
+  void clear() => state = null;
+}
+
+final postConversationGardenRevealProvider =
+    StateNotifierProvider<
+      PostConversationGardenRevealController,
+      PostConversationGardenReveal?
+    >((ref) => PostConversationGardenRevealController());
+
+/// Resolves real growth from the memory snapshots captured around end-chat.
+/// Garden data supplies the canonical visual/copy object, while the snapshots
+/// make the comparison independent of whether a previous Garden route existed.
+List<GardenGrowthRevealItem> buildPostConversationGrowthRevealItems({
+  required GardenData after,
+  required PostConversationGardenReveal result,
+}) {
+  if (!result.isResolved) return const [];
+
+  final scoreById = <String, SkillScore>{};
+  for (final score in result.sessionScores) {
+    if (score.evidence.trim().isEmpty) continue;
+    final current = scoreById[score.id];
+    if (current == null || score.confidence > current.confidence) {
+      scoreById[score.id] = score;
+    }
+  }
+
+  final items = <GardenGrowthRevealItem>[];
+  for (var stepIndex = 0; stepIndex < after.steps.length; stepIndex++) {
+    final step = after.steps[stepIndex];
+    for (var skillIndex = 0; skillIndex < step.skills.length; skillIndex++) {
+      final skill = step.skills[skillIndex];
+      final beforeSightings = result.beforeSightings[skill.id] ?? 0;
+      final afterSightings = result.afterSightings[skill.id] ?? skill.sightings;
+      final fromStatus = _snapshotStatus(
+        skill.id,
+        result.beforeOwned,
+        result.beforeEmerging,
+      );
+      final toStatus = _snapshotStatus(
+        skill.id,
+        result.afterOwned,
+        result.afterEmerging,
+      );
+      final fromStage = gardenGrowthStageFor(
+        status: fromStatus,
+        sightings: beforeSightings,
+      );
+      final toStage = gardenGrowthStageFor(
+        status: toStatus,
+        sightings: afterSightings,
+      );
+      if (_growthStageRank(toStage) <= _growthStageRank(fromStage)) continue;
+
+      items.add(
+        GardenGrowthRevealItem(
+          step: step,
+          skill: skill,
+          stepIndex: stepIndex,
+          skillIndex: skillIndex,
+          fromStage: fromStage,
+          toStage: toStage,
+          evidence: _evidenceFromScore(scoreById[skill.id]),
+        ),
+      );
+    }
+  }
+  return List.unmodifiable(items);
+}
+
+int _growthStageRank(GardenGrowthStage stage) => switch (stage) {
+  GardenGrowthStage.seed => 0,
+  GardenGrowthStage.sprout => 1,
+  GardenGrowthStage.budding => 2,
+  GardenGrowthStage.bloomed => 3,
+};
+
+SkillStatus _snapshotStatus(
+  String skillId,
+  Set<String> owned,
+  Set<String> emerging,
+) {
+  if (owned.contains(skillId)) return SkillStatus.owned;
+  if (emerging.contains(skillId)) return SkillStatus.emerging;
+  return SkillStatus.locked;
+}
 
 List<GardenGrowthRevealItem> buildGardenGrowthRevealItems({
   required GardenData? before,
@@ -498,6 +685,128 @@ List<GardenGrowthRevealItem> buildGardenGrowthRevealItems({
   return List.unmodifiable(items);
 }
 
+/// Builds the post-conversation "no growth" reveal. Two tiers, keyed on
+/// [turnCount]:
+///
+/// - **Quick hello** (`turnCount < 3`): a lighter acknowledgement — no plant
+///   spotlight/watering, just a plain overlay + simple sheet. Resolves an anchor
+///   skill (aimed-at first, else the garden's first skill) purely for structure;
+///   returns null only when the garden has no skills at all.
+/// - **Watering** (`turnCount >= 3`): spotlights + waters the plot containing
+///   the first *aimed-at* skill that exists in [after], carrying the child's
+///   highest-confidence line from the whole session as a "line to remember".
+///   Falls back to an active, non-owned garden skill when the backend target
+///   cannot be resolved.
+GardenGrowthRevealItem? buildGardenWateringRevealItem({
+  required GardenData after,
+  required List<String> aimedAt,
+  required int turnCount,
+  List<String> fallbackSkillIds = const [],
+  List<SkillScore> sessionScores = const [],
+}) {
+  final quickHello = turnCount < 3;
+
+  final locationById =
+      <String, ({GardenStep step, int stepIndex, int skillIndex})>{};
+  for (var stepIndex = 0; stepIndex < after.steps.length; stepIndex++) {
+    final step = after.steps[stepIndex];
+    for (var skillIndex = 0; skillIndex < step.skills.length; skillIndex++) {
+      locationById[step.skills[skillIndex].id] = (
+        step: step,
+        stepIndex: stepIndex,
+        skillIndex: skillIndex,
+      );
+    }
+  }
+
+  ({GardenStep step, int stepIndex, int skillIndex})? resolved;
+  for (final skillId in {...aimedAt, ...fallbackSkillIds}) {
+    final location = locationById[skillId];
+    if (location != null) {
+      resolved = location;
+      break;
+    }
+  }
+
+  if (quickHello) {
+    // The quick-hello card is skill-agnostic; any anchor works. Fall back to the
+    // first skill in the garden when nothing was aimed at / resolvable.
+    final anchor = resolved ?? _firstSkillLocation(after);
+    if (anchor == null) return null;
+    final skill = anchor.step.skills[anchor.skillIndex];
+    final stage = gardenGrowthStageFor(
+      status: skill.status,
+      sightings: skill.sightings,
+    );
+    return GardenGrowthRevealItem(
+      step: anchor.step,
+      skill: skill,
+      stepIndex: anchor.stepIndex,
+      skillIndex: anchor.skillIndex,
+      fromStage: stage,
+      toStage: stage,
+      wateringOnly: true,
+      quickHello: true,
+    );
+  }
+
+  resolved ??= _fallbackWateringLocation(after);
+  if (resolved == null) return null;
+  final skill = resolved.step.skills[resolved.skillIndex];
+  final stage = gardenGrowthStageFor(
+    status: skill.status,
+    sightings: skill.sightings,
+  );
+  return GardenGrowthRevealItem(
+    step: resolved.step,
+    skill: skill,
+    stepIndex: resolved.stepIndex,
+    skillIndex: resolved.skillIndex,
+    fromStage: stage,
+    toStage: stage,
+    wateringOnly: true,
+    evidence: _bestSessionEvidenceFor(sessionScores),
+  );
+}
+
+({GardenStep step, int stepIndex, int skillIndex})? _fallbackWateringLocation(
+  GardenData after,
+) {
+  if (after.steps.isEmpty) return null;
+  final activeIndex = after.activeStepIndex.clamp(0, after.steps.length - 1);
+  final activeStep = after.steps[activeIndex];
+  for (
+    var skillIndex = 0;
+    skillIndex < activeStep.skills.length;
+    skillIndex++
+  ) {
+    if (activeStep.skills[skillIndex].status != SkillStatus.owned) {
+      return (step: activeStep, stepIndex: activeIndex, skillIndex: skillIndex);
+    }
+  }
+  for (var stepIndex = 0; stepIndex < after.steps.length; stepIndex++) {
+    final step = after.steps[stepIndex];
+    for (var skillIndex = 0; skillIndex < step.skills.length; skillIndex++) {
+      if (step.skills[skillIndex].status != SkillStatus.owned) {
+        return (step: step, stepIndex: stepIndex, skillIndex: skillIndex);
+      }
+    }
+  }
+  return _firstSkillLocation(after);
+}
+
+({GardenStep step, int stepIndex, int skillIndex})? _firstSkillLocation(
+  GardenData after,
+) {
+  for (var stepIndex = 0; stepIndex < after.steps.length; stepIndex++) {
+    final step = after.steps[stepIndex];
+    if (step.skills.isNotEmpty) {
+      return (step: step, stepIndex: stepIndex, skillIndex: 0);
+    }
+  }
+  return null;
+}
+
 int _inferredPreviousSightings(int sightings) {
   final capped = sightings >= 3 ? 3 : sightings;
   if (capped <= 0) return 0;
@@ -529,6 +838,24 @@ GardenEvidence? _growthEvidenceFor(GardenSkill? before, GardenSkill after) {
       .toList(growable: false);
   if (existing.isEmpty) return null;
   return existing.last;
+}
+
+GardenEvidence? _bestSessionEvidenceFor(List<SkillScore> scores) {
+  SkillScore? best;
+  for (final score in scores) {
+    if (score.evidence.trim().isEmpty) continue;
+    if (best == null || score.confidence > best.confidence) best = score;
+  }
+  return _evidenceFromScore(best);
+}
+
+GardenEvidence? _evidenceFromScore(SkillScore? score) {
+  if (score == null || score.evidence.trim().isEmpty) return null;
+  return GardenEvidence(
+    quote: score.evidence.trim(),
+    confidence: score.confidence,
+    prompted: score.prompted,
+  );
 }
 
 final gardenPreviewEnabledProvider = Provider<bool>(

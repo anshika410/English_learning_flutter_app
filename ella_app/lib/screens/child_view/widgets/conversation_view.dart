@@ -31,6 +31,11 @@ class ConversationView extends StatelessWidget {
   final bool mascotSpeaking;
   final bool mascotThinking; // Zoe is preparing her reply
 
+  /// Zoe is "paused" behind the back-button sheet — eyes closed, gentle sway.
+  /// Takes precedence over speaking/thinking/listening so she rests while the
+  /// sheet is up.
+  final bool mascotPaused;
+
   /// Latest-turn content. Zoe's line is always shown while talking/ending; the
   /// student bubble only appears for the current turn.
   final String? zoeLine;
@@ -64,6 +69,7 @@ class ConversationView extends StatelessWidget {
     required this.phase,
     required this.mascotSpeaking,
     this.mascotThinking = false,
+    this.mascotPaused = false,
     this.zoeLine,
     this.studentLine,
     this.studentLive = false,
@@ -88,7 +94,11 @@ class ConversationView extends StatelessWidget {
     final bubbleMaxWidth = w * 0.78;
 
     final mascot = ZoeMascot(
-      mode: mascotSpeaking
+      mode: phase == ConvPhase.ending && mascotSpeaking
+          ? ZoeMascotMode.speaking
+          : mascotPaused
+          ? ZoeMascotMode.paused
+          : mascotSpeaking
           ? ZoeMascotMode.speaking
           : mascotThinking
           ? ZoeMascotMode.thinking
