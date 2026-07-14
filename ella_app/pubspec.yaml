@@ -95,6 +95,18 @@ flutter:
     - assets/garden/tiles/
     - assets/profile/
     - assets/information-box/
+    - assets/skill-icons/a0-a1/
+    - assets/skill-icons/a1-a2/
+    - assets/skill-icons/a2-b1/
+    - assets/skill-icons/b1-b2/
+    - assets/skill-icons/b2-c1/
+    - assets/skill-icons/c1-c2/
+    - assets/unit-icons/a0-a1/
+    - assets/unit-icons/a1-a2/
+    - assets/unit-icons/a2-b1/
+    - assets/unit-icons/b1-b2/
+    - assets/unit-icons/b2-c1/
+    - assets/unit-icons/c1-c2/
     - assets/sounds/sfx/
     - assets/sounds/music/
     - assets/sounds/new-sounds/
@@ -161,4 +173,3 @@ flutter:
 dependency_overrides:
   google_sign_in_android:
     path: ../google_sign_in_android_patched
-

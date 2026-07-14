@@ -117,7 +117,7 @@ Future<void> _openUnitSheet(WidgetTester tester, GardenStep step) async {
 }
 
 void main() {
-  test('garden model parses optional dialog icon and description fields', () {
+  test('garden model replaces legacy icons with mapped curriculum assets', () {
     final step = GardenStep.fromJson({
       'unit': 1,
       'name': 'Describing the World',
@@ -126,7 +126,7 @@ void main() {
       'icon_id': 'u1-globe',
       'skills': [
         {
-          'id': 'voc-1',
+          'id': 'U1-VOC-01',
           'strand': 'VOC',
           'text': 'Describe people',
           'status': 'emerging',
@@ -134,11 +134,14 @@ void main() {
           'icon_path': 'people-who-support-svgrepo-com 1',
         },
       ],
-    });
+    }, level: 'A1');
 
     expect(step.description, 'Fresh backend unit description');
-    expect(step.icon, 'u1-globe');
-    expect(step.skills.single.icon, 'people-who-support-svgrepo-com 1');
+    expect(step.icon, 'assets/unit-icons/a1-a2/u1-globe.svg');
+    expect(
+      step.skills.single.icon,
+      'assets/skill-icons/a1-a2/01-two-faces.svg',
+    );
 
     final fallback = GardenStep.fromJson({
       'step': 2,
@@ -147,6 +150,26 @@ void main() {
       'skills': const [],
     });
     expect(fallback.description, 'Use focus as the current unit description');
+  });
+
+  test('garden model retains backend icons for unknown curriculum content', () {
+    final step = GardenStep.fromJson({
+      'unit': 1,
+      'name': 'Future unit',
+      'focus': 'Future focus',
+      'icon': 'future-unit.svg',
+      'skills': [
+        {
+          'id': 'future-skill',
+          'strand': 'VOC',
+          'text': 'Future skill',
+          'icon': 'future-skill.svg',
+        },
+      ],
+    }, level: 'C2');
+
+    expect(step.icon, 'future-unit.svg');
+    expect(step.skills.single.icon, 'future-skill.svg');
   });
 
   test('garden model keeps canonical copy while exposing display copy', () {
@@ -296,9 +319,7 @@ void main() {
         status: SkillStatus.owned,
         sightings: 3,
         displayText: 'Colours and numbers up to ten',
-        evidence: [
-          _evidence('This part of my garden was already grown.'),
-        ],
+        evidence: [_evidence('This part of my garden was already grown.')],
       );
       final step = _step(displayName: 'Naming the world', skills: [skill]);
 
@@ -422,5 +443,40 @@ void main() {
     );
     expect(find.text('Canonical internal step context'), findsNothing);
     expect(find.text('Canonical unit skill statement'), findsNothing);
+  });
+
+  testWidgets('mapped unit and skill icons keep their 48px sheet slots', (
+    tester,
+  ) async {
+    final skill = _skill(
+      id: 'U1-VOC-01',
+      icon: 'assets/skill-icons/a1-a2/01-two-faces.svg',
+      text: 'Describe people and how they feel',
+    );
+    final step = _step(
+      icon: 'assets/unit-icons/a1-a2/u1-globe.svg',
+      skills: [skill],
+    );
+
+    await _openSkillSheet(tester, skill, step: step);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('garden-skill-sheet-icon-U1-VOC-01')),
+      ),
+      const Size(48, 48),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _openUnitSheet(tester, step);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('garden-unit-sheet-icon-1'))),
+      const Size(48, 48),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('garden-unit-skill-icon-U1-VOC-01')),
+      ),
+      const Size(48, 48),
+    );
   });
 }

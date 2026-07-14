@@ -21,7 +21,6 @@ import '../../route_observer.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/garden.dart';
-import '../../providers/chat_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
@@ -536,14 +535,77 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
   @override
   void didPushNext() => _stopMusic();
 
+  bool _gardenReflectsGrowthResult(
+    GardenData data,
+    PostConversationGardenReveal result,
+    List<GardenGrowthRevealItem> growthItems,
+  ) {
+    final skills = <String, GardenSkill>{
+      for (final step in data.steps)
+        for (final skill in step.skills) skill.id: skill,
+    };
+    for (final item in growthItems) {
+      final skill = skills[item.skillId];
+      if (skill == null) return false;
+      final expectedSightings = result.afterSightings[item.skillId];
+      if (expectedSightings != null && skill.sightings < expectedSightings) {
+        return false;
+      }
+      final expectedStatus = result.afterOwned.contains(item.skillId)
+          ? SkillStatus.owned
+          : result.afterEmerging.contains(item.skillId)
+          ? SkillStatus.emerging
+          : SkillStatus.locked;
+      if (skill.status != expectedStatus) return false;
+    }
+    return true;
+  }
+
   void _registerGardenForReveal(
     GardenData data, {
     required bool allowDebugInference,
   }) {
+    final postConversation = ref.read(postConversationGardenRevealProvider);
+    final revealQueue = ref.read(gardenGrowthRevealProvider);
+    if (postConversation != null) {
+      if (!postConversation.isResolved) return;
+      if (revealQueue.isEmpty) {
+        final growthItems = buildPostConversationGrowthRevealItems(
+          after: data,
+          result: postConversation,
+        );
+        if (growthItems.isNotEmpty) {
+          // Growth waits until the garden payload itself contains the new
+          // stage. Watering-only acknowledgements can use the cached garden.
+          if (!_gardenReflectsGrowthResult(
+            data,
+            postConversation,
+            growthItems,
+          )) {
+            return;
+          }
+          ref.read(gardenGrowthRevealProvider.notifier).setQueue(growthItems);
+        } else {
+          final watering = buildGardenWateringRevealItem(
+            after: data,
+            aimedAt: postConversation.targetSkillIds,
+            fallbackSkillIds: postConversation.targetSkillIds,
+            turnCount: postConversation.turnCount,
+            sessionScores: postConversation.sessionScores,
+          );
+          if (watering != null) {
+            ref.read(gardenGrowthRevealProvider.notifier).setQueue([watering]);
+          }
+        }
+      }
+      ref
+          .read(postConversationGardenRevealProvider.notifier)
+          .consume(postConversation.chatNumber);
+      return;
+    }
+
     final previous = _lastGardenData;
     _lastGardenData = data;
-
-    final revealQueue = ref.read(gardenGrowthRevealProvider);
     if (revealQueue.isNotEmpty) return;
 
     final hasPreviewGrowth = data.steps
@@ -581,7 +643,8 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       _stopMusic();
     } else if (state == AppLifecycleState.resumed && mounted) {
       final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
@@ -593,14 +656,6 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Refetch the garden the instant a chat ends. endChat() sets sessionEnded
-    // only after the server has merged the new state, so this pulls fresh
-    // growth without the child having to leave and re-open the tab.
-    ref.listen<AsyncValue<ChatState>>(chatProvider, (prev, next) {
-      final wasEnded = prev?.valueOrNull?.sessionEnded ?? false;
-      final isEnded = next.valueOrNull?.sessionEnded ?? false;
-      if (isEnded && !wasEnded) ref.invalidate(gardenProvider);
-    });
     // When refreshed garden data shows a skill has grown while this screen is
     // mounted, queue the same reveal flow used after conversations. Baseline is
     // set silently on the first payload.
@@ -611,14 +666,15 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
         debugPrint('[Garden] load error: ${next.error}');
         showEllaErrorToast(context);
       }
-      final data = next.valueOrNull;
-      if (data == null) return;
+      if (next is! AsyncData<GardenData>) return;
+      final data = next.value;
       _registerGardenForReveal(
         data,
         allowDebugInference: ref.read(gardenPreviewEnabledProvider),
       );
     });
     final gardenAsync = ref.watch(gardenProvider);
+    final postConversation = ref.watch(postConversationGardenRevealProvider);
     final reducedMotion = MediaQuery.of(context).disableAnimations;
     final introActive =
         widget.firstTime &&
@@ -632,7 +688,16 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
       color: _middaySpec.hill.last,
       child: gardenAsync.when(
         data: (data) {
-          _lastGardenData ??= data;
+          if (!gardenAsync.isRefreshing ||
+              (postConversation?.isResolved ?? false)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _registerGardenForReveal(
+                data,
+                allowDebugInference: ref.read(gardenPreviewEnabledProvider),
+              );
+            });
+          }
           return _GardenView(
             data: data,
             soundOn: _soundOn,
@@ -642,10 +707,10 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
             onTalk: _returnHome,
           );
         },
-        loading: () => const MascotLoadingScreen(message: 'Preparing your garden...'),
-        error: (e, _) => NetworkErrorView(
-          onRetry: () => ref.invalidate(gardenProvider),
-        ),
+        loading: () =>
+            const MascotLoadingScreen(message: 'Preparing your garden...'),
+        error: (e, _) =>
+            NetworkErrorView(onRetry: () => ref.invalidate(gardenProvider)),
       ),
     );
     if (!widget.firstTime) return garden;
@@ -1013,12 +1078,24 @@ class _GardenView extends ConsumerStatefulWidget {
 class _GardenViewState extends ConsumerState<_GardenView> {
   late final ScrollController _scrollController;
   final Map<String, GlobalKey> _skillAnchorKeys = {};
+  final Map<int, GlobalKey> _plotAnchorKeys = {};
+  final Map<String, GlobalKey> _skillPlotAnchorKeys = {};
   final List<Timer> _revealTimers = [];
   double _scrollOffset = 0;
   String? _activeRevealKey;
   GardenGrowthRevealItem? _activeRevealItem;
   Offset? _spotlightCenter;
+  double _spotlightRadius = 0.62;
+  double _wateringSpread = 24;
   bool _spotlightVisible = false;
+  bool _wateringVisible = false;
+  bool _wateringFromLeft = false;
+  bool _pendingScoringWatering = false;
+  bool _scoringWaitCardVisible = false;
+  bool _cyclePourPeakReached = false;
+  bool _pendingResultApplied = false;
+  int _wateringCycle = 0;
+  GardenGrowthRevealItem? _pendingResultItem;
   bool _cardVisible = false;
   bool _revealCtaReady = false;
   bool _revealAdvancing = false;
@@ -1086,6 +1163,17 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     () => GlobalKey(debugLabel: 'garden-skill-anchor-$skillId'),
   );
 
+  GlobalKey _plotAnchorKeyFor(GardenStep step) {
+    final key = _plotAnchorKeys.putIfAbsent(
+      step.step,
+      () => GlobalKey(debugLabel: 'garden-plot-anchor-${step.step}'),
+    );
+    for (final skill in step.skills) {
+      _skillPlotAnchorKeys[skill.id] = key;
+    }
+    return key;
+  }
+
   void _cancelRevealTimers() {
     for (final timer in _revealTimers) {
       timer.cancel();
@@ -1100,14 +1188,113 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     _revealTimers.add(timer);
   }
 
-  void _syncRevealQueue(List<GardenGrowthRevealItem> queue) {
+  void _syncRevealState(
+    List<GardenGrowthRevealItem> queue,
+    PostConversationGardenReveal? postConversation,
+  ) {
     if (!mounted) return;
+    if (_pendingScoringWatering) {
+      if (queue.isNotEmpty && _pendingResultItem == null) {
+        _bufferPendingResult(queue.first);
+      }
+      return;
+    }
     if (queue.isEmpty) {
       if (_activeRevealKey != null) _resetRevealLayer();
+      if (postConversation != null &&
+          !postConversation.isResolved &&
+          postConversation.turnCount >= 3) {
+        final pendingItem = buildGardenWateringRevealItem(
+          after: widget.data,
+          aimedAt: postConversation.targetSkillIds,
+          fallbackSkillIds: postConversation.targetSkillIds,
+          turnCount: postConversation.turnCount,
+        );
+        if (pendingItem != null) _startPendingWatering(pendingItem);
+      }
       return;
     }
     final item = queue.first;
     if (_activeRevealKey == item.revealKey) return;
+    _startReveal(item);
+  }
+
+  void _startPendingWatering(GardenGrowthRevealItem item) {
+    _cancelRevealTimers();
+    final token = ++_revealToken;
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    setState(() {
+      _activeRevealKey = '${item.revealKey}:pending';
+      _activeRevealItem = item;
+      _pendingScoringWatering = true;
+      _pendingResultItem = null;
+      _pendingResultApplied = false;
+      _wateringCycle = 0;
+      _wateringFromLeft = false;
+      _cyclePourPeakReached = false;
+      _scoringWaitCardVisible = false;
+      _spotlightCenter = null;
+      _spotlightRadius = 0.9;
+      _wateringSpread = 24;
+      _spotlightVisible = false;
+      _wateringVisible = false;
+      _cardVisible = false;
+      _revealCtaReady = false;
+      _revealAdvancing = false;
+      _revealZoeMode = ZoeMascotMode.listening;
+      _poppingSkillId = null;
+    });
+    _afterReveal(
+      reducedMotion ? 0 : 300,
+      () => unawaited(_focusRevealPlant(item, token, pending: true)),
+    );
+  }
+
+  bool _samePlot(GardenGrowthRevealItem first, GardenGrowthRevealItem second) =>
+      first.step.step == second.step.step;
+
+  void _bufferPendingResult(GardenGrowthRevealItem item) {
+    if (!_pendingScoringWatering || _pendingResultItem != null) return;
+    setState(() {
+      _pendingResultItem = item;
+      _scoringWaitCardVisible = false;
+    });
+    final pendingItem = _activeRevealItem;
+    if (pendingItem != null &&
+        _samePlot(pendingItem, item) &&
+        _cyclePourPeakReached) {
+      _applyPendingResultDuringPour();
+    }
+    if (MediaQuery.of(context).disableAnimations) {
+      _finishReducedMotionPendingResult();
+    }
+  }
+
+  void _applyPendingResultDuringPour() {
+    final item = _pendingResultItem;
+    final pendingItem = _activeRevealItem;
+    if (item == null ||
+        pendingItem == null ||
+        _pendingResultApplied ||
+        !_samePlot(pendingItem, item)) {
+      return;
+    }
+    setState(() {
+      _pendingResultApplied = true;
+      _activeRevealItem = item;
+      _activeRevealKey = item.revealKey;
+    });
+    _playRevealResult(item);
+  }
+
+  void _finishReducedMotionPendingResult() {
+    final item = _pendingResultItem;
+    if (item == null || !_pendingScoringWatering) return;
+    setState(() {
+      _pendingScoringWatering = false;
+      _scoringWaitCardVisible = false;
+      _wateringVisible = false;
+    });
     _startReveal(item);
   }
 
@@ -1119,65 +1306,215 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       _activeRevealKey = item.revealKey;
       _activeRevealItem = item;
       _spotlightCenter = null;
+      _spotlightRadius = 0.62;
+      _wateringSpread = 24;
       _spotlightVisible = false;
+      _wateringVisible = false;
+      _pendingScoringWatering = false;
+      _scoringWaitCardVisible = false;
+      _cyclePourPeakReached = false;
+      _pendingResultApplied = false;
+      _pendingResultItem = null;
+      _wateringCycle = 0;
       _cardVisible = false;
       _revealCtaReady = false;
       _revealAdvancing = false;
       _revealZoeMode = ZoeMascotMode.listening;
       _poppingSkillId = null;
     });
+    if (item.quickHello) {
+      // No spotlight, no watering can, no scroll-to-plant — just fade the card
+      // in over the plain black overlay (rendered while the card is visible).
+      _afterReveal(reducedMotion ? 0 : 600, () {
+        if (token == _revealToken) _onWateringDone();
+      });
+      return;
+    }
     _afterReveal(
-      reducedMotion ? 0 : 1000,
+      reducedMotion ? 0 : 300,
       () => unawaited(_focusRevealPlant(item, token)),
     );
   }
 
-  Future<void> _focusRevealPlant(GardenGrowthRevealItem item, int token) async {
-    final anchorContext = _skillAnchorKeys[item.skillId]?.currentContext;
+  Future<void> _focusRevealPlant(
+    GardenGrowthRevealItem item,
+    int token, {
+    bool pending = false,
+  }) async {
+    final focusKey = item.wateringOnly
+        ? _skillPlotAnchorKeys[item.skillId]
+        : _skillAnchorKeys[item.skillId];
+    final anchorContext = focusKey?.currentContext;
     final reducedMotion = MediaQuery.of(context).disableAnimations;
     if (anchorContext != null) {
       await Scrollable.ensureVisible(
         anchorContext,
-        alignment: 0.48,
-        duration: Duration(milliseconds: reducedMotion ? 0 : 520),
+        alignment: item.wateringOnly ? 0.30 : 0.48,
+        duration: Duration(milliseconds: reducedMotion ? 0 : 400),
         curve: Curves.easeInOutCubic,
       );
     }
     if (!mounted || token != _revealToken) return;
-    await Future<void>.delayed(Duration(milliseconds: reducedMotion ? 0 : 80));
+    await Future<void>.delayed(Duration(milliseconds: reducedMotion ? 0 : 50));
     if (!mounted || token != _revealToken) return;
 
-    final center = _centerForAnchor(item.skillId);
-    final isBloom = item.toStage == GardenGrowthStage.bloomed;
+    final focus = _focusForReveal(item);
+    final center = focus.center;
     setState(() {
       _spotlightCenter = center;
+      _spotlightRadius = focus.radius;
+      _wateringSpread = focus.wateringSpread;
       _spotlightVisible = true;
-      _poppingSkillId = item.skillId;
+      // Every reveal begins on the right. Pending scoring alternates only after
+      // a complete cycle; _WateringCan clamps edge plots into the viewport.
+      _wateringFromLeft = false;
+      // Under reduced motion the can is skipped entirely; otherwise the
+      // _WateringCan drives _onWateringPourPeak / _onWateringDone. The plant
+      // does NOT pop yet — the growth pop is triggered mid-pour.
+      _wateringVisible = !reducedMotion;
     });
-    unawaited(ref.read(audioProvider).playSfx(isBloom ? Sounds.bloom : Sounds.sprout));
 
-    _afterReveal(reducedMotion ? 0 : 260, () {
-      if (token != _revealToken) return;
-      setState(() {
-        _cardVisible = true;
-        _revealZoeMode = ZoeMascotMode.listening;
-      });
-      _afterReveal(reducedMotion ? 0 : 700, () {
-        if (token == _revealToken) _markRevealCtaReady();
-      });
+    if (reducedMotion) {
+      if (pending) {
+        _afterReveal(2000, () {
+          if (_pendingScoringWatering && _pendingResultItem == null) {
+            setState(() => _scoringWaitCardVisible = true);
+          }
+        });
+        return;
+      }
+      // No pour visuals: fall straight through the pour-peak → done steps.
+      _onWateringPourPeak();
+      _onWateringDone();
+    }
+  }
+
+  // Fires mid-pour, as the first droplets reach the plant. For a growth reveal
+  // this triggers the plant's pop (_Plant reads _poppingSkillId) and plays the
+  // growth sfx; for a watering-only reveal it plays a gentle water sound and
+  // leaves the plant untouched.
+  void _onWateringPourPeak() {
+    final item = _activeRevealItem;
+    if (item == null) return;
+    _cyclePourPeakReached = true;
+    if (_pendingScoringWatering) {
+      if (_pendingResultItem != null) {
+        _applyPendingResultDuringPour();
+      } else {
+        unawaited(ref.read(audioProvider).playSfx(Sounds.sprout));
+      }
+      return;
+    }
+    _playRevealResult(item);
+  }
+
+  void _playRevealResult(GardenGrowthRevealItem item) {
+    if (item.wateringOnly) {
+      unawaited(ref.read(audioProvider).playSfx(Sounds.sprout));
+      return;
+    }
+    final isBloom = item.toStage == GardenGrowthStage.bloomed;
+    setState(() => _poppingSkillId = item.skillId);
+    unawaited(
+      ref.read(audioProvider).playSfx(isBloom ? Sounds.bloom : Sounds.sprout),
+    );
+  }
+
+  // Fires when the pour finishes: bring in Zoe's card, then ready the CTA.
+  void _onWateringDone() {
+    if (_pendingScoringWatering) {
+      _onPendingWateringCycleDone();
+      return;
+    }
+    _showRevealCardAfterWatering();
+  }
+
+  void _onPendingWateringCycleDone() {
+    if (!mounted) return;
+    _cyclePourPeakReached = false;
+    final result = _pendingResultItem;
+    final pendingItem = _activeRevealItem;
+    if (result != null && pendingItem != null) {
+      if (_samePlot(pendingItem, result)) {
+        if (!_pendingResultApplied) _applyPendingResultDuringPour();
+        setState(() {
+          _pendingScoringWatering = false;
+          _scoringWaitCardVisible = false;
+          _wateringVisible = false;
+          _activeRevealItem = result;
+          _activeRevealKey = result.revealKey;
+        });
+        _showRevealCardAfterWatering();
+      } else {
+        setState(() {
+          _pendingScoringWatering = false;
+          _scoringWaitCardVisible = false;
+          _wateringVisible = false;
+        });
+        _startReveal(result);
+      }
+      return;
+    }
+
+    setState(() {
+      _wateringCycle += 1;
+      _wateringFromLeft = _wateringCycle.isOdd;
+      _scoringWaitCardVisible = true;
+      // The changed cycle key restarts the complete two-second choreography.
+      _wateringVisible = true;
     });
   }
 
-  Offset _centerForAnchor(String skillId) {
-    final anchorContext = _skillAnchorKeys[skillId]?.currentContext;
+  void _showRevealCardAfterWatering() {
+    final token = _revealToken;
+    if (!mounted) return;
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    setState(() {
+      _cardVisible = true;
+      _revealZoeMode = ZoeMascotMode.listening;
+    });
+    _afterReveal(reducedMotion ? 0 : 400, () {
+      if (token == _revealToken) _markRevealCtaReady();
+    });
+  }
+
+  ({Offset center, double radius, double wateringSpread}) _focusForReveal(
+    GardenGrowthRevealItem item,
+  ) {
+    final focusKey = item.wateringOnly
+        ? _skillPlotAnchorKeys[item.skillId]
+        : _skillAnchorKeys[item.skillId];
+    final anchorContext = focusKey?.currentContext;
     final rootBox = context.findRenderObject() as RenderBox?;
     final anchorBox = anchorContext?.findRenderObject() as RenderBox?;
     if (rootBox == null || anchorBox == null || !anchorBox.hasSize) {
       final size = MediaQuery.sizeOf(context);
-      return Offset(size.width / 2, size.height * 0.37);
+      return (
+        center: Offset(size.width / 2, size.height * 0.37),
+        radius: item.wateringOnly ? 0.9 : 0.62,
+        wateringSpread: item.wateringOnly ? 180 : 24,
+      );
     }
     final global = anchorBox.localToGlobal(anchorBox.size.center(Offset.zero));
-    return rootBox.globalToLocal(global);
+    final center = rootBox.globalToLocal(global);
+    if (!item.wateringOnly) {
+      return (center: center, radius: 0.62, wateringSpread: 24);
+    }
+    final globalLeft = anchorBox.localToGlobal(
+      Offset(0, anchorBox.size.height / 2),
+    );
+    final globalRight = anchorBox.localToGlobal(
+      Offset(anchorBox.size.width, anchorBox.size.height / 2),
+    );
+    final plotWidth =
+        (rootBox.globalToLocal(globalRight).dx -
+                rootBox.globalToLocal(globalLeft).dx)
+            .abs();
+    return (
+      center: center,
+      radius: 0.9,
+      wateringSpread: math.min(220.0, plotWidth * 0.78),
+    );
   }
 
   void _markRevealCtaReady() {
@@ -1197,6 +1534,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       _revealAdvancing = true;
       _cardVisible = false;
       _revealCtaReady = false;
+      _wateringVisible = false;
       _poppingSkillId = null;
     });
     _afterReveal(reducedMotion ? 0 : 240, () {
@@ -1223,7 +1561,16 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       _activeRevealKey = null;
       _activeRevealItem = null;
       _spotlightCenter = null;
+      _spotlightRadius = 0.62;
+      _wateringSpread = 24;
       _spotlightVisible = false;
+      _wateringVisible = false;
+      _pendingScoringWatering = false;
+      _scoringWaitCardVisible = false;
+      _cyclePourPeakReached = false;
+      _pendingResultApplied = false;
+      _pendingResultItem = null;
+      _wateringCycle = 0;
       _cardVisible = false;
       _revealCtaReady = false;
       _revealAdvancing = false;
@@ -1245,8 +1592,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
   Widget build(BuildContext context) {
     final data = widget.data;
     final revealQueue = ref.watch(gardenGrowthRevealProvider);
+    final postConversation = ref.watch(postConversationGardenRevealProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncRevealQueue(revealQueue);
+      _syncRevealState(revealQueue, postConversation);
     });
     // The student's actual current level (drives the "You're here" chip).
     final currentLevel = data.level;
@@ -1323,6 +1671,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
                             spec: spec,
                             grownSkillIds: activeGrownSkillIds,
                             skillAnchorFor: _skillAnchorKeyFor,
+                            plotAnchorKey: _plotAnchorKeyFor(
+                              displayData.steps[i],
+                            ),
                             completedPrevious: completedPreviousActive,
                           ),
                       ],
@@ -1376,6 +1727,21 @@ class _GardenViewState extends ConsumerState<_GardenView> {
               onTap: () {},
             ),
           ),
+        // Quick-hello has no spotlight cut-out — the card reads on a plain,
+        // calm black field instead (fades in with the card).
+        if (_activeRevealItem?.quickHello ?? false)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                key: const ValueKey('garden-quick-hello-overlay'),
+                opacity: _cardVisible ? 0.62 : 0,
+                duration: Duration(
+                  milliseconds: media.disableAnimations ? 0 : 500,
+                ),
+                child: const ColoredBox(color: Colors.black),
+              ),
+            ),
+          ),
         Positioned.fill(
           child: IgnorePointer(
             child: AnimatedOpacity(
@@ -1386,9 +1752,45 @@ class _GardenViewState extends ConsumerState<_GardenView> {
               ),
               child: SpotlightOverlay(
                 pixelCenter: _spotlightCenter,
-                radius: 0.62,
+                radius: _spotlightRadius,
                 figmaStyle: true,
                 intensity: SpotlightIntensity.strong,
+              ),
+            ),
+          ),
+        ),
+        if (_wateringVisible && _spotlightCenter != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _WateringCan(
+                // Re-keyed per reveal so the animation restarts on the next
+                // plant instead of reusing the previous can's state.
+                key: ValueKey(
+                  'garden-watering-${_wateringFromLeft ? 'left' : 'right'}-'
+                  '$_wateringCycle-${_activeRevealKey ?? ''}',
+                ),
+                pixelCenter: _spotlightCenter!,
+                fromLeft: _wateringFromLeft,
+                targetSpread: _wateringSpread,
+                scale: (media.size.width / _designWidth)
+                    .clamp(0.86, 1.08)
+                    .toDouble(),
+                reducedMotion: media.disableAnimations,
+                onPourPeak: _onWateringPourPeak,
+                onDone: _onWateringDone,
+              ),
+            ),
+          ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              key: const ValueKey('garden-scoring-wait-card-opacity'),
+              opacity: _scoringWaitCardVisible ? 1 : 0,
+              duration: Duration(
+                milliseconds: media.disableAnimations ? 0 : 240,
+              ),
+              child: _GardenScoringWaitCard(
+                reducedMotion: media.disableAnimations,
               ),
             ),
           ),
@@ -1887,7 +2289,7 @@ class _GardenPreviewSheet extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Garden preview',
+                    'Garden level preview',
                     style: EllaFonts.bricolage(
                       const TextStyle(
                         fontSize: 18,
@@ -1923,75 +2325,12 @@ class _GardenPreviewSheet extends ConsumerWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      key: const ValueKey('garden-preview-trigger-growth'),
-                      onPressed: () {
-                        controller.triggerGrowth();
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: EllaColors.greenDeep,
-                        foregroundColor: EllaColors.onPrimary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 20),
-                      label: Text(
-                        'Trigger Growth',
-                        overflow: TextOverflow.ellipsis,
-                        style: EllaFonts.body(
-                          const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      key: const ValueKey('garden-preview-trigger-two-growth'),
-                      onPressed: () {
-                        controller.triggerTwoSkillsGrowth();
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: EllaColors.berryMain,
-                        foregroundColor: EllaColors.onPrimary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(Icons.filter_2_rounded, size: 20),
-                      label: Text(
-                        'Trigger 2 Skills',
-                        overflow: TextOverflow.ellipsis,
-                        style: EllaFonts.body(
-                          const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 12),
+            Text(
+              'To preview conversation outcomes, long-press End Call in the local preview chat.',
+              style: EllaTextStyles.caption.copyWith(
+                color: EllaColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -2795,6 +3134,7 @@ class _GardenUnitRow extends StatelessWidget {
   final _GardenLevelVisualSpec spec;
   final Set<String> grownSkillIds;
   final GlobalKey Function(String skillId) skillAnchorFor;
+  final GlobalKey plotAnchorKey;
   final bool completedPrevious;
   const _GardenUnitRow({
     required this.data,
@@ -2803,6 +3143,7 @@ class _GardenUnitRow extends StatelessWidget {
     required this.spec,
     required this.grownSkillIds,
     required this.skillAnchorFor,
+    required this.plotAnchorKey,
     this.completedPrevious = false,
   });
 
@@ -2814,8 +3155,8 @@ class _GardenUnitRow extends StatelessWidget {
         final leftInset = (constraints.maxWidth - _designWidth * scale) / 2;
         final plotOnLeft = index.isEven;
         final signName = step.displayName;
-        final signW = _signWidthFor(signName);
-        final signH = _signHeightFor(signName, signW);
+        const signW = _boulderWidth;
+        const signH = _boulderHeight;
         final signX = spec.sideProp == _GardenSideProp.lantern && !plotOnLeft
             ? 76.0
             : (plotOnLeft ? _designWidth - 40 - signW : 27.0);
@@ -2864,11 +3205,12 @@ class _GardenUnitRow extends StatelessWidget {
                         Positioned(
                           left: signX,
                           top: signY,
-                          child: _UnitSignPost(
+                          child: _UnitBoulder(
                             key: ValueKey('garden-unit-sign-${step.step}'),
                             name: signName,
                             width: signW,
                             height: signH,
+                            iconAsset: _stoneIconFor(step.icon),
                             onTap: () => showUnitSheet(context, data, step),
                           ),
                         ),
@@ -2882,6 +3224,7 @@ class _GardenUnitRow extends StatelessWidget {
                             spec: spec,
                             grownSkillIds: grownSkillIds,
                             skillAnchorFor: skillAnchorFor,
+                            plotAnchorKey: plotAnchorKey,
                             completedPrevious: completedPrevious,
                           ),
                         ),
@@ -3014,126 +3357,96 @@ Offset _ambientOffsetFor(
   }
 }
 
-double _signWidthFor(String name) {
-  final words = _unitTitleWordCount(name);
-  if (words <= 2) return 185;
-  if (words <= 3) return 246;
-  if (name.length > 26) return 246;
-  if (name.length > 16) return 232;
-  return 163;
+/// The boulder base is a fixed size so it sits consistently in the scene and
+/// stays proportionate to the garden tiles (unlike the old adaptive signpost).
+/// The SVG viewBox is 210×142 (aspect ≈ 1.48).
+const double _boulderWidth = 164;
+const double _boulderHeight = _boulderWidth / 1.48; // ≈ 111
+
+/// Resolves the stone-styled unit icon from the colored [icon] path
+/// (e.g. `…/u1-globe.svg` → `…/u1-globe-stone.svg`).
+String _stoneIconFor(String icon) {
+  if (icon.isEmpty || icon.contains('-stone.svg')) return icon;
+  return icon.replaceFirst('.svg', '-stone.svg');
 }
 
-double _signHeightFor(String name, double width) {
-  const horizontalPadding = 16.0 * 2;
-  const nailAndGapWidth = 28.0;
-  final availableTextWidth = width - horizontalPadding - nailAndGapWidth;
-  final estimatedCharsPerLine = math.max(10, (availableTextWidth / 8.0).floor());
-  final wrapsToTwoLines = name.length > estimatedCharsPerLine;
-  if (_unitTitleWordCount(name) > 3 || wrapsToTwoLines) return 64;
-  return 48;
-}
-
-int _unitTitleWordCount(String name) =>
-    name.trim().split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
-
-class _UnitSignPost extends StatelessWidget {
+class _UnitBoulder extends StatelessWidget {
   final String name;
   final double width;
   final double height;
+  final String iconAsset;
   final VoidCallback onTap;
-  const _UnitSignPost({
+  const _UnitBoulder({
     super.key,
     required this.name,
     required this.width,
     required this.height,
+    required this.iconAsset,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    // The readable flat top face of the boulder sits within the central band.
+    // Keep the icon + engraved text inside this safe area so nothing spills
+    // past the stone's silhouette.
+    final safeTextWidth = width * 0.66;
+
     return GestureDetector(
       onTap: withTapClick(onTap),
       child: SizedBox(
         width: width,
-        height: height + 13,
+        height: height,
         child: Stack(
+          alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
-            Positioned(
-              left: 11.5,
-              top: height,
-              child: const _SignLeg(
-                key: ValueKey('garden-unit-sign-leg-left'),
-                height: 13,
+            Positioned.fill(
+              child: SvgPicture.asset(
+                'assets/garden/props/boulder-base.svg',
+                fit: BoxFit.contain,
               ),
             ),
-            Positioned(
-              right: 11.5,
-              top: height,
-              child: const _SignLeg(
-                key: ValueKey('garden-unit-sign-leg-right'),
-                height: 13,
-              ),
-            ),
-            Container(
-              key: const ValueKey('garden-unit-sign-board'),
-              height: height,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFC49050),
-                    Color(0xFF9B6828),
-                    Color(0xFFB08040),
-                    Color(0xFF966828),
-                    Color(0xFF8A5712),
-                  ],
-                  stops: [0, 0.28, 0.55, 0.78, 1],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.22),
-                    offset: const Offset(0, 2),
-                    blurRadius: 3,
-                    blurStyle: BlurStyle.inner,
+            Column(
+              key: const ValueKey('garden-unit-sign-content'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (iconAsset.isNotEmpty) ...[
+                  _EngravedIcon(
+                    key: const ValueKey('garden-unit-sign-icon'),
+                    asset: iconAsset,
+                    size: 24,
                   ),
-                  BoxShadow(
-                    color: const Color(0xFF3A2010).withValues(alpha: 0.2),
-                    offset: const Offset(0, -2),
-                    blurRadius: 4,
-                    blurStyle: BlurStyle.inner,
-                  ),
+                  const SizedBox(height: 3),
                 ],
-              ),
-              child: Center(
-                child: Row(
-                  children: [
-                    const _NailDot(),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        key: const ValueKey('garden-unit-sign-label'),
-                        name,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: EllaFonts.body(
-                          const TextStyle(
-                            fontSize: 14,
-                            height: 1.35,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xCCFFFFFF),
+                SizedBox(
+                  width: safeTextWidth,
+                  child: Text(
+                    key: const ValueKey('garden-unit-sign-label'),
+                    name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: EllaFonts.body(
+                      const TextStyle(
+                        fontSize: 14,
+                        height: 1.15,
+                        fontWeight: FontWeight.w700,
+                        color: EllaColors.textSecondary,
+                        shadows: [
+                          // Light lower "lip" gives the letters a carved,
+                          // engraved-into-the-stone relief.
+                          Shadow(
+                            color: Color(0x66FFFFFF),
+                            offset: Offset(0, 1),
+                            blurRadius: 0.5,
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const _NailDot(),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -3142,40 +3455,46 @@ class _UnitSignPost extends StatelessWidget {
   }
 }
 
-class _SignLeg extends StatelessWidget {
-  final double height;
-  const _SignLeg({super.key, required this.height});
+/// Renders a boulder unit-sign icon so it reads as carved into the stone rather
+/// than sitting on top of it. The icon keeps its own colours; a dark inset copy
+/// offset upward makes its top edge recede, and a light lip copy offset downward
+/// (the same `0x66FFFFFF` highlight the engraved label uses) fakes the lower rim
+/// of a chiselled groove.
+class _EngravedIcon extends StatelessWidget {
+  final String asset;
+  final double size;
+  const _EngravedIcon({super.key, required this.asset, required this.size});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 8,
-      height: height,
-      decoration: const BoxDecoration(
-        color: Color(0xFF79502C),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
+  // Matches the label's engraved lip so icon and text relief read identically.
+  static const Color _lip = Color(0x66FFFFFF);
+  // Sits against the stone's flat top face (≈ #C9C2B0/#DCD6C6); a soft dark
+  // tint gives the top edge a recessed shadow.
+  static const Color _inset = Color(0x40000000);
+
+  Widget _silhouette(Color color, Offset offset) {
+    return Transform.translate(
+      offset: offset,
+      child: SvgPicture.asset(
+        asset,
+        width: size,
+        height: size,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
       ),
     );
   }
-}
-
-class _NailDot extends StatelessWidget {
-  const _NailDot();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: const Color(0xFF3A2010),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.2),
-            offset: const Offset(0.5, 0.5),
-            blurRadius: 0.5,
-          ),
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          _silhouette(_inset, const Offset(0, -1)),
+          _silhouette(_lip, const Offset(0, 1)),
+          SvgPicture.asset(asset, width: size, height: size),
         ],
       ),
     );
@@ -3426,6 +3745,7 @@ class _Plot extends StatelessWidget {
   final _GardenLevelVisualSpec spec;
   final Set<String> grownSkillIds;
   final GlobalKey Function(String skillId) skillAnchorFor;
+  final GlobalKey plotAnchorKey;
   final bool completedPrevious;
   const _Plot({
     super.key,
@@ -3434,6 +3754,7 @@ class _Plot extends StatelessWidget {
     required this.spec,
     required this.grownSkillIds,
     required this.skillAnchorFor,
+    required this.plotAnchorKey,
     this.completedPrevious = false,
   });
 
@@ -3452,6 +3773,7 @@ class _Plot extends StatelessWidget {
     final cols = math.max(1, math.sqrt(skills.length).ceil());
 
     return SizedBox(
+      key: plotAnchorKey,
       width: _plotW,
       height: _plotH,
       child: Stack(
@@ -3687,6 +4009,248 @@ double _plantVerticalNudgeFor(GardenSkill skill) => switch (skill.sightings) {
 // Spring-overshoot curve from the grove handoff: cubic-bezier(0.34,1.56,0.64,1).
 // Scales past 1.0 before settling, giving the plant a satisfying "pop".
 const Cubic _popCurve = Cubic(0.34, 1.56, 0.64, 1.0);
+
+// ── Watering can pour (post-conversation reveal) ────────────────────────────
+//
+// A one-shot choreography that tilts a watering can in from a top corner and
+// rains a few droplets onto the spotlit plant, then lifts back out. Only the
+// concept is taken from the garden design artifact; sizing, timing and the
+// SVGs (assets/garden/props/watering-can.svg + water-drop.svg) are ours.
+//
+// The controller runs 0→1 over [_WateringCan.duration]; sub-phases are carved
+// out with Intervals:
+//   enter  0.00–0.20  can slides + fades in from the corner, upright (400ms)
+//   tilt   0.20–0.32  can rotates and settles near the plot (240ms)
+//   pour   0.30–0.80  droplets water the full targeted plot (1000ms)
+//   exit   0.80–1.00  can un-tilts and lifts back out / fades (400ms)
+// onPourPeak fires once at ~0.52 (as the first drops reach the garden); onDone
+// fires when the controller completes.
+class _WateringCan extends StatefulWidget {
+  /// Plant centre in the reveal layer's coordinate space (from
+  /// `_centerForAnchor`). The can hovers above-and-to-the-side of this.
+  final Offset pixelCenter;
+
+  /// When true the can enters from the top-left and pours rightward (used near
+  /// the right screen edge so the can + drops never clip).
+  final bool fromLeft;
+  final double targetSpread;
+  final double scale;
+  final bool reducedMotion;
+  final VoidCallback onPourPeak;
+  final VoidCallback onDone;
+
+  const _WateringCan({
+    super.key,
+    required this.pixelCenter,
+    required this.fromLeft,
+    required this.targetSpread,
+    required this.scale,
+    required this.reducedMotion,
+    required this.onPourPeak,
+    required this.onDone,
+  });
+
+  static const Duration duration = Duration(milliseconds: 2000);
+
+  @override
+  State<_WateringCan> createState() => _WateringCanState();
+}
+
+class _WateringCanState extends State<_WateringCan>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _WateringCan.duration,
+  );
+
+  bool _pourFired = false;
+
+  // Phase curves.
+  late final Animation<double> _enter = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.0, 0.20, curve: Curves.easeOutCubic),
+  );
+  late final Animation<double> _tilt = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.20, 0.32, curve: Curves.easeInOut),
+  );
+  late final Animation<double> _untilt = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.80, 1.0, curve: Curves.easeInOut),
+  );
+  late final Animation<double> _exit = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(0.80, 1.0, curve: Curves.easeInCubic),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.reducedMotion) {
+      // No pour visuals under reduced motion: just fire the callbacks in order.
+      widget.onPourPeak();
+      widget.onDone();
+      return;
+    }
+    _controller.addListener(_maybeFirePourPeak);
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) widget.onDone();
+    });
+    _controller.forward();
+  }
+
+  void _maybeFirePourPeak() {
+    if (_pourFired || _controller.value < 0.52) return;
+    _pourFired = true;
+    widget.onPourPeak();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.reducedMotion) return const SizedBox.shrink();
+
+    final s = widget.scale;
+    final canWidth = 64.0 * s;
+    final canHeight = 56.0 * s;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    // The spout tip sits at roughly (9, 9) in the 128×112 viewBox → normalise.
+    final spoutTip = Offset(canWidth * (9 / 128), canHeight * (9 / 112));
+
+    // Horizontal side the can pours from. Default top-right (can on the right,
+    // tilting left toward the plant); flipped near the right edge.
+    final dir = widget.fromLeft ? -1.0 : 1.0;
+
+    // Rest position of the spout tip once tilted: just above the plant, offset
+    // slightly to the pour side so the arc of drops lands on the plant centre.
+    final tipRestX = widget.pixelCenter.dx + dir * 24 * s;
+    final tipRestY = widget.pixelCenter.dy - 82 * s;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final tilt = 0.42 * _tilt.value - 0.42 * _untilt.value;
+        // Enter offset: drift in from higher and further into the corner.
+        final enterT = 1 - _enter.value;
+        final dx = dir * 46 * s * enterT;
+        final dy = -40 * s * enterT;
+        // Exit lift.
+        final exitLift = -34 * s * _exit.value;
+        final opacity =
+            (_enter.value).clamp(0.0, 1.0) * (1 - _exit.value).clamp(0.0, 1.0);
+
+        // Position so the (rotated) spout tip lands near tipRest.
+        final rawTipX = tipRestX + dx;
+        final tipY = tipRestY + dy + exitLift;
+        final canLeft = (rawTipX - spoutTip.dx)
+            .clamp(8.0, math.max(8.0, viewportWidth - canWidth - 8.0))
+            .toDouble();
+        final tipX = canLeft + spoutTip.dx;
+        final canTop = tipY - spoutTip.dy;
+
+        return Stack(
+          children: [
+            // Droplets fall from the spout tip toward the plant centre.
+            ..._buildDrops(
+              origin: Offset(tipX, tipY),
+              target: widget.pixelCenter,
+              targetSpread: widget.targetSpread,
+              scale: s,
+            ),
+            Positioned(
+              left: canLeft,
+              top: canTop,
+              width: canWidth,
+              height: canHeight,
+              child: Opacity(
+                opacity: opacity,
+                child: Transform(
+                  key: const ValueKey('garden-watering-can-transform'),
+                  alignment: Alignment(
+                    (spoutTip.dx / canWidth) * 2 - 1,
+                    (spoutTip.dy / canHeight) * 2 - 1,
+                  ),
+                  transform: Matrix4.identity()
+                    ..scaleByDouble(widget.fromLeft ? -1.0 : 1.0, 1.0, 1.0, 1.0)
+                    // The source art points up-left. Counterclockwise lowers
+                    // its spout toward the plot; horizontal mirroring naturally
+                    // produces the matching clockwise tilt from the left.
+                    ..rotateZ(-tilt),
+                  child: SvgPicture.asset(
+                    'assets/garden/props/watering-can.svg',
+                    key: const ValueKey('garden-watering-can-art'),
+                    width: canWidth,
+                    height: canHeight,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildDrops({
+    required Offset origin,
+    required Offset target,
+    required double targetSpread,
+    required double scale,
+  }) {
+    // Drops continuously water the plot for the middle second of the sequence.
+    const pourStart = 0.30;
+    const pourEnd = 0.80;
+    final t = _controller.value;
+    if (t < pourStart || t > pourEnd) return const [];
+    final pourT = ((t - pourStart) / (pourEnd - pourStart)).clamp(0.0, 1.0);
+
+    const dropCount = 7;
+    final dropW = 15.0 * scale;
+    final dropH = 20.0 * scale;
+    final widgets = <Widget>[];
+    for (var i = 0; i < dropCount; i++) {
+      // Stagger each drop's launch across the pour window.
+      final phase = i / dropCount;
+      final local = ((pourT - phase) / (1 - phase)).clamp(0.0, 1.0);
+      if (local <= 0) continue;
+      final eased = Curves.easeIn.transform(local);
+      // Give every drop its own evenly spaced landing point. Watering-only
+      // reveals pass the plot width here, while real growth stays tightly
+      // focused on the plant.
+      final landingDx = -targetSpread / 2 + targetSpread * i / (dropCount - 1);
+      final targetX = target.dx + landingDx;
+      final x = origin.dx + (targetX - origin.dx) * eased;
+      final y = origin.dy + (target.dy - origin.dy) * eased;
+      // Fade out as the drop nears the plant.
+      final opacity = (1 - Curves.easeIn.transform(local)) * 0.9 + 0.1;
+      widgets.add(
+        Positioned(
+          left: x - dropW / 2,
+          top: y - dropH / 2,
+          width: dropW,
+          height: dropH,
+          child: Opacity(
+            opacity: local >= 1 ? 0 : opacity.clamp(0.0, 1.0),
+            child: SvgPicture.asset(
+              'assets/garden/props/water-drop.svg',
+              key: ValueKey('garden-water-drop-$i'),
+              width: dropW,
+              height: dropH,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      );
+    }
+    return widgets;
+  }
+}
 
 // Idle plant sway: rotation ±4° about the bottom-centre, 2400ms ping-pong.
 const double _swayMaxRad = 4.0 * math.pi / 180;
@@ -4070,6 +4634,73 @@ const Color _growthRevealSurface = Color(0xFFFFFDF4);
 const Color _growthRevealGreen = Color(0xFF185E35);
 const Color _growthRevealWoodDark = Color(0xFF8A5712);
 
+class _GardenScoringWaitCard extends StatelessWidget {
+  final bool reducedMotion;
+
+  const _GardenScoringWaitCard({required this.reducedMotion});
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final bottom = media.padding.bottom + 44;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(32, 76, 32, bottom),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: media.size.width - 64),
+          child: IntrinsicWidth(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  key: const ValueKey('garden-scoring-wait-card'),
+                  padding: const EdgeInsets.fromLTRB(72, 18, 22, 18),
+                  decoration: ellaSmoothDecoration(
+                    color: _growthRevealSurface,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(20),
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                    ),
+                    side: const BorderSide(
+                      color: _growthRevealBorder,
+                      width: 3,
+                    ),
+                  ),
+                  child: Text(
+                    'Just a little more watering…',
+                    maxLines: 2,
+                    style: EllaFonts.body(
+                      const TextStyle(
+                        fontSize: 16,
+                        height: 1.6,
+                        fontWeight: FontWeight.w600,
+                        color: _growthRevealGreen,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: -6,
+                  top: -46,
+                  child: ZoeMascot(
+                    key: const ValueKey('garden-scoring-wait-zoe'),
+                    mode: ZoeMascotMode.thinking,
+                    size: 76,
+                    reducedMotion: reducedMotion,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _GardenGrowthRevealLayer extends StatelessWidget {
   final GardenGrowthRevealItem item;
   final bool visible;
@@ -4098,13 +4729,51 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
         final width = constraints.maxWidth;
         final height = constraints.maxHeight;
         final scale = (width / _designWidth).clamp(0.86, 1.08).toDouble();
-        final cardWidth = math.min(382.0, width - 48);
+        double measureQuickHelloLine(String text, TextStyle style) {
+          final painter = TextPainter(
+            text: TextSpan(text: text, style: style),
+            maxLines: 1,
+            textDirection: Directionality.of(context),
+            textScaler: media.textScaler,
+          )..layout();
+          return painter.width;
+        }
+
+        final quickHelloNaturalWidth =
+            math.max(
+              measureQuickHelloLine(
+                'That was a quick hello 👋',
+                EllaFonts.body(
+                  const TextStyle(
+                    fontSize: 16,
+                    height: 1.6,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              measureQuickHelloLine(
+                "We can talk more whenever you're ready",
+                EllaFonts.body(
+                  const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ) +
+            36;
+        final cardWidth = item.quickHello
+            ? math.min(math.min(quickHelloNaturalWidth, 320.0), width - 64)
+            : math.min(382.0, width - 48);
         final cardLeft = (width - cardWidth) / 2;
         final minTop = media.padding.top + 96;
-        final estimatedCardHeight = math.min(
-          324.0,
-          math.max(248.0, height - minTop - media.padding.bottom - 132),
-        );
+        final estimatedCardHeight = item.quickHello
+            ? 116.0
+            : math.min(
+                324.0,
+                math.max(248.0, height - minTop - media.padding.bottom - 132),
+              );
         final focusY = spotlightCenter?.dy ?? height * 0.56;
         final maxTop = math.max(
           minTop,
@@ -4137,41 +4806,51 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
         return Stack(
           children: [
             AnimatedOpacity(
+              key: const ValueKey('garden-growth-reveal-card-opacity'),
               opacity: visible ? 1 : 0,
               duration: Duration(milliseconds: reducedMotion ? 0 : 320),
               child: AnimatedSlide(
                 offset: visible ? Offset.zero : const Offset(0, 0.035),
                 duration: Duration(milliseconds: reducedMotion ? 0 : 320),
                 curve: Curves.easeOutCubic,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      left: cardLeft,
-                      top: cardTop,
-                      width: cardWidth,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: cardMaxHeight),
-                        child: _GardenGrowthRevealCard(item: item),
-                      ),
-                    ),
-                    Positioned(
-                      left: math.max(16.0, cardLeft - 6 * scale),
-                      // Zoe sits ON the card, overlapping its top edge (~14px),
-                      // rather than floating above it.
-                      top: math.max(
-                        media.padding.top + 16,
-                        cardTop - 58 * scale,
-                      ),
-                      child: ZoeMascot(
-                        key: const ValueKey('garden-growth-reveal-zoe'),
-                        mode: zoeMode,
-                        size: mascotSize,
+                child: item.wateringOnly && !item.quickHello
+                    ? _WateringRevealPresentation(
+                        item: item,
+                        cardWidth: cardWidth,
+                        mascotSize: mascotSize,
+                        zoeMode: zoeMode,
                         reducedMotion: reducedMotion,
+                      )
+                    : Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned(
+                            left: cardLeft,
+                            top: cardTop,
+                            width: cardWidth,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: cardMaxHeight,
+                              ),
+                              child: _GardenGrowthRevealCard(item: item),
+                            ),
+                          ),
+                          Positioned(
+                            left: math.max(16.0, cardLeft - 6 * scale),
+                            // Zoe sits ON the card, overlapping its top edge.
+                            top: math.max(
+                              media.padding.top + 16,
+                              cardTop - 58 * scale,
+                            ),
+                            child: ZoeMascot(
+                              key: const ValueKey('garden-growth-reveal-zoe'),
+                              mode: zoeMode,
+                              size: mascotSize,
+                              reducedMotion: reducedMotion,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
             AnimatedSwitcher(
@@ -4203,6 +4882,69 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
   }
 }
 
+class _WateringRevealPresentation extends StatelessWidget {
+  final GardenGrowthRevealItem item;
+  final double cardWidth;
+  final double mascotSize;
+  final ZoeMascotMode zoeMode;
+  final bool reducedMotion;
+
+  const _WateringRevealPresentation({
+    required this.item,
+    required this.cardWidth,
+    required this.mascotSize,
+    required this.zoeMode,
+    required this.reducedMotion,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    const cardTopInset = 58.0;
+    final topPadding = media.padding.top + 72;
+    final bottomPadding = media.padding.bottom + 112;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = math.max(
+          0.0,
+          constraints.maxHeight - topPadding - bottomPadding,
+        );
+        return SingleChildScrollView(
+          key: const ValueKey('garden-watering-reveal-presentation-scroll'),
+          padding: EdgeInsets.fromLTRB(0, topPadding, 0, bottomPadding),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: availableHeight),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                width: cardWidth,
+                child: Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: cardTopInset),
+                      child: _GardenGrowthRevealCard(item: item),
+                    ),
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: ZoeMascot(
+                        key: const ValueKey('garden-growth-reveal-zoe'),
+                        mode: zoeMode,
+                        size: mascotSize,
+                        reducedMotion: reducedMotion,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _GardenGrowthRevealCard extends StatelessWidget {
   final GardenGrowthRevealItem item;
   const _GardenGrowthRevealCard({required this.item});
@@ -4211,6 +4953,13 @@ class _GardenGrowthRevealCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final track = item.skill.strand.track;
     final quote = item.evidence?.quote.trim();
+
+    if (item.quickHello) {
+      return _buildQuickHelloCard();
+    }
+    if (item.wateringOnly) {
+      return _buildWateringOnlyCard(quote);
+    }
 
     return Container(
       key: const ValueKey('garden-growth-reveal-card'),
@@ -4281,31 +5030,205 @@ class _GardenGrowthRevealCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _RevealGrowthChip(
-                  key: ValueKey('garden-growth-from-${item.fromStage.key}'),
-                  stage: item.fromStage,
+            if (item.wateringOnly) ...[
+              const _GrowthRevealDivider(),
+              const SizedBox(height: 12),
+              if (quote != null && quote.isNotEmpty) ...[
+                Text(
+                  'A line to remember',
+                  style: EllaFonts.body(
+                    const TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      fontWeight: FontWeight.w600,
+                      color: EllaColors.ink,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 16,
-                  color: EllaColors.ink,
+                const SizedBox(height: 8),
+                Container(
+                  key: const ValueKey('garden-watering-reveal-note'),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: track.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: track.border, width: 2),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/information-box/quote-mark.svg',
+                        width: 16,
+                        height: 16,
+                        colorFilter: ColorFilter.mode(
+                          track.text,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          quote,
+                          style: EllaFonts.body(
+                            TextStyle(
+                              fontSize: 14,
+                              height: 1.6,
+                              fontWeight: FontWeight.w600,
+                              color: track.text,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _RevealGrowthChip(
-                  key: ValueKey('garden-growth-to-${item.toStage.key}'),
-                  stage: item.toStage,
+              ] else
+                Text(
+                  key: const ValueKey('garden-watering-reveal-note'),
+                  'You practiced this skill with Zoe. Keep watering it — it '
+                  'will grow soon!',
+                  style: EllaFonts.body(
+                    const TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      fontWeight: FontWeight.w600,
+                      color: EllaColors.ink,
+                    ),
+                  ),
                 ),
-              ],
+            ] else ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _RevealGrowthChip(
+                    key: ValueKey('garden-growth-from-${item.fromStage.key}'),
+                    stage: item.fromStage,
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: EllaColors.ink,
+                  ),
+                  const SizedBox(width: 8),
+                  _RevealGrowthChip(
+                    key: ValueKey('garden-growth-to-${item.toStage.key}'),
+                    stage: item.toStage,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const _GrowthRevealDivider(),
+              const SizedBox(height: 12),
+              Text(
+                'What You Said',
+                style: EllaFonts.body(
+                  const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    fontWeight: FontWeight.w600,
+                    color: EllaColors.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                key: const ValueKey('garden-growth-reveal-evidence'),
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: track.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: track.border, width: 2),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/information-box/quote-mark.svg',
+                      width: 16,
+                      height: 16,
+                      colorFilter: ColorFilter.mode(
+                        track.text,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        quote == null || quote.isEmpty
+                            ? 'I practiced this with Zoe.'
+                            : quote,
+                        style: EllaFonts.body(
+                          TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            fontWeight: FontWeight.w600,
+                            color: track.text,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWateringOnlyCard(String? quote) {
+    return Container(
+      key: const ValueKey('garden-growth-reveal-card'),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      clipBehavior: Clip.antiAlias,
+      decoration: ellaSmoothDecoration(
+        color: _growthRevealSurface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(4),
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+        side: const BorderSide(color: _growthRevealBorder, width: 3),
+      ),
+      child: Column(
+        key: const ValueKey('garden-watering-reveal-card'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            key: const ValueKey('garden-growth-reveal-title'),
+            'You watered your garden today',
+            style: EllaFonts.body(
+              const TextStyle(
+                fontSize: 16,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+                color: _growthRevealGreen,
+              ),
             ),
-            const SizedBox(height: 12),
-            const _GrowthRevealDivider(),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Every conversation gives your English a little more life.',
+            style: EllaFonts.body(
+              const TextStyle(
+                fontSize: 14,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+                color: EllaColors.ink,
+              ),
+            ),
+          ),
+          if (quote != null && quote.isNotEmpty) ...[
+            const SizedBox(height: 16),
             Text(
-              'What You Said',
+              'A line to remember',
               style: EllaFonts.body(
                 const TextStyle(
                   fontSize: 14,
@@ -4317,35 +5240,39 @@ class _GardenGrowthRevealCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Container(
-              key: const ValueKey('garden-growth-reveal-evidence'),
+              key: const ValueKey('garden-watering-reveal-note'),
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: track.surface,
+              decoration: ellaSmoothDecoration(
+                color: EllaColors.greenLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: track.border, width: 2),
+                side: const BorderSide(color: EllaColors.greenMain, width: 2),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SvgPicture.asset(
-                    'assets/information-box/quote-mark.svg',
-                    width: 16,
-                    height: 16,
-                    colorFilter: ColorFilter.mode(track.text, BlendMode.srcIn),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: SvgPicture.asset(
+                      'assets/information-box/quote-mark.svg',
+                      width: 16,
+                      height: 16,
+                      colorFilter: const ColorFilter.mode(
+                        EllaColors.greenDeep,
+                        BlendMode.srcIn,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      quote == null || quote.isEmpty
-                          ? 'I practiced this with Zoe.'
-                          : quote,
+                      quote,
                       style: EllaFonts.body(
-                        TextStyle(
+                        const TextStyle(
                           fontSize: 14,
                           height: 1.6,
                           fontWeight: FontWeight.w600,
-                          color: track.text,
+                          color: EllaColors.greenDeep,
                         ),
                       ),
                     ),
@@ -4354,7 +5281,59 @@ class _GardenGrowthRevealCard extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// The lighter "quick hello" card: no plant chrome, no skill row — just a
+  /// title and a warm one-liner. Shown when a session ended with no growth and
+  /// fewer than a few turns (see [GardenGrowthRevealItem.quickHello]).
+  Widget _buildQuickHelloCard() {
+    return Container(
+      key: const ValueKey('garden-quick-hello-card'),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
+      clipBehavior: Clip.antiAlias,
+      decoration: ellaSmoothDecoration(
+        color: _growthRevealSurface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(4),
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
         ),
+        side: const BorderSide(color: _growthRevealBorder, width: 3),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            key: const ValueKey('garden-quick-hello-title'),
+            _growthRevealTitle(item),
+            style: EllaFonts.body(
+              const TextStyle(
+                fontSize: 16,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+                color: _growthRevealGreen,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            key: const ValueKey('garden-quick-hello-note'),
+            "We can talk more whenever you're ready",
+            style: EllaFonts.body(
+              const TextStyle(
+                fontSize: 14,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+                color: EllaColors.ink,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4496,6 +5475,12 @@ _RevealGrowthVisual _growthStageVisual(GardenGrowthStage stage) =>
     };
 
 String _growthRevealTitle(GardenGrowthRevealItem item) {
+  if (item.quickHello) {
+    return 'That was a quick hello 👋';
+  }
+  if (item.wateringOnly) {
+    return 'You watered your garden today';
+  }
   if (item.toStage == GardenGrowthStage.bloomed) {
     return 'This skill is in full bloom!';
   }
