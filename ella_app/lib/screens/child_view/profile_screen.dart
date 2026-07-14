@@ -373,16 +373,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                       const SizedBox(height: 12),
                       // ── Delete Account ────────────────────────────────
-                      _PillButton(
-                        icon: const Icon(Icons.delete_outline_rounded,
-                            size: 20, color: EllaColors.errorDark),
-                        label: 'Delete Account',
-                        fill: EllaColors.errorLight,
-                        border: EllaColors.errorDark,
-                        foreground: EllaColors.errorDark,
-                        height: 48,
-                        dropShadow: EllaColors.berryDeep,
-                        onTap: _handleDeleteAccount,
+                      TextButton(
+                        onPressed: _handleDeleteAccount,
+                        child: const Text(
+                          'Delete Account',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
                       ),
 
                       const Spacer(flex: 2),
