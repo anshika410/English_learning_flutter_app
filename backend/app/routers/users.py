@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
@@ -398,11 +398,45 @@ async def delete_user_memory(
 
 
 @router.get("/me/garden", response_model=GardenResponse)
-async def get_user_garden(user: User = Depends(get_current_user)):
-    level = user.level or "A0"
+async def get_user_garden(
+    user: User = Depends(get_current_user),
+    view_level: str | None = Query(default=None, alias="level"),
+):
+    # If a specific level is requested, use it — otherwise default to the user's current level.
+    # For previous levels (below the user's current level), all skills are shown as owned.
+    requested_level = (view_level or user.level or "A0").upper()
+    user_level = (user.level or "A0").upper()
     progress = user.skills_progress or {}
-    
-    units_list = UNITS.get(level.upper(), [])
+
+    LEVEL_ORDER = ["A0", "A1", "A2", "B1", "B2", "C1"]
+    is_previous_level = (
+        requested_level in LEVEL_ORDER
+        and user_level in LEVEL_ORDER
+        and LEVEL_ORDER.index(requested_level) < LEVEL_ORDER.index(user_level)
+    )
+
+    # For previous levels, override progress so all skills show as owned/bloomed.
+    if is_previous_level:
+        from ..core.curriculum_data import UNITS as _UNITS
+        all_skill_ids = [
+            s["id"]
+            for u in _UNITS.get(requested_level, [])
+            for s in u.get("skills", [])
+        ]
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        progress = {
+            "owned": all_skill_ids,
+            "emerging": [],
+            "sightings": {sid: 3 for sid in all_skill_ids},
+            "strength": {sid: 2 for sid in all_skill_ids},
+            "last_seen": {sid: today for sid in all_skill_ids},
+            "effort": progress.get("effort", {"times_spoken_total": 0}),
+            "evidence": progress.get("evidence", {}),
+        }
+
+    level = requested_level
+    units_list = UNITS.get(level, [])
     
     # Find the first unowned skill across all steps to use as a recommended fallback target
     first_unowned_skill = None
