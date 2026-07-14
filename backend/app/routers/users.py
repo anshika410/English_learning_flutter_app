@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.database import get_db
 from ..core.deps import get_current_user
@@ -72,10 +72,12 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     valid_topics = [t for t in all_topics if t.get("name")]
     used = set(last_topics_list)
     fresh = [t for t in valid_topics if t["name"] not in used]
-    if not fresh:
-        fresh = list(valid_topics)
+    stale = [t for t in valid_topics if t["name"] in used]
+    # Always show all topics — fresh ones first, recently used ones at the end.
+    # This way the user never sees fewer than the full topic list.
     import random
     random.shuffle(fresh)
+    ordered_topics = fresh + stale
 
     def _make_label(name):
         """Derive a short label from topic name."""
@@ -189,9 +191,9 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     from ..schemas.user import NextTopics, NextTopicItem
     next_topics_obj = None
     has_completed_onboarding = user.first_session_done or bool(user.placements)
-    if fresh and has_completed_onboarding:
-        rec = _topic_item(fresh[0])
-        alts = [_topic_item(t) for t in fresh[1:]]  # send all remaining fresh topics
+    if ordered_topics and has_completed_onboarding:
+        rec = _topic_item(ordered_topics[0])
+        alts = [_topic_item(t) for t in ordered_topics[1:]]  # all remaining topics, fresh first
         next_topics_obj = NextTopics(
             recommended=NextTopicItem(**rec),
             alternatives=[NextTopicItem(**a) for a in alts]
@@ -396,11 +398,45 @@ async def delete_user_memory(
 
 
 @router.get("/me/garden", response_model=GardenResponse)
-async def get_user_garden(user: User = Depends(get_current_user)):
-    level = user.level or "A0"
+async def get_user_garden(
+    user: User = Depends(get_current_user),
+    view_level: str | None = Query(default=None, alias="level"),
+):
+    # If a specific level is requested, use it — otherwise default to the user's current level.
+    # For previous levels (below the user's current level), all skills are shown as owned.
+    requested_level = (view_level or user.level or "A0").upper()
+    user_level = (user.level or "A0").upper()
     progress = user.skills_progress or {}
-    
-    units_list = UNITS.get(level.upper(), [])
+
+    LEVEL_ORDER = ["A0", "A1", "A2", "B1", "B2", "C1"]
+    is_previous_level = (
+        requested_level in LEVEL_ORDER
+        and user_level in LEVEL_ORDER
+        and LEVEL_ORDER.index(requested_level) < LEVEL_ORDER.index(user_level)
+    )
+
+    # For previous levels, override progress so all skills show as owned/bloomed.
+    if is_previous_level:
+        from ..core.curriculum_data import UNITS as _UNITS
+        all_skill_ids = [
+            s["id"]
+            for u in _UNITS.get(requested_level, [])
+            for s in u.get("skills", [])
+        ]
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        progress = {
+            "owned": all_skill_ids,
+            "emerging": [],
+            "sightings": {sid: 3 for sid in all_skill_ids},
+            "strength": {sid: 2 for sid in all_skill_ids},
+            "last_seen": {sid: today for sid in all_skill_ids},
+            "effort": progress.get("effort", {"times_spoken_total": 0}),
+            "evidence": progress.get("evidence", {}),
+        }
+
+    level = requested_level
+    units_list = UNITS.get(level, [])
     
     # Find the first unowned skill across all steps to use as a recommended fallback target
     first_unowned_skill = None

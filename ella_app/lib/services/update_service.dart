@@ -8,7 +8,7 @@ class UpdateService {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
 
     try {
-      final info = await InAppUpdate.checkForUpdate();
+      final info = await InAppUpdate.checkForUpdate().timeout(const Duration(seconds: 3));
       
       // If an update is available, trigger an immediate update.
       // (Can also use InAppUpdate.startFlexibleUpdate() if desired)

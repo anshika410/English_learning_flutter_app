@@ -67,6 +67,7 @@ class EllaApiService {
   static const _onboardingDoneKey = 'ella_onboarding_done';
   static const _childNameKey = 'ella_child_name';
   static const _childAgeKey = 'ella_child_age';
+  static const _placementDoneKey = 'ella_api_placement_done';
 
   final String baseUrl;
   final http.Client _client;
@@ -104,6 +105,7 @@ class EllaApiService {
     await prefs.remove(_childNameKey);
     await prefs.remove(_childAgeKey);
     await prefs.remove(_onboardingDoneKey);
+    await prefs.remove(_placementDoneKey);
   }
 
   Future<bool> loginWithGoogle(String idToken) async {
@@ -166,9 +168,22 @@ class EllaApiService {
     return prefs.getString(_userIdKey);
   }
 
+  Future<bool> isPlacementDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_placementDoneKey) ?? false;
+  }
+
   Future<MemoryState> getUserMemory() async {
     final data = await _request('GET', '/users/me/memory');
-    return _memoryFromApi(data);
+    final memory = _memoryFromApi(data);
+    
+    // Cache placement status for offline routing fallback
+    if (memory.placement != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_placementDoneKey, true);
+    }
+    
+    return memory;
   }
 
   /// Garden layout for the signed-in user — GET /users/me/garden.

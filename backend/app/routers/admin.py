@@ -35,6 +35,10 @@ class AdminUserOut(BaseModel):
     total_speaking_seconds: int
     created_at: datetime
     skills_progress: dict | None = None
+    persona_memory: dict | None = None
+    interests: str | None = None
+    due_next: dict | None = None
+    first_session_done: bool = False
 
 
 class AdminConversationOut(BaseModel):
@@ -126,6 +130,10 @@ async def admin_stats(
             total_speaking_seconds=stats["speaking_secs"],
             created_at=u.created_at,
             skills_progress=u.skills_progress,
+            persona_memory=u.persona_memory,
+            interests=u.interests,
+            due_next=u.due_next,
+            first_session_done=u.first_session_done,
         ))
 
     # Recent conversations with message counts
@@ -301,7 +309,7 @@ async def get_placement_transcript(
     _: None = Depends(_check_key),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get placement transcript for a user."""
+    """Get placement details + transcript for a user."""
     from ..models.placement import Placement
     import json
     result = await db.execute(
@@ -311,19 +319,31 @@ async def get_placement_transcript(
         .limit(1)
     )
     placement = result.scalar_one_or_none()
-    if not placement or not placement.transcript_json:
-        return []
-    try:
-        messages = json.loads(placement.transcript_json)
-        return [
-            {
-                "role": m.get("role", "user"),
-                "content": m.get("content", ""),
-            }
-            for m in messages
-        ]
-    except Exception:
-        return []
+    if not placement:
+        return {"level": None, "confidence": None, "highlight": None, "unit_label": None, "created_at": None, "transcript": []}
+
+    messages = []
+    if placement.transcript_json:
+        try:
+            raw = json.loads(placement.transcript_json)
+            messages = [
+                {
+                    "role": m.get("role", "user"),
+                    "content": m.get("content", ""),
+                }
+                for m in raw
+            ]
+        except Exception:
+            messages = []
+
+    return {
+        "level": placement.level,
+        "confidence": placement.confidence,
+        "highlight": placement.highlight,
+        "unit_label": placement.unit_label,
+        "created_at": placement.created_at.isoformat() if placement.created_at else None,
+        "transcript": messages,
+    }
 
 
 class AdminPromptsResponse(BaseModel):

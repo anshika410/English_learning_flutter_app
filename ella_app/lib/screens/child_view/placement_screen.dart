@@ -8,14 +8,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/app_toast.dart';
+import '../../core/ella_smooth_shape.dart';
+import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
+import '../../core/offline_alert_popup.dart';
 import '../../models/message.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/chat_provider.dart' show ChatStatus;
 import '../../providers/service_providers.dart';
 import '../../services/stt_tts_service.dart';
+import '../../services/audio_service.dart';
+import '../../services/sounds.dart';
+import '../../services/ella_api_service.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'widgets/conversation_view.dart';
@@ -215,8 +221,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   void _snack(Object e) {
     if (!mounted) return;
-    debugPrint('[Placement] $e');
-    showEllaErrorToast(context);
+    OfflineAlertPopup.show(context);
   }
 
   // Proportional progress placeholder: fraction of the (assumed) turn target
@@ -247,8 +252,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
         });
       }
     });
+    
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStart());
     final s = ref.watch(placementProvider);
+    final isOnline = ref.watch(connectivityProvider).value ?? true;
     _maybeAdvance(s);
 
     final hasTurn = s.messages.any((m) => m.sender != MessageSender.system);
@@ -264,12 +271,15 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
       ChatStatus.zoeThinking || ChatStatus.zoeSpeaking => MicState.busy,
-      ChatStatus.idle => MicState.idle,
+      ChatStatus.offline || ChatStatus.idle => MicState.idle,
     };
 
     // While ending, Zoe speaks the fixed farewell (which cross-fades in over the
     // last turn); otherwise show her latest line.
-    final zoeLine = _ending ? _closingLine() : _lastFrom(s, MessageSender.zoe);
+    final zoeLine = _ending
+        ? _closingLine()
+        : _lastFrom(s, MessageSender.zoe);
+            
     String? studentLine;
     bool studentLive = false;
     if (!_ending) {
@@ -304,7 +314,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 mascotSpeaking:
                     _ending || s.status == ChatStatus.zoeSpeaking || _replaying || _speaking,
                 mascotThinking: !_ending && s.status == ChatStatus.zoeThinking,
-                // Bar sits full as the screening closes.
+                isOffline: !isOnline,
                 progress: _ending ? 1.0 : _progress(s),
                 zoeLine: zoeLine,
                 studentLine: studentLine,
@@ -312,9 +322,15 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 micState: micState,
                 textMode: _keyboardMode,
                 textController: _textController,
-                onMic: () => _onMic(s),
-                onToggleKeyboard: _toggleKeyboard,
-                onSend: _sendTyped,
+                onMic: isOnline ? () => _onMic(s) : () {
+                  OfflineAlertPopup.show(context);
+                },
+                onToggleKeyboard: isOnline ? _toggleKeyboard : () {
+                  OfflineAlertPopup.show(context);
+                },
+                onSend: isOnline ? _sendTyped : () {
+                  OfflineAlertPopup.show(context);
+                },
                 onEnd: _exit,
                 // Speaker dot on Zoe's bubble: replays the line when idle.
                 // While she's already talking the tap is a no-op (never stops

@@ -30,6 +30,7 @@ class ConversationView extends StatelessWidget {
   final ConvPhase phase;
   final bool mascotSpeaking;
   final bool mascotThinking; // Zoe is preparing her reply
+  final bool isOffline;
 
   /// Zoe is "paused" behind the back-button sheet — eyes closed, gentle sway.
   /// Takes precedence over speaking/thinking/listening so she rests while the
@@ -70,6 +71,7 @@ class ConversationView extends StatelessWidget {
     required this.phase,
     required this.mascotSpeaking,
     this.mascotThinking = false,
+    this.isOffline = false,
     this.mascotPaused = false,
     this.zoeLine,
     this.studentLine,
@@ -96,15 +98,17 @@ class ConversationView extends StatelessWidget {
     final bubbleMaxWidth = w * 0.78;
 
     final mascot = ZoeMascot(
-      mode: phase == ConvPhase.ending && mascotSpeaking
-          ? ZoeMascotMode.speaking
-          : mascotPaused
-          ? ZoeMascotMode.paused
-          : mascotSpeaking
-          ? ZoeMascotMode.speaking
-          : mascotThinking
-          ? ZoeMascotMode.thinking
-          : ZoeMascotMode.listening,
+      mode: isOffline
+          ? ZoeMascotMode.sleep
+          : phase == ConvPhase.ending && mascotSpeaking
+              ? ZoeMascotMode.speaking
+              : mascotPaused
+                  ? ZoeMascotMode.paused
+                  : mascotSpeaking
+                      ? ZoeMascotMode.speaking
+                      : mascotThinking
+                          ? ZoeMascotMode.thinking
+                          : ZoeMascotMode.listening,
       size: mascotSize,
       reducedMotion: MediaQuery.of(context).disableAnimations,
     );

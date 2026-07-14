@@ -37,6 +37,8 @@ class EllaPrimaryButton extends StatefulWidget {
   /// the home "Let's Talk" CTA). Callers tint it to match [_labelColor].
   final Widget? leading;
   final bool playTapClickSound;
+  final Color? backgroundColor;
+  final Color? edgeColor;
 
   const EllaPrimaryButton({
     super.key,
@@ -51,6 +53,8 @@ class EllaPrimaryButton extends StatefulWidget {
     // Pill by default, per the flat-fill button spec.
     this.borderRadius = const BorderRadius.all(Radius.circular(999)),
     this.playTapClickSound = true,
+    this.backgroundColor,
+    this.edgeColor,
   });
 
   @override
@@ -63,7 +67,7 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
   bool get _isPrimary => widget.variant == EllaButtonVariant.primary;
   bool get _isOutline => widget.variant == EllaButtonVariant.outline;
 
-  Color get _fill => switch (widget.variant) {
+  Color get _fill => widget.backgroundColor ?? switch (widget.variant) {
     EllaButtonVariant.primary => EllaColors.berryMain,
     EllaButtonVariant.secondary => EllaColors.greenMain,
     EllaButtonVariant.outline => EllaColors.surface,
@@ -72,7 +76,7 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
   // secondary green keeps its greenDark 2px edge. Outline shares the berryDeep
   // edge so the two login CTAs read as one family.
   Color get _edge =>
-      _isPrimary || _isOutline ? EllaColors.berryDeep : EllaColors.greenDark;
+      widget.edgeColor ?? (_isPrimary || _isOutline ? EllaColors.berryDeep : EllaColors.greenDark);
   double get _edgeWidth => _isPrimary || _isOutline ? 3 : 2;
   Color get _labelColor => switch (widget.variant) {
     EllaButtonVariant.primary => EllaColors.onPrimary,

@@ -11,11 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 
+import '../../core/app_toast.dart';
+import '../../core/offline_alert_popup.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
@@ -153,7 +156,14 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 
   // Server-authored recap line ("Last time…"), shown verbatim. Empty until the
   // API provides it, in which case the card shows its first-chat fallback.
-  String get _recap => _memory?.lastTimeRecap ?? '';
+  String get _recap {
+    final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+    if (!isOnline) {
+      final name = ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+      return "Hey $name, I'm having trouble connecting to the internet right now!";
+    }
+    return _memory?.lastTimeRecap ?? '';
+  }
 
   void _selectTopic(TopicChoice topic) {
     ref.read(audioProvider).playSfx(Sounds.topic);
@@ -259,6 +269,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 
   @override
   Widget build(BuildContext context) {
+    final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+
     // Keep the CTA tappable even while memory is still loading so it doesn't
     // visibly flip from disabled→enabled on launch; _startSelected safely no-ops
     // until chatProvider has a value. The label fills in once the topic loads.
@@ -303,7 +315,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ZoeMascot(
-                            mode: ZoeMascotMode.listening,
+                            mode: !isOnline ? ZoeMascotMode.sleep : ZoeMascotMode.listening,
                             size: mascotW,
                             reducedMotion: MediaQuery.of(
                               context,
@@ -336,7 +348,14 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                               ),
                               height: 60,
                               playTapClickSound: false,
-                              onTap: _startSelected,
+                              backgroundColor: isOnline ? null : Colors.grey[400],
+                              edgeColor: isOnline ? null : Colors.grey[600],
+                              onTap: isOnline
+                                  ? _startSelected
+                                  : () {
+                                      ref.read(audioProvider).playSfx(Sounds.error);
+                                      OfflineAlertPopup.show(context);
+                                    },
                             ),
                           ),
                         ],

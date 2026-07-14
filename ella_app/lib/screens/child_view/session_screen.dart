@@ -9,11 +9,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/app_toast.dart';
+import '../../core/offline_alert_popup.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/stt_tts_service.dart';
@@ -21,6 +24,8 @@ import 'widgets/conversation_view.dart';
 import 'widgets/mascot_loading_screen.dart';
 import 'widgets/need_to_go_sheet.dart';
 import 'widgets/network_error_view.dart';
+import '../../services/sounds.dart';
+import 'home_screen.dart' show kHomeChildName;
 
 const String _kGoodbye = 'It was great talking to you. See you again later!';
 const String _kPreviewZoeLine =
@@ -72,7 +77,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   String? _interruptedZoeLine;
 
   // True while a tapped-speaker replay is speaking — drives Zoe's speaking
-  // animation for manual replays (engine status only covers auto-speech).
+  // Replay
   bool _replaying = false;
 
   int _highlightStart = -1;
@@ -206,10 +211,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       _sheetOpen = false;
       _speaking = true;
     });
-    ChatNotifier? notifier;
+    _navigated = true; // Prevent _maybeAdvance from scheduling a duplicate pop
+    
     if (!widget.previewMode) {
-      notifier = ref.read(chatProvider.notifier);
-      await notifier!.stopListening();
+      final notifier = ref.read(chatProvider.notifier);
+      await notifier.stopListening();
+      
+      // Fire scoring in the background (don't wait)
+      unawaited(notifier.endChat().catchError(_snack));
     }
 
     // First stop any current speech explicitly to clear active playback
@@ -230,7 +239,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             judgeDelay: previewDelay ?? _previewJudgeDelay,
           );
     } else {
-      unawaited(notifier!.endChat().catchError(_snack));
+      // endChat already fired above in the !previewMode block
     }
 
     // NativeTtsService.speak completes only when playback finishes (with its
@@ -274,8 +283,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   void _snack(Object e) {
     if (!mounted) return;
-    debugPrint('[Session] $e');
-    showEllaErrorToast(context);
+    OfflineAlertPopup.show(context);
   }
 
   /// Whether a real conversation is under way (at least one non-system turn and
@@ -434,8 +442,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
       ChatStatus.zoeThinking || ChatStatus.zoeSpeaking => MicState.busy,
-      ChatStatus.idle => MicState.idle,
+      ChatStatus.idle || ChatStatus.offline => MicState.idle,
     };
+
+    final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
 
     // Latest-turn content.
     final zoeLine = _ending
@@ -469,15 +479,22 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           _replaying ||
           _speaking,
       mascotThinking: s.status == ChatStatus.zoeThinking,
+      isOffline: !isOnline,
       zoeLine: zoeLine,
       studentLine: studentLine,
       studentLive: studentLive,
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,
-      onMic: () => _onMic(s),
-      onToggleKeyboard: _toggleKeyboard,
-      onSend: _sendTyped,
+      onMic: isOnline ? () => _onMic(s) : () {
+        OfflineAlertPopup.show(context);
+      },
+      onToggleKeyboard: isOnline ? _toggleKeyboard : () {
+        OfflineAlertPopup.show(context);
+      },
+      onSend: isOnline ? _sendTyped : () {
+        OfflineAlertPopup.show(context);
+      },
       onEnd: _endConversation,
       onEndLongPress: null,
       // Speaker dot on Zoe's bubble: replays the line when idle. While she's
