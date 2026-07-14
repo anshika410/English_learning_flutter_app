@@ -7,6 +7,8 @@
 // Non-negotiable: only applyMerge / applyEndChat write owned/emerging/due_next.
 // The LLM result (SkillScore list) is passed to the engine, never written directly.
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants.dart';
 import '../core/engine.dart';
@@ -265,10 +267,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       mem = await api.getUserMemory();
       if (mem.name != null && mem.name!.trim().isNotEmpty) {
         try {
-          await ref.read(onboardingProvider.notifier).seedFromServer(
-            name: mem.name!,
-            age: mem.age,
-          );
+          await ref
+              .read(onboardingProvider.notifier)
+              .seedFromServer(name: mem.name!, age: mem.age);
         } catch (_) {}
       }
       // The server returns its own due_next, but the engine's due_next-stage
@@ -512,11 +513,23 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
     ref.read(audioProvider).playSfx(Sounds.complete);
 
-    state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
-
     final mem = cur.memory;
     final mode = mem.progressionModel;
     final chatNumber = cur.chatNumber;
+    final initialTargets = cur.serverAimedAt.isNotEmpty
+        ? cur.serverAimedAt
+        : mem.dueNext.flat;
+    ref.read(gardenGrowthRevealProvider.notifier).clear();
+    ref
+        .read(postConversationGardenRevealProvider.notifier)
+        .begin(
+          chatNumber: chatNumber,
+          turnCount: cur.turnCount,
+          targetSkillIds: initialTargets,
+          before: mem,
+        );
+
+    state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
 
     String? syncError;
     List<SkillScore> primaryScores = const [];
@@ -562,17 +575,16 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           dueNext: targetsListFor(serverMem, mode, serverMem.level),
         );
 
-        // Refresh the garden, then pull the canonical session log. Best-effort —
-        // neither should block ending the chat.
-        try {
-          await api.getGarden();
-        } catch (_) {}
-        try {
-          await api.getSessionLog(cur.activeSessionId!);
-        } catch (_) {}
-        // The Garden tab reads gardenProvider; invalidate so it refetches the
-        // updated growth the next time it's shown.
-        ref.invalidate(gardenProvider);
+        // The garden provider is invalidated after the reveal result resolves,
+        // so fetching it here would duplicate the same request and delay the
+        // handoff. The canonical session log is useful for diagnostics but is
+        // not needed to decide the reveal, so keep it off the critical path.
+        final completedSessionId = cur.activeSessionId!;
+        unawaited(() async {
+          try {
+            await api.getSessionLog(completedSessionId);
+          } catch (_) {}
+        }());
       } catch (e) {
         syncError = 'Session analysis API failed: $e';
         // Degraded fallback — merge whatever scores we have locally so the
@@ -646,6 +658,26 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         syncError = 'Offline mode — using local engine (Ella API unavailable).';
       }
     }
+
+    final revealTargets = <String>{
+      ...aimed,
+      ...cur.serverAimedAt,
+      ...newMem.dueNext.flat,
+    }.toList(growable: false);
+    ref
+        .read(postConversationGardenRevealProvider.notifier)
+        .resolve(
+          chatNumber: chatNumber,
+          turnCount: cur.turnCount,
+          targetSkillIds: revealTargets,
+          before: mem,
+          after: newMem,
+          sessionScores: primaryScores,
+        );
+    // Resolve the retained outcome before refreshing. A mounted garden will
+    // keep its preparing overlay up until this fresh payload is processed; a
+    // newly mounted garden will fetch the same canonical post-session data.
+    ref.invalidate(gardenProvider);
 
     final judgeFailed = primaryScores.isEmpty;
 
@@ -905,7 +937,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     } else if (cur.status != ChatStatus.idle) {
       return;
     }
-    state = AsyncValue.data(state.requireValue.copyWith(status: ChatStatus.userSpeaking));
+    state = AsyncValue.data(
+      state.requireValue.copyWith(status: ChatStatus.userSpeaking),
+    );
     ref.read(audioProvider).playSfx(Sounds.listen);
     final stt = ref.read(sttProvider);
     // Lazily init STT (idempotent) so the mic-permission prompt appears now, on

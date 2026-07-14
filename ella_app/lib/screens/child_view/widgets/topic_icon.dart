@@ -9,6 +9,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/text_styles.dart';
+
 /// Every icon id bundled in assets/topic-icons/ — mirrors the backend's
 /// TOPIC_ICON_MAP values (backend/app/routers/users.py). Keep in sync when new
 /// icons are added server-side.
@@ -85,6 +87,105 @@ const Set<String> kBundledTopicIcons = {
   'c2-11-freedom-how-much',
   'c2-12-what-do-we-owe-future',
 };
+
+/// The measured presentation for a topic label at a particular card width.
+class TopicLabelLayout {
+  final double fontSize;
+  final double height;
+  final int maxLines;
+
+  const TopicLabelLayout({
+    required this.fontSize,
+    required this.height,
+    required this.maxLines,
+  });
+}
+
+TextStyle topicLabelStyle(Color color, {double fontSize = 16}) => EllaTextStyles
+    .bodySmall
+    .copyWith(fontSize: fontSize, fontWeight: FontWeight.w700, color: color);
+
+/// Measures a label using the same typography used by [TopicCardLabel].
+///
+/// Multi-word labels may wrap to two lines. A single long word stays on one
+/// line and reduces only its text size, never the accompanying topic icon.
+TopicLabelLayout measureTopicLabel(
+  BuildContext context, {
+  required String text,
+  required double maxWidth,
+  bool allowWrap = true,
+}) {
+  const maximumFontSize = 16.0;
+  const minimumFontSize = 12.0;
+  final isSingleWord = !text.trim().contains(RegExp(r'\s'));
+  final maxLines = !allowWrap || isSingleWord ? 1 : 2;
+  final textDirection = Directionality.of(context);
+  final textScaler = MediaQuery.textScalerOf(context);
+
+  TopicLabelLayout? smallestLayout;
+  for (
+    var fontSize = maximumFontSize;
+    fontSize >= minimumFontSize;
+    fontSize -= 0.5
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: topicLabelStyle(Colors.black, fontSize: fontSize),
+      ),
+      maxLines: maxLines,
+      ellipsis: '…',
+      textDirection: textDirection,
+      textScaler: textScaler,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: maxWidth);
+    final layout = TopicLabelLayout(
+      fontSize: fontSize,
+      height: painter.height,
+      maxLines: maxLines,
+    );
+    smallestLayout = layout;
+    if (!painter.didExceedMaxLines) return layout;
+  }
+
+  return smallestLayout!;
+}
+
+/// A topic label occupying a row-wide label slot. One-line cards in a mixed
+/// row leave the unused part of the slot below their text.
+class TopicCardLabel extends StatelessWidget {
+  final String text;
+  final Color color;
+  final TopicLabelLayout layout;
+  final double slotHeight;
+
+  const TopicCardLabel({
+    super.key,
+    required this.text,
+    required this.color,
+    required this.layout,
+    required this.slotHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: slotHeight,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Text(
+          text,
+          maxLines: layout.maxLines,
+          softWrap: layout.maxLines > 1,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: topicLabelStyle(color, fontSize: layout.fontSize),
+        ),
+      ),
+    );
+  }
+}
 
 class TopicIcon extends StatelessWidget {
   /// The API's icon id (TopicChoice.icon). May be empty or unmapped.

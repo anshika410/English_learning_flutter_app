@@ -31,6 +31,11 @@ class ConversationView extends StatelessWidget {
   final bool mascotSpeaking;
   final bool mascotThinking; // Zoe is preparing her reply
 
+  /// Zoe is "paused" behind the back-button sheet — eyes closed, gentle sway.
+  /// Takes precedence over speaking/thinking/listening so she rests while the
+  /// sheet is up.
+  final bool mascotPaused;
+
   /// Latest-turn content. Zoe's line is always shown while talking/ending; the
   /// student bubble only appears for the current turn.
   final String? zoeLine;
@@ -45,6 +50,7 @@ class ConversationView extends StatelessWidget {
   final VoidCallback? onToggleKeyboard;
   final VoidCallback? onSend;
   final VoidCallback? onEnd;
+  final VoidCallback? onEndLongPress;
 
   /// Toggles TTS for Zoe's current line — powers the speaker dot straddling
   /// her bubble's top-right border (shown for every Zoe line, including the
@@ -64,6 +70,7 @@ class ConversationView extends StatelessWidget {
     required this.phase,
     required this.mascotSpeaking,
     this.mascotThinking = false,
+    this.mascotPaused = false,
     this.zoeLine,
     this.studentLine,
     this.studentLive = false,
@@ -74,6 +81,7 @@ class ConversationView extends StatelessWidget {
     this.onToggleKeyboard,
     this.onSend,
     this.onEnd,
+    this.onEndLongPress,
     this.onSpeakAgain,
     this.progress,
     this.highlightStart = -1,
@@ -88,7 +96,11 @@ class ConversationView extends StatelessWidget {
     final bubbleMaxWidth = w * 0.78;
 
     final mascot = ZoeMascot(
-      mode: mascotSpeaking
+      mode: phase == ConvPhase.ending && mascotSpeaking
+          ? ZoeMascotMode.speaking
+          : mascotPaused
+          ? ZoeMascotMode.paused
+          : mascotSpeaking
           ? ZoeMascotMode.speaking
           : mascotThinking
           ? ZoeMascotMode.thinking
@@ -173,6 +185,7 @@ class ConversationView extends StatelessWidget {
                           onMic: onMic,
                           onKeyboard: onToggleKeyboard,
                           onEnd: onEnd,
+                          onEndLongPress: onEndLongPress,
                         ),
                 )
               else
@@ -441,12 +454,14 @@ class _VoiceDock extends StatelessWidget {
   final VoidCallback? onMic;
   final VoidCallback? onKeyboard;
   final VoidCallback? onEnd;
+  final VoidCallback? onEndLongPress;
 
   const _VoiceDock({
     required this.micState,
     required this.onMic,
     required this.onKeyboard,
     required this.onEnd,
+    required this.onEndLongPress,
   });
 
   static const double _micSize = 100;
@@ -487,6 +502,7 @@ class _VoiceDock extends StatelessWidget {
               right: 0,
               bottom: 8,
               child: _DockCircle(
+                key: const ValueKey('conversation-end-call'),
                 glyph: const Icon(
                   Icons.call_end_rounded,
                   size: 24,
@@ -497,6 +513,7 @@ class _VoiceDock extends StatelessWidget {
                 shadow: EllaColors.errorDark,
                 size: _sideSize,
                 onTap: onEnd,
+                onLongPress: onEndLongPress,
               ),
             ),
             // Mic + label, raised and centred.
@@ -533,14 +550,17 @@ class _DockCircle extends StatelessWidget {
   final Color shadow;
   final double size;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const _DockCircle({
+    super.key,
     required this.glyph,
     required this.fill,
     required this.ring,
     required this.shadow,
     required this.size,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -548,6 +568,7 @@ class _DockCircle extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: withTapClick(onTap),
+      onLongPress: onLongPress == null ? null : withTapClick(onLongPress!),
       child: Container(
         width: size,
         height: size,

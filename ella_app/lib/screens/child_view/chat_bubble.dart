@@ -221,6 +221,8 @@ class _TypewriterTextState extends State<TypewriterText> {
         );
 
     // Karaoke style: current spoken word lights up in pink, no background pill.
+    // Always use RichText to avoid widget-type switching (Text↔RichText) which
+    // causes layout recalculation and the karaoke "jitter" bug #87.
     if (_done &&
         widget.highlightStart >= 0 &&
         widget.highlightEnd > widget.highlightStart &&
@@ -236,8 +238,7 @@ class _TypewriterTextState extends State<TypewriterText> {
                 widget.highlightEnd,
               ),
               style: baseStyle.copyWith(
-                color: const Color(0xFFE91E63), // Karaoke pink — current word only
-                fontWeight: FontWeight.bold,
+                color: const Color(0xFFE91E63), // Karaoke pink — color only, no weight change to avoid text shift
               ),
             ),
             TextSpan(text: _cleanText.substring(widget.highlightEnd)),
@@ -246,9 +247,14 @@ class _TypewriterTextState extends State<TypewriterText> {
       );
     }
 
-    return Text(
-      displayed,
-      style: baseStyle,
+    // No highlight active — still use RichText with a single span so the
+    // widget type never changes and there is no layout jump when highlight
+    // starts or ends.
+    return RichText(
+      text: TextSpan(
+        style: baseStyle,
+        text: displayed,
+      ),
     );
   }
 }

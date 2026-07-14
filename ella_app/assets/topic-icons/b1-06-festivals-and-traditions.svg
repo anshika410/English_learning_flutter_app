@@ -1,7 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-<path d="M18 30 Q24 14 30 30 Z" fill="#F2994A"></path>
-<path d="M21 30 Q24 20 27 30 Z" fill="#FFC13B"></path>
-<rect x="15" y="30" width="18" height="8" rx="3" fill="#ED6A5A"></rect>
-<circle cx="24" cy="10" r="2.6" fill="#F4C95D"></circle>
-
+<path d="M24 8 Q29 14 27 22 Q26 26 24 28 Q22 26 21 22 Q19 14 24 8 Z" fill="#F2994A"></path>
+<path d="M24 13 Q27 17 25.5 22 Q25 24 24 25 Q23 24 22.5 22 Q21 17 24 13 Z" fill="#FFC13B"></path>
+<path d="M8 34 Q8 28 24 28 Q40 28 40 34 Q40 40 24 40 Q8 40 8 34 Z" fill="#9A6A44"></path>
+<path d="M12 33 Q12 30 24 30 Q36 30 36 33" fill="none" stroke="#C89066" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+<circle cx="10" cy="14" r="2" fill="#F4C95D"></circle>
+<circle cx="38" cy="14" r="2" fill="#F4C95D"></circle>
+<circle cx="8" cy="24" r="1.6" fill="#FFC13B"></circle>
+<circle cx="40" cy="24" r="1.6" fill="#FFC13B"></circle>
 </svg>

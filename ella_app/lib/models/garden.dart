@@ -5,6 +5,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../core/curriculum_display_copy.dart';
+import '../core/curriculum_icons.dart';
 import '../core/theme_colors.dart';
 
 String _optionalString(Map<String, dynamic> j, List<String> keys) {
@@ -201,12 +202,14 @@ class GardenSkill {
         for (final e in (j['evidence'] as List? ?? const []))
           GardenEvidence.fromJson(Map<String, dynamic>.from(e as Map)),
       ],
-      icon: _optionalString(j, const [
-        'icon',
-        'icon_id',
-        'icon_asset',
-        'icon_path',
-      ]),
+      icon:
+          CurriculumIcons.skillAsset(level, unit, id) ??
+          _optionalString(j, const [
+            'icon',
+            'icon_id',
+            'icon_asset',
+            'icon_path',
+          ]),
     );
   }
 }
@@ -274,12 +277,14 @@ class GardenStep {
         unit: step,
         fallback: descriptionFallback,
       ),
-      icon: _optionalString(j, const [
-        'icon',
-        'icon_id',
-        'icon_asset',
-        'icon_path',
-      ]),
+      icon:
+          CurriculumIcons.unitAsset(level, step) ??
+          _optionalString(j, const [
+            'icon',
+            'icon_id',
+            'icon_asset',
+            'icon_path',
+          ]),
       isCompleted:
           j['isCompleted'] as bool? ?? j['is_completed'] as bool? ?? false,
       skills: [
