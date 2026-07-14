@@ -8,7 +8,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/app_toast.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
@@ -16,7 +15,6 @@ import '../../core/topic_data.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
-import '../../providers/onboarding_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/stt_tts_service.dart';
@@ -24,8 +22,6 @@ import 'widgets/conversation_view.dart';
 import 'widgets/mascot_loading_screen.dart';
 import 'widgets/need_to_go_sheet.dart';
 import 'widgets/network_error_view.dart';
-import '../../services/sounds.dart';
-import 'home_screen.dart' show kHomeChildName;
 
 const String _kGoodbye = 'It was great talking to you. See you again later!';
 const String _kPreviewZoeLine =
@@ -142,6 +138,20 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
+  void _navigateOut() {
+    _navigated = true;
+    final onEnded = widget.onEnded;
+    if (onEnded != null) {
+      onEnded();
+      final route = ModalRoute.of(context);
+      if (route != null) {
+        Navigator.of(context).removeRoute(route);
+        return;
+      }
+    }
+    Navigator.of(context).pop();
+  }
+
   void _maybeAdvance(ChatState s) {
     // A manual End Call owns its complete farewell -> pause -> garden sequence.
     // The judge can resolve almost immediately for a short conversation, so
@@ -154,25 +164,15 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         // Safety net: force navigation back to garden after 5 seconds even if TTS completion handler fails to fire
         Future.delayed(const Duration(seconds: 5), () {
           if (mounted && !_navigated && !_ending) {
-            _navigated = true;
-            final onEnded = widget.onEnded;
-            Navigator.of(context).pop();
-            if (onEnded != null) {
-              onEnded();
-            }
+            _navigateOut();
           }
         });
       }
       return;
     }
-    _navigated = true;
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
-        final onEnded = widget.onEnded;
-        Navigator.of(context).pop();
-        if (onEnded != null) {
-          onEnded();
-        }
+        _navigateOut();
       }
     });
   }
@@ -253,12 +253,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted || _navigated) return;
 
-    _navigated = true;
-    final onEnded = widget.onEnded;
-    Navigator.of(context).pop();
-    if (onEnded != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => onEnded());
-    }
+    _navigateOut();
   }
 
   Future<void> _showConversationPreviewSheet() async {
