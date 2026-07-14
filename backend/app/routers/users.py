@@ -72,10 +72,12 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     valid_topics = [t for t in all_topics if t.get("name")]
     used = set(last_topics_list)
     fresh = [t for t in valid_topics if t["name"] not in used]
-    if not fresh:
-        fresh = list(valid_topics)
+    stale = [t for t in valid_topics if t["name"] in used]
+    # Always show all topics — fresh ones first, recently used ones at the end.
+    # This way the user never sees fewer than the full topic list.
     import random
     random.shuffle(fresh)
+    ordered_topics = fresh + stale
 
     def _make_label(name):
         """Derive a short label from topic name."""
@@ -189,9 +191,9 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     from ..schemas.user import NextTopics, NextTopicItem
     next_topics_obj = None
     has_completed_onboarding = user.first_session_done or bool(user.placements)
-    if fresh and has_completed_onboarding:
-        rec = _topic_item(fresh[0])
-        alts = [_topic_item(t) for t in fresh[1:]]  # send all remaining fresh topics
+    if ordered_topics and has_completed_onboarding:
+        rec = _topic_item(ordered_topics[0])
+        alts = [_topic_item(t) for t in ordered_topics[1:]]  # all remaining topics, fresh first
         next_topics_obj = NextTopics(
             recommended=NextTopicItem(**rec),
             alternatives=[NextTopicItem(**a) for a in alts]
