@@ -25,6 +25,10 @@ enum ZoeMascotMode {
   thinking,
   idle,
   sleep,
+
+  /// Calm "paused" pose used behind the back-button sheet: eyes closed, body
+  /// gently swaying left↔right, mouth closed, no thinking droplets.
+  paused,
 }
 
 class ZoeMascot extends StatefulWidget {
@@ -276,6 +280,20 @@ class _ZoeMascotPainter extends CustomPainter {
 
   void _drawEyes(Canvas canvas, double t) {
     final eyePaint = _fill(0xFF070E0B);
+    if (mode == ZoeMascotMode.paused && !reducedMotion) {
+      // Eyes closed — squash both eyes almost flat into gentle "sleeping" lines.
+      _applyTransformScoped(
+        canvas,
+        _eyesCenter,
+        ty: 4,
+        sy: 0.08,
+        draw: () {
+          canvas.drawPath(_paths.eyeLeft, eyePaint);
+          canvas.drawPath(_paths.eyeRight, eyePaint);
+        },
+      );
+      return;
+    }
     if (mode == ZoeMascotMode.thinking && !reducedMotion) {
       // Curious squint — each eye tilts inward and shortens; no blink.
       _applyTransformScoped(
@@ -346,7 +364,10 @@ class _ZoeMascotPainter extends CustomPainter {
           canvas.drawPath(_paths.mouthDark, _fill(0xFF890B0D));
           canvas.drawPath(_paths.mouthRed, _fill(0xFFFF4D3F));
         } else {
-          canvas.drawPath(_paths.mouthClosed, _stroke(0xFF070E0B, 8, round: true));
+          canvas.drawPath(
+            _paths.mouthClosed,
+            _stroke(0xFF070E0B, 8, round: true),
+          );
         }
       },
     );
@@ -415,6 +436,19 @@ class _ZoeMascotPainter extends CustomPainter {
 
   ({double tx, double ty, double rot, double scale}) _bodyBreathe(double t) {
     if (reducedMotion) return (tx: 0, ty: 0, rot: 0, scale: 1);
+    if (mode == ZoeMascotMode.paused) {
+      // Gentle left↔right sway (no vertical breath) — a calm "resting" gesture
+      // while the back-button sheet is up. ~3.4s cycle with a small matching
+      // tilt so the body rocks rather than slides.
+      final p = (t % 3400) / 3400;
+      const ats = [0.0, 0.25, 0.5, 0.75, 1.0];
+      return (
+        tx: _kf(p, ats, const [-8, -3, 0, 3, -8]),
+        ty: 0.0,
+        rot: _rad(_kf(p, ats, const [-2.5, -1, 0, 1, -2.5])),
+        scale: 1.0,
+      );
+    }
     if (mode == ZoeMascotMode.speaking) {
       final p = (t % 2600) / 2600;
       const ats = [0.0, 0.42, 0.72, 1.0];
@@ -456,6 +490,7 @@ class _ZoeMascotPainter extends CustomPainter {
       case ZoeMascotMode.sleep:
       case ZoeMascotMode.listening:
       case ZoeMascotMode.idle:
+      case ZoeMascotMode.paused:
         final p = (t % 3600) / 3600;
         const ats = [0.0, 0.45, 0.7, 1.0];
         final v = _rad(_kf(p, ats, const [0, 2.2, -1, 0]));
@@ -466,8 +501,7 @@ class _ZoeMascotPainter extends CustomPainter {
   double _blinkScaleY(double t) {
     if (mode == ZoeMascotMode.speaking) {
       final p = (t % 4300) / 4300;
-      return _kf(p, const [0, 0.86, 0.88, 0.91, 1.0],
-          const [1, 1, 0.12, 1, 1]);
+      return _kf(p, const [0, 0.86, 0.88, 0.91, 1.0], const [1, 1, 0.12, 1, 1]);
     }
     // calm blink (listening / idle)
     final p = (t % 5200) / 5200;
@@ -503,23 +537,20 @@ class _ZoeMascotPainter extends CustomPainter {
     };
   }
 
-  double _dropletOpacity(double p) => _kf(
-        p,
-        const [0, 0.18, 0.30, 0.58, 0.72, 1.0],
-        const [0, 0, 1, 1, 0, 0],
-      );
+  double _dropletOpacity(double p) =>
+      _kf(p, const [0, 0.18, 0.30, 0.58, 0.72, 1.0], const [0, 0, 1, 1, 0, 0]);
 
   double _dropletTranslateY(double p) => _kf(
-        p,
-        const [0, 0.18, 0.30, 0.58, 0.72, 1.0],
-        const [10, 10, 0, 0, -10, 10],
-      );
+    p,
+    const [0, 0.18, 0.30, 0.58, 0.72, 1.0],
+    const [10, 10, 0, 0, -10, 10],
+  );
 
   double _dropletScale(double p) => _kf(
-        p,
-        const [0, 0.18, 0.30, 0.58, 0.72, 1.0],
-        const [0.62, 0.62, 1, 1, 0.86, 0.62],
-      );
+    p,
+    const [0, 0.18, 0.30, 0.58, 0.72, 1.0],
+    const [0.62, 0.62, 1, 1, 0.86, 0.62],
+  );
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -643,56 +674,54 @@ class _MascotPaths {
     required this.droplet3,
   });
 
-  static Path _oval(double cx, double cy, double rx, double ry) =>
-      Path()..addOval(Rect.fromCenter(
-        center: Offset(cx, cy),
-        width: rx * 2,
-        height: ry * 2,
-      ));
+  static Path _oval(double cx, double cy, double rx, double ry) => Path()
+    ..addOval(
+      Rect.fromCenter(center: Offset(cx, cy), width: rx * 2, height: ry * 2),
+    );
 
   // Thinking droplets carry a group translate(0, -92) in the source; bake it in.
   static Path _droplet(String d) =>
       parseSvgPathData(d).shift(const Offset(0, -92));
 
   factory _MascotPaths.build() => _MascotPaths._(
-        body: parseSvgPathData(
-          'M144.372 210.686C213.572 144.286 243.5 127.553 268 127.553C285.647 127.553 289.04 125.378 325.372 148.186C361 170.553 369.167 181.607 390.872 198.186C419.5 220.053 477.872 300.52 508.872 346.186C542.206 405.686 590.572 538.486 517.372 593.686C425.872 662.686 337 655.053 325.372 657.686C313.467 660.383 232.872 659.686 212.872 657.686C192.872 655.686 167 649.053 144.372 641.686C122.788 634.66 70.0553 609.446 58.5001 597.553C39.5001 577.997 31.8721 572.186 12.8721 517.686C-2.32785 474.086 15.5388 411.52 26.3721 385.686C36.8721 355.02 75.1721 277.086 144.372 210.686Z',
-        ),
-        eyeLeft: _oval(168, 423.497, 30, 38),
-        eyeRight: _oval(353, 423.497, 30, 38),
-        cheekLeft: _oval(112.5, 502.997, 37.5, 28.5),
-        cheekRight: _oval(412.5, 502.997, 37.5, 28.5),
-        mouthDark: parseSvgPathData(
-          'M301 468.997C271.4 484.597 232.333 475.497 216.5 468.997C213.7 467.926 212.667 473.217 212.5 475.997C210.1 487.597 215.167 505.164 218 512.497C223.167 523.33 239.3 544.197 262.5 540.997C291.5 536.997 300.5 516.497 304 508.997C307.468 501.566 308 474.997 306.5 470.997C305.3 467.797 302.333 468.33 301 468.997Z',
-        ),
-        mouthRed: parseSvgPathData(
-          'M294.467 516.432C265.057 552.582 237.15 531.876 225.389 515.078C224.431 513.71 223.366 512.121 223.93 510.548C225.262 506.841 232.896 503.567 241.379 501.083C253.169 497.631 265.807 497.846 277.504 501.601C289.923 505.588 294.73 509.46 295.916 512.149C296.569 513.629 295.487 515.177 294.467 516.432Z',
-        ),
-        mouthClosed: parseSvgPathData(
-          'M217 494.312C228.496 513.093 262.697 540.463 307.537 499.692',
-        ),
-        leafLeft: parseSvgPathData(
-          'M122.881 11.5569C228.068 -19.2616 253.616 45.0915 253.499 90.0855C253.483 96.4275 249.124 101.838 243.022 103.568C147.841 130.554 116.768 70.0925 112.524 26.3526C111.865 19.5642 116.336 13.4746 122.881 11.5569Z',
-        ),
-        leafRight: parseSvgPathData(
-          'M403.622 11.5624C298.436 -19.2561 272.887 45.0971 273.004 90.091C273.02 96.4331 277.379 101.843 283.481 103.573C378.662 130.56 409.735 70.0981 413.979 26.3581C414.638 19.5698 410.167 13.4801 403.622 11.5624Z',
-        ),
-        stemLeft: parseSvgPathData(
-          'M264 146.997C264.5 122.164 247.7 67.4969 176.5 47.4969',
-        ),
-        stemRight: parseSvgPathData(
-          'M264.5 145.997C258.167 128.83 268.9 84.8969 362.5 46.4969',
-        ),
-        droplet1: _droplet(
-          'M218 44C218 44 203 66 203 78C203 91 213 101 226 101C239 101 249 91 249 78C249 66 234 44 234 44C230 37 222 37 218 44Z',
-        ),
-        droplet2: _droplet(
-          'M272 20C272 20 257 42 257 54C257 67 267 77 280 77C293 77 303 67 303 54C303 42 288 20 288 20C284 13 276 13 272 20Z',
-        ),
-        droplet3: _droplet(
-          'M326 44C326 44 311 66 311 78C311 91 321 101 334 101C347 101 357 91 357 78C357 66 342 44 342 44C338 37 330 37 326 44Z',
-        ),
-      );
+    body: parseSvgPathData(
+      'M144.372 210.686C213.572 144.286 243.5 127.553 268 127.553C285.647 127.553 289.04 125.378 325.372 148.186C361 170.553 369.167 181.607 390.872 198.186C419.5 220.053 477.872 300.52 508.872 346.186C542.206 405.686 590.572 538.486 517.372 593.686C425.872 662.686 337 655.053 325.372 657.686C313.467 660.383 232.872 659.686 212.872 657.686C192.872 655.686 167 649.053 144.372 641.686C122.788 634.66 70.0553 609.446 58.5001 597.553C39.5001 577.997 31.8721 572.186 12.8721 517.686C-2.32785 474.086 15.5388 411.52 26.3721 385.686C36.8721 355.02 75.1721 277.086 144.372 210.686Z',
+    ),
+    eyeLeft: _oval(168, 423.497, 30, 38),
+    eyeRight: _oval(353, 423.497, 30, 38),
+    cheekLeft: _oval(112.5, 502.997, 37.5, 28.5),
+    cheekRight: _oval(412.5, 502.997, 37.5, 28.5),
+    mouthDark: parseSvgPathData(
+      'M301 468.997C271.4 484.597 232.333 475.497 216.5 468.997C213.7 467.926 212.667 473.217 212.5 475.997C210.1 487.597 215.167 505.164 218 512.497C223.167 523.33 239.3 544.197 262.5 540.997C291.5 536.997 300.5 516.497 304 508.997C307.468 501.566 308 474.997 306.5 470.997C305.3 467.797 302.333 468.33 301 468.997Z',
+    ),
+    mouthRed: parseSvgPathData(
+      'M294.467 516.432C265.057 552.582 237.15 531.876 225.389 515.078C224.431 513.71 223.366 512.121 223.93 510.548C225.262 506.841 232.896 503.567 241.379 501.083C253.169 497.631 265.807 497.846 277.504 501.601C289.923 505.588 294.73 509.46 295.916 512.149C296.569 513.629 295.487 515.177 294.467 516.432Z',
+    ),
+    mouthClosed: parseSvgPathData(
+      'M217 494.312C228.496 513.093 262.697 540.463 307.537 499.692',
+    ),
+    leafLeft: parseSvgPathData(
+      'M122.881 11.5569C228.068 -19.2616 253.616 45.0915 253.499 90.0855C253.483 96.4275 249.124 101.838 243.022 103.568C147.841 130.554 116.768 70.0925 112.524 26.3526C111.865 19.5642 116.336 13.4746 122.881 11.5569Z',
+    ),
+    leafRight: parseSvgPathData(
+      'M403.622 11.5624C298.436 -19.2561 272.887 45.0971 273.004 90.091C273.02 96.4331 277.379 101.843 283.481 103.573C378.662 130.56 409.735 70.0981 413.979 26.3581C414.638 19.5698 410.167 13.4801 403.622 11.5624Z',
+    ),
+    stemLeft: parseSvgPathData(
+      'M264 146.997C264.5 122.164 247.7 67.4969 176.5 47.4969',
+    ),
+    stemRight: parseSvgPathData(
+      'M264.5 145.997C258.167 128.83 268.9 84.8969 362.5 46.4969',
+    ),
+    droplet1: _droplet(
+      'M218 44C218 44 203 66 203 78C203 91 213 101 226 101C239 101 249 91 249 78C249 66 234 44 234 44C230 37 222 37 218 44Z',
+    ),
+    droplet2: _droplet(
+      'M272 20C272 20 257 42 257 54C257 67 267 77 280 77C293 77 303 67 303 54C303 42 288 20 288 20C284 13 276 13 272 20Z',
+    ),
+    droplet3: _droplet(
+      'M326 44C326 44 311 66 311 78C311 91 321 101 334 101C347 101 357 91 357 78C357 66 342 44 342 44C338 37 330 37 326 44Z',
+    ),
+  );
 }
 
 final _MascotPaths _paths = _MascotPaths.build();

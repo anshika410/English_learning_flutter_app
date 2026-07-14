@@ -12,6 +12,7 @@ import 'package:ella_app/providers/garden_provider.dart';
 import 'package:ella_app/providers/onboarding_provider.dart';
 import 'package:ella_app/providers/service_providers.dart';
 import 'package:ella_app/screens/child_view/garden_screen.dart';
+import 'package:ella_app/screens/child_view/widgets/spotlight_overlay.dart';
 import 'package:ella_app/services/audio_service.dart';
 import 'package:ella_app/services/sounds.dart';
 import 'package:ella_app/services/stt_tts_service.dart';
@@ -128,6 +129,13 @@ class _FakeChatNotifier extends ChatNotifier {
   );
 }
 
+class _SeededPostConversationRevealController
+    extends PostConversationGardenRevealController {
+  _SeededPostConversationRevealController(PostConversationGardenReveal value) {
+    state = value;
+  }
+}
+
 class _FakeOnboardingNotifier extends OnboardingNotifier {
   final String childName;
 
@@ -147,6 +155,9 @@ Widget _harness(
   StateProvider<GardenData>? gardenDataProvider,
   String childName = 'Narendra',
   bool usePreviewProvider = false,
+  PostConversationGardenReveal? postConversationReveal,
+  Size mediaSize = const Size(430, 932),
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
   final sourceProvider =
       gardenDataProvider ?? StateProvider<GardenData>((ref) => data);
@@ -156,6 +167,11 @@ Widget _harness(
     chatProvider.overrideWith(() => _FakeChatNotifier(data.level)),
     onboardingProvider.overrideWith(() => _FakeOnboardingNotifier(childName)),
     gardenPreviewEnabledProvider.overrideWithValue(usePreviewProvider),
+    if (postConversationReveal != null)
+      postConversationGardenRevealProvider.overrideWith(
+        (ref) =>
+            _SeededPostConversationRevealController(postConversationReveal),
+      ),
   ];
   if (!usePreviewProvider) {
     overrides.add(
@@ -168,7 +184,8 @@ Widget _harness(
     child: MaterialApp(
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
-          size: const Size(430, 932),
+          size: mediaSize,
+          textScaler: textScaler,
           disableAnimations: disableAnimations,
         ),
         child: child!,
@@ -200,6 +217,7 @@ GardenStep _step({
   required String name,
   String displayName = '',
   String displayDescription = '',
+  String icon = '',
   required int count,
   int sightings = 0,
 }) => GardenStep(
@@ -208,6 +226,7 @@ GardenStep _step({
   focus: '',
   displayName: displayName,
   displayDescription: displayDescription,
+  icon: icon,
   isCompleted: false,
   skills: [
     for (var i = 0; i < count; i++)
@@ -268,6 +287,32 @@ GardenEvidence _evidence(String quote) => GardenEvidence(
   prompted: false,
   topic: 'Family',
   createdAt: DateTime(2026, 7, 1),
+);
+
+PostConversationGardenReveal _postConversationResult({
+  required int turnCount,
+  required String skillId,
+  int beforeSightings = 0,
+  int afterSightings = 0,
+  Set<String> beforeOwned = const {},
+  Set<String> beforeEmerging = const {},
+  Set<String> afterOwned = const {},
+  Set<String> afterEmerging = const {},
+  List<SkillScore> scores = const [],
+  PostConversationGardenRevealStatus status =
+      PostConversationGardenRevealStatus.resolved,
+}) => PostConversationGardenReveal(
+  status: status,
+  chatNumber: 7,
+  turnCount: turnCount,
+  targetSkillIds: [skillId],
+  beforeSightings: {skillId: beforeSightings},
+  afterSightings: {skillId: afterSightings},
+  beforeOwned: beforeOwned,
+  beforeEmerging: beforeEmerging,
+  afterOwned: afterOwned,
+  afterEmerging: afterEmerging,
+  sessionScores: scores,
 );
 
 GardenGrowthRevealItem _revealItem({
@@ -382,6 +427,66 @@ void main() {
     expect(_previewGrowthSkill(container).sightings, 1);
   });
 
+  testWidgets('preview coordinator exposes and resolves a delayed judge', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final before = container.read(gardenPreviewControllerProvider);
+
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.watering,
+          judgeDelay: const Duration(seconds: 8),
+        );
+
+    final analyzing = container.read(postConversationGardenRevealProvider);
+    expect(analyzing?.isResolved, isFalse);
+    expect(analyzing?.turnCount, 4);
+    expect(container.read(gardenPreviewControllerProvider), same(before));
+
+    await tester.pump(const Duration(seconds: 7));
+    expect(
+      container.read(postConversationGardenRevealProvider)?.isResolved,
+      isFalse,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    final resolved = container.read(postConversationGardenRevealProvider);
+    expect(resolved?.isResolved, isTrue);
+    expect(resolved?.sessionScores.single.evidence, contains('day'));
+    expect(container.read(gardenPreviewControllerProvider), same(before));
+  });
+
+  testWidgets('new preview result cancels a stale judge timer', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.singleSkillGrowth,
+          judgeDelay: const Duration(seconds: 12),
+        );
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.quickHello,
+          judgeDelay: Duration.zero,
+        );
+
+    final quick = container.read(postConversationGardenRevealProvider);
+    expect(quick?.isResolved, isTrue);
+    expect(quick?.turnCount, 1);
+    final chatNumber = quick?.chatNumber;
+
+    await tester.pump(const Duration(seconds: 12));
+    final stillQuick = container.read(postConversationGardenRevealProvider);
+    expect(stillQuick?.chatNumber, chatNumber);
+    expect(_previewGrowthSkill(container).sightings, 0);
+  });
+
   testWidgets('known levels render their Figma garden labels', (tester) async {
     final cases = {
       'A0': 'Dawn Glade',
@@ -424,6 +529,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const ValueKey('garden-preview-sheet')), findsOneWidget);
+    expect(find.text('Garden level preview'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('garden-preview-trigger-growth')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('garden-preview-trigger-two-growth')),
+      findsNothing,
+    );
     for (final level in gardenPreviewLevels) {
       expect(find.text('${level.code} ${level.label}'), findsOneWidget);
     }
@@ -470,12 +584,12 @@ void main() {
       findsNothing,
     );
 
-    await tester.longPress(find.byKey(const ValueKey('garden-level-selector')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(
-      find.byKey(const ValueKey('garden-preview-trigger-growth')),
-    );
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.singleSkillGrowth,
+          judgeDelay: Duration.zero,
+        );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1900));
     await tester.pump();
@@ -504,18 +618,18 @@ void main() {
     );
     await tester.pump();
 
-    await tester.longPress(find.byKey(const ValueKey('garden-level-selector')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(
-      find.byKey(const ValueKey('garden-preview-trigger-two-growth')),
-    );
-    await tester.pump();
-    await _pumpUntilRevealCard(tester);
-
     final container = ProviderScope.containerOf(
       tester.element(find.byType(GardenScreen)),
     );
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.twoSkillGrowth,
+          judgeDelay: Duration.zero,
+        );
+    await tester.pump();
+    await _pumpUntilRevealCard(tester);
+
     final queue = container.read(gardenGrowthRevealProvider);
     expect(queue, hasLength(2));
     expect(queue.map((item) => item.skillId), [
@@ -593,6 +707,640 @@ void main() {
       GardenGrowthStage.budding,
       GardenGrowthStage.bloomed,
     ]);
+  });
+
+  test(
+    'post-conversation snapshots detect growth without a mounted garden',
+    () {
+      final skill = _skill(id: 'target', sightings: 1);
+      final after = _gardenData(
+        level: 'A1',
+        steps: [
+          _stepWithSkills(step: 1, skills: [skill]),
+        ],
+      );
+      final result = _postConversationResult(
+        turnCount: 3,
+        skillId: skill.id,
+        beforeSightings: 0,
+        afterSightings: 1,
+        afterEmerging: {skill.id},
+        scores: [
+          SkillScore(
+            id: skill.id,
+            confidence: 0.91,
+            prompted: false,
+            evidence: 'I described my family.',
+          ),
+        ],
+      );
+
+      final items = buildPostConversationGrowthRevealItems(
+        after: after,
+        result: result,
+      );
+
+      expect(items, hasLength(1));
+      expect(items.single.fromStage, GardenGrowthStage.seed);
+      expect(items.single.toStage, GardenGrowthStage.sprout);
+      expect(items.single.wateringOnly, isFalse);
+      expect(items.single.evidence?.quote, 'I described my family.');
+    },
+  );
+
+  test(
+    'no-growth reveal uses quick hello below 3 and strongest session line at 3',
+    () {
+      final target = _skill(id: 'target');
+      final after = _gardenData(
+        level: 'A1',
+        steps: [
+          _stepWithSkills(step: 1, skills: [target]),
+        ],
+      );
+      final targetScore = SkillScore(
+        id: target.id,
+        confidence: 0.72,
+        prompted: false,
+        evidence: 'This line matched the target skill.',
+      );
+      final strongestScore = SkillScore(
+        id: 'another-skill',
+        confidence: 0.94,
+        prompted: false,
+        evidence: 'This was the strongest line in the conversation.',
+      );
+
+      final quick = buildGardenWateringRevealItem(
+        after: after,
+        aimedAt: [target.id],
+        turnCount: 2,
+        sessionScores: [targetScore, strongestScore],
+      );
+      final watering = buildGardenWateringRevealItem(
+        after: after,
+        aimedAt: [target.id],
+        turnCount: 3,
+        sessionScores: [targetScore, strongestScore],
+      );
+
+      expect(quick?.quickHello, isTrue);
+      expect(watering?.quickHello, isFalse);
+      expect(watering?.wateringOnly, isTrue);
+      expect(watering?.skillId, target.id);
+      expect(
+        watering?.evidence?.quote,
+        'This was the strongest line in the conversation.',
+      );
+    },
+  );
+
+  test('watering falls back to an active non-owned skill', () {
+    final owned = _skill(id: 'owned', sightings: 3, status: SkillStatus.owned);
+    final fallback = _skill(id: 'fallback', sightings: 1);
+    final after = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [owned, fallback]),
+      ],
+    );
+
+    final watering = buildGardenWateringRevealItem(
+      after: after,
+      aimedAt: const ['missing-target'],
+      turnCount: 4,
+    );
+
+    expect(watering?.skillId, fallback.id);
+  });
+
+  testWidgets('pending result waters and alternates sides until it resolves', (
+    tester,
+  ) async {
+    const skillId = 'target';
+    final skill = _skill(id: skillId);
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [skill]),
+      ],
+    );
+    final analyzing = _postConversationResult(
+      turnCount: 3,
+      skillId: skillId,
+      status: PostConversationGardenRevealStatus.analyzing,
+    );
+    await tester.pumpWidget(
+      _harness(
+        data,
+        disableAnimations: false,
+        postConversationReveal: analyzing,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.byKey(const ValueKey('garden-preparing-overlay')),
+      findsNothing,
+    );
+    expect(find.text('Preparing your garden…'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'garden-watering-right-0-',
+            ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Just a little more watering…'), findsOneWidget);
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const ValueKey('garden-scoring-wait-card-opacity')),
+          )
+          .opacity,
+      0,
+    );
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'garden-watering-left-1-',
+            ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const ValueKey('garden-scoring-wait-card-opacity')),
+          )
+          .opacity,
+      1,
+    );
+    expect(
+      find.byKey(const ValueKey('garden-scoring-wait-zoe')),
+      findsOneWidget,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(GardenScreen)),
+    );
+    final before = MemoryState(childId: 'test', level: 'A1');
+    container
+        .read(postConversationGardenRevealProvider.notifier)
+        .resolve(
+          chatNumber: 7,
+          turnCount: 3,
+          targetSkillIds: const [skillId],
+          before: before,
+          after: before,
+          sessionScores: const [],
+        );
+    container.invalidate(gardenProvider);
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const ValueKey('garden-growth-reveal-card-opacity')),
+          )
+          .opacity,
+      0,
+    );
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('You watered your garden today'), findsOneWidget);
+    expect(find.text('A line to remember'), findsNothing);
+  });
+
+  testWidgets('pending quick hello skips speculative watering', (tester) async {
+    const skillId = 'target';
+    final skill = _skill(id: skillId);
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [skill]),
+      ],
+    );
+    final analyzing = _postConversationResult(
+      turnCount: 2,
+      skillId: skillId,
+      status: PostConversationGardenRevealStatus.analyzing,
+    );
+
+    await tester.pumpWidget(_harness(data, postConversationReveal: analyzing));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'garden-watering-',
+            ),
+      ),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const ValueKey('garden-scoring-wait-card-opacity')),
+          )
+          .opacity,
+      0,
+    );
+  });
+
+  testWidgets('resolved growth on another plot gets a final focused pour', (
+    tester,
+  ) async {
+    const targetId = 'target-one';
+    const growthId = 'growth-two';
+    final beforeGarden = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [_skill(id: targetId)]),
+        _stepWithSkills(step: 2, skills: [_skill(id: growthId)]),
+      ],
+    );
+    final afterGarden = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [_skill(id: targetId)]),
+        _stepWithSkills(step: 2, skills: [_skill(id: growthId, sightings: 1)]),
+      ],
+    );
+    final source = StateProvider<GardenData>((ref) => beforeGarden);
+    final analyzing = _postConversationResult(
+      turnCount: 3,
+      skillId: targetId,
+      status: PostConversationGardenRevealStatus.analyzing,
+    );
+
+    await tester.pumpWidget(
+      _harness(
+        beforeGarden,
+        disableAnimations: false,
+        gardenDataProvider: source,
+        postConversationReveal: analyzing,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(GardenScreen)),
+    );
+    final beforeMemory = MemoryState(childId: 'test', level: 'A1');
+    container.read(source.notifier).state = afterGarden;
+    container
+        .read(postConversationGardenRevealProvider.notifier)
+        .resolve(
+          chatNumber: 7,
+          turnCount: 3,
+          targetSkillIds: const [targetId, growthId],
+          before: beforeMemory,
+          after: beforeMemory.copyWith(
+            emerging: const [growthId],
+            sightings: const {growthId: 1},
+          ),
+          sessionScores: const [],
+        );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'garden-watering-',
+            ) &&
+            (widget.key! as ValueKey<String>).value.contains(growthId),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(const ValueKey('garden-scoring-wait-card-opacity')),
+          )
+          .opacity,
+      0,
+    );
+  });
+
+  testWidgets('resolved result is consumed on the garden first load', (
+    tester,
+  ) async {
+    const skillId = 'target';
+    final skill = _skill(id: skillId);
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [skill]),
+      ],
+    );
+    final resolved = _postConversationResult(turnCount: 1, skillId: skillId);
+
+    await tester.pumpWidget(_harness(data, postConversationReveal: resolved));
+    await tester.pump();
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey('garden-quick-hello-card')),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(GardenScreen)),
+    );
+    expect(container.read(postConversationGardenRevealProvider), isNull);
+    expect(
+      find.byKey(const ValueKey('garden-preparing-overlay')),
+      findsNothing,
+    );
+    expect(find.text('That was a quick hello 👋'), findsOneWidget);
+    expect(find.text("We can talk more whenever you're ready"), findsOneWidget);
+    final quickCard = find.byKey(const ValueKey('garden-quick-hello-card'));
+    expect(tester.getSize(quickCard).width, lessThanOrEqualTo(330));
+    expect(
+      tester.getCenter(quickCard).dx,
+      closeTo(tester.getCenter(find.byType(GardenScreen)).dx, 0.1),
+    );
+    final quickTitle = tester.widget<Text>(
+      find.byKey(const ValueKey('garden-quick-hello-title')),
+    );
+    expect(quickTitle.style?.fontSize, 16);
+  });
+
+  testWidgets('resolved growth takes precedence over watering on first load', (
+    tester,
+  ) async {
+    const skillId = 'target';
+    final skill = _skill(id: skillId, sightings: 1);
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [skill]),
+      ],
+    );
+    final resolved = _postConversationResult(
+      turnCount: 3,
+      skillId: skillId,
+      beforeSightings: 0,
+      afterSightings: 1,
+      afterEmerging: const {skillId},
+    );
+
+    await tester.pumpWidget(_harness(data, postConversationReveal: resolved));
+    await tester.pump();
+    await _pumpUntilRevealCard(tester);
+
+    expect(find.text('A new skill is sprouting'), findsOneWidget);
+    expect(find.text('You watered your garden today'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('garden-preparing-overlay')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('watering reveal spotlights and waters before showing its card', (
+    tester,
+  ) async {
+    const skillId = 'target';
+    final skill = _skill(id: skillId);
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [skill]),
+      ],
+    );
+    final resolved = _postConversationResult(turnCount: 3, skillId: skillId);
+
+    await tester.pumpWidget(
+      _harness(
+        data,
+        disableAnimations: false,
+        postConversationReveal: resolved,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.byKey(const ValueKey('garden-growth-spotlight-layer')),
+      findsOneWidget,
+    );
+    final spotlight = tester.widget<SpotlightOverlay>(
+      find.byType(SpotlightOverlay),
+    );
+    expect(spotlight.radius, 0.9);
+    final spotlightLayer = find.byKey(
+      const ValueKey('garden-growth-spotlight-layer'),
+    );
+    expect(tester.widget<AnimatedOpacity>(spotlightLayer).opacity, 1);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            ((widget.key! as ValueKey<String>).value.startsWith(
+                  'garden-watering-right-0-target:',
+                ) ||
+                (widget.key! as ValueKey<String>).value.startsWith(
+                  'garden-watering-left-0-target:',
+                )),
+      ),
+      findsOneWidget,
+    );
+    final canArt = find.byKey(const ValueKey('garden-watering-can-art'));
+    expect(tester.getSize(canArt), const Size(64, 56));
+    final cardOpacity = find.byKey(
+      const ValueKey('garden-growth-reveal-card-opacity'),
+    );
+    expect(tester.widget<AnimatedOpacity>(cardOpacity).opacity, 0);
+
+    // The can reaches its one-second pour window at 600ms. Droplets are still
+    // active near the end of that window, and Zoe must wait for the exit.
+    await tester.pump(const Duration(milliseconds: 650));
+    final canTransform = tester.widget<Transform>(
+      find.byKey(const ValueKey('garden-watering-can-transform')),
+    );
+    expect(canTransform.transform.storage[1], lessThan(0));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'garden-water-drop-',
+            ),
+      ),
+      findsWidgets,
+    );
+    expect(tester.widget<AnimatedOpacity>(cardOpacity).opacity, 0);
+
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'garden-water-drop-',
+            ),
+      ),
+      findsWidgets,
+    );
+    expect(tester.widget<AnimatedOpacity>(cardOpacity).opacity, 0);
+
+    await tester.pump(const Duration(milliseconds: 650));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('You watered your garden today'), findsOneWidget);
+    expect(tester.widget<AnimatedOpacity>(cardOpacity).opacity, 1);
+    expect(tester.widget<AnimatedOpacity>(spotlightLayer).opacity, 1);
+  });
+
+  testWidgets(
+    'watering card uses garden-wide copy and strongest session line',
+    (tester) async {
+      const skillId = 'target';
+      final skill = _skill(id: skillId);
+      final data = _gardenData(
+        level: 'A1',
+        steps: [
+          _stepWithSkills(step: 1, skills: [skill]),
+        ],
+      );
+      final resolved = _postConversationResult(
+        turnCount: 3,
+        skillId: skillId,
+        scores: const [
+          SkillScore(
+            id: skillId,
+            confidence: 0.71,
+            prompted: false,
+            evidence: 'I described my family.',
+          ),
+          SkillScore(
+            id: 'different-skill',
+            confidence: 0.93,
+            prompted: false,
+            evidence: 'I told a detailed story about our trip.',
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _harness(
+          data,
+          disableAnimations: true,
+          postConversationReveal: resolved,
+        ),
+      );
+      await tester.pump();
+      await _pumpUntilRevealCard(tester);
+
+      expect(find.text('You watered your garden today'), findsOneWidget);
+      expect(
+        find.text('Every conversation gives your English a little more life.'),
+        findsOneWidget,
+      );
+      expect(find.text('A line to remember'), findsOneWidget);
+      expect(
+        find.text('I told a detailed story about our trip.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('This had the highest confidence in this conversation.'),
+        findsNothing,
+      );
+      final wateringCard = find.byKey(
+        const ValueKey('garden-watering-reveal-card'),
+      );
+      expect(
+        find.descendant(
+          of: wateringCard,
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsNothing,
+      );
+      expect(find.text(skill.displayText), findsNothing);
+      expect(
+        find.textContaining('You practiced this skill with Zoe'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('watering presentation contains long content on short screens', (
+    tester,
+  ) async {
+    const skillId = 'target';
+    final skill = _skill(id: skillId);
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [skill]),
+      ],
+    );
+    final resolved = _postConversationResult(
+      turnCount: 3,
+      skillId: skillId,
+      scores: const [
+        SkillScore(
+          id: skillId,
+          confidence: 0.94,
+          prompted: false,
+          evidence:
+              'I carefully described the whole journey and explained why it '
+              'was memorable for everyone in my family.',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      _harness(
+        data,
+        postConversationReveal: resolved,
+        mediaSize: const Size(360, 640),
+        textScaler: TextScaler.linear(1.3),
+      ),
+    );
+    await tester.pump();
+    await _pumpUntilRevealCard(tester);
+
+    expect(
+      find.byKey(const ValueKey('garden-watering-reveal-presentation-scroll')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('garden-watering-reveal-note')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('growth reveal renders seed sprout budding and bloom copy', (
@@ -900,7 +1648,7 @@ void main() {
     expect(find.text("I like and I don't like"), findsNothing);
   });
 
-  testWidgets('unit signboard grows for text and keeps legs below board', (
+  testWidgets('unit boulders use fixed geometry and 24px centered icons', (
     tester,
   ) async {
     await _pumpGarden(
@@ -908,33 +1656,57 @@ void main() {
       _gardenData(
         level: 'A0',
         steps: [
-          _step(level: 'A0', step: 1, name: 'Finding Better Words', count: 3),
-          _step(level: 'A0', step: 2, name: 'Saying what I can do', count: 3),
+          _step(
+            level: 'A0',
+            step: 1,
+            name: 'Hi',
+            icon: 'assets/unit-icons/a1-a2/u1-globe.svg',
+            count: 3,
+          ),
+          _step(
+            level: 'A0',
+            step: 2,
+            name: 'Finding Better Words',
+            icon: 'assets/unit-icons/a1-a2/u1-globe.svg',
+            count: 3,
+          ),
         ],
       ),
     );
 
-    final boards = find.byKey(const ValueKey('garden-unit-sign-board'));
+    final boulders = find.byWidgetPredicate((widget) {
+      if (widget.key is! ValueKey<String>) return false;
+      final value = (widget.key! as ValueKey<String>).value;
+      return value == 'garden-unit-sign-1' || value == 'garden-unit-sign-2';
+    });
+    final content = find.byKey(const ValueKey('garden-unit-sign-content'));
+    final icons = find.byKey(const ValueKey('garden-unit-sign-icon'));
     final labels = find.byKey(const ValueKey('garden-unit-sign-label'));
-    expect(boards, findsNWidgets(2));
+    expect(boulders, findsNWidgets(2));
+    expect(content, findsNWidgets(2));
+    expect(icons, findsNWidgets(2));
     expect(labels, findsNWidgets(2));
-    expect(tester.getSize(boards.at(0)).width, greaterThanOrEqualTo(246));
-    expect(tester.getSize(boards.at(0)).height, 48);
-    expect(tester.getSize(boards.at(1)).height, 64);
+    expect(tester.getSize(boulders.at(0)).width, 164);
+    expect(tester.getSize(boulders.at(0)).height, closeTo(164 / 1.48, 0.01));
+    expect(tester.getSize(icons.at(0)), const Size(24, 24));
+    expect(tester.getSize(icons.at(1)), const Size(24, 24));
     expect(
-      tester.getSize(labels.at(0)).height,
-      lessThan(tester.getSize(labels.at(1)).height),
+      tester.getSize(content.at(0)).height,
+      lessThan(tester.getSize(content.at(1)).height),
     );
-
-    final leftLegs = find.byKey(const ValueKey('garden-unit-sign-leg-left'));
-    expect(
-      tester.getTopLeft(leftLegs.at(0)).dy,
-      tester.getBottomLeft(boards.at(0)).dy,
-    );
-    expect(
-      tester.getTopLeft(leftLegs.at(1)).dy,
-      tester.getBottomLeft(boards.at(1)).dy,
-    );
+    for (var i = 0; i < 2; i++) {
+      expect(
+        tester.getCenter(content.at(i)).dy,
+        closeTo(tester.getCenter(boulders.at(i)).dy, 0.01),
+      );
+      final boulderRect = tester.getRect(boulders.at(i));
+      final contentRect = tester.getRect(content.at(i));
+      expect(boulderRect.contains(contentRect.topLeft), isTrue);
+      expect(
+        boulderRect.contains(contentRect.bottomRight - const Offset(0.1, 0.1)),
+        isTrue,
+      );
+    }
   });
 
   testWidgets('garden sheet board grows and keeps content below it', (
@@ -1402,23 +2174,34 @@ void main() {
     });
   });
 
-  test('completed previous A1 garden uses local skills and all bloom', () {
-    final current = _gardenData(level: 'B1');
-    final projected = completedPreviousGardenData(
-      currentGarden: current,
-      viewedLevel: 'A1',
-    );
+  test(
+    'completed previous A1 garden uses its framework skills and all bloom',
+    () {
+      final current = _gardenData(level: 'B1');
+      final projected = completedPreviousGardenData(
+        currentGarden: current,
+        viewedLevel: 'A1',
+      );
 
-    expect(projected.level, 'A1');
-    expect(projected.steps, hasLength(5));
-    expect(projected.steps.first.name, 'Describing the world');
-    final skills = projected.steps.expand((step) => step.skills).toList();
-    expect(skills, hasLength(20));
-    expect(skills.first.id, 'A1-VOC-01');
-    expect(skills.every((skill) => skill.status == SkillStatus.owned), isTrue);
-    expect(skills.every((skill) => skill.sightings == 3), isTrue);
-    expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
-  });
+      expect(projected.level, 'A1');
+      expect(projected.steps, hasLength(5));
+      expect(projected.steps.first.name, 'Describing the world');
+      final skills = projected.steps.expand((step) => step.skills).toList();
+      expect(skills, hasLength(19));
+      expect(skills.first.id, 'U1-VOC-01');
+      expect(skills.first.icon, 'assets/skill-icons/a1-a2/01-two-faces.svg');
+      expect(
+        projected.steps.first.icon,
+        'assets/unit-icons/a1-a2/u1-globe.svg',
+      );
+      expect(
+        skills.every((skill) => skill.status == SkillStatus.owned),
+        isTrue,
+      );
+      expect(skills.every((skill) => skill.sightings == 3), isTrue);
+      expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
+    },
+  );
 
   test("completed previous A0 garden uses A0's own framework, all bloomed", () {
     final current = _gardenData(
@@ -1573,7 +2356,7 @@ void main() {
     );
     expect(find.byKey(const ValueKey('garden-talk-bar-layer')), findsNothing);
     expect(
-      find.byKey(const ValueKey('garden-plant-scale-A1-VOC-01')),
+      find.byKey(const ValueKey('garden-plant-scale-U1-VOC-01')),
       findsOneWidget,
     );
 
@@ -1593,7 +2376,7 @@ void main() {
     expect(find.byKey(const ValueKey('garden-talk-bar-layer')), findsOneWidget);
 
     await tester.tap(
-      find.byKey(const ValueKey('garden-skill-tile-A1-VOC-01')),
+      find.byKey(const ValueKey('garden-skill-tile-U1-VOC-01')),
       warnIfMissed: false,
     );
     await tester.pump();
