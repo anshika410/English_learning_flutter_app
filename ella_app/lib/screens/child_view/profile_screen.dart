@@ -12,7 +12,6 @@ import '../../providers/chat_provider.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'widgets/profile_scenery.dart';
 import 'widgets/sound_toggle.dart';
@@ -95,69 +94,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  Future<void> _handleDeleteMemory() async {
-    final isOnline = ref.read(connectivityProvider).value ?? true;
-    if (!isOnline) {
-      OfflineAlertPopup.show(context);
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Memory?'),
-        content: const Text('Are you sure you want to delete all learning memory? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      if (mounted) setState(() => _isLoading = true);
-      try {
-        await EllaApiService().resetUserMemory();
-        if (!context.mounted) return;
-
-        // Clear local memory (onboarding details)
-        await ref.read(onboardingProvider.notifier).reset();
-
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Memory deleted successfully.')),
-        );
-
-        // Invalidate the chat provider so RootGate sees the fresh memory state
-        // This is much safer than refreshAfterPlacement because it forces a 
-        // true re-fetch from the network without retaining old state on error.
-        ref.invalidate(chatProvider);
-
-        // Force a restart of the app flow
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      } catch (e) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('API Error'),
-              content: SingleChildScrollView(child: Text('$e')),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-              ],
-            ),
-          );
-        }
-      }
-    }
-  }
 
   Future<void> _handleSignOut() async {
     final isOnline = ref.read(connectivityProvider).value ?? true;
@@ -325,31 +261,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
 
               Expanded(
-                child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
-                      const SizedBox(height: 24),
+                      const Spacer(flex: 1),
                       // ── Avatar ────────────────────────────────────────
                       Container(
-                        width: 140,
-                        height: 140,
+                        width: 100,
+                        height: 100,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: EllaColors.surface,
                           shape: BoxShape.circle,
                           border: Border.all(color: EllaColors.border, width: 3),
                         ),
-                        child: Text(initial, style: _displayName),
+                        child: Text(initial, style: _displayName.copyWith(fontSize: 28)),
                       ),
 
-                      const SizedBox(height: 24),
+                      const Spacer(flex: 1),
                       // ── Name ──────────────────────────────────────────
-                      Text(_name, textAlign: TextAlign.center, style: _displayName),
+                      Text(_name, textAlign: TextAlign.center, style: _displayName.copyWith(fontSize: 28)),
 
-                      const SizedBox(height: 12),
+                      const Spacer(flex: 1),
                       // ── Age badge ─────────────────────────────────────
                       Container(
-                        height: 48,
+                        height: 40,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
                           color: EllaColors.surface,
@@ -360,111 +297,95 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             SvgPicture.asset('$_asset/balloon.svg',
-                                width: 24, height: 24),
-                            const SizedBox(width: 12),
+                                width: 20, height: 20),
+                            const SizedBox(width: 8),
                             Text(
                               'Age $_age',
                               style: _bodySemibold.copyWith(
+                                  fontSize: 16,
                                   color: EllaColors.warningDark),
                             ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(height: 40),
+                      const Spacer(flex: 2),
                       // ── Sound Effects card ────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: EllaColors.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: EllaColors.textDisabled, width: 3),
-                          ),
-                          child: Row(
-                            children: [
-                              SvgPicture.asset('$_asset/speaker.svg',
-                                  width: 32, height: 32),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Sound Effects', style: _bodySemibold),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Music & Tap Sounds',
-                                      style: EllaFonts.body(const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.6,
-                                        color: EllaColors.ink,
-                                      )),
-                                    ),
-                                  ],
-                                ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: EllaColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: EllaColors.textDisabled, width: 3),
+                        ),
+                        child: Row(
+                          children: [
+                            SvgPicture.asset('$_asset/speaker.svg',
+                                width: 28, height: 28),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Sound Effects', style: _bodySemibold.copyWith(fontSize: 16)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Music & Tap Sounds',
+                                    style: EllaFonts.body(const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.4,
+                                      color: EllaColors.ink,
+                                    )),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              SoundToggle(
-                                value: _sfxOn,
-                                onChanged: (v) {
-                                  setState(() {
-                                    _sfxOn = v;
-                                  });
-                                  ref.read(audioProvider).setSfxEnabled(v);
-                                  ref.read(audioProvider).setMusicEnabled(v);
-                                },
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 12),
+                            SoundToggle(
+                              value: _sfxOn,
+                              onChanged: (v) {
+                                setState(() {
+                                  _sfxOn = v;
+                                });
+                                ref.read(audioProvider).setSfxEnabled(v);
+                                ref.read(audioProvider).setMusicEnabled(v);
+                              },
+                            ),
+                          ],
                         ),
                       ),
 
-                      const SizedBox(height: 48),
+                      const Spacer(flex: 2),
                       // ── Sign Out ──────────────────────────────────────
                       _PillButton(
                         icon: SvgPicture.asset('$_asset/sign-out.svg',
-                            width: 24, height: 24),
+                            width: 20, height: 20),
                         label: 'Sign Out',
                         fill: EllaColors.errorLight,
                         border: EllaColors.errorDark,
                         foreground: EllaColors.errorDark,
-                        height: 56,
+                        height: 48,
                         dropShadow: EllaColors.berryDeep,
                         onTap: _handleSignOut,
                       ),
 
-                      const SizedBox(height: 16),
-                      // ── Delete Memory (kept feature, matching red pill) ─
+                      const SizedBox(height: 12),
+                      // ── Delete Account ────────────────────────────────
                       _PillButton(
                         icon: const Icon(Icons.delete_outline_rounded,
-                            size: 24, color: EllaColors.onPrimary),
-                        label: 'Delete Memory',
-                        fill: EllaColors.error,
+                            size: 20, color: EllaColors.errorDark),
+                        label: 'Delete Account',
+                        fill: EllaColors.errorLight,
                         border: EllaColors.errorDark,
-                        foreground: EllaColors.onPrimary,
-                        height: 56,
-                        dropShadow: EllaColors.errorDark,
-                        onTap: _handleDeleteMemory,
+                        foreground: EllaColors.errorDark,
+                        height: 48,
+                        dropShadow: EllaColors.berryDeep,
+                        onTap: _handleDeleteAccount,
                       ),
 
-                      const SizedBox(height: 16),
-                      // ── Delete Account ────────────────────────────────
-                      TextButton(
-                        onPressed: _handleDeleteAccount,
-                        child: const Text(
-                          'Delete Account',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 48),
+                      const Spacer(flex: 2),
                       // ── Footer ────────────────────────────────────────
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -475,7 +396,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             onTap: () => Navigator.of(context)
                                 .pushNamed('/privacy-policy'),
                           ),
-                          const SizedBox(width: 32),
+                          const SizedBox(width: 20),
                           _footerLink(
                             svg: '$_asset/address-book.svg',
                             label: 'Contact Us',
@@ -484,17 +405,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ),
 
-                      const SizedBox(height: 16),
+                      const Spacer(flex: 1),
                       if (_appVersion.isNotEmpty)
                         Text(
                           _appVersion,
                           style: EllaFonts.body(const TextStyle(
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                             color: EllaColors.textTertiary,
                           )),
                         ),
-                      const SizedBox(height: 24),
+                      const Spacer(flex: 1),
                     ],
                   ),
                 ),
@@ -517,9 +438,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset(svg, width: 32, height: 32),
-          const SizedBox(width: 8),
-          Text(label, style: _bodySemibold),
+          SvgPicture.asset(svg, width: 20, height: 20),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: _bodySemibold.copyWith(fontSize: 14),
+          ),
         ],
       ),
     );
@@ -579,7 +503,7 @@ class _PillButton extends StatelessWidget {
             Text(
               label,
               style: EllaFonts.body(TextStyle(
-                fontSize: 18,
+                fontSize: height <= 48 ? 16 : 18,
                 fontWeight: FontWeight.w600,
                 height: 1.6,
                 color: foreground,
