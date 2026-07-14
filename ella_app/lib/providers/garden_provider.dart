@@ -867,6 +867,125 @@ final gardenPreviewControllerProvider =
       (ref) => GardenPreviewController(),
     );
 
+enum GardenPreviewConversationOutcome {
+  singleSkillGrowth,
+  twoSkillGrowth,
+  watering,
+  quickHello,
+}
+
+extension GardenPreviewConversationOutcomeCopy
+    on GardenPreviewConversationOutcome {
+  String get label => switch (this) {
+    GardenPreviewConversationOutcome.singleSkillGrowth => 'Single-skill growth',
+    GardenPreviewConversationOutcome.twoSkillGrowth => 'Two-skill growth',
+    GardenPreviewConversationOutcome.watering => 'No growth — watering',
+    GardenPreviewConversationOutcome.quickHello => 'Quick hello',
+  };
+
+  String get description => switch (this) {
+    GardenPreviewConversationOutcome.singleSkillGrowth =>
+      'One plant advances to its next stage.',
+    GardenPreviewConversationOutcome.twoSkillGrowth =>
+      'Two plants advance and reveal in garden order.',
+    GardenPreviewConversationOutcome.watering =>
+      'A full conversation ends without a stage change.',
+    GardenPreviewConversationOutcome.quickHello =>
+      'Fewer than three turns; no plant is spotlighted.',
+  };
+}
+
+final gardenConversationPreviewControllerProvider =
+    Provider<GardenConversationPreviewController>((ref) {
+      final controller = GardenConversationPreviewController(ref);
+      ref.onDispose(controller.dispose);
+      return controller;
+    });
+
+/// Drives the production post-conversation handoff using only preview data.
+///
+/// The controller intentionally outlives [SessionScreen]: the judge timer starts
+/// before Zoe's farewell and may resolve after the chat route has popped and the
+/// garden has mounted. It never calls the Ella API or mutates live learner
+/// memory.
+class GardenConversationPreviewController {
+  final Ref _ref;
+  Timer? _judgeTimer;
+  int _chatNumber = 100000;
+
+  GardenConversationPreviewController(this._ref);
+
+  void start({
+    required GardenPreviewConversationOutcome outcome,
+    required Duration judgeDelay,
+  }) {
+    _judgeTimer?.cancel();
+    _ref.read(gardenGrowthRevealProvider.notifier).clear();
+    _ref.read(postConversationGardenRevealProvider.notifier).clear();
+
+    final gardenController = _ref.read(
+      gardenPreviewControllerProvider.notifier,
+    );
+    final beforeGarden = _ref.read(gardenPreviewControllerProvider);
+    final targetSkillIds = gardenController.targetSkillIdsFor(outcome);
+    final before = _previewMemoryFromGarden(
+      beforeGarden,
+      targetSkillIds: targetSkillIds,
+    );
+    final chatNumber = ++_chatNumber;
+    final turnCount = outcome == GardenPreviewConversationOutcome.quickHello
+        ? 1
+        : 4;
+
+    _ref
+        .read(postConversationGardenRevealProvider.notifier)
+        .begin(
+          chatNumber: chatNumber,
+          turnCount: turnCount,
+          targetSkillIds: targetSkillIds,
+          before: before,
+        );
+
+    void resolve() {
+      switch (outcome) {
+        case GardenPreviewConversationOutcome.singleSkillGrowth:
+          gardenController.triggerGrowth();
+          break;
+        case GardenPreviewConversationOutcome.twoSkillGrowth:
+          gardenController.triggerTwoSkillsGrowth();
+          break;
+        case GardenPreviewConversationOutcome.watering:
+        case GardenPreviewConversationOutcome.quickHello:
+          break;
+      }
+
+      final afterGarden = _ref.read(gardenPreviewControllerProvider);
+      final after = _previewMemoryFromGarden(
+        afterGarden,
+        targetSkillIds: targetSkillIds,
+      );
+      _ref
+          .read(postConversationGardenRevealProvider.notifier)
+          .resolve(
+            chatNumber: chatNumber,
+            turnCount: turnCount,
+            targetSkillIds: targetSkillIds,
+            before: before,
+            after: after,
+            sessionScores: _previewScoresFor(outcome, targetSkillIds),
+          );
+    }
+
+    if (judgeDelay <= Duration.zero) {
+      resolve();
+    } else {
+      _judgeTimer = Timer(judgeDelay, resolve);
+    }
+  }
+
+  void dispose() => _judgeTimer?.cancel();
+}
+
 final gardenProvider = FutureProvider.autoDispose<GardenData>((ref) async {
   if (ref.watch(gardenPreviewEnabledProvider)) {
     return ref.watch(gardenPreviewControllerProvider);
@@ -930,6 +1049,20 @@ class GardenPreviewController extends StateNotifier<GardenData> {
     _refresh();
   }
 
+  List<String> targetSkillIdsFor(
+    GardenPreviewConversationOutcome outcome,
+  ) => switch (outcome) {
+    GardenPreviewConversationOutcome.singleSkillGrowth => [
+      'preview-growth-c${_growthSightings >= 3 ? _growthCycle + 1 : _growthCycle}',
+    ],
+    GardenPreviewConversationOutcome.twoSkillGrowth => [
+      'preview-two-a-c${_twoSkillGrowthSightings >= 3 ? _twoSkillGrowthCycle + 1 : _twoSkillGrowthCycle}',
+      'preview-two-b-c${_twoSkillGrowthSightings >= 3 ? _twoSkillGrowthCycle + 1 : _twoSkillGrowthCycle}',
+    ],
+    GardenPreviewConversationOutcome.watering ||
+    GardenPreviewConversationOutcome.quickHello => const ['preview-u3-s0'],
+  };
+
   void _refresh() {
     state = _buildPreviewGarden(
       level: _level,
@@ -940,6 +1073,76 @@ class GardenPreviewController extends StateNotifier<GardenData> {
     );
   }
 }
+
+MemoryState _previewMemoryFromGarden(
+  GardenData garden, {
+  required List<String> targetSkillIds,
+}) {
+  final owned = <String>[];
+  final emerging = <String>[];
+  final sightings = <String, int>{};
+  for (final step in garden.steps) {
+    for (final skill in step.skills) {
+      sightings[skill.id] = skill.sightings;
+      switch (skill.status) {
+        case SkillStatus.owned:
+          owned.add(skill.id);
+        case SkillStatus.emerging:
+          emerging.add(skill.id);
+        case SkillStatus.locked:
+          break;
+      }
+    }
+  }
+  return MemoryState(
+    childId: 'garden-preview',
+    level: garden.level,
+    owned: owned,
+    emerging: emerging,
+    sightings: sightings,
+    dueNext: DueNext(
+      primary: targetSkillIds.isEmpty ? null : targetSkillIds.first,
+      watching: targetSkillIds.skip(1).toList(growable: false),
+    ),
+  );
+}
+
+List<SkillScore> _previewScoresFor(
+  GardenPreviewConversationOutcome outcome,
+  List<String> targetSkillIds,
+) => switch (outcome) {
+  GardenPreviewConversationOutcome.singleSkillGrowth => [
+    SkillScore(
+      id: targetSkillIds.first,
+      confidence: 0.92,
+      prompted: false,
+      evidence: 'I chose a more precise word for my story.',
+    ),
+  ],
+  GardenPreviewConversationOutcome.twoSkillGrowth => [
+    SkillScore(
+      id: targetSkillIds.first,
+      confidence: 0.94,
+      prompted: false,
+      evidence: 'I connected my ideas into one clear answer.',
+    ),
+    SkillScore(
+      id: targetSkillIds.last,
+      confidence: 0.89,
+      prompted: false,
+      evidence: 'I used but to show the difference.',
+    ),
+  ],
+  GardenPreviewConversationOutcome.watering => [
+    SkillScore(
+      id: targetSkillIds.first,
+      confidence: 0.86,
+      prompted: false,
+      evidence: 'I told Zoe about a day I really enjoyed.',
+    ),
+  ],
+  GardenPreviewConversationOutcome.quickHello => const [],
+};
 
 bool _isPreviewLevel(String level) =>
     gardenPreviewLevels.any((entry) => entry.code == level);

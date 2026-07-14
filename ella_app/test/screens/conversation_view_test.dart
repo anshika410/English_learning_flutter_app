@@ -4,6 +4,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('End Call keeps tap and preview long-press separate', (
+    tester,
+  ) async {
+    var taps = 0;
+    var longPresses = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ConversationView(
+            phase: ConvPhase.talking,
+            mascotSpeaking: false,
+            zoeLine: 'Tell me about your day.',
+            onEnd: () => taps++,
+            onEndLongPress: () => longPresses++,
+          ),
+        ),
+      ),
+    );
+
+    final endCall = find.byKey(const ValueKey('conversation-end-call'));
+    await tester.tap(endCall);
+    expect(taps, 1);
+    expect(longPresses, 0);
+
+    await tester.longPress(endCall);
+    expect(taps, 1);
+    expect(longPresses, 1);
+  });
+
   testWidgets('farewell speaking overrides the paused mascot pose', (
     tester,
   ) async {

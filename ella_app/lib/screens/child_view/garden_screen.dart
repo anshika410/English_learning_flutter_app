@@ -2289,7 +2289,7 @@ class _GardenPreviewSheet extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Garden preview',
+                    'Garden level preview',
                     style: EllaFonts.bricolage(
                       const TextStyle(
                         fontSize: 18,
@@ -2325,75 +2325,12 @@ class _GardenPreviewSheet extends ConsumerWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      key: const ValueKey('garden-preview-trigger-growth'),
-                      onPressed: () {
-                        controller.triggerGrowth();
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: EllaColors.greenDeep,
-                        foregroundColor: EllaColors.onPrimary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 20),
-                      label: Text(
-                        'Trigger Growth',
-                        overflow: TextOverflow.ellipsis,
-                        style: EllaFonts.body(
-                          const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      key: const ValueKey('garden-preview-trigger-two-growth'),
-                      onPressed: () {
-                        controller.triggerTwoSkillsGrowth();
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: EllaColors.berryMain,
-                        foregroundColor: EllaColors.onPrimary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: const Icon(Icons.filter_2_rounded, size: 20),
-                      label: Text(
-                        'Trigger 2 Skills',
-                        overflow: TextOverflow.ellipsis,
-                        style: EllaFonts.body(
-                          const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 12),
+            Text(
+              'To preview conversation outcomes, long-press End Call in the local preview chat.',
+              style: EllaTextStyles.caption.copyWith(
+                color: EllaColors.textSecondary,
+              ),
             ),
           ],
         ),

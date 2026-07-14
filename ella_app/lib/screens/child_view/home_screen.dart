@@ -16,6 +16,7 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
@@ -228,6 +229,18 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         ref,
         sel.name,
         onConversationEnded: widget.onConversationEnded,
+      );
+      return;
+    }
+    if (ref.read(gardenPreviewEnabledProvider)) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SessionScreen(
+            previewMode: true,
+            onEnded: widget.onConversationEnded,
+          ),
+        ),
       );
       return;
     }

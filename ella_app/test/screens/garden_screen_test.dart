@@ -427,6 +427,66 @@ void main() {
     expect(_previewGrowthSkill(container).sightings, 1);
   });
 
+  testWidgets('preview coordinator exposes and resolves a delayed judge', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final before = container.read(gardenPreviewControllerProvider);
+
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.watering,
+          judgeDelay: const Duration(seconds: 8),
+        );
+
+    final analyzing = container.read(postConversationGardenRevealProvider);
+    expect(analyzing?.isResolved, isFalse);
+    expect(analyzing?.turnCount, 4);
+    expect(container.read(gardenPreviewControllerProvider), same(before));
+
+    await tester.pump(const Duration(seconds: 7));
+    expect(
+      container.read(postConversationGardenRevealProvider)?.isResolved,
+      isFalse,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    final resolved = container.read(postConversationGardenRevealProvider);
+    expect(resolved?.isResolved, isTrue);
+    expect(resolved?.sessionScores.single.evidence, contains('day'));
+    expect(container.read(gardenPreviewControllerProvider), same(before));
+  });
+
+  testWidgets('new preview result cancels a stale judge timer', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.singleSkillGrowth,
+          judgeDelay: const Duration(seconds: 12),
+        );
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.quickHello,
+          judgeDelay: Duration.zero,
+        );
+
+    final quick = container.read(postConversationGardenRevealProvider);
+    expect(quick?.isResolved, isTrue);
+    expect(quick?.turnCount, 1);
+    final chatNumber = quick?.chatNumber;
+
+    await tester.pump(const Duration(seconds: 12));
+    final stillQuick = container.read(postConversationGardenRevealProvider);
+    expect(stillQuick?.chatNumber, chatNumber);
+    expect(_previewGrowthSkill(container).sightings, 0);
+  });
+
   testWidgets('known levels render their Figma garden labels', (tester) async {
     final cases = {
       'A0': 'Dawn Glade',
@@ -469,6 +529,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const ValueKey('garden-preview-sheet')), findsOneWidget);
+    expect(find.text('Garden level preview'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('garden-preview-trigger-growth')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('garden-preview-trigger-two-growth')),
+      findsNothing,
+    );
     for (final level in gardenPreviewLevels) {
       expect(find.text('${level.code} ${level.label}'), findsOneWidget);
     }
@@ -515,12 +584,12 @@ void main() {
       findsNothing,
     );
 
-    await tester.longPress(find.byKey(const ValueKey('garden-level-selector')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(
-      find.byKey(const ValueKey('garden-preview-trigger-growth')),
-    );
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.singleSkillGrowth,
+          judgeDelay: Duration.zero,
+        );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1900));
     await tester.pump();
@@ -549,18 +618,18 @@ void main() {
     );
     await tester.pump();
 
-    await tester.longPress(find.byKey(const ValueKey('garden-level-selector')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(
-      find.byKey(const ValueKey('garden-preview-trigger-two-growth')),
-    );
-    await tester.pump();
-    await _pumpUntilRevealCard(tester);
-
     final container = ProviderScope.containerOf(
       tester.element(find.byType(GardenScreen)),
     );
+    container
+        .read(gardenConversationPreviewControllerProvider)
+        .start(
+          outcome: GardenPreviewConversationOutcome.twoSkillGrowth,
+          judgeDelay: Duration.zero,
+        );
+    await tester.pump();
+    await _pumpUntilRevealCard(tester);
+
     final queue = container.read(gardenGrowthRevealProvider);
     expect(queue, hasLength(2));
     expect(queue.map((item) => item.skillId), [
