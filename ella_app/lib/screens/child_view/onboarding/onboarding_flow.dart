@@ -219,6 +219,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         break;
       }
     }
+    
+    // Validate length and word count to prevent accepting full sentences
+    if (t.length > 30) return null;
+    if (t.split(RegExp(r'\s+')).length > 3) return null;
+    
     if (t.isEmpty || !_nameOk.hasMatch(t)) return null;
     return t[0].toUpperCase() + t.substring(1);
   }
