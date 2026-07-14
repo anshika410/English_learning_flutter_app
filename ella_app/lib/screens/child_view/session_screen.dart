@@ -142,12 +142,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     _navigated = true;
     final onEnded = widget.onEnded;
     if (onEnded != null) {
-      onEnded();
       final route = ModalRoute.of(context);
       if (route != null) {
         Navigator.of(context).removeRoute(route);
-        return;
       }
+      // Call onEnded after the route is removed so the home screen context
+      // is active and can push the garden route without a null context crash.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onEnded();
+      });
+      return;
     }
     Navigator.of(context).pop();
   }

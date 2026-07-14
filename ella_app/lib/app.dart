@@ -304,6 +304,7 @@ class _EllaHomeState extends State<_EllaHome> {
   // Garden/Profile are pushed as routes; wrap each in a Scaffold so their text
   // has a Material ancestor (otherwise it renders with debug yellow underlines).
   void _openGarden() {
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const Scaffold(
