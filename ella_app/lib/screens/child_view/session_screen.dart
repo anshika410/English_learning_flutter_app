@@ -239,7 +239,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             judgeDelay: previewDelay ?? _previewJudgeDelay,
           );
     } else {
-      unawaited(notifier!.endChat().catchError(_snack));
+      // endChat already fired above in the !previewMode block
     }
 
     // NativeTtsService.speak completes only when playback finishes (with its
