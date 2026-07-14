@@ -4,8 +4,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/theme_colors.dart';
 import '../../core/text_styles.dart';
+import '../../core/offline_alert_popup.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -94,6 +96,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _handleDeleteMemory() async {
+    final isOnline = ref.read(connectivityProvider).value ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -152,6 +160,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _handleSignOut() async {
+    final isOnline = ref.read(connectivityProvider).value ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
+
     await EllaApiService().logout();
     try {
       await GoogleSignIn.instance.signOut();
@@ -163,6 +177,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _handleEditProfile() async {
+    final isOnline = ref.read(connectivityProvider).value ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
+
     final updated = await EditProfileDialog.show(context, _name, _age);
     if (updated == true) {
       setState(() => _isLoading = true);
@@ -187,6 +207,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ));
 
   Future<void> _handleDeleteAccount() async {
+    final isOnline = ref.read(connectivityProvider).value ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

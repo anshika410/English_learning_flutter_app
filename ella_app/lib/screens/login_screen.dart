@@ -17,8 +17,10 @@ import 'package:android_intent_plus/android_intent.dart';
 
 import '../core/app_toast.dart';
 import '../providers/chat_provider.dart';
+import '../providers/connectivity_provider.dart';
 import '../core/text_styles.dart';
 import '../core/theme_colors.dart';
+import '../core/offline_alert_popup.dart';
 import '../services/audio_service.dart';
 import '../services/ella_api_service.dart';
 import 'child_view/widgets/ella_primary_button.dart';
@@ -202,6 +204,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
+    final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
+
     if (_isSigningIn) return;
     _isSigningIn = true;
     setState(() => _isLoading = true);
@@ -257,6 +265,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _sendMagicLink() async {
+    final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
+
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       // Input-validation feedback keeps its own specific copy (not a server error).

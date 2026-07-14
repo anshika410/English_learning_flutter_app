@@ -6,9 +6,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/chat_provider.dart';
-import '../providers/onboarding_provider.dart';
-
 import '../services/ella_api_service.dart';
 import '../services/update_service.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -28,7 +25,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    // Removed artificial delay for faster loading
+    FlutterNativeSplash.remove();
 
     if (!mounted) return;
 
@@ -43,17 +40,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!mounted) return;
 
     if (isAuthenticated) {
-      try {
-        await ref.read(chatProvider.future);
-        await ref.read(onboardingProvider.future);
-      } catch (_) {
-        // If it fails, RootGate will show error or reload
-      }
-      if (!mounted) return;
-      FlutterNativeSplash.remove();
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
-      FlutterNativeSplash.remove();
       Navigator.of(context).pushReplacementNamed('/login');
     }
   }

@@ -24,6 +24,7 @@ enum ZoeMascotMode {
   listening,
   thinking,
   idle,
+  sleep,
 
   /// Calm "paused" pose used behind the back-button sheet: eyes closed, body
   /// gently swaying left↔right, mouth closed, no thinking droplets.
@@ -262,7 +263,7 @@ class _ZoeMascotPainter extends CustomPainter {
     _drawMouth(canvas);
     _drawLeaves(canvas, t);
     _drawStems(canvas);
-    if (mode == ZoeMascotMode.thinking && !reducedMotion) {
+    if ((mode == ZoeMascotMode.thinking || mode == ZoeMascotMode.sleep) && !reducedMotion) {
       _drawDroplets(canvas, t);
     }
 
@@ -309,6 +310,24 @@ class _ZoeMascotPainter extends CustomPainter {
         ty: 3,
         rot: _rad(5),
         sy: 0.66,
+        draw: () => canvas.drawPath(_paths.eyeRight, eyePaint),
+      );
+      return;
+    }
+    if (mode == ZoeMascotMode.sleep) {
+      // Eyes closed for sleeping.
+      _applyTransformScoped(
+        canvas,
+        _eyeLeftCenter,
+        ty: 3,
+        sy: 0.15,
+        draw: () => canvas.drawPath(_paths.eyeLeft, eyePaint),
+      );
+      _applyTransformScoped(
+        canvas,
+        _eyeRightCenter,
+        ty: 3,
+        sy: 0.15,
         draw: () => canvas.drawPath(_paths.eyeRight, eyePaint),
       );
       return;
@@ -468,6 +487,7 @@ class _ZoeMascotPainter extends CustomPainter {
           _rad(_kf(p, ats, const [0, -3.4, 1.2, 0])),
           _rad(_kf(p, ats, const [0, 3.4, -1.2, 0])),
         );
+      case ZoeMascotMode.sleep:
       case ZoeMascotMode.listening:
       case ZoeMascotMode.idle:
       case ZoeMascotMode.paused:
@@ -497,6 +517,10 @@ class _ZoeMascotPainter extends CustomPainter {
     if (mode == ZoeMascotMode.thinking) {
       // Small, closed, off-centre thinking mouth.
       return (open: false, tx: 8, ty: -3, rot: _rad(-2), sx: 0.58, sy: 0.82);
+    }
+    if (mode == ZoeMascotMode.sleep) {
+      // Small open mouth for snoring.
+      return (open: true, tx: 0, ty: -1, rot: 0, sx: 0.6, sy: 0.6);
     }
     if (mode != ZoeMascotMode.speaking) {
       return (open: false, tx: 0, ty: 0, rot: 0, sx: 1, sy: 1);

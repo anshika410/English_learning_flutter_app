@@ -11,9 +11,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_toast.dart';
+import '../../core/offline_alert_popup.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../providers/onboarding_provider.dart';
+import '../../providers/service_providers.dart';
+import '../../services/sounds.dart';
 import 'chat_bubble.dart';
+import 'home_screen.dart' show kHomeChildName;
 
 // The progression-model (micro-skill ⟷ units) toggle is cosmetic while the
 // live conversation framing is decided server-side. Hidden until the backend
@@ -65,6 +71,8 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+
+
     ref.listen(chatProvider, (_, next) {
       _maybeStartSession();
       if (next.hasValue) _scrollToBottom();
@@ -111,7 +119,16 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
           Expanded(
             child: chatAsync.when(
               data: (s) => _MessageList(
-                messages: s.messages,
+                messages: [
+                  ...s.messages,
+                  if (!(ref.watch(connectivityProvider).valueOrNull ?? true))
+                    ChatMessage(
+                      id: 'offline_msg',
+                      text: "Hey ${ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName}, I'm having trouble connecting to the internet right now!",
+                      sender: MessageSender.zoe,
+                      timestamp: DateTime.now(),
+                    )
+                ],
                 isZoeThinking: s.status == ChatStatus.zoeThinking,
                 scrollController: _scrollController,
               ),
@@ -126,6 +143,7 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
           chatAsync.when(
             data: (s) => _InputDock(
               state: s,
+              isOnline: ref.watch(connectivityProvider).valueOrNull ?? true,
               textController: _textController,
               onSend: (text) {
                 _textController.clear();
@@ -185,7 +203,7 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
   void _snack(Object e) {
     if (!mounted) return;
     debugPrint('[ChildChat] $e');
-    showEllaErrorToast(context);
+    OfflineAlertPopup.show(context);
   }
 
   // ── Confirms ──────────────────────────────────────────────────────────────
@@ -406,6 +424,7 @@ class _SysBubble extends StatelessWidget {
 
 class _InputDock extends StatelessWidget {
   final ChatState state;
+  final bool isOnline;
   final TextEditingController textController;
   final void Function(String) onSend;
   final VoidCallback onToggleMode;
@@ -415,6 +434,7 @@ class _InputDock extends StatelessWidget {
 
   const _InputDock({
     required this.state,
+    required this.isOnline,
     required this.textController,
     required this.onSend,
     required this.onToggleMode,
@@ -476,11 +496,16 @@ class _InputDock extends StatelessWidget {
                 ),
               ),
             if (state.inputMode == InputMode.voice)
-              _MicButton(status: state.status, onTap: onMicTap)
+              _MicButton(
+                status: state.status, 
+                onTap: isOnline ? onMicTap : () {
+                  OfflineAlertPopup.show(context);
+                }
+              )
             else
               _TextInputRow(
                 controller: textController,
-                enabled: state.status == ChatStatus.idle,
+                enabled: isOnline && state.status == ChatStatus.idle,
                 onSend: onSend,
               ),
           ],
