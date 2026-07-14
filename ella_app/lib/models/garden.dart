@@ -98,30 +98,6 @@ SkillStatus statusFromString(String? s) {
   }
 }
 
-extension SkillStatusInfo on SkillStatus {
-  String get tag => switch (this) {
-    SkillStatus.owned => 'Bloomed',
-    SkillStatus.emerging => 'Growing',
-    SkillStatus.locked => 'Not planted',
-  };
-}
-
-/// Visual growth stage shown on a plot.
-enum PlantStage { bare, sprout, growing, bloom }
-
-/// Maps (status, sightings) → growth stage. Owned always blooms (no separate
-/// bud asset); emerging grows from sprout → growing as sightings accrue.
-PlantStage plantStageFor(SkillStatus status, int sightings) {
-  switch (status) {
-    case SkillStatus.owned:
-      return PlantStage.bloom;
-    case SkillStatus.emerging:
-      return sightings >= 1 ? PlantStage.growing : PlantStage.sprout;
-    case SkillStatus.locked:
-      return PlantStage.bare;
-  }
-}
-
 class GardenEvidence {
   final String quote;
   final double confidence;
@@ -174,8 +150,6 @@ class GardenSkill {
     String displayText = '',
     this.icon = '',
   }) : _displayText = displayText;
-
-  PlantStage get stage => plantStageFor(status, sightings);
 
   String get displayText => _displayText.isNotEmpty ? _displayText : text;
 

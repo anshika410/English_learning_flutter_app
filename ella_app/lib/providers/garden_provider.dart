@@ -7,10 +7,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/curriculum_display_copy.dart';
-import '../core/curriculum_icons.dart';
 import '../models/child_memory.dart';
 import '../models/garden.dart';
+import '../services/ella_api_service.dart';
 import 'service_providers.dart';
 
 const List<GardenPreviewLevel> gardenPreviewLevels = [
@@ -107,99 +106,6 @@ bool isViewingCompletedPreviousGarden({
   return currentIndex >= 0 && viewedIndex >= 0 && viewedIndex < currentIndex;
 }
 
-GardenData displayGardenDataFor({
-  required GardenData currentGarden,
-  required String viewedLevel,
-}) {
-  if (!isViewingCompletedPreviousGarden(
-    currentLevel: currentGarden.level,
-    viewedLevel: viewedLevel,
-  )) {
-    return currentGarden;
-  }
-  return completedPreviousGardenData(
-    currentGarden: currentGarden,
-    viewedLevel: viewedLevel,
-  );
-}
-
-GardenData completedPreviousGardenData({
-  required GardenData currentGarden,
-  required String viewedLevel,
-}) {
-  final level = _canonicalGardenLevel(viewedLevel);
-  final label = _previewLabelFor(level);
-  if (CurriculumIcons.transitionForLevel(level) == null) {
-    return GardenData(
-      level: level,
-      levelLabel: label,
-      theme: label,
-      activeStepIndex: currentGarden.activeStepIndex,
-      recommendedTopic: currentGarden.recommendedTopic,
-      steps: [
-        for (final step in currentGarden.steps) _completedStepFromGarden(step),
-      ],
-    );
-  }
-
-  final steps = <GardenStep>[];
-  for (var unitNumber = 1; unitNumber <= 5; unitNumber++) {
-    final skillIds = CurriculumIcons.skillIdsForUnit(level, unitNumber);
-    final displayName = CurriculumDisplayCopy.unitName(
-      level: level,
-      unit: unitNumber,
-      fallback: '',
-    );
-    final displayDescription = CurriculumDisplayCopy.unitDescription(
-      level: level,
-      unit: unitNumber,
-      fallback: '',
-    );
-    steps.add(
-      GardenStep(
-        step: unitNumber,
-        name: displayName,
-        focus: displayDescription,
-        description: displayDescription,
-        displayName: displayName,
-        displayDescription: displayDescription,
-        icon: CurriculumIcons.unitAsset(level, unitNumber) ?? '',
-        isCompleted: true,
-        skills: [
-          for (final skillId in skillIds)
-            _completedSkill(
-              id: skillId,
-              strand: _strandFromCurriculumSkillId(skillId),
-              text: CurriculumDisplayCopy.skillText(
-                level: level,
-                unit: unitNumber,
-                skillId: skillId,
-                fallback: skillId,
-              ),
-              displayText: CurriculumDisplayCopy.skillText(
-                level: level,
-                unit: unitNumber,
-                skillId: skillId,
-                fallback: skillId,
-              ),
-              icon:
-                  CurriculumIcons.skillAsset(level, unitNumber, skillId) ?? '',
-            ),
-        ],
-      ),
-    );
-  }
-
-  return GardenData(
-    level: level,
-    levelLabel: label,
-    theme: label,
-    activeStepIndex: steps.length,
-    recommendedTopic: 'Placement',
-    steps: steps,
-  );
-}
-
 const String completedGardenIntroSeenPrefsKeyPrefix =
     'ella_completed_previous_garden_intro_seen_v1';
 const String _completedGardenIntroUserIdPrefsKey = 'ella_api_user_id';
@@ -280,79 +186,12 @@ final completedGardenIntroSeenProvider =
       CompletedGardenIntroSeenState
     >((ref) => CompletedGardenIntroSeenController());
 
-Strand _strandFromCurriculumSkillId(String skillId) {
-  final parts = skillId.split('-');
-  return parts.length >= 2 ? strandFromString(parts[1]) : Strand.unknown;
-}
-
 String _canonicalGardenLevel(String level) {
   final upper = level.trim().toUpperCase();
   return gardenSequence.any((entry) => entry.code == upper)
       ? upper
       : gardenSequence.first.code;
 }
-
-GardenStep _completedStepFromGarden(GardenStep step) => GardenStep(
-  step: step.step,
-  name: step.name,
-  focus: step.focus,
-  description: step.description,
-  displayName: step.displayName,
-  displayDescription: step.displayDescription,
-  icon: step.icon,
-  isCompleted: true,
-  skills: [
-    for (final skill in step.skills)
-      _completedSkill(
-        id: skill.id,
-        strand: skill.strand,
-        text: skill.text,
-        displayText: skill.displayText,
-        icon: skill.icon,
-      ),
-  ],
-);
-
-GardenSkill _completedSkill({
-  required String id,
-  required Strand strand,
-  required String text,
-  String displayText = '',
-  String icon = '',
-}) => GardenSkill(
-  id: id,
-  strand: strand,
-  text: text,
-  displayText: displayText,
-  status: SkillStatus.owned,
-  sightings: 3,
-  icon: icon,
-  evidence: _completedGardenEvidence,
-);
-
-List<GardenEvidence> get _completedGardenEvidence => [
-  GardenEvidence(
-    quote: 'I can already use this when I talk.',
-    confidence: 1,
-    prompted: false,
-    topic: 'Placement',
-    createdAt: DateTime(2026, 7, 1),
-  ),
-  GardenEvidence(
-    quote: 'Zoe found that this skill was already growing strongly.',
-    confidence: 1,
-    prompted: false,
-    topic: 'Placement',
-    createdAt: DateTime(2026, 7, 1),
-  ),
-  GardenEvidence(
-    quote: 'This part of my garden was already grown.',
-    confidence: 1,
-    prompted: false,
-    topic: 'Placement',
-    createdAt: DateTime(2026, 7, 1),
-  ),
-];
 
 enum GardenGrowthStage { seed, sprout, budding, bloomed }
 
@@ -372,17 +211,14 @@ extension GardenGrowthStageInfo on GardenGrowthStage {
   };
 }
 
-GardenGrowthStage gardenGrowthStageFor({
-  required SkillStatus status,
-  required int sightings,
-}) {
-  if (status == SkillStatus.owned || sightings >= 3) {
-    return GardenGrowthStage.bloomed;
-  }
-  if (sightings == 2) return GardenGrowthStage.budding;
-  if (sightings == 1) return GardenGrowthStage.sprout;
-  return GardenGrowthStage.seed;
-}
+/// Growth stage follows sightings alone, matching the plot art
+/// (1 → seedling, 2 → young, ≥3 → bloom).
+GardenGrowthStage gardenGrowthStageFor(int sightings) => switch (sightings) {
+  >= 3 => GardenGrowthStage.bloomed,
+  2 => GardenGrowthStage.budding,
+  1 => GardenGrowthStage.sprout,
+  _ => GardenGrowthStage.seed,
+};
 
 class GardenGrowthRevealItem {
   final GardenStep step;
@@ -567,24 +403,8 @@ List<GardenGrowthRevealItem> buildPostConversationGrowthRevealItems({
       final skill = step.skills[skillIndex];
       final beforeSightings = result.beforeSightings[skill.id] ?? 0;
       final afterSightings = result.afterSightings[skill.id] ?? skill.sightings;
-      final fromStatus = _snapshotStatus(
-        skill.id,
-        result.beforeOwned,
-        result.beforeEmerging,
-      );
-      final toStatus = _snapshotStatus(
-        skill.id,
-        result.afterOwned,
-        result.afterEmerging,
-      );
-      final fromStage = gardenGrowthStageFor(
-        status: fromStatus,
-        sightings: beforeSightings,
-      );
-      final toStage = gardenGrowthStageFor(
-        status: toStatus,
-        sightings: afterSightings,
-      );
+      final fromStage = gardenGrowthStageFor(beforeSightings);
+      final toStage = gardenGrowthStageFor(afterSightings);
       if (_growthStageRank(toStage) <= _growthStageRank(fromStage)) continue;
 
       items.add(
@@ -609,16 +429,6 @@ int _growthStageRank(GardenGrowthStage stage) => switch (stage) {
   GardenGrowthStage.budding => 2,
   GardenGrowthStage.bloomed => 3,
 };
-
-SkillStatus _snapshotStatus(
-  String skillId,
-  Set<String> owned,
-  Set<String> emerging,
-) {
-  if (owned.contains(skillId)) return SkillStatus.owned;
-  if (emerging.contains(skillId)) return SkillStatus.emerging;
-  return SkillStatus.locked;
-}
 
 List<GardenGrowthRevealItem> buildGardenGrowthRevealItems({
   required GardenData? before,
@@ -656,17 +466,8 @@ List<GardenGrowthRevealItem> buildGardenGrowthRevealItems({
       final fromSightings = grewExactly
           ? previous.sightings
           : _inferredPreviousSightings(skill.sightings);
-      final fromStatus = grewExactly
-          ? previous.status
-          : _statusForInferredSightings(fromSightings);
-      final fromStage = gardenGrowthStageFor(
-        status: fromStatus,
-        sightings: fromSightings,
-      );
-      final toStage = gardenGrowthStageFor(
-        status: skill.status,
-        sightings: skill.sightings,
-      );
+      final fromStage = gardenGrowthStageFor(fromSightings);
+      final toStage = gardenGrowthStageFor(skill.sightings);
       if (fromStage == toStage) continue;
 
       items.add(
@@ -734,10 +535,7 @@ GardenGrowthRevealItem? buildGardenWateringRevealItem({
     final anchor = resolved ?? _firstSkillLocation(after);
     if (anchor == null) return null;
     final skill = anchor.step.skills[anchor.skillIndex];
-    final stage = gardenGrowthStageFor(
-      status: skill.status,
-      sightings: skill.sightings,
-    );
+    final stage = gardenGrowthStageFor(skill.sightings);
     return GardenGrowthRevealItem(
       step: anchor.step,
       skill: skill,
@@ -753,10 +551,7 @@ GardenGrowthRevealItem? buildGardenWateringRevealItem({
   resolved ??= _fallbackWateringLocation(after);
   if (resolved == null) return null;
   final skill = resolved.step.skills[resolved.skillIndex];
-  final stage = gardenGrowthStageFor(
-    status: skill.status,
-    sightings: skill.sightings,
-  );
+  final stage = gardenGrowthStageFor(skill.sightings);
   return GardenGrowthRevealItem(
     step: resolved.step,
     skill: skill,
@@ -811,12 +606,6 @@ int _inferredPreviousSightings(int sightings) {
   final capped = sightings >= 3 ? 3 : sightings;
   if (capped <= 0) return 0;
   return capped - 1;
-}
-
-SkillStatus _statusForInferredSightings(int sightings) {
-  if (sightings >= 3) return SkillStatus.owned;
-  if (sightings >= 1) return SkillStatus.emerging;
-  return SkillStatus.locked;
 }
 
 GardenEvidence? _growthEvidenceFor(GardenSkill? before, GardenSkill after) {
@@ -993,6 +782,22 @@ final gardenProvider = FutureProvider.autoDispose<GardenData>((ref) async {
   final api = ref.read(ellaApiServiceProvider);
   return api.getGarden();
 });
+
+/// Real garden data for a previously completed level —
+/// GET /users/me/garden?level=<code>. Throws when the backend doesn't honour
+/// the level param (echoes another level back) or returns no units, so
+/// callers fall back to [completedPreviousGardenData].
+final previousGardenProvider = FutureProvider.autoDispose
+    .family<GardenData, String>((ref, level) async {
+      final api = ref.read(ellaApiServiceProvider);
+      final garden = await api.getGarden(level: level);
+      final requested = level.trim().toUpperCase();
+      if (garden.level.trim().toUpperCase() != requested ||
+          garden.steps.isEmpty) {
+        throw const EllaApiException('previous_garden_unavailable');
+      }
+      return garden;
+    });
 
 class GardenPreviewLevel {
   final String code;

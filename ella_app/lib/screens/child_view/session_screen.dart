@@ -153,7 +153,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         _advanceTimerStarted = true;
         // Safety net: force navigation back to garden after 5 seconds even if TTS completion handler fails to fire
         Future.delayed(const Duration(seconds: 5), () {
-          if (mounted && !_navigated) {
+          if (mounted && !_navigated && !_ending) {
             _navigated = true;
             final onEnded = widget.onEnded;
             Navigator.of(context).pop();
@@ -211,7 +211,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       _sheetOpen = false;
       _speaking = true;
     });
-    _navigated = true; // Prevent _maybeAdvance from scheduling a duplicate pop
     
     if (!widget.previewMode) {
       final notifier = ref.read(chatProvider.notifier);
