@@ -9,6 +9,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/placement_provider.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -167,6 +168,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     await EllaApiService().logout();
+
+    // Invalidate global state providers so user data doesn't leak into the next session
+    ref.invalidate(onboardingProvider);
+    ref.invalidate(placementProvider);
+    ref.invalidate(chatProvider);
+
     try {
       await GoogleSignIn.instance.signOut();
     } catch (_) {}
@@ -242,8 +249,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         try {
           await GoogleSignIn.instance.signOut();
         } catch (_) {}
+        
+        // Invalidate global state providers so user data doesn't leak into the next session
         ref.invalidate(chatProvider);
         ref.invalidate(onboardingProvider);
+        ref.invalidate(placementProvider);
 
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
