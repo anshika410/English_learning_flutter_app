@@ -21,7 +21,6 @@ import '../models/message.dart';
 import '../models/session.dart';
 import '../services/analytics_service.dart';
 import '../services/ella_api_service.dart';
-import 'dart:async';
 import 'dart:io';
 import 'garden_provider.dart';
 import 'onboarding_provider.dart';
@@ -554,6 +553,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           targetSkillIds: initialTargets,
           before: mem,
         );
+    ref.read(selectedGardenLevelProvider.notifier).state = null;
 
     state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
 

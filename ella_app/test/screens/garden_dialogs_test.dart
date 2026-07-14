@@ -93,7 +93,7 @@ Future<void> _openSkillSheet(
   WidgetTester tester,
   GardenSkill skill, {
   GardenStep? step,
-  bool showEvidence = true,
+  bool isPreviousGarden = false,
 }) async {
   final resolvedStep = step ?? _step(skills: [skill]);
   await _pumpOpener(
@@ -103,7 +103,7 @@ Future<void> _openSkillSheet(
           context,
           resolvedStep,
           skill,
-          showEvidence: showEvidence,
+          isPreviousGarden: isPreviousGarden,
         ),
   );
 }
@@ -312,18 +312,40 @@ void main() {
   });
 
   testWidgets(
-    'skill sheet hides evidence when showEvidence is false (completed garden)',
+    'previous-garden skill sheet with evidence still shows What You Said',
     (tester) async {
       final skill = _skill(
         strand: Strand.voc,
         status: SkillStatus.owned,
         sightings: 3,
         displayText: 'Colours and numbers up to ten',
-        evidence: [_evidence('This part of my garden was already grown.')],
+        evidence: [_evidence('My friend is tall and happy.')],
       );
       final step = _step(displayName: 'Naming the world', skills: [skill]);
 
-      await _openSkillSheet(tester, skill, step: step, showEvidence: false);
+      await _openSkillSheet(tester, skill, step: step, isPreviousGarden: true);
+
+      expect(find.text('What You Said'), findsOneWidget);
+      expect(find.text('My friend is tall and happy.'), findsOneWidget);
+      expect(
+        find.text('Talk with Zoe to start growing this skill'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'previous-garden skill sheet without evidence ends at the chips',
+    (tester) async {
+      final skill = _skill(
+        strand: Strand.voc,
+        status: SkillStatus.owned,
+        sightings: 3,
+        displayText: 'Colours and numbers up to ten',
+      );
+      final step = _step(displayName: 'Naming the world', skills: [skill]);
+
+      await _openSkillSheet(tester, skill, step: step, isPreviousGarden: true);
 
       // Unit name, skill name, strand tag and the Bloomed chip remain.
       expect(find.text('Naming the world'), findsOneWidget);
@@ -337,15 +359,29 @@ void main() {
         findsOneWidget,
       );
 
-      // The evidence section is hidden entirely.
-      expect(find.text('What You Said'), findsNothing);
+      // No empty-state block: no divider tile icon, no Talk-with-Zoe prompt.
       expect(
-        find.byKey(const ValueKey('garden-evidence-card-0')),
+        find.text('Talk with Zoe to start growing this skill'),
         findsNothing,
       );
+      expect(find.text('What You Said'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'current-garden skill sheet without evidence keeps the Zoe prompt',
+    (tester) async {
+      final skill = _skill(
+        strand: Strand.voc,
+        sightings: 0,
+        displayText: 'Colours and numbers up to ten',
+      );
+
+      await _openSkillSheet(tester, skill);
+
       expect(
-        find.text('This part of my garden was already grown.'),
-        findsNothing,
+        find.text('Talk with Zoe to start growing this skill'),
+        findsOneWidget,
       );
     },
   );

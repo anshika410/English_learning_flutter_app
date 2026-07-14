@@ -1602,18 +1602,43 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     // unlocked garden in the switcher. In preview mode the preview controller
     // already swaps `data.level`, so no override is needed there.
     final previewEnabled = ref.watch(gardenPreviewEnabledProvider);
-    final viewedLevel = previewEnabled
+    final viewedLevel = (previewEnabled || postConversation != null || revealQueue.isNotEmpty)
         ? currentLevel
         : (ref.watch(selectedGardenLevelProvider) ?? currentLevel);
-    final displayData = previewEnabled
-        ? data
-        : displayGardenDataFor(currentGarden: data, viewedLevel: viewedLevel);
     final completedPreviousActive =
         !previewEnabled &&
+        postConversation == null &&
+        revealQueue.isEmpty &&
         isViewingCompletedPreviousGarden(
           currentLevel: currentLevel,
           viewedLevel: viewedLevel,
         );
+    final GardenData displayData;
+    if (completedPreviousActive) {
+      // Real per-level garden from the API. On any failure (network, level
+      // mismatch, empty units) show the standard toast and bounce back to
+      // the current garden.
+      ref.listen(previousGardenProvider(viewedLevel), (prev, next) {
+        if (next.hasError && !(prev?.hasError ?? false) && mounted) {
+          debugPrint('[Garden] previous garden load error: ${next.error}');
+          showEllaErrorToast(context);
+          ref.read(selectedGardenLevelProvider.notifier).state = null;
+        }
+      });
+      final previousAsync = ref.watch(previousGardenProvider(viewedLevel));
+      final previous = previousAsync.valueOrNull;
+      if (previous != null) {
+        displayData = previous;
+      } else if (previousAsync.isLoading) {
+        return const MascotLoadingScreen(message: 'Preparing your garden...');
+      } else {
+        // Error: keep the current garden on screen until the listener above
+        // resets the selection.
+        displayData = data;
+      }
+    } else {
+      displayData = data;
+    }
     final completedIntroSeen = ref.watch(completedGardenIntroSeenProvider);
     final completedIntroPending =
         completedPreviousActive && !completedIntroSeen.loaded;
@@ -1674,7 +1699,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
                             plotAnchorKey: _plotAnchorKeyFor(
                               displayData.steps[i],
                             ),
-                            completedPrevious: completedPreviousActive,
+                            isPreviousGarden: completedPreviousActive,
                           ),
                       ],
                     ),
@@ -3135,7 +3160,7 @@ class _GardenUnitRow extends StatelessWidget {
   final Set<String> grownSkillIds;
   final GlobalKey Function(String skillId) skillAnchorFor;
   final GlobalKey plotAnchorKey;
-  final bool completedPrevious;
+  final bool isPreviousGarden;
   const _GardenUnitRow({
     required this.data,
     required this.step,
@@ -3144,7 +3169,7 @@ class _GardenUnitRow extends StatelessWidget {
     required this.grownSkillIds,
     required this.skillAnchorFor,
     required this.plotAnchorKey,
-    this.completedPrevious = false,
+    this.isPreviousGarden = false,
   });
 
   @override
@@ -3211,7 +3236,12 @@ class _GardenUnitRow extends StatelessWidget {
                             width: signW,
                             height: signH,
                             iconAsset: _stoneIconFor(step.icon),
-                            onTap: () => showUnitSheet(context, data, step),
+                            onTap: () => showUnitSheet(
+                              context,
+                              data,
+                              step,
+                              isPreviousGarden: isPreviousGarden,
+                            ),
                           ),
                         ),
                         Positioned(
@@ -3225,7 +3255,7 @@ class _GardenUnitRow extends StatelessWidget {
                             grownSkillIds: grownSkillIds,
                             skillAnchorFor: skillAnchorFor,
                             plotAnchorKey: plotAnchorKey,
-                            completedPrevious: completedPrevious,
+                            isPreviousGarden: isPreviousGarden,
                           ),
                         ),
                         Positioned(
@@ -3746,7 +3776,7 @@ class _Plot extends StatelessWidget {
   final Set<String> grownSkillIds;
   final GlobalKey Function(String skillId) skillAnchorFor;
   final GlobalKey plotAnchorKey;
-  final bool completedPrevious;
+  final bool isPreviousGarden;
   const _Plot({
     super.key,
     required this.data,
@@ -3755,7 +3785,7 @@ class _Plot extends StatelessWidget {
     required this.grownSkillIds,
     required this.skillAnchorFor,
     required this.plotAnchorKey,
-    this.completedPrevious = false,
+    this.isPreviousGarden = false,
   });
 
   @override
@@ -3791,7 +3821,7 @@ class _Plot extends StatelessWidget {
                 context,
                 step,
                 skills[i],
-                showEvidence: !completedPrevious,
+                isPreviousGarden: isPreviousGarden,
               ),
             ),
           for (final i in order)
@@ -3806,7 +3836,7 @@ class _Plot extends StatelessWidget {
                   context,
                   step,
                   skills[i],
-                  showEvidence: !completedPrevious,
+                  isPreviousGarden: isPreviousGarden,
                 ),
               ),
         ],
