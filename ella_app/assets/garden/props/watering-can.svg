@@ -1,0 +1,45 @@
+<svg width="128" height="112" viewBox="0 0 128 112" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Watering can">
+  <defs>
+    <linearGradient id="wcBody" x1="30" y1="34" x2="104" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A6E4EF"></stop>
+      <stop offset="0.45" stop-color="#6FC5D6"></stop>
+      <stop offset="1" stop-color="#4C97A8"></stop>
+    </linearGradient>
+    <linearGradient id="wcSpout" x1="8" y1="20" x2="44" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8AD3E2"></stop>
+      <stop offset="1" stop-color="#4C97A8"></stop>
+    </linearGradient>
+    <radialGradient id="wcGloss" cx="0.35" cy="0.28" r="0.7">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.85"></stop>
+      <stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0.12"></stop>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+
+
+  <g>
+    <path d="M40 44 L10 20 Q4 15 9 10 L14 6 Q19 1 24 7 L48 38 Z" fill="url(#wcSpout)" stroke="#3E8494" stroke-width="3" stroke-linejoin="round"></path>
+    <ellipse cx="13" cy="12" rx="8" ry="5.4" transform="rotate(-40 13 12)" fill="#3E8494"></ellipse>
+    <ellipse cx="13" cy="12" rx="6" ry="3.6" transform="rotate(-40 13 12)" fill="#2C5F6C"></ellipse>
+    <g fill="#8AD3E2">
+      <circle cx="9" cy="9" r="1"></circle><circle cx="13" cy="12" r="1"></circle><circle cx="17" cy="15" r="1"></circle>
+      <circle cx="12" cy="8" r="1"></circle><circle cx="16" cy="11" r="1"></circle>
+    </g>
+  </g>
+
+
+  <path d="M34 42 Q30 36 40 33 L94 33 Q108 33 105 47 L98 82 Q95 96 80 96 L54 96 Q39 96 36 82 Z" fill="url(#wcBody)" stroke="#3E8494" stroke-width="3.2" stroke-linejoin="round"></path>
+
+  <path d="M42 39 L92 39 Q101 39 100 48 L97 62 Q68 53 42 58 Z" fill="url(#wcGloss)"></path>
+
+  <ellipse cx="68" cy="34" rx="33" ry="6.5" fill="#3E8494"></ellipse>
+  <ellipse cx="68" cy="32" rx="33" ry="6.5" fill="#8AD3E2"></ellipse>
+  <ellipse cx="68" cy="31" rx="27" ry="4.2" fill="#B7E9F2"></ellipse>
+
+
+  <path d="M60 33 Q68 6 94 15 Q110 21 102 40" fill="none" stroke="#3E8494" stroke-width="6.5" stroke-linecap="round"></path>
+  <path d="M61 32 Q69 9 92 16" fill="none" stroke="#B7E9F2" stroke-width="2.4" stroke-linecap="round"></path>
+
+
+  <ellipse cx="70" cy="99" rx="28" ry="4" fill="#2C5F6C" opacity="0.18"></ellipse>
+</svg>

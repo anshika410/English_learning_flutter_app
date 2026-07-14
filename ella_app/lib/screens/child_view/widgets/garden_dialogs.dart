@@ -370,6 +370,7 @@ class _SkillSheetBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _ResolvedSvgIcon(
+              key: ValueKey('garden-skill-sheet-icon-${skill.id}'),
               rawIcon: skill.icon,
               fallbackAsset: skill.strand.icon,
               size: 48,
@@ -750,6 +751,7 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ResolvedSvgIcon(
+              key: ValueKey('garden-unit-sheet-icon-${step.step}'),
               rawIcon: step.icon,
               fallbackAsset: _unitFallbackIcon,
               size: 48,

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ELLA — Loop Simulator</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js">
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -3067,7 +3068,50 @@ function SettingsView({isApiAuthed,onConfigChange}){
         placeholder="Ella API Url" value={C.ellaApiUrl} onChange={e=>{C.ellaApiUrl=e.target.value;rerender();}}/>
       <div style={{marginTop:8}}>
         <button className="ghost" onClick={checkHealth}>🏥 Health Check</button>
-        <span style={{fontSize:12,marginLeft:8}}>{healthStatus}</span>
+        {healthStatus&&<span style={{marginLeft:8,fontSize:11}}>{healthStatus}</span>}
+      </div>
+      {/* Google Sign-In for real account testing */}
+      <div style={{marginTop:12,padding:'10px 12px',background:'#f8f9fa',borderRadius:8,border:'1px solid #e0e0e0'}}>
+        <div style={{fontWeight:700,fontSize:12,marginBottom:6,color:'#2C1E0F'}}>🔑 Sign in with your Google account</div>
+        <div style={{fontSize:11,color:'#6B5740',marginBottom:8}}>Sign in to test with your real data — same account as your app session.</div>
+        {(() => {
+          const storedEmail = localStorage.getItem('ella_google_email');
+          if (storedEmail) {
+            return (
+              <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'3px 10px',borderRadius:12,fontSize:11,fontWeight:700}}>
+                  ✅ Signed in as {storedEmail}
+                </span>
+                <button className="ghost" style={{fontSize:11,padding:'3px 8px'}} onClick={()=>{
+                  localStorage.removeItem('ella_access_token');
+                  localStorage.removeItem('ella_google_email');
+                  localStorage.removeItem('ella_device_id');
+                  rerender();
+                  window.location.reload();
+                }}>Sign out</button>
+              </div>
+            );
+          }
+          return (
+            <div id="google-signin-btn-container">
+              <div id="g_id_onload"
+                data-client_id="778575174037-tg76ia7gf961rrqh8g2s3ptnnr5gkos4.apps.googleusercontent.com"
+                data-context="signin"
+                data-ux_mode="popup"
+                data-callback="handleGoogleSignIn"
+                data-auto_prompt="false">
+              </div>
+              <div className="g_id_signin"
+                data-type="standard"
+                data-shape="rectangular"
+                data-theme="outline"
+                data-text="sign_in_with"
+                data-size="medium"
+                data-logo_alignment="left">
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>}
     {C.mode==='direct'&&<div className="ev">Browser calls the provider directly with your key. <b>Works for CORS-friendly providers (OpenRouter reliably; DeepSeek sometimes).</b> Most providers BLOCK this — if you get a CORS error, use Ella API mode.</div>}
@@ -3503,6 +3547,31 @@ function ApiCallsView({logs, onClear}){
     </div>
   );
 }
+// Google Sign-In callback — called by Google's SDK after user authenticates
+window.handleGoogleSignIn = async function(response) {
+  try {
+    const idToken = response.credential;
+    // Exchange Google ID token for Ella JWT
+    const res = await fetch(`${LLM_CONFIG.ellaApiUrl}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: idToken })
+    });
+    if (!res.ok) throw new Error('Auth failed: ' + res.status);
+    const data = await res.json();
+    localStorage.setItem('ella_access_token', data.access_token);
+    // Decode email from ID token (JWT payload)
+    try {
+      const payload = JSON.parse(atob(idToken.split('.')[1]));
+      localStorage.setItem('ella_google_email', payload.email || 'unknown');
+    } catch(_) {}
+    // Reload to reinitialize with new token
+    window.location.reload();
+  } catch(e) {
+    alert('Google Sign-In failed: ' + e.message);
+  }
+};
+
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>

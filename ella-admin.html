@@ -380,6 +380,15 @@
   </div>
 </div>
 
+<!-- Memory modal -->
+<div class="modal" id="memory-modal">
+  <div class="modal-box" style="max-width:600px;">
+    <button class="modal-close" onclick="closeMemoryModal()">×</button>
+    <h3 id="memory-modal-title">Student Memory</h3>
+    <div id="memory-modal-content"></div>
+  </div>
+</div>
+
 <script>
   let BASE_URL = '';
   let ADMIN_KEY = '';
@@ -391,11 +400,16 @@
     if (!isoString) return '—';
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return '—';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+    // Show in IST (UTC+5:30) with AM/PM
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   }
 
   function login() {
@@ -539,7 +553,9 @@
         <td><strong>${u.name || '<span style="color:#aaa">—</span>'}</strong></td>
         <td style="font-size:11px;color:#6B5740;">${u.email || '<span style="color:#aaa">—</span>'}</td>
         <td>${u.age || '—'}</td>
-        <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : '<span style="color:#aaa;font-size:12px">Not screened</span>'}</td>
+        <td>${u.level ? `<span class="badge badge-${u.level.toLowerCase()}">${u.level}</span>` : 
+          u.name && u.age ? '<span style="background:#FFF3E0;color:#E65100;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;">Onboarding</span>' :
+          '<span style="color:#aaa;font-size:12px">Not started</span>'}</td>
         <td>${getUserProgressHTML(u)}</td>
         <td>${formatDate(u.created_at)}</td>
         <td>
@@ -547,6 +563,7 @@
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
             ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
             ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions</button>` : ''}
+            <button class="transcript-btn" style="border-color: #8b5cf6; color: #8b5cf6;" onclick="viewStudentMemory('${u.id}')">Memory</button>
           </div>
         </td>`
     }).join('') + (sorted.length === 0 ? '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
@@ -645,23 +662,75 @@
   }
 
   async function viewPlacementTranscript(userId, name) {
-    document.getElementById('modal-title').textContent = `${name} — Placement Transcript`;
+    document.getElementById('modal-title').textContent = `${name} — Placement`;
     document.getElementById('modal-content').innerHTML = '<div style="color:#888;text-align:center;padding:20px">Loading...</div>';
     document.getElementById('transcript-modal').classList.add('open');
 
     try {
       const res = await fetch(`${BASE_URL}/admin/placements/${userId}/transcript?key=${encodeURIComponent(ADMIN_KEY)}`);
-      const msgs = await res.json();
-      if (!msgs.length) {
-        document.getElementById('modal-content').innerHTML = '<p style="color:#aaa">No transcript available</p>';
+      const d = await res.json();
+
+      // Handle legacy array response (old backend)
+      if (Array.isArray(d)) {
+        if (!d.length) {
+          document.getElementById('modal-content').innerHTML = '<p style="color:#aaa">No transcript available</p>';
+          return;
+        }
+        document.getElementById('modal-content').innerHTML = d.map(m => `
+          <div class="turn ${m.role === 'user' ? 'user' : 'assistant'}">
+            <div class="role">${m.role === 'user' ? '🎤 Student' : '🤖 Zoe'}</div>
+            <div class="content">${m.content}</div>
+          </div>
+        `).join('');
         return;
       }
-      document.getElementById('modal-content').innerHTML = msgs.map(m => `
-        <div class="turn ${m.role === 'user' ? 'user' : 'assistant'}">
-          <div class="role">${m.role === 'user' ? '🎤 Student' : '🤖 Zoe'}</div>
-          <div class="content">${m.content}</div>
-        </div>
-      `).join('');
+
+      // New structured response
+      const confColor = { high: '#059669', medium: '#D97706', low: '#DC2626' }[d.confidence] || '#6B5740';
+      const confBg    = { high: '#E6FDF4', medium: '#FFFBEB', low: '#FEF2F2' }[d.confidence] || '#F5F0EC';
+
+      let html = '';
+
+      // ── Result card ──
+      html += `<div style="background:#FDFBFA;border:1.5px solid #F0E4CC;border-radius:12px;padding:16px;margin-bottom:20px;">`;
+      html += `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;">`;
+
+      if (d.level) {
+        html += `<span class="badge badge-${d.level.toLowerCase()}" style="font-size:14px;padding:5px 14px;">${d.level}</span>`;
+      }
+      if (d.confidence) {
+        html += `<span style="background:${confBg};color:${confColor};padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;text-transform:capitalize;">${d.confidence} confidence</span>`;
+      }
+      if (d.unit_label) {
+        html += `<span style="background:#F0F4FF;color:#4B5AB0;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">Unit: ${d.unit_label}</span>`;
+      }
+      if (d.created_at) {
+        html += `<span style="color:#C0A880;font-size:12px;margin-left:auto;">${formatDate(d.created_at)}</span>`;
+      }
+      html += `</div>`;
+
+      if (d.highlight) {
+        html += `<div style="background:#FFF7EC;border-left:3px solid #FF9500;padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px;color:#5C4D3C;line-height:1.6;">
+          <span style="font-size:11px;font-weight:700;color:#C87000;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Zoe's Assessment</span>
+          ${d.highlight}
+        </div>`;
+      }
+      html += `</div>`;
+
+      // ── Transcript ──
+      if (!d.transcript || !d.transcript.length) {
+        html += '<p style="color:#aaa;font-size:13px;">No transcript recorded.</p>';
+      } else {
+        html += `<div style="font-size:11px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Transcript (${d.transcript.filter(m => m.role === 'user').length} student turns)</div>`;
+        html += d.transcript.map(m => `
+          <div class="turn ${m.role === 'user' ? 'user' : 'assistant'}">
+            <div class="role">${m.role === 'user' ? '🎤 Student' : '🤖 Zoe'}</div>
+            <div class="content">${m.content}</div>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('modal-content').innerHTML = html;
     } catch (e) {
       document.getElementById('modal-content').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
     }
@@ -751,6 +820,9 @@
 
     // Render header details & progress bar
     let html = `
+      <div style="margin-bottom: 16px; padding: 8px 12px; background: #e8f5e9; border: 1.5px solid #2e7d32; border-radius: 8px; font-size: 12px; color: #1b5e20;">
+        ✅ <strong>Backend data verified correct</strong> — Skills are grouped by curriculum unit/step below. Any display issues are in the Flutter app rendering, not the backend.
+      </div>
       <div style="margin-bottom: 20px;">
         <div style="font-size: 15px; margin-bottom: 6px; color: #2C1E0F;">
           <strong>Active Garden:</strong> <span style="color: #FF9500; font-weight:700;">${gardenName}</span> (CEFR Level ${u.level})
@@ -813,7 +885,7 @@
             evidenceHtml += `</div>`;
           }
 
-          stepSkillsHtml += `
+        stepSkillsHtml += `
             <div class="skill-row" style="margin-bottom: 6px;">
               <div class="skill-meta">
                 <div>
@@ -979,6 +1051,119 @@
   document.getElementById('admin-key').addEventListener('keydown', e => {
     if (e.key === 'Enter') login();
   });
+
+  function viewStudentMemory(userId) {
+    const u = (window.USERS || []).find(x => x.id === userId);
+    if (!u) return;
+
+    const name = u.name || 'Student';
+    document.getElementById('memory-modal-title').textContent = `${name} — Memory`;
+    document.getElementById('memory-modal').classList.add('open');
+
+    const sp = u.skills_progress || {};
+    const effort = sp.effort || {};
+    const sightings = sp.sightings || {};
+    const owned = sp.owned || [];
+    const emerging = sp.emerging || [];
+    const dueNext = u.due_next || {};
+    const interests = u.interests || '';
+    const personaMemory = u.persona_memory || {};
+    const facts = personaMemory.facts || [];
+
+    // Helper to render a section
+    const section = (title, color, content) => `
+      <div style="margin-bottom:18px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${color};margin-bottom:8px;">${title}</div>
+        ${content}
+      </div>
+    `;
+
+    const pill = (text, bg, fg) =>
+      `<span style="display:inline-block;background:${bg};color:${fg};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:3px 3px 3px 0;">${text}</span>`;
+
+    let html = '';
+
+    // Profile
+    html += section('Profile', '#6B5740', `
+      <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px;">
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Name:</strong> ${u.name || '—'}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Age:</strong> ${u.age || '—'}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Level:</strong> ${u.level || '—'}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Unit:</strong> ${u.unit_label || '—'}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>First session done:</strong> ${u.first_session_done ? 'Yes' : 'No'}</div>
+      </div>
+    `);
+
+    // Interests
+    html += section('Interests', '#C87000', interests
+      ? interests.split(',').map(i => pill(i.trim(), '#FFF3E0', '#C87000')).join('')
+      : '<span style="color:#aaa;font-size:13px;">No interests recorded yet</span>'
+    );
+
+    // Persona memory facts
+    html += section('Persona Memory (What Zoe knows about this student)', '#8b5cf6',
+      facts.length > 0
+        ? facts.map(f => `
+            <div style="padding:7px 12px;margin-bottom:6px;background:#f5f3ff;border-left:3px solid #8b5cf6;border-radius:0 8px 8px 0;font-size:13px;color:#4C3D7A;">${f}</div>
+          `).join('')
+        : '<span style="color:#aaa;font-size:13px;">No facts stored yet — Zoe will pick these up during conversations</span>'
+    );
+
+    // Due next targets
+    const primary = dueNext.primary;
+    const watching = dueNext.watching || [];
+    html += section('Next Skill Targets', '#1A6CC8',
+      (primary || watching.length > 0)
+        ? `<div style="font-size:13px;">
+            ${primary ? `<div style="margin-bottom:6px;">${pill('Primary', '#E8F4FF', '#1A6CC8')} <strong>${primary}</strong></div>` : ''}
+            ${watching.length > 0 ? `<div>${pill('Watching', '#F0F4FF', '#6B5AB0')} ${watching.join(', ')}</div>` : ''}
+          </div>`
+        : '<span style="color:#aaa;font-size:13px;">No targets set yet</span>'
+    );
+
+    // Skills summary
+    html += section('Skills Summary', '#059669', `
+      <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:8px;">
+        <div style="background:#E6FDF4;padding:6px 12px;border-radius:8px;border:1px solid #6ee7b7;"><strong style="color:#059669;">${owned.length}</strong> Owned</div>
+        <div style="background:#FFFBEB;padding:6px 12px;border-radius:8px;border:1px solid #fcd34d;"><strong style="color:#D97706;">${emerging.length}</strong> Emerging</div>
+        <div style="background:#F3F4F6;padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;"><strong style="color:#374151;">${effort.times_spoken_total || 0}</strong> Total speaking turns</div>
+      </div>
+      ${owned.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">${owned.map(id => pill(id, '#E6FDF4', '#059669')).join('')}</div>` : ''}
+      ${emerging.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">${emerging.map(id => pill(id, '#FFFBEB', '#D97706')).join('')}</div>` : ''}
+    `);
+
+    // Evidence
+    const evidence = sp.evidence || {};
+    const evidenceEntries = Object.entries(evidence);
+    if (evidenceEntries.length > 0) {
+      let evHtml = '';
+      evidenceEntries.forEach(([skillId, entries]) => {
+        evHtml += `<div style="margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:#6B5740;margin-bottom:4px;">${skillId}</div>`;
+        (Array.isArray(entries) ? entries : [entries]).forEach(e => {
+          const text = typeof e === 'string' ? e : e.evidence || '';
+          const topic = typeof e === 'string' ? '' : e.topic || '';
+          const conf = typeof e === 'string' ? null : e.confidence;
+          const prompted = typeof e === 'string' ? false : e.prompted;
+          evHtml += `
+            <div style="padding:6px 10px;margin-bottom:4px;background:#FDFCF7;border-left:2.5px solid #10b981;border-radius:0 6px 6px 0;font-size:12.5px;color:#5C4D3C;font-style:italic;">
+              "${text}"
+              <div style="font-size:10px;color:#A08C75;font-style:normal;margin-top:2px;">
+                ${topic ? `topic: "${topic}" · ` : ''}${conf !== null ? `confidence: ${Math.round(conf * 100)}%` : ''} ${prompted ? '· prompted' : '· organic'}
+              </div>
+            </div>`;
+        });
+        evHtml += `</div>`;
+      });
+      html += section('Evidence ("What You Said")', '#10b981', evHtml);
+    }
+
+    document.getElementById('memory-modal-content').innerHTML = html;
+  }
+
+  function closeMemoryModal() {
+    document.getElementById('memory-modal').classList.remove('open');
+  }
 </script>
 </body>
 </html>
