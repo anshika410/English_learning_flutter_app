@@ -513,9 +513,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     } catch (e) {
       // Fallback to canned replies if the proxy is unreachable
       const mockKid = [
-        'My name is Priya.',
+        'I like cricket.',
         'I am eleven.',
-        'Yes, one sister. Her name Anjali.',
+        'Yes, one sister.',
         'I like cricket and she like dancing.',
         'Because it is fun.',
         'Yesterday I go to school.',
