@@ -49,20 +49,29 @@ void showSkillSheet(
   BuildContext context,
   GardenStep step,
   GardenSkill skill, {
-  bool showEvidence = true,
+  bool isPreviousGarden = false,
 }) {
   _showGardenSheet(
     context,
     boardTitle: step.displayName,
-    child: _SkillSheetBody(skill: skill, showEvidence: showEvidence),
+    child: _SkillSheetBody(skill: skill, isPreviousGarden: isPreviousGarden),
   );
 }
 
-void showUnitSheet(BuildContext context, GardenData data, GardenStep step) {
+void showUnitSheet(
+  BuildContext context,
+  GardenData data,
+  GardenStep step, {
+  bool isPreviousGarden = false,
+}) {
   _showGardenSheet(
     context,
     boardTitle: step.displayName,
-    child: _UnitSheetBody(data: data, step: step),
+    child: _UnitSheetBody(
+      data: data,
+      step: step,
+      isPreviousGarden: isPreviousGarden,
+    ),
   );
 }
 
@@ -356,8 +365,12 @@ class _ResolvedSvgIcon extends StatelessWidget {
 
 class _SkillSheetBody extends StatelessWidget {
   final GardenSkill skill;
-  final bool showEvidence;
-  const _SkillSheetBody({required this.skill, this.showEvidence = true});
+
+  /// Previous (completed) gardens have no sessions to start, so a skill
+  /// without evidence ends at the chips — no divider, no tile icon, no
+  /// "Talk with Zoe" prompt. Evidence, when present, is always shown.
+  final bool isPreviousGarden;
+  const _SkillSheetBody({required this.skill, this.isPreviousGarden = false});
 
   @override
   Widget build(BuildContext context) {
@@ -403,7 +416,7 @@ class _SkillSheetBody extends StatelessWidget {
             _GrowthStateChip(skill: skill),
           ],
         ),
-        if (showEvidence) ...[
+        if (evidence.isNotEmpty || !isPreviousGarden) ...[
           const SizedBox(height: 16),
           const _WoodDivider(),
           const SizedBox(height: 20),
@@ -727,7 +740,12 @@ class _EmptySkillState extends StatelessWidget {
 class _UnitSheetBody extends StatefulWidget {
   final GardenData data;
   final GardenStep step;
-  const _UnitSheetBody({required this.data, required this.step});
+  final bool isPreviousGarden;
+  const _UnitSheetBody({
+    required this.data,
+    required this.step,
+    this.isPreviousGarden = false,
+  });
 
   @override
   State<_UnitSheetBody> createState() => _UnitSheetBodyState();
@@ -793,7 +811,12 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
             skill: skill,
             onTap: () {
               Navigator.of(context).pop();
-              showSkillSheet(context, step, skill);
+              showSkillSheet(
+                context,
+                step,
+                skill,
+                isPreviousGarden: widget.isPreviousGarden,
+              );
             },
           ),
           if (skill != visibleSkills.last) const SizedBox(height: 16),

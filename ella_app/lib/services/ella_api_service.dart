@@ -187,8 +187,13 @@ class EllaApiService {
   }
 
   /// Garden layout for the signed-in user — GET /users/me/garden.
-  Future<GardenData> getGarden() async {
-    final data = await _request('GET', '/users/me/garden');
+  /// Pass [level] to fetch a specific (previously completed) level's garden
+  /// instead of the current one — GET /users/me/garden?level=A1.
+  Future<GardenData> getGarden({String? level}) async {
+    final path = level == null
+        ? '/users/me/garden'
+        : '/users/me/garden?level=${Uri.encodeQueryComponent(level)}';
+    final data = await _request('GET', path);
     final garden = GardenData.fromJson(data);
     // The garden renders nothing without units. If the API responded OK but we
     // parsed zero units, it's almost always a payload-key change (e.g. the

@@ -183,7 +183,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         icon_file = TOPIC_ICON_MAP.get(topic_id)
         return {
             "name": t["name"],
-            "label": _make_label(t["name"]),
+            "label": t.get("label") or _make_label(t["name"]),
             "icon": icon_file,
             "starter": starters[0] if starters else None,
         }

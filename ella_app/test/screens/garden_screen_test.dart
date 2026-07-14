@@ -14,6 +14,7 @@ import 'package:ella_app/providers/service_providers.dart';
 import 'package:ella_app/screens/child_view/garden_screen.dart';
 import 'package:ella_app/screens/child_view/widgets/spotlight_overlay.dart';
 import 'package:ella_app/services/audio_service.dart';
+import 'package:ella_app/services/ella_api_service.dart';
 import 'package:ella_app/services/sounds.dart';
 import 'package:ella_app/services/stt_tts_service.dart';
 
@@ -155,9 +156,11 @@ Widget _harness(
   StateProvider<GardenData>? gardenDataProvider,
   String childName = 'Narendra',
   bool usePreviewProvider = false,
+  bool previousGardenFails = false,
   PostConversationGardenReveal? postConversationReveal,
   Size mediaSize = const Size(430, 932),
   TextScaler textScaler = TextScaler.noScaling,
+  List<Override> extraOverrides = const [],
 }) {
   final sourceProvider =
       gardenDataProvider ?? StateProvider<GardenData>((ref) => data);
@@ -167,11 +170,17 @@ Widget _harness(
     chatProvider.overrideWith(() => _FakeChatNotifier(data.level)),
     onboardingProvider.overrideWith(() => _FakeOnboardingNotifier(childName)),
     gardenPreviewEnabledProvider.overrideWithValue(usePreviewProvider),
+    previousGardenProvider.overrideWith(
+      (ref, level) async => previousGardenFails
+          ? throw const EllaApiException('previous_garden_unavailable')
+          : _apiPreviousGarden(level),
+    ),
     if (postConversationReveal != null)
       postConversationGardenRevealProvider.overrideWith(
         (ref) =>
             _SeededPostConversationRevealController(postConversationReveal),
       ),
+    ...extraOverrides,
   ];
   if (!usePreviewProvider) {
     overrides.add(
@@ -197,6 +206,47 @@ Widget _harness(
     ),
   );
 }
+
+/// API-shaped previous garden — mirrors GET /users/me/garden?level=<code>.
+/// Skill statuses/sightings come straight from the payload; sightings ≥ 3
+/// renders as a bloomed plant.
+GardenData _apiPreviousGarden(String level) => GardenData.fromJson({
+  'level': level,
+  'recommended_topic': 'Old favourites',
+  'units': [
+    {
+      'unit': 1,
+      'name': 'Describing the world',
+      'focus': 'Moving from naming things to describing them.',
+      'skills': [
+        {
+          'id': 'U1-VOC-01',
+          'strand': 'VOC',
+          'text': 'I can describe what people look like and how they feel.',
+          'status': 'owned',
+          'sightings': 3,
+          'evidence': [
+            {
+              'evidence': 'My friend is tall and happy.',
+              'confidence': 0.95,
+              'prompted': true,
+              'topic': 'My friends',
+              'created_at': '2026-07-10T09:42:10+00:00',
+            },
+          ],
+        },
+        {
+          'id': 'U1-GRA-01',
+          'strand': 'GRA',
+          'text': 'I can use the present continuous.',
+          'status': 'owned',
+          'sightings': 3,
+          'evidence': const [],
+        },
+      ],
+    },
+  ],
+});
 
 GardenData _gardenData({
   required String level,
@@ -331,8 +381,14 @@ GardenGrowthRevealItem _revealItem({
   evidence: skill.evidence.isEmpty ? null : skill.evidence.first,
 );
 
-Future<void> _pumpGarden(WidgetTester tester, GardenData data) async {
-  await tester.pumpWidget(_harness(data));
+Future<void> _pumpGarden(
+  WidgetTester tester,
+  GardenData data, {
+  bool previousGardenFails = false,
+}) async {
+  await tester.pumpWidget(
+    _harness(data, previousGardenFails: previousGardenFails),
+  );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 10));
 }
@@ -2174,63 +2230,6 @@ void main() {
     });
   });
 
-  test(
-    'completed previous A1 garden uses its framework skills and all bloom',
-    () {
-      final current = _gardenData(level: 'B1');
-      final projected = completedPreviousGardenData(
-        currentGarden: current,
-        viewedLevel: 'A1',
-      );
-
-      expect(projected.level, 'A1');
-      expect(projected.steps, hasLength(5));
-      expect(projected.steps.first.name, 'Describing the world');
-      final skills = projected.steps.expand((step) => step.skills).toList();
-      expect(skills, hasLength(19));
-      expect(skills.first.id, 'U1-VOC-01');
-      expect(skills.first.icon, 'assets/skill-icons/a1-a2/01-two-faces.svg');
-      expect(
-        projected.steps.first.icon,
-        'assets/unit-icons/a1-a2/u1-globe.svg',
-      );
-      expect(
-        skills.every((skill) => skill.status == SkillStatus.owned),
-        isTrue,
-      );
-      expect(skills.every((skill) => skill.sightings == 3), isTrue);
-      expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
-    },
-  );
-
-  test("completed previous A0 garden uses A0's own framework, all bloomed", () {
-    final current = _gardenData(
-      level: 'B1',
-      steps: [_step(level: 'B1', step: 1, name: 'Current Unit', count: 2)],
-    );
-    final projected = completedPreviousGardenData(
-      currentGarden: current,
-      viewedLevel: 'A0',
-    );
-
-    expect(projected.level, 'A0');
-    // A0's own 5 units, not the current garden's units.
-    expect(projected.steps, hasLength(5));
-    expect(projected.steps.first.displayName, 'Naming the world');
-    expect(projected.steps.first.name, 'Naming the world');
-
-    final skills = projected.steps.expand((step) => step.skills).toList();
-    expect(skills, hasLength(20));
-    expect(skills.first.id, 'U1-VOC-01');
-    expect(skills.first.strand, Strand.voc);
-    expect(skills.first.displayText, 'Colours and numbers up to ten');
-    expect(skills.last.id, 'U5-FLU-02');
-    expect(skills.last.displayText, 'Keep trying even with just a few words');
-    expect(skills.every((skill) => skill.status == SkillStatus.owned), isTrue);
-    expect(skills.every((skill) => skill.sightings == 3), isTrue);
-    expect(skills.every((skill) => skill.evidence.isNotEmpty), isTrue);
-  });
-
   Future<void> openSwitcher(WidgetTester tester) async {
     await tester.tap(find.byKey(const ValueKey('garden-level-selector')));
     await tester.pump();
@@ -2391,12 +2390,42 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Bloomed'), findsOneWidget);
-    expect(find.text('What You Said'), findsNothing);
+    // Real API evidence is shown for previous gardens.
+    expect(find.text('What You Said'), findsOneWidget);
+    expect(find.textContaining('My friend is tall and happy.'), findsWidgets);
     expect(
       find.text('Talk with Zoe to start growing this skill'),
       findsNothing,
     );
   });
+
+  testWidgets(
+    'previous garden fetch failure shows toast and returns to current garden',
+    (tester) async {
+      await _pumpGarden(
+        tester,
+        _gardenData(level: 'B1'),
+        previousGardenFails: true,
+      );
+      await openSwitcher(tester);
+
+      await tester.tap(find.byKey(const ValueKey('garden-switcher-card-A1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(
+        find.text('Something went wrong. Please try again later.'),
+        findsOneWidget,
+      );
+      // Bounced back to the current garden; no previous garden, no intro.
+      expect(find.byKey(const ValueKey('garden-backdrop-B1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('garden-backdrop-A1')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('garden-completed-previous-intro')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('completed previous intro is not repeated in the same session', (
     tester,
@@ -2473,4 +2502,41 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'stale selectedGardenLevelProvider is ignored during post-conversation reveal',
+    (tester) async {
+      const skillId = 'target';
+      final skill = _skill(id: skillId);
+      final data = _gardenData(
+        level: 'B1',
+        steps: [
+          _stepWithSkills(step: 1, skills: [skill]),
+        ],
+      );
+
+      final resolved = _postConversationResult(turnCount: 3, skillId: skillId);
+
+      await tester.pumpWidget(
+        _harness(
+          data,
+          postConversationReveal: resolved,
+          extraOverrides: [
+            selectedGardenLevelProvider.overrideWith((ref) => 'A1'),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      // Expect the current garden (B1) to render, and not the overridden/previous garden (A1)
+      expect(find.byKey(const ValueKey('garden-backdrop-B1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('garden-backdrop-A1')), findsNothing);
+
+      // Verify reveal/watering overlay starts playing
+      expect(
+        find.byKey(const ValueKey('garden-growth-spotlight-layer')),
+        findsOneWidget,
+      );
+    },
+  );
 }
