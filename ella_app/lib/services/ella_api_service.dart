@@ -263,6 +263,10 @@ class EllaApiService {
 
   Future<void> resetUserMemory() async {
     await _request('DELETE', '/users/me/memory');
+    // Also clear the profile name/age on the backend so the child goes through onboarding again.
+    try {
+      await updateProfile(name: '', age: 0);
+    } catch (_) {}
   }
 
   Future<void> deleteAccount() async {
