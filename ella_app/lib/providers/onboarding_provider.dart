@@ -33,6 +33,12 @@ class OnboardingState {
         name: name ?? this.name,
         age: age ?? this.age,
       );
+
+  String? get firstName {
+    final trimmed = name?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
 }
 
 class OnboardingNotifier extends AsyncNotifier<OnboardingState> {

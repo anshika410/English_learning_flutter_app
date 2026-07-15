@@ -164,7 +164,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // finishes on its own. Personalised with the onboarding name.
   String _closingLine() {
     final name =
-        ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+        ref.read(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
     return 'It was really nice talking with you, $name! Let\'s talk again soon.';
   }
 

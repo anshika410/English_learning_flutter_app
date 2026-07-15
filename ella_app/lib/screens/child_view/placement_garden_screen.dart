@@ -434,7 +434,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
   String get _resolvedName {
     final fromWidget = widget.onboardingName?.trim();
     if (fromWidget != null && fromWidget.isNotEmpty) return fromWidget;
-    final fromProvider = ref.read(onboardingProvider).valueOrNull?.name?.trim();
+    final fromProvider = ref.read(onboardingProvider).valueOrNull?.firstName;
     if (fromProvider != null && fromProvider.isNotEmpty) return fromProvider;
     return kHomeChildName;
   }
@@ -475,7 +475,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
 
     final name =
         widget.onboardingName ??
-        ref.watch(onboardingProvider).valueOrNull?.name ??
+        ref.watch(onboardingProvider).valueOrNull?.firstName ??
         kHomeChildName;
     final child = Scaffold(
       backgroundColor: const Color(0xFFDDEFE4),

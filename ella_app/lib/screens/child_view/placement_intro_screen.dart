@@ -184,7 +184,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
 
     final childName =
-        ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+        ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
         
     final greetingText = _kGreeting;
 
