@@ -3451,29 +3451,9 @@ class _UnitBoulder extends StatelessWidget {
                 ],
                 SizedBox(
                   width: safeTextWidth,
-                  child: Text(
+                  child: _BoulderLabel(
                     key: const ValueKey('garden-unit-sign-label'),
-                    name,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: EllaFonts.body(
-                      const TextStyle(
-                        fontSize: 14,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700,
-                        color: EllaColors.textSecondary,
-                        shadows: [
-                          // Light lower "lip" gives the letters a carved,
-                          // engraved-into-the-stone relief.
-                          Shadow(
-                            color: Color(0x66FFFFFF),
-                            offset: Offset(0, 1),
-                            blurRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                    ),
+                    text: name,
                   ),
                 ),
               ],
@@ -3481,6 +3461,72 @@ class _UnitBoulder extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BoulderLabel extends StatelessWidget {
+  final String text;
+
+  const _BoulderLabel({super.key, required this.text});
+
+  static const double _maxFontSize = 14;
+  static const double _minFontSize = 9.5;
+  static const int _maxLines = 3;
+
+  TextStyle _style(double fontSize) {
+    return EllaFonts.body(
+      TextStyle(
+        fontSize: fontSize,
+        height: 1.12,
+        fontWeight: FontWeight.w700,
+        color: EllaColors.textSecondary,
+        shadows: const [
+          // Light lower "lip" gives the letters a carved,
+          // engraved-into-the-stone relief.
+          Shadow(
+            color: Color(0x66FFFFFF),
+            offset: Offset(0, 1),
+            blurRadius: 0.5,
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _fittingFontSize(BuildContext context, double maxWidth) {
+    final textDirection = Directionality.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    for (
+      var fontSize = _maxFontSize;
+      fontSize >= _minFontSize;
+      fontSize -= 0.5
+    ) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _style(fontSize)),
+        maxLines: _maxLines,
+        textAlign: TextAlign.center,
+        textDirection: textDirection,
+        textScaler: textScaler,
+      )..layout(maxWidth: maxWidth);
+      if (!painter.didExceedMaxLines) return fontSize;
+    }
+    return _minFontSize;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fontSize = _fittingFontSize(context, constraints.maxWidth);
+        return Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: _maxLines,
+          softWrap: true,
+          style: _style(fontSize),
+        );
+      },
     );
   }
 }
