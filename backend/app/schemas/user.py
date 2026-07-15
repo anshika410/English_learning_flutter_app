@@ -58,6 +58,7 @@ class MemoryProfileSub(BaseModel):
     age: int | None = None
     city: str | None = None
     grade: str | None = None
+    email: str | None = None
 
 
 class PlacementSubResponse(BaseModel):

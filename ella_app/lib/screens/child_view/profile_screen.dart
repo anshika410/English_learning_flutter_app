@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../core/theme_colors.dart';
 import '../../core/text_styles.dart';
+import '../../core/theme_colors.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
@@ -14,10 +14,9 @@ import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'widgets/profile_scenery.dart';
-import 'widgets/sound_toggle.dart';
 import 'widgets/edit_profile_dialog.dart';
 import 'widgets/mascot_loading_screen.dart';
+import 'widgets/profile_scenery.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -34,6 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoading = true;
   String _name = '';
   int _age = 0;
+  String _email = '';
 
   String _appVersion = '';
 
@@ -66,9 +66,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) {
         setState(() {
           final profMap = profile['profile'] as Map<String, dynamic>? ?? {};
+          debugPrint('FULL PROFILE RESPONSE: $profile');
+
           _name = profMap['name'] as String? ?? fallbackName;
           if (_name.isEmpty) _name = fallbackName;
           if (_name.isEmpty) _name = 'Student';
+
+          _email =
+              (profile['email'] as String?) ??
+              (profMap['email'] as String?) ??
+              'No email found';
 
           final ageVal = profMap['age'];
           if (ageVal is num) {
@@ -95,7 +102,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-
   Future<void> _handleSignOut() async {
     final isOnline = ref.read(connectivityProvider).value ?? true;
     if (!isOnline) {
@@ -105,7 +111,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     await EllaApiService().logout();
 
-    // Invalidate global state providers so user data doesn't leak into the next session
     ref.invalidate(onboardingProvider);
     ref.invalidate(placementProvider);
     ref.invalidate(chatProvider);
@@ -113,9 +118,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       await GoogleSignIn.instance.signOut();
     } catch (_) {}
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true)
-          .pushNamedAndRemoveUntil('/login', (route) => false);
+    if (mounted) {
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).pushNamedAndRemoveUntil('/login', (route) => false);
     }
   }
 
@@ -133,21 +140,74 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  // ── Text styles (Amulya = display/title, Synonym = body) ────────────────
-  TextStyle get _displayName => EllaFonts.bricolage(const TextStyle(
-        fontSize: 40,
-        fontWeight: FontWeight.w700,
-        height: 1.6,
-        letterSpacing: 0.04,
-        color: EllaColors.ink,
-      ));
+  Future<void> _handleClearMemory() async {
+    final isOnline = ref.read(connectivityProvider).value ?? true;
+    if (!isOnline) {
+      OfflineAlertPopup.show(context);
+      return;
+    }
 
-  TextStyle get _bodySemibold => EllaFonts.body(const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        height: 1.6,
-        color: EllaColors.ink,
-      ));
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Learning Progress?'),
+        content: const Text(
+          'Are you sure you want to clear your learning progress? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'Clear Progress',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (mounted) setState(() => _isLoading = true);
+      try {
+        await EllaApiService().resetUserMemory();
+        await EllaApiService().clearLocalMemoryState();
+        if (!mounted) return;
+
+        ref.invalidate(chatProvider);
+        ref.invalidate(onboardingProvider);
+        ref.invalidate(placementProvider);
+
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Learning progress cleared.')),
+        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/onboarding', (route) => false);
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('API Error'),
+              content: SingleChildScrollView(child: Text('$e')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    }
+  }
 
   Future<void> _handleDeleteAccount() async {
     final isOnline = ref.read(connectivityProvider).value ?? true;
@@ -160,7 +220,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Account?'),
-        content: const Text('Are you sure you want to permanently delete your account? This will erase all your data and cannot be undone.'),
+        content: const Text(
+          'Are you sure you want to permanently delete your account? This will erase all your data and cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -168,36 +230,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Delete Account',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
     );
-    
+
     if (confirmed == true) {
       if (mounted) setState(() => _isLoading = true);
       try {
         await EllaApiService().deleteAccount();
         if (!context.mounted) return;
-        
-        // Same sign out logic
+
         await EllaApiService().logout();
         try {
           await GoogleSignIn.instance.signOut();
         } catch (_) {}
-        
-        // Invalidate global state providers so user data doesn't leak into the next session
+
         ref.invalidate(chatProvider);
         ref.invalidate(onboardingProvider);
         ref.invalidate(placementProvider);
 
-        if (!context.mounted) return;
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Account deleted successfully.')),
         );
-        
-        Navigator.of(context, rootNavigator: true)
-            .pushNamedAndRemoveUntil('/login', (route) => false);
+
+        Navigator.of(
+          context,
+          rootNavigator: true,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
@@ -207,7 +272,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               title: const Text('API Error'),
               content: SingleChildScrollView(child: Text('$e')),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
               ],
             ),
           );
@@ -228,11 +296,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       backgroundColor: EllaColors.canvas,
       body: ProfileScenery(
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
-              // ── Top bar: back + Edit Profile ──────────────────────────
+              // Top Bar outside scroll view
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -246,8 +318,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         decoration: BoxDecoration(
                           color: EllaColors.berryLight,
                           shape: BoxShape.circle,
-                          border:
-                              Border.all(color: EllaColors.berryMain, width: 3),
+                          border: Border.all(
+                            color: EllaColors.berryMain,
+                            width: 3,
+                          ),
                         ),
                         child: const Icon(
                           Icons.arrow_back_rounded,
@@ -256,270 +330,569 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                     ),
-                    _PillButton(
-                      icon: SvgPicture.asset('$_asset/pencil.svg',
-                          width: 24, height: 24),
-                      label: 'Edit Profile',
-                      fill: EllaColors.errorLight,
-                      border: EllaColors.errorDark,
-                      foreground: EllaColors.errorDark,
-                      height: 40,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: _handleEditProfile,
-                    ),
-                  ],
-                ),
-              ),
-
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      const Spacer(flex: 1),
-                      // ── Avatar ────────────────────────────────────────
-                      Container(
-                        width: 100,
-                        height: 100,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: EllaColors.surface,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: EllaColors.border, width: 3),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 9,
                         ),
-                        child: Text(initial, style: _displayName.copyWith(fontSize: 28)),
-                      ),
-
-                      const Spacer(flex: 1),
-                      // ── Name ──────────────────────────────────────────
-                      Text(_name, textAlign: TextAlign.center, style: _displayName.copyWith(fontSize: 28)),
-
-                      const Spacer(flex: 1),
-                      // ── Age badge ─────────────────────────────────────
-                      Container(
-                        height: 40,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
-                          color: EllaColors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: EllaColors.border),
+                          color: EllaColors.errorLight,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: EllaColors.errorDark,
+                            width: 2,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            SvgPicture.asset('$_asset/balloon.svg',
-                                width: 20, height: 20),
+                            SvgPicture.asset(
+                              '$_asset/pencil.svg',
+                              width: 20,
+                              height: 20,
+                              colorFilter: const ColorFilter.mode(
+                                EllaColors.errorDark,
+                                BlendMode.srcIn,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Text(
-                              'Age $_age',
-                              style: _bodySemibold.copyWith(
+                              'Edit Profile',
+                              style: EllaFonts.body(
+                                const TextStyle(
                                   fontSize: 16,
-                                  color: EllaColors.warningDark),
+                                  fontWeight: FontWeight.w600,
+                                  color: EllaColors.errorDark,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          // Avatar
+                          Container(
+                            width: 96,
+                            height: 96,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFDF5),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                            ),
+                            child: Text(
+                              initial,
+                              style: EllaFonts.bricolage(
+                                const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF444441),
+                                ),
+                              ),
+                            ),
+                          ),
 
-                      const Spacer(flex: 2),
-                      // ── Sound Effects card ────────────────────────────
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: EllaColors.surface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: EllaColors.textDisabled, width: 3),
-                        ),
-                        child: Row(
+                          // Middle section
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 14),
+
+                                // Name
+                                Text(
+                                  _name,
+                                  style: EllaFonts.bricolage(
+                                    const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF2C2C2A),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Age Badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFAEEDA),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SvgPicture.asset(
+                                        '$_asset/balloon.svg',
+                                        width: 18,
+                                        height: 18,
+                                        colorFilter: const ColorFilter.mode(
+                                          Color(0xFFEF9F27),
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '$_age years old',
+                                        style: EllaFonts.body(
+                                          const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF854F0B),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                // Settings Card
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFFDF5),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // Email Row
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 18,
+                                          vertical: 14,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 40,
+                                              height: 40,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFE1F5EE),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.mail_outline_rounded,
+                                                color: Color(0xFF0F6E56),
+                                                size: 20,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 14),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Email',
+                                                    style: EllaFonts.body(
+                                                      const TextStyle(
+                                                        fontSize: 13,
+                                                        color: Color(
+                                                          0xFF5F5E5A,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    _email,
+                                                    style: EllaFonts.body(
+                                                      const TextStyle(
+                                                        fontSize: 15,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Color(
+                                                          0xFF2C2C2A,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Divider(
+                                        height: 1,
+                                        color: Color(0xFFEDE7D6),
+                                      ),
+                                      // Sound Effects Row
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 18,
+                                          vertical: 14,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 40,
+                                              height: 40,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFFBEAF0),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.volume_up_rounded,
+                                                color: Color(0xFFD4537E),
+                                                size: 20,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 14),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Sound effects',
+                                                    style: EllaFonts.body(
+                                                      const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Color(
+                                                          0xFF2C2C2A,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    'Music and tap sounds',
+                                                    style: EllaFonts.body(
+                                                      const TextStyle(
+                                                        fontSize: 13,
+                                                        color: Color(
+                                                          0xFF5F5E5A,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 14),
+                                            // Custom Switch
+                                            GestureDetector(
+                                              onTap: () {
+                                                final newVal = !_sfxOn;
+                                                setState(() {
+                                                  _sfxOn = newVal;
+                                                });
+                                                ref
+                                                    .read(audioProvider)
+                                                    .setSfxEnabled(newVal);
+                                                ref
+                                                    .read(audioProvider)
+                                                    .setMusicEnabled(newVal);
+                                              },
+                                              child: AnimatedContainer(
+                                                duration: const Duration(
+                                                  milliseconds: 180,
+                                                ),
+                                                width: 52,
+                                                height: 30,
+                                                decoration: BoxDecoration(
+                                                  color: _sfxOn
+                                                      ? const Color(0xFFD4537E)
+                                                      : const Color(0xFFB4B2A9),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                child: Stack(
+                                                  alignment: Alignment.center,
+                                                  children: [
+                                                    AnimatedPositioned(
+                                                      duration: const Duration(
+                                                        milliseconds: 180,
+                                                      ),
+                                                      left: _sfxOn ? 25 : 3,
+                                                      child: Container(
+                                                        width: 24,
+                                                        height: 24,
+                                                        decoration:
+                                                            const BoxDecoration(
+                                                              color:
+                                                                  Colors.white,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                // Sign out button
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: _handleSignOut,
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 15,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        SvgPicture.asset(
+                                          '$_asset/sign-out.svg',
+                                          width: 20,
+                                          height: 20,
+                                          colorFilter: const ColorFilter.mode(
+                                            Color(0xFF8A877B),
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Sign out',
+                                          style: EllaFonts.body(
+                                            const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF8A877B),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            SvgPicture.asset('$_asset/speaker.svg',
-                                width: 28, height: 28),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            const SizedBox(height: 32),
+                            const Divider(height: 1, color: Color(0xFFCFE0C8)),
+
+                            // Privacy & Contact
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text('Sound Effects', style: _bodySemibold.copyWith(fontSize: 16)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Music & Tap Sounds',
-                                    style: EllaFonts.body(const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.4,
-                                      color: EllaColors.ink,
-                                    )),
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.of(
+                                        context,
+                                      ).pushNamed('/privacy-policy');
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.shield_outlined,
+                                            size: 18,
+                                            color: Color(0xFF5F5E5A),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Privacy',
+                                            style: EllaFonts.body(
+                                              const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF5F5E5A),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  InkWell(
+                                    onTap: () {},
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.chat_bubble_outline_rounded,
+                                            size: 18,
+                                            color: Color(0xFF5F5E5A),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Contact us',
+                                            style: EllaFonts.body(
+                                              const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF5F5E5A),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            SoundToggle(
-                              value: _sfxOn,
-                              onChanged: (v) {
-                                setState(() {
-                                  _sfxOn = v;
-                                });
-                                ref.read(audioProvider).setSfxEnabled(v);
-                                ref.read(audioProvider).setMusicEnabled(v);
-                              },
+
+                            const Divider(height: 1, color: Color(0xFFCFE0C8)),
+                            const SizedBox(height: 16),
+
+                            // Clear progress
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _handleClearMemory,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFDF5),
+                                  border: Border.all(
+                                    color: const Color(0xFFE0C6B8),
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.cleaning_services_rounded,
+                                      size: 18,
+                                      color: Color(0xFF993556),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Clear learning progress',
+                                      style: EllaFonts.body(
+                                        const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF993556),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
+
+                            const SizedBox(height: 10),
+
+                            // Delete account
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _handleDeleteAccount,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.transparent,
+                                  border: Border.all(
+                                    color: const Color(0xFFE24B4A),
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 18,
+                                      color: Color(0xFFA32D2D),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Delete account',
+                                      style: EllaFonts.body(
+                                        const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFA32D2D),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            if (_appVersion.isNotEmpty)
+                              Text(
+                                _appVersion.contains('Version')
+                                    ? _appVersion
+                                    : 'Version ${_appVersion.replaceAll('v', '')}',
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF5F5E5A),
+                                  ),
+                                ),
+                              ),
+
+                            const SizedBox(height: 40),
                           ],
                         ),
                       ),
-
-                      const Spacer(flex: 2),
-                      // ── Sign Out ──────────────────────────────────────
-                      _PillButton(
-                        icon: SvgPicture.asset('$_asset/sign-out.svg',
-                            width: 20, height: 20),
-                        label: 'Sign Out',
-                        fill: EllaColors.errorLight,
-                        border: EllaColors.errorDark,
-                        foreground: EllaColors.errorDark,
-                        height: 48,
-                        dropShadow: EllaColors.berryDeep,
-                        onTap: _handleSignOut,
-                      ),
-
-                      const SizedBox(height: 12),
-                      // ── Delete Account ────────────────────────────────
-                      TextButton(
-                        onPressed: _handleDeleteAccount,
-                        child: const Text(
-                          'Delete Account',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-
-                      const Spacer(flex: 2),
-                      // ── Footer ────────────────────────────────────────
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _footerLink(
-                            svg: '$_asset/keyhole.svg',
-                            label: 'Privacy Policy',
-                            onTap: () => Navigator.of(context)
-                                .pushNamed('/privacy-policy'),
-                          ),
-                          const SizedBox(width: 20),
-                          _footerLink(
-                            svg: '$_asset/address-book.svg',
-                            label: 'Contact Us',
-                            onTap: () {},
-                          ),
-                        ],
-                      ),
-
-                      const Spacer(flex: 1),
-                      if (_appVersion.isNotEmpty)
-                        Text(
-                          _appVersion,
-                          style: EllaFonts.body(const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: EllaColors.textTertiary,
-                          )),
-                        ),
-                      const Spacer(flex: 1),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _footerLink({
-    required String svg,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(svg, width: 20, height: 20),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: _bodySemibold.copyWith(fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Rounded "chunky" pill button used for Edit Profile / Sign Out / Delete
-/// Memory. [dropShadow] adds the design's solid 3px bottom shadow.
-class _PillButton extends StatelessWidget {
-  final Widget icon;
-  final String label;
-  final Color fill;
-  final Color border;
-  final Color foreground;
-  final double height;
-  final Color? dropShadow;
-  final VoidCallback onTap;
-
-  const _PillButton({
-    required this.icon,
-    required this.label,
-    required this.fill,
-    required this.border,
-    required this.foreground,
-    required this.height,
-    required this.onTap,
-    this.dropShadow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        height: height,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: border, width: 3),
-          boxShadow: dropShadow == null
-              ? null
-              : [
-                  BoxShadow(
-                    color: dropShadow!,
-                    offset: const Offset(0, 3),
-                    blurRadius: 0,
-                  ),
-                ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            icon,
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: EllaFonts.body(TextStyle(
-                fontSize: height <= 48 ? 16 : 18,
-                fontWeight: FontWeight.w600,
-                height: 1.6,
-                color: foreground,
-              )),
-            ),
-          ],
         ),
       ),
     );
