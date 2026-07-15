@@ -117,6 +117,32 @@ class AudioService implements AudioInterface {
       _sfxPool.add(p);
     }
 
+    // None of our players request Android audio focus. With the plugin default
+    // (exclusive gain), every SFX start and Zoe's TTS stole focus from the
+    // looping music player, so the OS paused it mid-track and it stayed silent
+    // until the next explicit playMusic (e.g. lock/unlock). We mix our own
+    // audio instead: duckForSpeech lowers music under TTS, SFX just overlay.
+    final audioContext = AudioContext(
+      android: AudioContextAndroid(
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.media,
+        audioFocus: AndroidAudioFocus.none,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+        options: const {AVAudioSessionOptions.mixWithOthers},
+      ),
+    );
+    try {
+      await _musicPlayer.setAudioContext(audioContext);
+      for (final p in _sfxPool) {
+        await p.setAudioContext(audioContext);
+      }
+    } catch (_) {
+      // Desktop/web builds don't support audio contexts; focus only matters on
+      // mobile anyway.
+    }
+
     _ready = true;
   }
 
@@ -179,7 +205,12 @@ class AudioService implements AudioInterface {
   Future<void> unduckAfterSpeech() async {
     if (!_ducked) return;
     _ducked = false;
-    if (_ready && _currentMusic != null) {
+    if (!_ready || _currentMusic == null) return;
+    // If the platform paused the loop while speech held audio focus, a volume
+    // fade alone would leave it silent — restart playback instead.
+    if (_musicEnabled && _musicPlayer.state != PlayerState.playing) {
+      await playMusic(_currentMusic!);
+    } else {
       await _fadeMusicTo(_targetMusicVolume());
     }
   }

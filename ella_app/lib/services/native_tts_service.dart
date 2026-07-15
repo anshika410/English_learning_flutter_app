@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'audio_service.dart';
 import 'stt_tts_service.dart';
 
 class TtsProgressEvent {
@@ -63,11 +64,16 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
         _speaking = true;
         _highlightStart = 0;
         _highlightEnd = 0;
+        // Dim the background music (and mute SFX) under Zoe's voice.
+        unawaited(AudioService.maybeInstance?.duckForSpeech());
         break;
       case 'onTtsDone':
         _speaking = false;
         _highlightStart = 0;
         _highlightEnd = 0;
+        // Restore music BEFORE emitting done: doneStream listeners play SFX
+        // (e.g. the turn chime) and playSfx is a no-op while ducked.
+        unawaited(AudioService.maybeInstance?.unduckAfterSpeech());
         _doneController.add(null);
         onDone?.call();
         break;
@@ -104,6 +110,10 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
     } catch (e) {
       _speaking = false;
       _pendingSpeak = false;
+    } finally {
+      // Normally onTtsDone already unducked (this is then a no-op); this
+      // covers the timeout/error paths so music and SFX never stay ducked.
+      await AudioService.maybeInstance?.unduckAfterSpeech();
     }
   }
 
@@ -116,6 +126,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
     try {
       await _channel.invokeMethod('stop');
     } catch (_) {}
+    unawaited(AudioService.maybeInstance?.unduckAfterSpeech());
     // Only emit doneStream if we're NOT in the middle of queuing a new speak()
     // call. If _pendingSpeak is true, speak() hasn't started yet and emitting
     // here would prematurely resolve its completer, causing double-speak.
