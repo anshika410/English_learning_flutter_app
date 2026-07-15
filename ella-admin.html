@@ -773,7 +773,7 @@
     C1: 'Starlight Summit'
   };
 
-  function viewStudentGarden(userId) {
+  function viewStudentGarden(userId, selectedLevel = null) {
     const u = (window.USERS || []).find(x => x.id === userId);
     if (!u) return;
 
@@ -791,17 +791,56 @@
       return;
     }
 
-    const levelUpper = u.level.toUpperCase();
-    const steps = CURRICULUM[levelUpper] || [];
-    const gardenName = GARDEN_NAMES[levelUpper] || 'Unknown Garden';
+    const LEVEL_ORDER = ["A0", "A1", "A2", "B1", "B2", "C1"];
+    const userLevel = u.level.toUpperCase();
+    const currentLevel = (selectedLevel || userLevel).toUpperCase();
+    const gardenName = GARDEN_NAMES[currentLevel] || 'Unknown Garden';
+
+    const userIdx = LEVEL_ORDER.indexOf(userLevel);
+    const currentIdx = LEVEL_ORDER.indexOf(currentLevel);
+    const isPreviousLevel = currentIdx >= 0 && userIdx >= 0 && currentIdx < userIdx;
+
+    let progress = u.skills_progress || {};
+    let ownedList = progress.owned || [];
+    let emergingList = progress.emerging || [];
+
+    if (isPreviousLevel) {
+      const allSkills = [];
+      const lvlSteps = CURRICULUM[currentLevel] || [];
+      lvlSteps.forEach(step => {
+        step.skills.forEach(s => allSkills.push(s.id));
+      });
+      ownedList = allSkills;
+      emergingList = [];
+      const sightings = {};
+      const strength = {};
+      const lastSeen = {};
+      const todayStr = new Date().toISOString().split('T')[0];
+      allSkills.forEach(id => {
+        sightings[id] = 3;
+        strength[id] = 2;
+        lastSeen[id] = todayStr;
+      });
+      progress = {
+        owned: ownedList,
+        emerging: emergingList,
+        sightings: sightings,
+        strength: strength,
+        last_seen: lastSeen,
+        effort: progress.effort || {"times_spoken_total": 0},
+        evidence: progress.evidence || {}
+      };
+    } else if (currentIdx > userIdx) {
+      ownedList = [];
+      emergingList = [];
+      progress = {};
+    }
+
+    const steps = CURRICULUM[currentLevel] || [];
     
     // Calculate progress segments
     let totalSkills = 0;
     steps.forEach(step => totalSkills += step.skills.length);
-
-    const progress = u.skills_progress || {};
-    const ownedList = progress.owned || [];
-    const emergingList = progress.emerging || [];
 
     let ownedCount = 0;
     let emergingCount = 0;
@@ -820,12 +859,24 @@
 
     // Render header details & progress bar
     let html = `
+      <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <label for="garden-level-select" style="font-size: 13px; font-weight: 700; color: #6B5740;">Select Garden:</label>
+        <select id="garden-level-select" onchange="viewStudentGarden('${u.id}', this.value)" style="padding: 6px 12px; border: 1.5px solid #F0E4CC; border-radius: 8px; font-size: 13px; outline: none; background: #FFFDF8; color: #2C1E0F; cursor: pointer;">
+          ${LEVEL_ORDER.map(lvl => {
+            const label = lvl === userLevel ? `${lvl} (Active)` : lvl;
+            const isSelected = lvl === currentLevel ? 'selected' : '';
+            return `<option value="${lvl}" ${isSelected}>${label}</option>`;
+          }).join('')}
+        </select>
+        ${isPreviousLevel ? `<span style="background:#E6FDF4;color:#059669;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;">Completed Previous Garden</span>` : ''}
+        ${currentIdx > userIdx ? `<span style="background:#F3F4F6;color:#6B7280;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;">Future Locked Garden</span>` : ''}
+      </div>
       <div style="margin-bottom: 16px; padding: 8px 12px; background: #e8f5e9; border: 1.5px solid #2e7d32; border-radius: 8px; font-size: 12px; color: #1b5e20;">
         ✅ <strong>Backend data verified correct</strong> — Skills are grouped by curriculum unit/step below. Any display issues are in the Flutter app rendering, not the backend.
       </div>
       <div style="margin-bottom: 20px;">
         <div style="font-size: 15px; margin-bottom: 6px; color: #2C1E0F;">
-          <strong>Active Garden:</strong> <span style="color: #FF9500; font-weight:700;">${gardenName}</span> (CEFR Level ${u.level})
+          <strong>Active Garden:</strong> <span style="color: #FF9500; font-weight:700;">${gardenName}</span> (CEFR Level ${currentLevel})
         </div>
         <div style="font-size: 13px; color: #6B5740;">
           Level Progress: <strong>${ownedCount} Mastered</strong>, <strong>${emergingCount} Emerging</strong>, <strong>${lockedCount} Locked</strong> (out of ${totalSkills} total)
@@ -1107,6 +1158,22 @@
             <div style="padding:7px 12px;margin-bottom:6px;background:#f5f3ff;border-left:3px solid #8b5cf6;border-radius:0 8px 8px 0;font-size:13px;color:#4C3D7A;">${f}</div>
           `).join('')
         : '<span style="color:#aaa;font-size:13px;">No facts stored yet — Zoe will pick these up during conversations</span>'
+    );
+
+    // Completed Units
+    const units = personaMemory.units || [];
+    html += section('Completed Units', '#059669',
+      units.length > 0
+        ? units.map(u => pill(u, '#E6FDF4', '#059669')).join('')
+        : '<span style="color:#aaa;font-size:13px;">No units completed yet</span>'
+    );
+
+    // Conversation Topic History
+    const lastTopics = personaMemory.last_topics || [];
+    html += section('Conversation Topic History', '#FF9500',
+      lastTopics.length > 0
+        ? lastTopics.map(t => pill(t, '#FFF7EC', '#C87000')).join('')
+        : '<span style="color:#aaa;font-size:13px;">No topics discussed yet</span>'
     );
 
     // Due next targets

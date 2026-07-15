@@ -51,7 +51,8 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         "name": user.name or None,
         "age": age_val,
         "city": user.location or None,
-        "grade": None
+        "grade": None,
+        "email": user.email,
     }
 
     placement_data = None
