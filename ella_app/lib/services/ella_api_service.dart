@@ -176,13 +176,13 @@ class EllaApiService {
   Future<MemoryState> getUserMemory() async {
     final data = await _request('GET', '/users/me/memory');
     final memory = _memoryFromApi(data);
-    
+
     // Cache placement status for offline routing fallback
     if (memory.placement != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_placementDoneKey, true);
     }
-    
+
     return memory;
   }
 
@@ -295,6 +295,14 @@ class EllaApiService {
     await prefs.remove(_onboardingDoneKey);
     await prefs.remove(_childNameKey);
     await prefs.remove(_childAgeKey);
+  }
+
+  Future<void> clearLocalMemoryState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_onboardingDoneKey);
+    await prefs.remove(_childNameKey);
+    await prefs.remove(_childAgeKey);
+    await prefs.remove(_placementDoneKey);
   }
 
   /// Cache just the name/age (onboarding NOT yet done) — written the moment
@@ -619,7 +627,9 @@ class EllaApiService {
     final id = j['id'] as String? ?? j['user_id'] as String? ?? 'api-user';
     final effort = Map<String, dynamic>.from((j['effort'] as Map?) ?? {});
     final interests = (j['interests'] as List? ?? const []).join(', ');
-    final profile = j['profile'] is Map ? Map<String, dynamic>.from(j['profile'] as Map) : null;
+    final profile = j['profile'] is Map
+        ? Map<String, dynamic>.from(j['profile'] as Map)
+        : null;
     final name = profile?['name'] as String?;
     final age = (profile?['age'] as num?)?.toInt();
     return MemoryState(
@@ -638,8 +648,8 @@ class EllaApiService {
       lastTimeRecap: j['last_time_recap'] as String? ?? '',
       nextTopics: j['next_topics'] is Map
           ? NextTopics.fromJson(
-               Map<String, dynamic>.from(j['next_topics'] as Map),
-             )
+              Map<String, dynamic>.from(j['next_topics'] as Map),
+            )
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
