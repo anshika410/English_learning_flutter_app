@@ -1109,6 +1109,22 @@
         : '<span style="color:#aaa;font-size:13px;">No facts stored yet — Zoe will pick these up during conversations</span>'
     );
 
+    // Completed Units
+    const units = personaMemory.units || [];
+    html += section('Completed Units', '#059669',
+      units.length > 0
+        ? units.map(u => pill(u, '#E6FDF4', '#059669')).join('')
+        : '<span style="color:#aaa;font-size:13px;">No units completed yet</span>'
+    );
+
+    // Conversation Topic History
+    const lastTopics = personaMemory.last_topics || [];
+    html += section('Conversation Topic History', '#FF9500',
+      lastTopics.length > 0
+        ? lastTopics.map(t => pill(t, '#FFF7EC', '#C87000')).join('')
+        : '<span style="color:#aaa;font-size:13px;">No topics discussed yet</span>'
+    );
+
     // Due next targets
     const primary = dueNext.primary;
     const watching = dueNext.watching || [];
