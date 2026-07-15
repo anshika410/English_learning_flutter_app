@@ -160,6 +160,15 @@ class _EllaAppState extends ConsumerState<EllaApp> {
           );
         } else if (path == '/privacy-policy') {
           return MaterialPageRoute(builder: (_) => const PrivacyPolicyWebviewScreen(), settings: settings);
+        } else if (path == '/onboarding') {
+          return PageRouteBuilder(
+            settings: settings,
+            pageBuilder: (_, __, ___) => const Scaffold(
+              backgroundColor: Colors.transparent,
+              body: OnboardingFlow(),
+            ),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          );
         } else if (path == '/' || path == '/home') {
           return PageRouteBuilder(
             settings: settings,

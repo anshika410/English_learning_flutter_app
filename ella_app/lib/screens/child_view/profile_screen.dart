@@ -111,7 +111,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     await EllaApiService().logout();
 
-    ref.invalidate(onboardingProvider);
+    await ref.read(onboardingProvider.notifier).reset();
     ref.invalidate(placementProvider);
     ref.invalidate(chatProvider);
 
@@ -182,7 +182,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         } catch (_) {}
 
         ref.invalidate(chatProvider);
-        ref.invalidate(onboardingProvider);
+        await ref.read(onboardingProvider.notifier).reset();
         ref.invalidate(placementProvider);
 
         if (!mounted) return;
