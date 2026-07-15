@@ -111,6 +111,29 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         });
       }
     });
+    // Speak the starter message once this screen is mounted.
+    // startSession sets state to zoeSpeaking but skips tts.speak() so that
+    // audio never fires before the screen appears. We own it here instead.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _speakStarterIfReady());
+  }
+
+  /// If the provider already has a zoeSpeaking starter ready (set by
+  /// startSession before this screen mounted), speak it now.
+  Future<void> _speakStarterIfReady() async {
+    if (!mounted || widget.previewMode) return;
+    final s = ref.read(chatProvider).valueOrNull;
+    if (s == null) return;
+    if (s.status == ChatStatus.zoeSpeaking &&
+        s.messages.length == 1 &&
+        s.messages.first.sender == MessageSender.zoe) {
+      final text = s.messages.first.text;
+      try {
+        await _tts.speak(text);
+      } catch (_) {}
+      if (mounted) {
+        ref.read(chatProvider.notifier).markStarterSpoken();
+      }
+    }
   }
 
   @override

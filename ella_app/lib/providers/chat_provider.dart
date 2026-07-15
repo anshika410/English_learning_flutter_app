@@ -421,27 +421,17 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         sender: MessageSender.zoe,
         text: starter.trim(),
       );
+      // Set state to zoeSpeaking but do NOT call tts.speak() here.
+      // The session screen owns TTS for the starter — it will speak once mounted.
       state = AsyncValue.data(
         state.requireValue.copyWith(
           messages: [zoeMsg],
-          // Mark Zoe as speaking while the greeting TTS plays so the mascot
-          // opens its mouth (mirrors _zoeTurn); reset to idle when done.
           status: ChatStatus.zoeSpeaking,
           liveLlmLastCall: true,
           currentlySpeakingMessageId: zoeMsg.id,
           highlightStart: -1,
           highlightEnd: -1,
         ),
-      );
-      // Delay TTS until after the session screen has had a chance to mount —
-      // prevents audio playing before the screen appears on slow/busy devices.
-      await Future.delayed(const Duration(milliseconds: 400));
-      try {
-        final tts = ref.read(ttsProvider);
-        await tts.speak(zoeMsg.text);
-      } catch (_) {}
-      state = AsyncValue.data(
-        state.requireValue.copyWith(status: ChatStatus.idle),
       );
       return;
     }
@@ -450,6 +440,18 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   }
 
   // ── User turn ─────────────────────────────────────────────────────────────
+
+  /// Called by SessionScreen after it has spoken the starter message that
+  /// startSession queued. Resets status from zoeSpeaking → idle.
+  void markStarterSpoken() {
+    final cur = state.valueOrNull;
+    if (cur != null && cur.status == ChatStatus.zoeSpeaking) {
+      state = AsyncValue.data(cur.copyWith(
+        status: ChatStatus.idle,
+        clearCurrentlySpeaking: true,
+      ));
+    }
+  }
 
   Future<void> sendUserTurn(String text) async {
     final trimmed = text.trim();
