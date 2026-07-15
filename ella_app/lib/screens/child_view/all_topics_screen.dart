@@ -10,8 +10,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
+import '../../core/topic_preview_data.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/garden_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
@@ -27,7 +29,14 @@ class AllTopicsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final memory = ref.watch(chatProvider).asData?.value.memory;
-    final topics = _topicsFrom(memory);
+    final previewEnabled = ref.watch(gardenPreviewEnabledProvider);
+    final previewGarden = previewEnabled
+        ? ref.watch(gardenPreviewControllerProvider)
+        : null;
+    final previewLevel = previewGarden?.level;
+    final topics = previewEnabled
+        ? topicPreviewTopicsForLevel(previewLevel ?? 'A0')
+        : _topicsFrom(memory);
 
     // Scaffold gives a Material ancestor so Text renders without the debug
     // yellow underline (this screen is pushed as a bare route).
@@ -59,22 +68,19 @@ class AllTopicsScreen extends ConsumerWidget {
                       : LayoutBuilder(
                           builder: (context, constraints) {
                             const columnCount = 3;
-                            const horizontalGap = 14.0;
-                            const horizontalPadding = 8.0;
-                            const verticalPadding = 8.0;
-                            const iconSize = 53.0;
-                            const iconLabelGap = 4.0;
+                            const horizontalGap = 8.0;
                             final cardWidth =
                                 (constraints.maxWidth -
                                     horizontalGap * (columnCount - 1)) /
                                 columnCount;
-                            final labelWidth =
-                                cardWidth - horizontalPadding * 2;
                             final rowCount =
                                 (topics.length + columnCount - 1) ~/
                                 columnCount;
 
                             return ListView.separated(
+                              key: ValueKey(
+                                'all-topics-list-${previewLevel ?? 'live'}',
+                              ),
                               padding: const EdgeInsets.only(bottom: 4),
                               itemCount: rowCount,
                               separatorBuilder: (_, _) =>
@@ -86,6 +92,16 @@ class AllTopicsScreen extends ConsumerWidget {
                                   topics.length,
                                 );
                                 final rowTopics = topics.sublist(start, end);
+                                final horizontalPadding =
+                                    responsiveTopicHorizontalPadding(
+                                      context,
+                                      labels: rowTopics.map(
+                                        (topic) => topic.display,
+                                      ),
+                                      cardWidth: cardWidth,
+                                    );
+                                final labelWidth =
+                                    cardWidth - horizontalPadding * 2;
                                 final layouts = [
                                   for (final topic in rowTopics)
                                     measureTopicLabel(
@@ -101,9 +117,9 @@ class AllTopicsScreen extends ConsumerWidget {
                                   }
                                 }
                                 final rowHeight =
-                                    verticalPadding * 2 +
-                                    iconSize +
-                                    iconLabelGap +
+                                    kTopicCardVerticalPadding * 2 +
+                                    kTopicIconSize +
+                                    kTopicIconLabelGap +
                                     rowLabelHeight;
 
                                 return SizedBox(
@@ -128,6 +144,8 @@ class AllTopicsScreen extends ConsumerWidget {
                                                       layouts[columnIndex],
                                                   labelSlotHeight:
                                                       rowLabelHeight,
+                                                  horizontalPadding:
+                                                      horizontalPadding,
                                                   onTap: () {
                                                     ref
                                                         .read(audioProvider)
@@ -148,6 +166,15 @@ class AllTopicsScreen extends ConsumerWidget {
                           },
                         ),
                 ),
+                if (previewEnabled) ...[
+                  const SizedBox(height: 12),
+                  _TopicPreviewLevelSelector(
+                    selectedLevel: previewLevel ?? 'A0',
+                    onSelected: (level) => ref
+                        .read(gardenPreviewControllerProvider.notifier)
+                        .selectLevel(level),
+                  ),
+                ],
               ],
             ),
           ),
@@ -257,12 +284,14 @@ class _TopicCard extends StatelessWidget {
   final TopicChoice topic;
   final TopicLabelLayout labelLayout;
   final double labelSlotHeight;
+  final double horizontalPadding;
   final VoidCallback onTap;
 
   const _TopicCard({
     required this.topic,
     required this.labelLayout,
     required this.labelSlotHeight,
+    required this.horizontalPadding,
     required this.onTap,
   });
 
@@ -273,9 +302,14 @@ class _TopicCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         key: ValueKey('all-topics-card-${topic.name}'),
-        // The smooth 1.5px outline supplies the remainder of the original
-        // 8px inset.
-        padding: const EdgeInsets.all(6.5),
+        // The smooth 1.5px outline supplies the remainder of each effective
+        // inset, keeping the artwork aligned with home chips.
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding - 1.5,
+          kTopicCardVerticalPadding - 1.5,
+          horizontalPadding - 1.5,
+          kTopicCardVerticalPadding - 1.5,
+        ),
         alignment: Alignment.topCenter,
         decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
@@ -291,10 +325,10 @@ class _TopicCard extends StatelessWidget {
             TopicIcon(
               key: ValueKey('all-topics-icon-${topic.name}'),
               icon: topic.icon,
-              size: 53,
+              size: kTopicIconSize,
               fallbackColor: EllaColors.ink,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: kTopicIconLabelGap),
             TopicCardLabel(
               key: ValueKey('all-topics-label-${topic.name}'),
               text: topic.display,
@@ -303,6 +337,90 @@ class _TopicCard extends StatelessWidget {
               slotHeight: labelSlotHeight,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicPreviewLevelSelector extends StatelessWidget {
+  final String selectedLevel;
+  final ValueChanged<String> onSelected;
+
+  const _TopicPreviewLevelSelector({
+    required this.selectedLevel,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('topic-preview-level-selector'),
+      height: 50,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: EllaColors.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: EllaColors.border, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          for (var index = 0; index < gardenPreviewLevels.length; index++) ...[
+            if (index > 0) const SizedBox(width: 4),
+            Expanded(
+              child: _TopicPreviewLevelOption(
+                level: gardenPreviewLevels[index],
+                selected: selectedLevel == gardenPreviewLevels[index].code,
+                onTap: () => onSelected(gardenPreviewLevels[index].code),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TopicPreviewLevelOption extends StatelessWidget {
+  final GardenPreviewLevel level;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TopicPreviewLevelOption({
+    required this.level,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Preview ${level.code} ${level.label} topics',
+      child: GestureDetector(
+        key: ValueKey('topic-preview-level-${level.code}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          playTapClick();
+          onTap();
+        },
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? EllaColors.greenLight : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: selected
+                ? Border.all(color: EllaColors.greenDeep, width: 1.5)
+                : null,
+          ),
+          child: Text(
+            level.code,
+            style: EllaTextStyles.caption.copyWith(
+              color: selected ? EllaColors.greenDeep : EllaColors.ink,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ),
     );

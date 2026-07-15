@@ -11,11 +11,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 
-import '../../core/app_toast.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
+import '../../core/topic_preview_data.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
@@ -65,6 +65,14 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatAsync = ref.watch(chatProvider);
+    if (ref.watch(gardenPreviewEnabledProvider)) {
+      return _HomeBody(
+        memory: chatAsync.valueOrNull?.memory,
+        onConversationEnded: onConversationEnded,
+        onOpenGarden: onOpenGarden,
+        onOpenProfile: onOpenProfile,
+      );
+    }
     return chatAsync.when(
       data: (s) => _HomeBody(
         memory: s.memory,
@@ -107,7 +115,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // starts a session — only the CTA does.
   TopicChoice? _selectedTopic;
   bool _promoteSelectedTopic = true;
-  bool _isStarting = false; // guard against double-tap creating duplicate sessions
+  bool _isStarting =
+      false; // guard against double-tap creating duplicate sessions
 
   int _highlightStart = -1;
   int _highlightEnd = -1;
@@ -148,19 +157,46 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   MemoryState? get _memory => widget.memory;
 
   // Server recommendation and the alternatives shown as chips.
-  TopicChoice? get _recommended => _memory?.nextTopics.recommended;
-  List<TopicChoice> get _alternatives =>
-      _memory?.nextTopics.alternatives ?? const [];
+  TopicChoice? get _recommended {
+    if (ref.read(gardenPreviewEnabledProvider)) {
+      final topics = topicPreviewTopicsForLevel(
+        ref.read(gardenPreviewControllerProvider).level,
+      );
+      return topics.isEmpty ? null : topics.first;
+    }
+    return _memory?.nextTopics.recommended;
+  }
+
+  List<TopicChoice> get _alternatives {
+    if (ref.read(gardenPreviewEnabledProvider)) {
+      return topicPreviewTopicsForLevel(
+        ref.read(gardenPreviewControllerProvider).level,
+      ).skip(1).toList(growable: false);
+    }
+    return _memory?.nextTopics.alternatives ?? const [];
+  }
 
   // The effective selection driving the CTA (explicit pick, else recommended).
-  TopicChoice? get _selected => _selectedTopic ?? _recommended;
+  TopicChoice? get _selected {
+    final explicit = _selectedTopic;
+    final recommended = _recommended;
+    if (explicit != null &&
+        [
+          ?recommended,
+          ..._alternatives,
+        ].any((topic) => topic.name == explicit.name)) {
+      return explicit;
+    }
+    return recommended;
+  }
 
   // Server-authored recap line ("Last time…"), shown verbatim. Empty until the
   // API provides it, in which case the card shows its first-chat fallback.
   String get _recap {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
     if (!isOnline) {
-      final name = ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+      final name =
+          ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
       return "Hey $name, I'm having trouble connecting to the internet right now!";
     }
     return _memory?.lastTimeRecap ?? '';
@@ -277,6 +313,11 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   @override
   Widget build(BuildContext context) {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
+    if (ref.watch(gardenPreviewEnabledProvider)) {
+      ref.watch(
+        gardenPreviewControllerProvider.select((garden) => garden.level),
+      );
+    }
 
     // Keep the CTA tappable even while memory is still loading so it doesn't
     // visibly flip from disabled→enabled on launch; _startSelected safely no-ops
@@ -322,7 +363,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ZoeMascot(
-                            mode: !isOnline ? ZoeMascotMode.sleep : ZoeMascotMode.listening,
+                            mode: !isOnline
+                                ? ZoeMascotMode.sleep
+                                : ZoeMascotMode.listening,
                             size: mascotW,
                             reducedMotion: MediaQuery.of(
                               context,
@@ -355,12 +398,16 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                               ),
                               height: 60,
                               playTapClickSound: false,
-                              backgroundColor: isOnline ? null : Colors.grey[400],
+                              backgroundColor: isOnline
+                                  ? null
+                                  : Colors.grey[400],
                               edgeColor: isOnline ? null : Colors.grey[600],
                               onTap: isOnline
                                   ? _startSelected
                                   : () {
-                                      ref.read(audioProvider).playSfx(Sounds.error);
+                                      ref
+                                          .read(audioProvider)
+                                          .playSfx(Sounds.error);
                                       OfflineAlertPopup.show(context);
                                     },
                             ),
@@ -557,7 +604,7 @@ class _SectionDivider extends StatelessWidget {
 
 // ── Pick-your-own topic chips (select, don't start) ─────────────────────────
 
-// The next_topics.alternatives as chips + a "See More" chip. Tapping a topic
+// The next_topics alternatives as chips + a "See More" chip. Tapping a topic
 // chip SELECTS it (highlight + reorder to front + CTA relabel) — it does not
 // start a session; only the CTA does. The effective selection (explicit pick,
 // else the server's recommended — i.e. whatever the CTA points at) is moved to
@@ -594,12 +641,14 @@ class _TopicChipsRow extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const horizontalGap = 12.0;
-        const horizontalPadding = 8.0;
-        const verticalPadding = 8.0;
-        const iconSize = 53.0;
-        const iconLabelGap = 4.0;
+        const horizontalGap = 8.0;
         final cardWidth = (constraints.maxWidth - horizontalGap * 2) / 3;
+        final horizontalPadding = responsiveTopicHorizontalPadding(
+          context,
+          labels: [...shown.map((topic) => topic.display), 'See More!'],
+          cardWidth: cardWidth,
+          singleLineLabels: const ['See More!'],
+        );
         final labelWidth = cardWidth - horizontalPadding * 2;
         final topicLayouts = [
           for (final topic in shown)
@@ -620,7 +669,10 @@ class _TopicChipsRow extends StatelessWidget {
           if (layout.height > rowLabelHeight) rowLabelHeight = layout.height;
         }
         final rowHeight =
-            verticalPadding * 2 + iconSize + iconLabelGap + rowLabelHeight;
+            kTopicCardVerticalPadding * 2 +
+            kTopicIconSize +
+            kTopicIconLabelGap +
+            rowLabelHeight;
 
         final slots = <Widget>[];
         for (var i = 0; i < shown.length; i++) {
@@ -633,6 +685,7 @@ class _TopicChipsRow extends StatelessWidget {
                 labelLayout: topicLayouts[i],
                 labelSlotHeight: rowLabelHeight,
                 height: rowHeight,
+                horizontalPadding: horizontalPadding,
                 selected: sel != null && topic.name == sel.name,
                 onTap: () => onSelect(topic),
               ),
@@ -641,7 +694,14 @@ class _TopicChipsRow extends StatelessWidget {
         }
         // Keep three equal columns even before the topics arrive.
         for (var i = shown.length; i < 2; i++) {
-          slots.add(Expanded(child: _ChipPlaceholder(height: rowHeight)));
+          slots.add(
+            Expanded(
+              child: _ChipPlaceholder(
+                height: rowHeight,
+                horizontalPadding: horizontalPadding,
+              ),
+            ),
+          );
         }
         slots.add(
           Expanded(
@@ -649,6 +709,7 @@ class _TopicChipsRow extends StatelessWidget {
               height: rowHeight,
               labelLayout: seeMoreLayout,
               labelSlotHeight: rowLabelHeight,
+              horizontalPadding: horizontalPadding,
               onTap: onSeeMore,
             ),
           ),
@@ -673,6 +734,7 @@ class _ChipShell extends StatelessWidget {
   final Color fill;
   final Color outline;
   final double outlineWidth;
+  final double horizontalPadding;
   final Widget child;
   final VoidCallback? onTap;
   final bool playTapClickSound;
@@ -682,6 +744,7 @@ class _ChipShell extends StatelessWidget {
     required this.height,
     required this.fill,
     required this.outline,
+    required this.horizontalPadding,
     required this.child,
     this.outlineWidth = 1.5,
     this.onTap,
@@ -706,9 +769,14 @@ class _ChipShell extends StatelessWidget {
       child: Container(
         height: height,
         // BoxDecoration contributes its border to the content inset. Offset
-        // it here so every chip keeps the same 8px padding and icon position,
+        // it here so every chip keeps the same 12px padding and icon position,
         // including the selected chip's thicker outline.
-        padding: EdgeInsets.all(8 - outlineWidth),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding - outlineWidth,
+          kTopicCardVerticalPadding - outlineWidth,
+          horizontalPadding - outlineWidth,
+          kTopicCardVerticalPadding - outlineWidth,
+        ),
         alignment: Alignment.topCenter,
         decoration: BoxDecoration(
           color: fill,
@@ -727,6 +795,7 @@ class _TopicChip extends StatelessWidget {
   final TopicLabelLayout labelLayout;
   final double labelSlotHeight;
   final double height;
+  final double horizontalPadding;
   final bool selected;
   final VoidCallback onTap;
 
@@ -736,6 +805,7 @@ class _TopicChip extends StatelessWidget {
     required this.labelLayout,
     required this.labelSlotHeight,
     required this.height,
+    required this.horizontalPadding,
     required this.selected,
     required this.onTap,
   });
@@ -754,6 +824,7 @@ class _TopicChip extends StatelessWidget {
           ? EllaColors.berryDark
           : EllaColors.ink.withValues(alpha: 0.2),
       outlineWidth: selected ? 2.5 : 1.5,
+      horizontalPadding: horizontalPadding,
       onTap: onTap,
       playTapClickSound: false,
       child: Column(
@@ -762,10 +833,10 @@ class _TopicChip extends StatelessWidget {
           TopicIcon(
             key: ValueKey('home-topic-icon-$label'),
             icon: icon,
-            size: 53,
+            size: kTopicIconSize,
             fallbackColor: content,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: kTopicIconLabelGap),
           TopicCardLabel(
             key: ValueKey('home-topic-label-$label'),
             text: label,
@@ -783,12 +854,14 @@ class _SeeMoreChip extends StatelessWidget {
   final double height;
   final TopicLabelLayout labelLayout;
   final double labelSlotHeight;
+  final double horizontalPadding;
   final VoidCallback onTap;
 
   const _SeeMoreChip({
     required this.height,
     required this.labelLayout,
     required this.labelSlotHeight,
+    required this.horizontalPadding,
     required this.onTap,
   });
 
@@ -799,6 +872,7 @@ class _SeeMoreChip extends StatelessWidget {
       height: height,
       fill: EllaColors.surface,
       outline: EllaColors.ink.withValues(alpha: 0.35),
+      horizontalPadding: horizontalPadding,
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -806,14 +880,16 @@ class _SeeMoreChip extends StatelessWidget {
           SvgPicture.asset(
             'assets/homescreen/new/BoundingBox.svg',
             key: const ValueKey('home-see-more-icon'),
-            width: 53,
-            height: 53,
+            width: kTopicIconSize,
+            height: kTopicIconSize,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
             colorFilter: const ColorFilter.mode(
               EllaColors.berryDark,
               BlendMode.srcIn,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: kTopicIconLabelGap),
           TopicCardLabel(
             key: const ValueKey('home-see-more-label'),
             text: 'See More!',
@@ -829,14 +905,19 @@ class _SeeMoreChip extends StatelessWidget {
 
 class _ChipPlaceholder extends StatelessWidget {
   final double height;
+  final double horizontalPadding;
 
-  const _ChipPlaceholder({required this.height});
+  const _ChipPlaceholder({
+    required this.height,
+    required this.horizontalPadding,
+  });
 
   @override
   Widget build(BuildContext context) => _ChipShell(
     height: height,
     fill: EllaColors.surface.withValues(alpha: 0.5),
     outline: EllaColors.ink.withValues(alpha: 0.12),
+    horizontalPadding: horizontalPadding,
     child: const SizedBox.shrink(),
   );
 }
