@@ -107,6 +107,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // starts a session — only the CTA does.
   TopicChoice? _selectedTopic;
   bool _promoteSelectedTopic = true;
+  bool _isStarting = false; // guard against double-tap creating duplicate sessions
 
   int _highlightStart = -1;
   int _highlightEnd = -1;
@@ -231,40 +232,46 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   }
 
   Future<void> _startSelected() async {
-    final sel = _selected;
-    if (sel != null && sel.name.isNotEmpty) {
-      // The topic NAME (not the label) is what the backend expects.
-      await startTopicByName(
-        context,
-        ref,
-        sel.name,
-        onConversationEnded: widget.onConversationEnded,
-      );
-      return;
-    }
-    if (ref.read(gardenPreviewEnabledProvider)) {
+    if (_isStarting) return;
+    setState(() => _isStarting = true);
+    try {
+      final sel = _selected;
+      if (sel != null && sel.name.isNotEmpty) {
+        // The topic NAME (not the label) is what the backend expects.
+        await startTopicByName(
+          context,
+          ref,
+          sel.name,
+          onConversationEnded: widget.onConversationEnded,
+        );
+        return;
+      }
+      if (ref.read(gardenPreviewEnabledProvider)) {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SessionScreen(
+              previewMode: true,
+              onEnded: widget.onConversationEnded,
+            ),
+          ),
+        );
+        return;
+      }
+      // No recommendation yet — fall back to the engine's own topic pick.
+      final chatState = ref.read(chatProvider);
+      if (chatState.hasValue && chatState.requireValue.sessionEnded) {
+        await ref.read(chatProvider.notifier).nextChat();
+      }
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => SessionScreen(
-            previewMode: true,
-            onEnded: widget.onConversationEnded,
-          ),
+          builder: (_) => SessionScreen(onEnded: widget.onConversationEnded),
         ),
       );
-      return;
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
     }
-    // No recommendation yet — fall back to the engine's own topic pick.
-    final chatState = ref.read(chatProvider);
-    if (chatState.hasValue && chatState.requireValue.sessionEnded) {
-      await ref.read(chatProvider.notifier).nextChat();
-    }
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SessionScreen(onEnded: widget.onConversationEnded),
-      ),
-    );
   }
 
   @override
