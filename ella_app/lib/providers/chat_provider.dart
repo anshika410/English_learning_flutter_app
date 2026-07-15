@@ -206,7 +206,11 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // mic-permission prompt, so it is deferred to the first listen (see
     // startListening) to avoid blocking screen load / prompting at launch.
     final tts = ref.read(ttsProvider);
-    await tts.initialize();
+    try {
+      await tts.initialize();
+    } catch (e) {
+      print('⚠️ TTS initialization failed: $e');
+    }
 
     // Listen to network changes so we can recover from offline mode
     ref.listen(connectivityProvider, (previous, next) {
@@ -230,12 +234,6 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         }
       }
     });
-    try {
-      await tts.initialize();
-    } catch (e) {
-      print('⚠️ TTS initialization failed: $e');
-    }
-
     // STT is NOT initialized here to avoid triggering the mic permission prompt
     // during screen load. It will be lazily initialized on first voice use in
     // startListening() method.

@@ -79,10 +79,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   int _highlightStart = -1;
   int _highlightEnd = -1;
   bool _speaking = false;
-  // Guards the queued-starter speak so it runs at most once per screen. The
-  // ready-check fires both from initState (session started before mount) and
-  // from ref.listen (session started after mount, e.g. fresh app launch).
-  bool _starterSpeakStarted = false;
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
@@ -121,21 +117,33 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _speakStarterIfReady());
   }
 
-  /// If the provider already has a zoeSpeaking starter ready (set by
-  /// startSession before this screen mounted), speak it now.
   Future<void> _speakStarterIfReady() async {
-    if (!mounted || widget.previewMode || _starterSpeakStarted) return;
-    final s = ref.read(chatProvider).valueOrNull;
+    if (!mounted || widget.previewMode) return;
+
+    // Wait for chatProvider to populate the starter message. On clean launches,
+    // startSession() calls the async API to create the conversation, which takes
+    // a brief moment to complete.
+    ChatState? s;
+    for (var i = 0; i < 50; i++) {
+      s = ref.read(chatProvider).valueOrNull;
+      if (s != null &&
+          s.status == ChatStatus.zoeSpeaking &&
+          s.messages.length == 1 &&
+          s.messages.first.sender == MessageSender.zoe) {
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
     if (s == null) return;
+
     if (s.status == ChatStatus.zoeSpeaking &&
         s.messages.length == 1 &&
         s.messages.first.sender == MessageSender.zoe) {
-      _starterSpeakStarted = true;
       final text = s.messages.first.text;
       try {
-        // Ensure TTS is initialized before speaking — on first launch after
-        // app restart, initialize() may still be in progress.
-        await _tts.initialize();
+        // chatProvider.build() already called tts.initialize() — don't call
+        // it again here to avoid race conditions on first launch.
         await _tts.speak(text);
       } catch (_) {}
       if (mounted) {
@@ -395,12 +403,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             _highlightStart = -1;
             _highlightEnd = -1;
           });
-          // On fresh launch startSession runs AFTER this screen mounts (the
-          // initState post-frame check ran too early and no-oped), so the
-          // queued starter must be picked up here or the status stays stuck
-          // on zoeSpeaking with the mic disabled. _speakStarterIfReady is
-          // guarded, so this is a no-op once the starter has been handled.
-          _speakStarterIfReady();
         }
       }
     });
