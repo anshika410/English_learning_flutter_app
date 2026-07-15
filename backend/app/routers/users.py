@@ -433,7 +433,7 @@ async def get_user_garden(
             "strength": {sid: 2 for sid in all_skill_ids},
             "last_seen": {sid: today for sid in all_skill_ids},
             "effort": progress.get("effort", {"times_spoken_total": 0}),
-            "evidence": progress.get("evidence", {}),
+            "evidence": {},
         }
 
     level = requested_level
