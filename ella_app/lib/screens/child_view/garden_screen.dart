@@ -3451,29 +3451,9 @@ class _UnitBoulder extends StatelessWidget {
                 ],
                 SizedBox(
                   width: safeTextWidth,
-                  child: Text(
+                  child: _BoulderLabel(
                     key: const ValueKey('garden-unit-sign-label'),
-                    name,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: EllaFonts.body(
-                      const TextStyle(
-                        fontSize: 14,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700,
-                        color: EllaColors.textSecondary,
-                        shadows: [
-                          // Light lower "lip" gives the letters a carved,
-                          // engraved-into-the-stone relief.
-                          Shadow(
-                            color: Color(0x66FFFFFF),
-                            offset: Offset(0, 1),
-                            blurRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                    ),
+                    text: name,
                   ),
                 ),
               ],
@@ -3481,6 +3461,72 @@ class _UnitBoulder extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BoulderLabel extends StatelessWidget {
+  final String text;
+
+  const _BoulderLabel({super.key, required this.text});
+
+  static const double _maxFontSize = 14;
+  static const double _minFontSize = 9.5;
+  static const int _maxLines = 3;
+
+  TextStyle _style(double fontSize) {
+    return EllaFonts.body(
+      TextStyle(
+        fontSize: fontSize,
+        height: 1.12,
+        fontWeight: FontWeight.w700,
+        color: EllaColors.textSecondary,
+        shadows: const [
+          // Light lower "lip" gives the letters a carved,
+          // engraved-into-the-stone relief.
+          Shadow(
+            color: Color(0x66FFFFFF),
+            offset: Offset(0, 1),
+            blurRadius: 0.5,
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _fittingFontSize(BuildContext context, double maxWidth) {
+    final textDirection = Directionality.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    for (
+      var fontSize = _maxFontSize;
+      fontSize >= _minFontSize;
+      fontSize -= 0.5
+    ) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _style(fontSize)),
+        maxLines: _maxLines,
+        textAlign: TextAlign.center,
+        textDirection: textDirection,
+        textScaler: textScaler,
+      )..layout(maxWidth: maxWidth);
+      if (!painter.didExceedMaxLines) return fontSize;
+    }
+    return _minFontSize;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fontSize = _fittingFontSize(context, constraints.maxWidth);
+        return Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: _maxLines,
+          softWrap: true,
+          style: _style(fontSize),
+        );
+      },
     );
   }
 }
@@ -3769,7 +3815,7 @@ class _SideProp extends StatelessWidget {
 
 // ── Plot: turf-shadow ellipse + tile + bush + plants + butterfly ──────────────
 
-class _Plot extends StatelessWidget {
+class _Plot extends StatefulWidget {
   final GardenData data;
   final GardenStep step;
   final _GardenLevelVisualSpec spec;
@@ -3789,8 +3835,58 @@ class _Plot extends StatelessWidget {
   });
 
   @override
+  State<_Plot> createState() => _PlotState();
+}
+
+class _PlotState extends State<_Plot> {
+  // Skill whose tile is currently held down; that tile (and its plant) dip a
+  // few px so the child sees exactly which tile they hit.
+  String? _pressedSkillId;
+  // A tap plays the full dip choreography (down → spring back) before the
+  // skill sheet opens, so the feedback is always visible.
+  Timer? _tapSequenceTimer;
+  bool _tapSequenceRunning = false;
+
+  void _setPressed(String skillId, bool pressed) {
+    final next = pressed
+        ? skillId
+        : (_pressedSkillId == skillId ? null : _pressedSkillId);
+    if (next == _pressedSkillId) return;
+    setState(() => _pressedSkillId = next);
+  }
+
+  void _handleTileTap(String skillId, VoidCallback openSheet) {
+    if (_tapSequenceRunning) return;
+    _tapSequenceRunning = true;
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    if (reducedMotion) {
+      setState(() => _pressedSkillId = null);
+      _tapSequenceRunning = false;
+      openSheet();
+      return;
+    }
+    // Hold the dip long enough to land, release, let it spring back, then
+    // open the sheet.
+    setState(() => _pressedSkillId = skillId);
+    _tapSequenceTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      setState(() => _pressedSkillId = null);
+      _tapSequenceTimer = Timer(const Duration(milliseconds: 130), () {
+        _tapSequenceRunning = false;
+        if (mounted) openSheet();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _tapSequenceTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final skills = step.skills;
+    final skills = widget.step.skills;
     final tileSpots = _tileSpotsFor(skills.length);
 
     // Paint back-to-front (higher = further back) so front tiles/plants overlap
@@ -3803,7 +3899,7 @@ class _Plot extends StatelessWidget {
     final cols = math.max(1, math.sqrt(skills.length).ceil());
 
     return SizedBox(
-      key: plotAnchorKey,
+      key: widget.plotAnchorKey,
       width: _plotW,
       height: _plotH,
       child: Stack(
@@ -3812,16 +3908,26 @@ class _Plot extends StatelessWidget {
           // Turf shadow disc.
           Positioned(top: 9, left: 0, child: const _GardenPlate()),
           // Bush resting inside the turf-shadow ellipse (front-left).
-          Positioned(top: 66, left: 20, child: _PlotBush(tint: spec.bushTint)),
+          Positioned(
+            top: 66,
+            left: 20,
+            child: _PlotBush(tint: widget.spec.bushTint),
+          ),
           for (final i in order)
             _SkillTile(
               skill: skills[i],
               spot: tileSpots[i],
-              onTap: () => showSkillSheet(
-                context,
-                step,
-                skills[i],
-                isPreviousGarden: isPreviousGarden,
+              pressed: _pressedSkillId == skills[i].id,
+              onPressChanged: (pressed) =>
+                  _setPressed(skills[i].id, pressed),
+              onTap: () => _handleTileTap(
+                skills[i].id,
+                () => showSkillSheet(
+                  context,
+                  widget.step,
+                  skills[i],
+                  isPreviousGarden: widget.isPreviousGarden,
+                ),
               ),
             ),
           for (final i in order)
@@ -3830,14 +3936,9 @@ class _Plot extends StatelessWidget {
                 skill: skills[i],
                 spot: tileSpots[i],
                 swayDelayMs: ((i % cols) + (i ~/ cols)) * 400,
-                animateGrowth: grownSkillIds.contains(skills[i].id),
-                anchorKey: skillAnchorFor(skills[i].id),
-                onTap: () => showSkillSheet(
-                  context,
-                  step,
-                  skills[i],
-                  isPreviousGarden: isPreviousGarden,
-                ),
+                animateGrowth: widget.grownSkillIds.contains(skills[i].id),
+                anchorKey: widget.skillAnchorFor(skills[i].id),
+                pressed: _pressedSkillId == skills[i].id,
               ),
         ],
       ),
@@ -3933,13 +4034,39 @@ List<_TileSpot> _tileSpotsFor(int count) {
   ];
 }
 
+// How far a held tile (and its plant) sinks while the finger is down.
+const double _tilePressDip = 7.0;
+
+/// Press feedback shared by the tile and its plant: dips [_tilePressDip] px
+/// down while [pressed], springing back on release/cancel.
+class _TilePressDip extends StatelessWidget {
+  final bool pressed;
+  final Widget child;
+  const _TilePressDip({required this.pressed, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    return AnimatedContainer(
+      duration: Duration(milliseconds: reducedMotion ? 0 : 100),
+      curve: Curves.easeOut,
+      transform: Matrix4.translationValues(0, pressed ? _tilePressDip : 0, 0),
+      child: child,
+    );
+  }
+}
+
 class _SkillTile extends StatelessWidget {
   final GardenSkill skill;
   final _TileSpot spot;
+  final bool pressed;
+  final ValueChanged<bool> onPressChanged;
   final VoidCallback onTap;
   const _SkillTile({
     required this.skill,
     required this.spot,
+    required this.pressed,
+    required this.onPressChanged,
     required this.onTap,
   });
 
@@ -3955,12 +4082,20 @@ class _SkillTile extends StatelessWidget {
       left: spot.left,
       child: GestureDetector(
         key: ValueKey('garden-skill-tile-${skill.id}'),
+        onTapDown: (_) => onPressChanged(true),
+        // No onTapUp release: a completed tap hands the dip to the plot's tap
+        // sequence (dip lands → springs back → sheet opens). Only a cancelled
+        // gesture releases here.
+        onTapCancel: () => onPressChanged(false),
         onTap: withTapClick(onTap),
         behavior: HitTestBehavior.translucent,
-        child: SizedBox(
-          width: _tileW,
-          height: _tileH,
-          child: SvgPicture.asset(tileAsset, fit: BoxFit.fill),
+        child: _TilePressDip(
+          pressed: pressed,
+          child: SizedBox(
+            width: _tileW,
+            height: _tileH,
+            child: SvgPicture.asset(tileAsset, fit: BoxFit.fill),
+          ),
         ),
       ),
     );
@@ -3973,14 +4108,14 @@ class _SkillPlant extends StatelessWidget {
   final int swayDelayMs;
   final bool animateGrowth;
   final Key? anchorKey;
-  final VoidCallback onTap;
+  final bool pressed;
   const _SkillPlant({
     required this.skill,
     required this.spot,
     required this.swayDelayMs,
     required this.animateGrowth,
     this.anchorKey,
-    required this.onTap,
+    required this.pressed,
   });
 
   @override
@@ -3997,20 +4132,27 @@ class _SkillPlant extends StatelessWidget {
           plantHeight * _plantBaseYFrac +
           _plantVerticalNudgeFor(skill),
       left: spot.left + _tileW / 2 - _plantSlotW / 2,
-      child: SizedBox(
-        key: anchorKey,
-        width: _plantSlotW,
-        height: plantHeight,
-        child: SizedBox(
-          key: ValueKey('garden-plant-slot-${skill.id}'),
-          width: _plantSlotW,
-          height: plantHeight,
-          child: Center(
-            child: _Plant(
-              skill: skill,
-              swayDelayMs: swayDelayMs,
-              animateGrowth: animateGrowth,
-              onTap: onTap,
+      // The plant is invisible to hit testing: every tap falls through to the
+      // tile beneath it, so a planted tile is exactly as clickable as an empty
+      // one. The plant still dips with its tile via the shared pressed state.
+      child: IgnorePointer(
+        child: _TilePressDip(
+          pressed: pressed,
+          child: SizedBox(
+            key: anchorKey,
+            width: _plantSlotW,
+            height: plantHeight,
+            child: SizedBox(
+              key: ValueKey('garden-plant-slot-${skill.id}'),
+              width: _plantSlotW,
+              height: plantHeight,
+              child: Center(
+                child: _Plant(
+                  skill: skill,
+                  swayDelayMs: swayDelayMs,
+                  animateGrowth: animateGrowth,
+                ),
+              ),
             ),
           ),
         ),
@@ -4289,12 +4431,10 @@ class _Plant extends StatefulWidget {
   final GardenSkill skill;
   final int swayDelayMs;
   final bool animateGrowth;
-  final VoidCallback onTap;
   const _Plant({
     required this.skill,
     required this.swayDelayMs,
     required this.animateGrowth,
-    required this.onTap,
   });
 
   @override
@@ -4389,15 +4529,11 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
     };
     if (asset.isEmpty) return const SizedBox.shrink();
 
-    final art = GestureDetector(
-      onTap: withTapClick(widget.onTap),
-      behavior: HitTestBehavior.opaque,
-      child: SvgPicture.asset(
-        key: ValueKey('garden-plant-art-${widget.skill.id}'),
-        asset,
-        height: height,
-        fit: BoxFit.contain,
-      ),
+    final art = SvgPicture.asset(
+      key: ValueKey('garden-plant-art-${widget.skill.id}'),
+      asset,
+      height: height,
+      fit: BoxFit.contain,
     );
 
     return AnimatedBuilder(
