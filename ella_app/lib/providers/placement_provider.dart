@@ -101,6 +101,9 @@ class PlacementNotifier extends Notifier<PlacementState> {
   // of posting the end message mid-turn.
   Future<void>? _inflight;
 
+  int _activeSttSessionId = 0;
+  bool _sttSessionFinalized = false;
+
   @override
   PlacementState build() {
     final nativeTts = ref.read(nativeTtsProvider);
@@ -331,6 +334,10 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
   Future<void> startListening() async {
     if (state.status != ChatStatus.idle || state.isComplete) return;
+
+    _sttSessionFinalized = false;
+    final sessionId = ++_activeSttSessionId;
+
     state = state.copyWith(status: ChatStatus.userSpeaking);
     ref.read(audioProvider).playSfx(Sounds.listen);
     final stt = ref.read(sttProvider);
@@ -338,9 +345,14 @@ class PlacementNotifier extends Notifier<PlacementState> {
     // voice use rather than at app/screen load.
     await stt.initialize();
     await stt.startListening(
-      onPartial: (partial) =>
-          state = state.copyWith(partialStt: partial),
+      onPartial: (partial) {
+        if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+        state = state.copyWith(partialStt: partial);
+      },
       onFinal: (text) {
+        if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+        _sttSessionFinalized = true;
+
         final trimmed = text.trim();
         if (trimmed.isNotEmpty) {
           sendUserTurn(trimmed);
@@ -356,9 +368,15 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
   Future<void> stopListening() async {
     await ref.read(sttProvider).stopListening();
+    
+    final sessionId = _activeSttSessionId;
+
     // Safety net for platforms whose final result is slow/missing: if we're
     // still on userSpeaking after a beat, commit whatever partial we heard.
     Future.delayed(const Duration(milliseconds: 400), () {
+      if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+      _sttSessionFinalized = true;
+
       if (state.status != ChatStatus.userSpeaking) return;
       final partial = state.partialStt?.trim() ?? '';
       if (partial.isNotEmpty) {
