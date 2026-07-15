@@ -433,6 +433,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           highlightEnd: -1,
         ),
       );
+      // Delay TTS until after the session screen has had a chance to mount —
+      // prevents audio playing before the screen appears on slow/busy devices.
+      await Future.delayed(const Duration(milliseconds: 400));
       try {
         final tts = ref.read(ttsProvider);
         await tts.speak(zoeMsg.text);
