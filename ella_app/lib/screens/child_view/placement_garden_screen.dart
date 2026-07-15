@@ -66,6 +66,8 @@ enum PlacementGardenMode {
 
 enum _Phase {
   empty,
+  revealSproutHold,
+  revealSpotlightOnly,
   reveal,
   exploreReady,
   settled,
@@ -113,8 +115,6 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
     _ => _Phase.empty,
   };
 
-
-
   final List<Timer> _timers = [];
   bool _started = false;
   bool _resolved = false;
@@ -129,6 +129,10 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
 
   bool get _isOnboardingReveal =>
       widget.mode == PlacementGardenMode.onboardingReveal;
+  bool get _revealSpotlightOn =>
+      _phase == _Phase.revealSpotlightOnly ||
+      _phase == _Phase.reveal ||
+      _phase == _Phase.exploreReady;
   bool get _revealLayerOn =>
       _phase == _Phase.reveal || _phase == _Phase.exploreReady;
   // The sprout spotlight callout (Zoe + nudge bubble) is on during the
@@ -214,11 +218,26 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
 
   void _beginOnboardingReveal() {
     setState(() {
-      _phase = _Phase.reveal;
-      _zoeMode = ZoeMascotMode.speaking;
+      _phase = _Phase.revealSproutHold;
+      _zoeMode = ZoeMascotMode.listening;
     });
     unawaited(_audio.playSfx(Sounds.sprout));
-    unawaited(_speakRevealAndUnlockExplore());
+
+    _after(_reducedMotion ? 0 : 1500, () {
+      if (!mounted) return;
+      setState(() {
+        _phase = _Phase.revealSpotlightOnly;
+      });
+
+      _after(_reducedMotion ? 0 : 800, () {
+        if (!mounted) return;
+        setState(() {
+          _phase = _Phase.reveal;
+          _zoeMode = ZoeMascotMode.speaking;
+        });
+        unawaited(_speakRevealAndUnlockExplore());
+      });
+    });
   }
 
   void _beginPlacementBloomReveal() {
@@ -435,7 +454,8 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       _audio.stopMusic();
     } else if (state == AppLifecycleState.resumed && mounted) {
       final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
@@ -502,7 +522,9 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
               ),
               IgnorePointer(
                 child: AnimatedOpacity(
-                  opacity: (_revealLayerOn || _placementRevealLayerOn) ? 1 : 0,
+                  opacity: (_revealSpotlightOn || _placementRevealLayerOn)
+                      ? 1
+                      : 0,
                   duration: Duration(milliseconds: _reducedMotion ? 0 : 600),
                   child: SpotlightOverlay(
                     center: metrics.spotlightCenter,
@@ -1183,7 +1205,8 @@ class _PlacementBloomBubble extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           TypewriterText(
-            text: "You've got a brand new garden\nwaiting with space for even more\nplants",
+            text:
+                "You've got a brand new garden\nwaiting with space for even more\nplants",
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.ink,
             ),
