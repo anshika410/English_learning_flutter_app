@@ -128,6 +128,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         s.messages.first.sender == MessageSender.zoe) {
       final text = s.messages.first.text;
       try {
+        // Ensure TTS is initialized before speaking — on first launch after
+        // app restart, initialize() may still be in progress.
+        await _tts.initialize();
         await _tts.speak(text);
       } catch (_) {}
       if (mounted) {
