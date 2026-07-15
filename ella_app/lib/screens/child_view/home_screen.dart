@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 
-import '../../core/app_toast.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
@@ -344,6 +343,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                             trigger: selected?.name ?? '',
                             child: EllaPrimaryButton(
                               label: ctaLabel,
+                              labelChild: _TalkAboutCtaLabel(
+                                topicLabel: selectedLabel,
+                              ),
                               leading: SvgPicture.asset(
                                 _kVoiceIcon,
                                 width: 22,
@@ -400,6 +402,83 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 }
 
 // ── Header (greeting + profile / garden shortcuts) ──────────────────────────
+
+class _TalkAboutCtaLabel extends StatelessWidget {
+  final String topicLabel;
+
+  const _TalkAboutCtaLabel({required this.topicLabel});
+
+  static const String _prefix = "Let's Talk About";
+
+  TextStyle _style() {
+    return EllaTextStyles.button.copyWith(
+      color: EllaColors.onPrimary,
+      height: 1.15,
+    );
+  }
+
+  bool _fitsOneLine(BuildContext context, String text, double maxWidth) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: _style()),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: maxWidth);
+    return !painter.didExceedMaxLines;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _style();
+    final topic = topicLabel.trim();
+    if (topic.isEmpty) {
+      return Text(
+        "Let's Talk",
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        style: style,
+      );
+    }
+
+    final fullLabel = '$_prefix $topic';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (_fitsOneLine(context, fullLabel, constraints.maxWidth)) {
+          return Text(
+            fullLabel,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            style: style,
+          );
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _prefix,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: style,
+            ),
+            SizedBox(
+              width: constraints.maxWidth,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  topic,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  style: style,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
 
 class _HeaderRow extends StatelessWidget {
   final String name;

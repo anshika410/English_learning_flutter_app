@@ -25,6 +25,7 @@ enum EllaButtonVariant { primary, secondary, outline }
 
 class EllaPrimaryButton extends StatefulWidget {
   final String label;
+  final Widget? labelChild;
   final VoidCallback? onTap;
   final double height;
   final bool uppercase;
@@ -43,6 +44,7 @@ class EllaPrimaryButton extends StatefulWidget {
   const EllaPrimaryButton({
     super.key,
     required this.label,
+    this.labelChild,
     this.onTap,
     this.height = 52,
     this.uppercase = false,
@@ -128,16 +130,17 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
                 SizedBox(width: widget.leadingGap),
               ],
               Flexible(
-                child: Text(
-                  widget.uppercase ? widget.label.toUpperCase() : widget.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.visible,
-                  style: EllaTextStyles.button.copyWith(
-                    color: _labelColor,
-                    height: 1.15,
-                  ),
-                ),
+                child: widget.labelChild ??
+                    Text(
+                      widget.uppercase ? widget.label.toUpperCase() : widget.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.visible,
+                      style: EllaTextStyles.button.copyWith(
+                        color: _labelColor,
+                        height: 1.15,
+                      ),
+                    ),
               ),
             ],
           ),
