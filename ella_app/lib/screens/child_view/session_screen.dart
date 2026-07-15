@@ -117,20 +117,33 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _speakStarterIfReady());
   }
 
-  /// If the provider already has a zoeSpeaking starter ready (set by
-  /// startSession before this screen mounted), speak it now.
   Future<void> _speakStarterIfReady() async {
     if (!mounted || widget.previewMode) return;
-    final s = ref.read(chatProvider).valueOrNull;
+
+    // Wait for chatProvider to populate the starter message. On clean launches,
+    // startSession() calls the async API to create the conversation, which takes
+    // a brief moment to complete.
+    ChatState? s;
+    for (var i = 0; i < 50; i++) {
+      s = ref.read(chatProvider).valueOrNull;
+      if (s != null &&
+          s.status == ChatStatus.zoeSpeaking &&
+          s.messages.length == 1 &&
+          s.messages.first.sender == MessageSender.zoe) {
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
     if (s == null) return;
+
     if (s.status == ChatStatus.zoeSpeaking &&
         s.messages.length == 1 &&
         s.messages.first.sender == MessageSender.zoe) {
       final text = s.messages.first.text;
       try {
-        // Ensure TTS is initialized before speaking — on first launch after
-        // app restart, initialize() may still be in progress.
-        await _tts.initialize();
+        // chatProvider.build() already called tts.initialize() — don't call
+        // it again here to avoid race conditions on first launch.
         await _tts.speak(text);
       } catch (_) {}
       if (mounted) {
