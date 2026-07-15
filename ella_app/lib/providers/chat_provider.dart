@@ -385,7 +385,6 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     String? backendSessionId;
     String? starter;
     List<String> serverAimedAt = const [];
-    String? syncError;
     if (_online) {
       try {
         final api = ref.read(ellaApiServiceProvider);
@@ -399,8 +398,23 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           starter = await api.conversationStarter(topic: topic?.topic);
         }
       } catch (e) {
-        syncError = 'Create conversation failed: $e';
+        state = AsyncValue.error(e, StackTrace.current);
+        return;
       }
+    } else {
+      state = AsyncValue.error(
+        const EllaApiException('network_error'),
+        StackTrace.current,
+      );
+      return;
+    }
+
+    if (starter == null || starter.trim().isEmpty) {
+      state = AsyncValue.error(
+        const EllaApiException('empty_starter_message'),
+        StackTrace.current,
+      );
+      return;
     }
 
     state = AsyncValue.data(
@@ -409,32 +423,27 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         currentTopic: topic,
         activeSessionId: backendSessionId,
         serverAimedAt: serverAimedAt,
-        lastSyncError: syncError,
-        clearSyncError: syncError == null,
+        clearSyncError: true,
       ),
     );
 
-    if (starter != null && starter.trim().isNotEmpty) {
-      final zoeMsg = ChatMessage(
-        sender: MessageSender.zoe,
-        text: starter.trim(),
-      );
-      // Set state to zoeSpeaking but do NOT call tts.speak() here.
-      // The session screen owns TTS for the starter — it will speak once mounted.
-      state = AsyncValue.data(
-        state.requireValue.copyWith(
-          messages: [zoeMsg],
-          status: ChatStatus.zoeSpeaking,
-          liveLlmLastCall: true,
-          currentlySpeakingMessageId: zoeMsg.id,
-          highlightStart: -1,
-          highlightEnd: -1,
-        ),
-      );
-      return;
-    }
-
-    await _zoeTurn([], topic);
+    final zoeMsg = ChatMessage(
+      sender: MessageSender.zoe,
+      text: starter.trim(),
+    );
+    // Set state to zoeSpeaking but do NOT call tts.speak() here.
+    // The session screen owns TTS for the starter — it will speak once mounted.
+    state = AsyncValue.data(
+      state.requireValue.copyWith(
+        messages: [zoeMsg],
+        status: ChatStatus.zoeSpeaking,
+        liveLlmLastCall: true,
+        currentlySpeakingMessageId: zoeMsg.id,
+        highlightStart: -1,
+        highlightEnd: -1,
+      ),
+    );
+    return;
   }
 
   // ── User turn ─────────────────────────────────────────────────────────────
