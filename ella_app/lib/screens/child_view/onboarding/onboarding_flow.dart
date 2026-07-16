@@ -59,6 +59,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   String? _zoeOverride;
 
   String _name = '';
+  int _nameAttempts = 0;
   int? _age;
 
   bool _busy = false; // guards the send button during step transitions
@@ -209,10 +210,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     r"^[A-Za-z][A-Za-z ]*(?:[’'\-][A-Za-z]+)*$",
   );
 
-  /// Returns the cleaned, capitalised name, or null when the reply contains
-  /// digits/symbols (so Zoe can re-ask). Conversational prefixes are stripped
-  /// before the character check.
-  static String? _extractName(String raw) {
+  /// Returns (cleanedName, errorMsg). If cleanedName is null, errorMsg contains the feedback.
+  static (String?, String?) _extractName(String raw, int attemptCount) {
     var t = raw.trim().replaceAll(RegExp(r'[.!?]+$'), '');
     final lower = t.toLowerCase();
     for (final prefix in ['my name is ', 'i am ', "i'm ", 'name is ']) {
@@ -222,12 +221,38 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       }
     }
     
-    // Validate length and word count to prevent accepting full sentences
-    if (t.length > 30) return null;
-    if (t.split(RegExp(r'\s+')).length > 3) return null;
+    if (t.isEmpty) {
+      return (null, "Hmm, I didn't quite catch that. Can you tell me your name?");
+    }
     
-    if (t.isEmpty || !_nameOk.hasMatch(t)) return null;
-    return t[0].toUpperCase() + t.substring(1);
+    // Check word count first to prevent accepting full sentences
+    if (t.split(RegExp(r'\s+')).length > 3) {
+      return (null, "That's a lot of words! Try typing just your name in one or two words.");
+    }
+    
+    if (t.length > 30) {
+      return (null, "Oops! That looks a bit too long. Try typing just your first name!");
+    }
+    
+    if (RegExp(r'[0-9]').hasMatch(t)) {
+      return (null, "I see some numbers in there! Names should only have letters. Let's try again.");
+    }
+    
+    if (RegExp(r'[!@#\$%\^&\*\(\)_\+=\[\]\{\};:"\\|<>\/?~`]').hasMatch(t)) {
+      return (null, "I see some special symbols in there! Names should only have letters. Let's try again.");
+    }
+    
+    if (!_nameOk.hasMatch(t)) {
+      if (attemptCount == 0) {
+        return (null, "Hmm, I didn't quite catch that. Can you tell me just your first name?");
+      } else if (attemptCount == 1) {
+        return (null, "Oops! Make sure to only use letters for your name.");
+      } else {
+        return (null, "I can only read names made of letters! Let's try one more time.");
+      }
+    }
+    
+    return (t[0].toUpperCase() + t.substring(1), null);
   }
 
   /// Returns the age, or null when the reply isn't a plain number in a sane
@@ -265,12 +290,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     if (typed.isEmpty) return;
 
     if (_step == _Step.name) {
-      final name = _extractName(typed);
+      final (name, errorMsg) = _extractName(typed, _nameAttempts);
       if (name == null) {
+        _nameAttempts++;
         // Re-ask as Zoe's next bubble (child's reply shown, Zoe asks again).
         await _reask(
           typed,
-          "Hmm, I don't think that was your name. Can you tell me your name again?",
+          errorMsg ?? "Hmm, I don't think that was your name. Can you tell me your name again?",
         );
         return;
       }
@@ -387,6 +413,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             keyboardType: _step == _Step.age 
                 ? TextInputType.number 
                 : TextInputType.text,
+            maxLength: _step == _Step.name ? 30 : null,
             highlightStart: _highlightStart,
             highlightEnd: _highlightEnd,
             speaking: _speaking,
@@ -411,6 +438,7 @@ class _ChatStep extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onReplay;
   final TextInputType keyboardType;
+  final int? maxLength;
   final int highlightStart;
   final int highlightEnd;
   final bool speaking;
@@ -428,6 +456,7 @@ class _ChatStep extends StatelessWidget {
     required this.onSend,
     required this.onReplay,
     this.keyboardType = TextInputType.text,
+    this.maxLength,
     this.highlightStart = -1,
     this.highlightEnd = -1,
     this.speaking = false,
@@ -485,6 +514,7 @@ class _ChatStep extends StatelessWidget {
               enabled: sendEnabled,
               onSend: onSend,
               keyboardType: keyboardType,
+              maxLength: maxLength,
             ),
         ],
       ),
@@ -625,6 +655,7 @@ class _ReplyComposer extends StatelessWidget {
   final bool enabled;
   final VoidCallback onSend;
   final TextInputType keyboardType;
+  final int? maxLength;
 
   const _ReplyComposer({
     required this.controller,
@@ -632,6 +663,7 @@ class _ReplyComposer extends StatelessWidget {
     required this.enabled,
     required this.onSend,
     this.keyboardType = TextInputType.text,
+    this.maxLength,
   });
 
   @override
@@ -642,6 +674,7 @@ class _ReplyComposer extends StatelessWidget {
       enabled: enabled,
       onSend: onSend,
       keyboardType: keyboardType,
+      maxLength: maxLength,
     );
   }
 }

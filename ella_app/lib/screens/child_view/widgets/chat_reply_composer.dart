@@ -26,6 +26,8 @@ class ChatReplyComposer extends StatelessWidget {
   final String hintText;
   final VoidCallback? onSend;
   final TextInputType keyboardType;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
 
   const ChatReplyComposer({
     super.key,
@@ -36,6 +38,8 @@ class ChatReplyComposer extends StatelessWidget {
     this.hintText = 'Type your reply...',
     this.onSend,
     this.keyboardType = TextInputType.text,
+    this.maxLength,
+    this.inputFormatters,
   });
 
   @override
@@ -59,10 +63,11 @@ class ChatReplyComposer extends StatelessWidget {
               autofocus: autofocus,
               minLines: 1,
               maxLines: 3,
+              maxLength: maxLength,
               keyboardType: keyboardType,
-              inputFormatters: keyboardType == TextInputType.number
+              inputFormatters: inputFormatters ?? (keyboardType == TextInputType.number
                   ? [FilteringTextInputFormatter.digitsOnly]
-                  : null,
+                  : null),
               textInputAction: TextInputAction.send,
               textCapitalization: keyboardType == TextInputType.number
                   ? TextCapitalization.none
