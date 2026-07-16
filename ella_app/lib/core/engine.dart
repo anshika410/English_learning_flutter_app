@@ -4,12 +4,11 @@
 //
 // Port of ella-loop-sim-2.html functions:
 //   applyMerge · dueSkill · dueUnit · unitComplete · activeStep
-//   pickTopic · targetsListFor · buildConvPrompt · buildJudgePrompt
+//   pickTopic · targetsListFor
 
 import 'dart:math';
 
 import 'constants.dart';
-import 'prompts.dart';
 import 'skill_data.dart';
 import 'topic_data.dart';
 import '../models/child_memory.dart';
@@ -352,82 +351,6 @@ Topic? pickTopic(MemoryState mem) {
   }
 
   return pool[Random().nextInt(pool.length)];
-}
-
-// ── buildConvPrompt ──────────────────────────────────────────────────────────
-//
-// Assembles the full Zoe conversation prompt.
-// Pass currentTopic separately — it is transient and not stored in memory_state.
-String buildConvPrompt({
-  required MemoryState mem,
-  required String progressionModel,
-  required String level,
-  required List<ConvMessage> history,
-  required AppPrompts prompts,
-  Topic? currentTopic,
-}) {
-  final targets = mem.dueNext.flat;
-  final primary = targets.isNotEmpty ? targets.first : null;
-  final watching = targets.length > 1 ? targets.sublist(1) : <String>[];
-
-  final primaryLine = primary != null
-      ? 'PRIMARY skill to steer toward: $primary — ${skillText(primary)}'
-      : 'PRIMARY: keep them talking';
-  final watchLine = watching.isNotEmpty
-      ? '\nAlso fine if these come up: ${watching.map((id) => '$id (${skillText(id)})').join('; ')}'
-      : '';
-  final topicLine = currentTopic != null
-      ? "\nTODAY'S TOPIC: \"${currentTopic.topic}\" (${currentTopic.theme}). Openers you can adapt: ${currentTopic.starters}"
-      : '';
-
-  final String frame;
-  if (progressionModel == 'units') {
-    final u = activeStep(mem);
-    frame = prompts.convUnit
-        .replaceAll('{{UNITNAME}}', u?.name ?? '(complete)')
-        .replaceAll('{{UNITFOCUS}}', u?.focus ?? '')
-        .replaceAll('{{TARGETS}}', primaryLine + watchLine);
-  } else {
-    frame = prompts.convSkill.replaceAll(
-      '{{TARGETS}}',
-      primaryLine + watchLine,
-    );
-  }
-
-  final profile = (level == 'A1' || level == 'A2')
-      ? prompts.profileA1
-      : prompts.profileB1;
-
-  final convo = history
-      .where((m) => m.role != 'sys')
-      .map((m) => '${m.role == 'zoe' ? 'Zoe' : 'Learner'}: ${m.text}')
-      .join('\n');
-
-  final interestLine = mem.interests.isNotEmpty
-      ? '\nLEARNER INTERESTS: ${mem.interests}'
-      : '';
-  final recentLine = mem.lastTopics.isNotEmpty
-      ? '\nRECENT TOPICS (avoid repeating): ${mem.lastTopics.join(', ')}'
-      : '';
-
-  return '${prompts.base}\n\n$profile\n\n$frame$topicLine$interestLine$recentLine\n\n'
-      'CONVERSATION SO FAR:\n${convo.isEmpty ? '(none — you open)' : convo}\n\n'
-      "Reply with ONLY Zoe's next short spoken turn.";
-}
-
-// ── buildJudgePrompt ─────────────────────────────────────────────────────────
-String buildJudgePrompt({
-  required String level,
-  required List<String> skillIds,
-  required List<ConvMessage> history,
-  required AppPrompts prompts,
-}) {
-  final idList = skillIds.map((id) => '- $id: ${skillText(id)}').join('\n');
-  final convo = history
-      .where((m) => m.role != 'sys')
-      .map((m) => '${m.role == 'zoe' ? 'Zoe' : 'Learner'}: ${m.text}')
-      .join('\n');
-  return '${prompts.judge}\n\nLEARNER LEVEL: $level\n\nTARGET SKILLS:\n$idList\n\nTRANSCRIPT:\n$convo';
 }
 
 // ── applyEndChat ─────────────────────────────────────────────────────────────

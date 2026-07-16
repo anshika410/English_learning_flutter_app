@@ -22,17 +22,9 @@ import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
 import 'screens/child_view/placement_intro_screen.dart';
 import 'screens/child_view/profile_screen.dart';
-import 'screens/child_view/conversation_states_preview.dart';
-import 'screens/child_view/widgets/garden_sky_background.dart';
-import 'screens/glass_box/glass_box_screen.dart';
-import 'providers/connectivity_provider.dart';
 import 'screens/child_view/widgets/mascot_loading_screen.dart';
+import 'providers/connectivity_provider.dart';
 
-// kShowGlassBox: flip to true to expose the Glass Box (engine testing) screen
-// via a floating debug button. Hidden by default so the child-facing build shows
-// only the Home / Garden / Profile surfaces.
-// Flip to true to expose the debug FABs (conversation-states preview + Glass Box).
-const bool kShowGlassBox = false;
 
 class EllaApp extends ConsumerStatefulWidget {
   const EllaApp({super.key});
@@ -337,18 +329,6 @@ class _EllaHomeState extends State<_EllaHome> {
     );
   }
 
-  void _openGlassBox() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const GlassBoxScreen()));
-  }
-
-  void _openConversationPreview() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ConversationStatesPreview()));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -358,24 +338,6 @@ class _EllaHomeState extends State<_EllaHome> {
         onOpenGarden: _openGarden,
         onOpenProfile: _openProfile,
       ),
-      floatingActionButton: kShowGlassBox
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'convPreview',
-                  onPressed: _openConversationPreview,
-                  child: const Icon(Icons.view_carousel_outlined),
-                ),
-                const SizedBox(height: 12),
-                FloatingActionButton.small(
-                  heroTag: 'glassBox',
-                  onPressed: _openGlassBox,
-                  child: const Icon(Icons.science_outlined),
-                ),
-              ],
-            )
-          : null,
     );
   }
 }
