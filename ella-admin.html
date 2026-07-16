@@ -1129,9 +1129,47 @@
         </div>`;
       }
 
+      // Developer Debug Section (Glass Box)
+      if (d.judge_prompt || d.judge_response) {
+        html += `
+          <div style="margin-top:24px;border-top:1.5px solid #F0E4CC;padding-top:16px;">
+            <button class="transcript-btn" style="border-color:#b45309;color:#b45309;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleDebugPanel()">
+              <span style="font-weight:600;">🔍 Developer Glass Box (Show Judge Prompt & Response)</span>
+              <span id="debug-arrow">▼</span>
+            </button>
+            <div id="debug-panel" style="display:none;margin-top:12px;background:#fdf6e2;padding:14px;border-radius:10px;border:1px solid #F0E4CC;">
+              
+              <div style="margin-bottom:12px;">
+                <div style="font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;margin-bottom:4px;">1. System Prompt Sent to LLM Judge</div>
+                <pre style="white-space:pre-wrap;font-family:monospace;font-size:12px;background:#fff;padding:10px;border:1px solid #f5e6d3;border-radius:6px;max-height:250px;overflow-y:auto;color:#333;margin:0;">${d.judge_prompt || 'No prompt payload available'}</pre>
+              </div>
+
+              <div>
+                <div style="font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;margin-bottom:4px;">2. Raw JSON Response Returned by LLM Judge</div>
+                <pre style="white-space:pre-wrap;font-family:monospace;font-size:12px;background:#fff;padding:10px;border:1px solid #f5e6d3;border-radius:6px;max-height:250px;overflow-y:auto;color:#1e293b;margin:0;">${JSON.stringify(d.judge_response || {}, null, 2)}</pre>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }
+
       document.getElementById('modal-content').innerHTML = html;
     } catch(e) {
       document.getElementById('modal-content').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  window.toggleDebugPanel = function() {
+    const panel = document.getElementById('debug-panel');
+    const arrow = document.getElementById('debug-arrow');
+    if (!panel) return;
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      if (arrow) arrow.textContent = '▲';
+    } else {
+      panel.style.display = 'none';
+      if (arrow) arrow.textContent = '▼';
     }
   }
 
