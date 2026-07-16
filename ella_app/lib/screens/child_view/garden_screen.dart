@@ -12,6 +12,7 @@ import 'dart:ui';
 
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -3281,13 +3282,19 @@ class _GardenUnitRow extends StatelessWidget {
                         Positioned(
                           left: sidePropOffset.dx,
                           top: sidePropOffset.dy,
-                          child: _SideProp(spec: spec),
+                          // Decorative: must never intercept taps meant for
+                          // the tiles/boulder underneath.
+                          child: IgnorePointer(child: _SideProp(spec: spec)),
                         ),
                         if (step.hasGrowth || index < 4)
                           Positioned(
                             left: ambientOffset.dx,
                             top: ambientOffset.dy,
-                            child: _AmbientCreature(kind: spec.ambientKind),
+                            // Decorative: the creature hovers over the tile
+                            // lattice and must never swallow tile taps.
+                            child: IgnorePointer(
+                              child: _AmbientCreature(kind: spec.ambientKind),
+                            ),
                           ),
                       ],
                     ),
@@ -4066,6 +4073,51 @@ class _TilePressDip extends StatelessWidget {
   }
 }
 
+/// Restricts hit testing to the tile's visible isometric footprint — the top
+/// diamond face plus the front thickness — instead of the full bounding box.
+/// Tiles overlap on the lattice (~48×24 spot spacing vs a 105×80 box), so a
+/// rectangular hit area lets a front tile's empty corner steal taps from the
+/// visible edge of the tile behind it. Rejected taps fall through to the
+/// correct tile in the plot Stack.
+class _TileFootprintHitBox extends SingleChildRenderObjectWidget {
+  const _TileFootprintHitBox({super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTileFootprintHitBox();
+}
+
+class _RenderTileFootprintHitBox extends RenderProxyBox {
+  // Tile SVG geometry (viewBox 105×80): top face is the diamond
+  // (52.5,7.5)-(97.5,30)-(52.5,52.5)-(7.5,30); the front thickness extends
+  // 18.75px below the lower face edges.
+  static const double _faceCenterX = 52.5;
+  static const double _faceCenterY = 30;
+  static const double _faceHalfW = 45;
+  static const double _faceHalfH = 22.5;
+  static const double _thickness = 18.75;
+
+  bool _inFootprint(Offset p) {
+    if (size.isEmpty) return false;
+    final x = p.dx * _tileW / size.width;
+    final y = p.dy * _tileH / size.height;
+    final u = (x - _faceCenterX).abs() / _faceHalfW;
+    if (u > 1) return false;
+    final faceTop = _faceCenterY - _faceHalfH * (1 - u);
+    final faceBottom = _faceCenterY + _faceHalfH * (1 - u);
+    return y >= faceTop && y <= faceBottom + _thickness;
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position) || !_inFootprint(position)) return false;
+    return super.hitTest(result, position: position);
+  }
+
+  @override
+  bool hitTestSelf(Offset position) => true;
+}
+
 class _SkillTile extends StatelessWidget {
   final GardenSkill skill;
   final _TileSpot spot;
@@ -4098,13 +4150,18 @@ class _SkillTile extends StatelessWidget {
         // gesture releases here.
         onTapCancel: () => onPressChanged(false),
         onTap: withTapClick(onTap),
-        behavior: HitTestBehavior.translucent,
+        // deferToChild + _TileFootprintHitBox: only the visible isometric
+        // footprint is tappable; taps on the empty box corners fall through
+        // to the neighbouring tile behind this one.
+        behavior: HitTestBehavior.deferToChild,
         child: _TilePressDip(
           pressed: pressed,
-          child: SizedBox(
-            width: _tileW,
-            height: _tileH,
-            child: SvgPicture.asset(tileAsset, fit: BoxFit.fill),
+          child: _TileFootprintHitBox(
+            child: SizedBox(
+              width: _tileW,
+              height: _tileH,
+              child: SvgPicture.asset(tileAsset, fit: BoxFit.fill),
+            ),
           ),
         ),
       ),
