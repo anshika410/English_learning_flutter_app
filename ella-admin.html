@@ -47,6 +47,7 @@
     .badge-c1 { background: #FFF0F3; color: #C82050; }
     .badge-done { background: #F0FBE8; color: #4E9A00; }
     .badge-pending { background: #FFF7EC; color: #C0A880; }
+    .badge-aborted { background: #F3F4F6; color: #6B7280; }
     .level-bar { display: flex; gap: 12px; flex-wrap: wrap; }
     .level-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #2C1E0F; }
     .level-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -575,7 +576,7 @@
         <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
         <td>${c.message_count}</td>
         <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
-        <td><span class="badge ${c.completed ? 'badge-done' : 'badge-pending'}">${c.completed ? 'Done' : 'In progress'}</span></td>
+        <td><span class="badge ${c.completed ? (c.message_count <= 1 ? 'badge-aborted' : 'badge-done') : 'badge-pending'}">${c.completed ? (c.message_count <= 1 ? 'No interaction' : 'Done') : 'In progress'}</span></td>
         <td>${formatDate(c.created_at)}</td>
         <td><button class="transcript-btn" onclick="viewTranscript('${c.id}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
       </tr>
