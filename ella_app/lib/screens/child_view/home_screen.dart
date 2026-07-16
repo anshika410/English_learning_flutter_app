@@ -15,11 +15,9 @@ import '../../core/offline_alert_popup.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
-import '../../core/topic_preview_data.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
-import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/analytics_service.dart';
@@ -66,14 +64,6 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatAsync = ref.watch(chatProvider);
-    if (ref.watch(gardenPreviewEnabledProvider)) {
-      return _HomeBody(
-        memory: chatAsync.valueOrNull?.memory,
-        onConversationEnded: onConversationEnded,
-        onOpenGarden: onOpenGarden,
-        onOpenProfile: onOpenProfile,
-      );
-    }
     return chatAsync.when(
       data: (s) => _HomeBody(
         memory: s.memory,
@@ -158,24 +148,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   MemoryState? get _memory => widget.memory;
 
   // Server recommendation and the alternatives shown as chips.
-  TopicChoice? get _recommended {
-    if (ref.read(gardenPreviewEnabledProvider)) {
-      final topics = topicPreviewTopicsForLevel(
-        ref.read(gardenPreviewControllerProvider).level,
-      );
-      return topics.isEmpty ? null : topics.first;
-    }
-    return _memory?.nextTopics.recommended;
-  }
+  TopicChoice? get _recommended => _memory?.nextTopics.recommended;
 
-  List<TopicChoice> get _alternatives {
-    if (ref.read(gardenPreviewEnabledProvider)) {
-      return topicPreviewTopicsForLevel(
-        ref.read(gardenPreviewControllerProvider).level,
-      ).skip(1).toList(growable: false);
-    }
-    return _memory?.nextTopics.alternatives ?? const [];
-  }
+  List<TopicChoice> get _alternatives =>
+      _memory?.nextTopics.alternatives ?? const [];
 
   // The effective selection driving the CTA (explicit pick, else recommended).
   TopicChoice? get _selected {
@@ -284,18 +260,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         );
         return;
       }
-      if (ref.read(gardenPreviewEnabledProvider)) {
-        if (!mounted) return;
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SessionScreen(
-              previewMode: true,
-              onEnded: widget.onConversationEnded,
-            ),
-          ),
-        );
-        return;
-      }
       // No recommendation yet — fall back to the engine's own topic pick.
       final chatState = ref.read(chatProvider);
       if (chatState.hasValue && chatState.requireValue.sessionEnded) {
@@ -315,11 +279,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   @override
   Widget build(BuildContext context) {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
-    if (ref.watch(gardenPreviewEnabledProvider)) {
-      ref.watch(
-        gardenPreviewControllerProvider.select((garden) => garden.level),
-      );
-    }
 
     // Keep the CTA tappable even while memory is still loading so it doesn't
     // visibly flip from disabled→enabled on launch; _startSelected safely no-ops

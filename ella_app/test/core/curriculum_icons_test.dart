@@ -47,7 +47,7 @@ void main() {
       expect(CurriculumIcons.unitAsset('C2', 1), isNull);
       expect(CurriculumIcons.skillAsset('A1', 2, 'U1-VOC-01'), isNull);
       expect(CurriculumIcons.skillAsset('A1', 1, 'U1-GRA-02'), isNull);
-      expect(CurriculumIcons.skillAsset('A1', 1, 'preview-u1-s1'), isNull);
+      expect(CurriculumIcons.skillAsset('A1', 1, 'unknown-skill'), isNull);
     });
   });
 }

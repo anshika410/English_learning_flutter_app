@@ -4,10 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ella_app/core/topic_preview_data.dart';
 import 'package:ella_app/models/child_memory.dart';
 import 'package:ella_app/providers/chat_provider.dart';
-import 'package:ella_app/providers/garden_provider.dart';
 import 'package:ella_app/providers/onboarding_provider.dart';
 import 'package:ella_app/screens/child_view/all_topics_screen.dart';
 import 'package:ella_app/screens/child_view/home_screen.dart';
@@ -40,17 +38,11 @@ class _FakeOnboardingNotifier extends OnboardingNotifier {
       const OnboardingState(done: true, name: 'Maya', age: 10);
 }
 
-Widget _harness(
-  Widget child,
-  MemoryState memory, {
-  double textScale = 1,
-  bool preview = false,
-}) {
+Widget _harness(Widget child, MemoryState memory, {double textScale = 1}) {
   return ProviderScope(
     overrides: [
       chatProvider.overrideWith(() => _FakeChatNotifier(memory)),
       onboardingProvider.overrideWith(_FakeOnboardingNotifier.new),
-      gardenPreviewEnabledProvider.overrideWithValue(preview),
     ],
     child: MaterialApp(
       home: MediaQuery(
@@ -74,15 +66,9 @@ void _setPhoneViewport(
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> _pumpHome(
-  WidgetTester tester,
-  List<TopicChoice> topics, {
-  bool preview = false,
-}) async {
+Future<void> _pumpHome(WidgetTester tester, List<TopicChoice> topics) async {
   await tester.pumpWidget(const SizedBox.shrink());
-  await tester.pumpWidget(
-    _harness(const HomeScreen(), _memory(topics), preview: preview),
-  );
+  await tester.pumpWidget(_harness(const HomeScreen(), _memory(topics)));
   await tester.pump();
 }
 
@@ -110,21 +96,6 @@ void main() {
     final synonymFont = FontLoader('Synonym')
       ..addFont(rootBundle.load('assets/fonts/Synonym-Bold.otf'));
     await synonymFont.load();
-  });
-
-  test('preview catalog matches the six backend topic levels', () {
-    expect(topicPreviewCatalog.keys, ['A0', 'A1', 'A2', 'B1', 'B2', 'C1']);
-    expect(topicPreviewCatalog['A0'], hasLength(11));
-    for (final level in ['A1', 'A2', 'B1', 'B2', 'C1']) {
-      expect(topicPreviewCatalog[level], hasLength(12));
-    }
-    final topics = topicPreviewCatalog.values.expand((topics) => topics);
-    expect(topics, hasLength(71));
-    expect(topics.map((topic) => topic.icon).toSet(), kBundledTopicIcons);
-    expect(
-      topicPreviewCatalog['B2']!.map((topic) => topic.display),
-      containsAll(['Sustainability', 'Superstition']),
-    );
   });
 
   testWidgets('topic label measurement fixes every label at 12px', (
@@ -478,79 +449,4 @@ void main() {
     );
   });
 
-  testWidgets('preview level selector synchronizes topics, home, and garden', (
-    tester,
-  ) async {
-    _setPhoneViewport(tester);
-    await _pumpHome(tester, [
-      _topic('server-food', 'Server food'),
-      _topic('server-home', 'Server home'),
-    ], preview: true);
-
-    expect(
-      find.byKey(const ValueKey('home-topic-chip-About me')),
-      findsOneWidget,
-    );
-    expect(find.text('Server food'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('home-topic-chip-Family')));
-    await tester.pump();
-    expect(find.text("Let's Talk About Family"), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('home-see-more-chip')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(
-      find.byKey(const ValueKey('topic-preview-level-selector')),
-      findsOneWidget,
-    );
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(AllTopicsScreen)),
-    );
-    expect(container.read(gardenPreviewControllerProvider).level, 'A0');
-
-    await tester.tap(find.byKey(const ValueKey('topic-preview-level-B2')));
-    await tester.pump();
-    expect(container.read(gardenPreviewControllerProvider).level, 'B2');
-    expect(find.text('Sustainability'), findsOneWidget);
-    expect(find.text('Superstition'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('topic-preview-level-C1')));
-    await tester.pump();
-    expect(container.read(gardenPreviewControllerProvider).level, 'C1');
-    expect(find.text('Language'), findsOneWidget);
-    expect(find.text('Globalisation'), findsOneWidget);
-
-    Navigator.of(tester.element(find.byType(AllTopicsScreen))).pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(
-      find.byKey(const ValueKey('home-topic-chip-Language')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('home-topic-chip-Justice')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('production All Topics never shows the preview selector', (
-    tester,
-  ) async {
-    _setPhoneViewport(tester);
-    await tester.pumpWidget(
-      _harness(
-        const AllTopicsScreen(),
-        _memory([_topic('food', 'Food'), _topic('school', 'School')]),
-      ),
-    );
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey('topic-preview-level-selector')),
-      findsNothing,
-    );
-  });
 }
