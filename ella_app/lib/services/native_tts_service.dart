@@ -21,6 +21,9 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
   bool _pendingSpeak = false; // true while speak() is awaiting the channel invoke
   int _highlightStart = 0;
   int _highlightEnd = 0;
+  
+  int _currentTextLength = 0;
+  Timer? _fallbackDoneTimer;
 
   final _progressController = StreamController<TtsProgressEvent>.broadcast();
   Stream<TtsProgressEvent> get progressStream => _progressController.stream;
@@ -48,6 +51,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
   }
 
   void dispose() {
+    _fallbackDoneTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     if (instance == this) {
       instance = null;
@@ -62,6 +66,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
   Future<dynamic> _handleMethod(MethodCall call) async {
     switch (call.method) {
       case 'onTtsStart':
+        _fallbackDoneTimer?.cancel();
         _speaking = true;
         _highlightStart = 0;
         _highlightEnd = 0;
@@ -70,6 +75,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
         unawaited(AudioService.maybeInstance?.duckForSpeech());
         break;
       case 'onTtsDone':
+        _fallbackDoneTimer?.cancel();
         _speaking = false;
         _highlightStart = 0;
         _highlightEnd = 0;
@@ -87,6 +93,20 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
         _highlightEnd = end;
         _progressController.add(TtsProgressEvent(start, end));
         onRangeStart?.call(start, end);
+        if (end >= _currentTextLength) {
+          _fallbackDoneTimer?.cancel();
+          _fallbackDoneTimer = Timer(const Duration(milliseconds: 600), () {
+            if (_speaking) {
+              _speaking = false;
+              _highlightStart = 0;
+              _highlightEnd = 0;
+              AnalyticsService.logTtsCompleted();
+              AudioService.maybeInstance?.unduckAfterSpeech();
+              _doneController.add(null);
+              onDone?.call();
+            }
+          });
+        }
         break;
     }
   }
@@ -95,6 +115,8 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
   Future<void> speak(String text) async {
     final sanitized = stripEmojis(text);
     if (sanitized.trim().isEmpty) return;
+    _fallbackDoneTimer?.cancel();
+    _currentTextLength = sanitized.length;
     _speaking = true;
     _pendingSpeak = true; // guard against stop() completing our completer
     try {
@@ -123,6 +145,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
 
   @override
   Future<void> stop() async {
+    _fallbackDoneTimer?.cancel();
     final wasSpeaking = _speaking;
     _speaking = false;
     _highlightStart = 0;
