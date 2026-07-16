@@ -90,6 +90,8 @@ async def conversation_turn(
             unit_label=body.unit_label,
             current_turn=body.current_turn,
             persona_memory=user.persona_memory,
+            due_next=user.due_next,
+            skills_progress=user.skills_progress,
         )
         return ConversationTurnResponse(**result)
     except Exception as e:
