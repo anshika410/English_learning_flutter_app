@@ -168,7 +168,10 @@ Do NOT finish before turn 5 even if confident — first-turn anxiety can
 hide a level.
 
 # FINAL OUTPUT
-When you finish, output ONLY this JSON (no REPLY prefix, no other text):
+When you finish, output ONLY this JSON (no REPLY prefix, no other text).
+CRITICAL INSTRUCTION: The values in the JSON below are variables showing the expected type or options. You MUST replace them with your actual assessment values. For example, replace `true|false` with the boolean `true` or `false` (without quotes), and replace `<number>` with the actual integer number of turns. Do NOT output the literal string `<number>` or `true|false`.
+
+```json
 {
   "name": "{{NAME}}",
   "age": {{AGE}},
@@ -186,3 +189,4 @@ When you finish, output ONLY this JSON (no REPLY prefix, no other text):
   "interests": ["up to 3 interests the student mentioned naturally — e.g. cricket, music, cooking. Empty array if none detected."],
   "notes_for_first_session": "One-line hint for the next session — include their interests if detected."
 }
+```
