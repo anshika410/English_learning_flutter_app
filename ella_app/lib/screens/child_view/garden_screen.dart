@@ -24,6 +24,7 @@ import '../../models/garden.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import '../../services/stt_tts_service.dart';
@@ -426,6 +427,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Garden');
     _audio = ref.read(audioProvider);
     _tts = ref.read(ttsProvider);
     _soundOn = _audio.musicEnabled && _audio.sfxEnabled;
@@ -1664,9 +1666,11 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     return Stack(
       children: [
         Positioned.fill(
-          child: _GardenBackdrop(
-            key: ValueKey('garden-backdrop-${spec.code}'),
-            spec: spec,
+          child: RepaintBoundary(
+            child: _GardenBackdrop(
+              key: ValueKey('garden-backdrop-${spec.code}'),
+              spec: spec,
+            ),
           ),
         ),
         Positioned(
@@ -1674,35 +1678,37 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           right: 0,
           top: scrollClipTop,
           bottom: 0,
-          child: _HillClippedScroll(
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              padding: EdgeInsets.only(
-                top: math.max(
-                  0.0,
-                  media.padding.top + _scrollStartY - scrollClipTop,
+          child: RepaintBoundary(
+            child: _HillClippedScroll(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: EdgeInsets.only(
+                  top: math.max(
+                    0.0,
+                    media.padding.top + _scrollStartY - scrollClipTop,
+                  ),
+                  bottom: media.padding.bottom + _ctaFadeHeight + 32,
                 ),
-                bottom: media.padding.bottom + _ctaFadeHeight + 32,
-              ),
-              child: displayData.steps.isEmpty
-                  ? const _EmptyGardenState()
-                  : Column(
-                      children: [
-                        for (var i = 0; i < displayData.steps.length; i++)
-                          _GardenUnitRow(
-                            data: displayData,
-                            step: displayData.steps[i],
-                            index: i,
-                            spec: spec,
-                            grownSkillIds: activeGrownSkillIds,
-                            skillAnchorFor: _skillAnchorKeyFor,
-                            plotAnchorKey: _plotAnchorKeyFor(
-                              displayData.steps[i],
+                child: displayData.steps.isEmpty
+                    ? const _EmptyGardenState()
+                    : Column(
+                        children: [
+                          for (var i = 0; i < displayData.steps.length; i++)
+                            _GardenUnitRow(
+                              data: displayData,
+                              step: displayData.steps[i],
+                              index: i,
+                              spec: spec,
+                              grownSkillIds: activeGrownSkillIds,
+                              skillAnchorFor: _skillAnchorKeyFor,
+                              plotAnchorKey: _plotAnchorKeyFor(
+                                displayData.steps[i],
+                              ),
+                              isPreviousGarden: completedPreviousActive,
                             ),
-                            isPreviousGarden: completedPreviousActive,
-                          ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
@@ -1710,38 +1716,42 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           left: 0,
           right: 0,
           top: 0,
-          child: _PinnedGardenHeader(
-            spec: spec,
-            levelName: levelName,
-            gardenTitle: "$titleName's Garden",
-            scrollProgress: (_scrollOffset / 88).clamp(0.0, 1.0),
-            soundOn: widget.soundOn,
-            onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-            onToggleSound: widget.onToggleSound,
-            onLevelTap: () => _showGardenSwitcherSheet(
-              currentLevel: currentLevel,
-              ownerFirstName: titleName,
+          child: RepaintBoundary(
+            child: _PinnedGardenHeader(
+              spec: spec,
+              levelName: levelName,
+              gardenTitle: "$titleName's Garden",
+              scrollProgress: (_scrollOffset / 88).clamp(0.0, 1.0),
+              soundOn: widget.soundOn,
+              onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+              onToggleSound: widget.onToggleSound,
+              onLevelTap: () => _showGardenSwitcherSheet(
+                currentLevel: currentLevel,
+                ownerFirstName: titleName,
+              ),
+              onLevelLongPress: previewEnabled ? _showGardenPreviewSheet : null,
             ),
-            onLevelLongPress: previewEnabled ? _showGardenPreviewSheet : null,
           ),
         ),
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          child: AnimatedSwitcher(
-            duration: Duration(
-              milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 450,
+          child: RepaintBoundary(
+            child: AnimatedSwitcher(
+              duration: Duration(
+                milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 450,
+              ),
+              child: widget.showTalkBar && !modalLayerActive
+                  ? _LetsTalkBar(
+                      key: const ValueKey('garden-talk-bar-layer'),
+                      // The button returns to Home, where the child picks a topic
+                      // and starts a session (the garden no longer starts one
+                      // directly).
+                      onTalk: widget.onTalk,
+                    )
+                  : const SizedBox.shrink(),
             ),
-            child: widget.showTalkBar && !modalLayerActive
-                ? _LetsTalkBar(
-                    key: const ValueKey('garden-talk-bar-layer'),
-                    // The button returns to Home, where the child picks a topic
-                    // and starts a session (the garden no longer starts one
-                    // directly).
-                    onTalk: widget.onTalk,
-                  )
-                : const SizedBox.shrink(),
           ),
         ),
         if (revealLayerActive)

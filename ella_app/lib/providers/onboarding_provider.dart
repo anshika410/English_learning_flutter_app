@@ -163,6 +163,14 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
     // Unlike complete(), we don't swallow errors here so the UI can show them
     await api.updateProfile(name: name, age: age);
 
+    try {
+      await AnalyticsService.logProfileUpdated();
+      final userId = await api.getCachedUserId();
+      if (userId != null) {
+        await AnalyticsService.setUserProfile(userId: userId, name: name, age: age);
+      }
+    } catch (_) {}
+
     ref.read(placementProvider.notifier).seedProfile(name: name, age: age);
 
     final currentDone = state.valueOrNull?.done ?? true;

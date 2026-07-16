@@ -490,35 +490,41 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
             key: const ValueKey('placement-garden-screen'),
             fit: StackFit.expand,
             children: [
-              const _PlacementGardenBackdrop(),
-              _PlacementDecorations(metrics: metrics),
+              const RepaintBoundary(child: _PlacementGardenBackdrop()),
+              RepaintBoundary(child: _PlacementDecorations(metrics: metrics)),
               Positioned(
                 left: metrics.headerPadding,
                 right: metrics.headerPadding,
                 top: metrics.headerTop,
-                child: PlacementGardenHeader(
-                  name: name,
-                  onBack: _handleBack,
-                  // Every garden speaker is a mute-only toggle for the ambient
-                  // garden music (matches the real garden's speaker button).
-                  trailing: const GardenSoundButton(size: 32),
+                child: RepaintBoundary(
+                  child: PlacementGardenHeader(
+                    name: name,
+                    onBack: _handleBack,
+                    // Every garden speaker is a mute-only toggle for the ambient
+                    // garden music (matches the real garden's speaker button).
+                    trailing: const GardenSoundButton(size: 32),
+                  ),
                 ),
               ),
               Positioned(
                 left: (constraints.maxWidth - metrics.plotWidth) / 2,
                 top: metrics.plotTop,
-                child: _PlacementPlot(
-                  width: metrics.plotWidth,
-                  showPlant: _showPlant,
-                  bloom: _showBloom,
-                  reducedMotion: _reducedMotion,
+                child: RepaintBoundary(
+                  child: _PlacementPlot(
+                    width: metrics.plotWidth,
+                    showPlant: _showPlant,
+                    bloom: _showBloom,
+                    reducedMotion: _reducedMotion,
+                  ),
                 ),
               ),
               Positioned(
                 left: metrics.fenceLeft,
                 right: metrics.fenceRight,
                 top: metrics.fenceTop,
-                child: _PlacementFence(scale: metrics.scale),
+                child: RepaintBoundary(
+                  child: _PlacementFence(scale: metrics.scale),
+                ),
               ),
               IgnorePointer(
                 child: AnimatedOpacity(
@@ -526,9 +532,11 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
                       ? 1
                       : 0,
                   duration: Duration(milliseconds: _reducedMotion ? 0 : 600),
-                  child: SpotlightOverlay(
-                    center: metrics.spotlightCenter,
-                    radius: metrics.spotlightRadius,
+                  child: RepaintBoundary(
+                    child: SpotlightOverlay(
+                      center: metrics.spotlightCenter,
+                      radius: metrics.spotlightRadius,
+                    ),
                   ),
                 ),
               ),

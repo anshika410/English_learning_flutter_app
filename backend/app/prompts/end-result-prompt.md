@@ -7,6 +7,10 @@ You are an expert English language coach. Analyze the following student conversa
 
 STUDENT LEVEL: {{LEVEL}} ({{LEVEL_LABEL}})
 TOPIC: {{TOPIC}}
+
+TARGET SKILLS FOR THIS SESSION:
+{{TARGET_SKILLS}}
+
 TRANSCRIPT:
 {{FULL_TRANSCRIPT}}
 
@@ -45,7 +49,7 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
       "id": "<COPY the skill id EXACTLY as given in the TARGET SKILLS list below — do not invent or rephrase>",
       "confidence": <0..1 float>,
       "prompted": <bool>,
-      "evidence": "<short learner quote or ''>"
+      "evidence": "<exact substring from a STUDENT: line, or '' — DO NOT use words from ZOE: lines even if Zoe claims the student said them>"
     }
   ],
   
@@ -63,7 +67,7 @@ Return ONLY valid JSON in this exact structure. No preamble, no markdown fences.
 ANALYSIS & SKILL-GRADING RULES:
 
 1. GENERAL SCORING RULES:
-   - Score ONLY the learner's language. Zoe's words are never evidence.
+   - Score ONLY the learner's language. Zoe's words are NEVER evidence, even if Zoe praises the student for using them. You MUST verify the exact words appear in a line starting with `STUDENT:`.
    - CRITICAL: The `id` in each score entry MUST be copied EXACTLY from the TARGET SKILLS list. Do not invent, shorten, or rephrase IDs. If the target skill id is "U1-VOC-01", the score id must be "U1-VOC-01" — not "A1-VOC-01" or anything else.
    - Only return scores for skills that appear in the TARGET SKILLS list. Do not add extra skills.
    - confidence 0..1 = strength of evidence the learner showed this skill.

@@ -17,6 +17,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/stt_tts_service.dart';
 import 'widgets/conversation_view.dart';
 import 'widgets/mascot_loading_screen.dart';
@@ -90,6 +91,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Chat');
+    if (!widget.previewMode) {
+      final topicName = widget.initialTopic?.topic ?? 'Free Talk';
+      AnalyticsService.logConversationStarted(topicName);
+    }
     _tts = ref.read(ttsProvider);
     _chatNotifier = widget.previewMode ? null : ref.read(chatProvider.notifier);
     final nativeTts = ref.read(nativeTtsProvider);
@@ -231,13 +237,17 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
-  void _toggleKeyboard() => setState(() => _keyboardMode = !_keyboardMode);
+  void _toggleKeyboard() {
+    setState(() => _keyboardMode = !_keyboardMode);
+    AnalyticsService.logKeyboardToggled(_keyboardMode);
+  }
 
   void _sendTyped() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
     _textController.clear();
     setState(() => _keyboardMode = false);
+    AnalyticsService.logKeyboardToggled(false);
     ref.read(chatProvider.notifier).sendUserTurn(text).catchError(_snack);
   }
 
@@ -256,6 +266,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     });
     
     if (!widget.previewMode) {
+      final chatState = ref.read(chatProvider).valueOrNull;
+      if (chatState != null && !chatState.sessionEnded) {
+        AnalyticsService.logConversationAbandoned(
+          topic: chatState.currentTopic?.topic ?? 'Free Talk',
+          turnCount: chatState.turnCount,
+        );
+      }
       final notifier = ref.read(chatProvider.notifier);
       await notifier.stopListening();
       
@@ -364,10 +381,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     _sheetOpen = false;
 
     if (result == NeedToGoResult.leave) {
+      AnalyticsService.logExitSheetInteraction('leave');
       // The pause sheet is gone; Zoe speaks the farewell before navigation.
       await _endConversation();
       return;
     }
+
+    AnalyticsService.logExitSheetInteraction('keep_talking');
 
     // Keep talking (or dismissed): resume the conversation.
     final resumeLine = _interruptedZoeLine;
@@ -569,6 +589,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       _highlightStart = -1;
       _highlightEnd = -1;
     });
+    AnalyticsService.logReplayClicked(text);
     try {
       await tts.speak(text);
     } catch (_) {

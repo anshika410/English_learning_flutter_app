@@ -10,6 +10,7 @@ import '../../providers/service_providers.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/placement_provider.dart';
+import '../../services/analytics_service.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -40,6 +41,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Profile');
     final audio = ref.read(audioProvider);
     _sfxOn = audio.sfxEnabled;
     _loadAppVersion();

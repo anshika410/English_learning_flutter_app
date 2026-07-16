@@ -258,6 +258,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         final wasSpeaking = cur.currentlySpeakingMessageId != null;
         state = AsyncValue.data(
           cur.copyWith(
+            status: ChatStatus.idle,
             clearCurrentlySpeaking: true,
             highlightStart: -1,
             highlightEnd: -1,
@@ -428,6 +429,14 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         clearSyncError: true,
       ),
     );
+
+    try {
+      final tName = topic?.topic ?? 'Free Talk';
+      AnalyticsService.logTopicStarted(tName);
+      for (final skill in serverAimedAt) {
+        AnalyticsService.logSkillAttempted(skill);
+      }
+    } catch (_) {}
 
     final zoeMsg = ChatMessage(
       sender: MessageSender.zoe,
@@ -791,13 +800,21 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     final sysMsg = ChatMessage(sender: MessageSender.system, text: sysText);
 
     try {
+      final topicName = cur.currentTopic?.topic ?? 'Free Talk';
+      await AnalyticsService.logTopicCompleted(topicName);
+
       await AnalyticsService.logConversationComplete(
-        topic: cur.currentTopic?.topic ?? 'Free Talk',
+        topic: topicName,
         messageCount: cur.turnCount,
         durationSeconds: 0,
         level: mem.level,
         progressionModel: mode,
       );
+
+      if (newMem.level != mem.level) {
+        await AnalyticsService.logCefrLevelAssigned(newMem.level);
+        await AnalyticsService.logGardenCompleted(mem.level);
+      }
 
       for (final c in effectiveChanges) {
         if (c.to == 'owned' || c.to == 'emerging') {
