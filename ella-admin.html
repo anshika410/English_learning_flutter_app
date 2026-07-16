@@ -578,7 +578,7 @@
         <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
         <td><span class="badge ${c.completed ? (c.message_count <= 1 ? 'badge-aborted' : 'badge-done') : 'badge-pending'}">${c.completed ? (c.message_count <= 1 ? 'No interaction' : 'Done') : 'In progress'}</span></td>
         <td>${formatDate(c.created_at)}</td>
-        <td><button class="transcript-btn" onclick="viewTranscript('${c.id}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
+        <td><button class="transcript-btn" onclick="viewSessionAnalysis('${c.id}', '${(c.user_name || 'Student').replace(/'/g, "\\'")}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
       </tr>
     `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
 
