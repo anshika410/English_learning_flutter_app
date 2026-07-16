@@ -240,6 +240,7 @@ async def get_conversation_analysis(
             "skill_text": get_skill_text(sc.get("id", ""), level),
             "confidence_pct": round(conf * 100),
             "prompted": sc.get("prompted", False),
+            "support_level": sc.get("support_level"),
             "evidence": sc.get("evidence", ""),
             "passed": conf >= FLOOR,
             "miss_reason": miss_reason(conf),
@@ -359,8 +360,7 @@ class AdminPromptsResponse(BaseModel):
 @router.get("/prompts", response_model=AdminPromptsResponse)
 async def get_admin_prompts():
     """Get active LLM prompt templates — modular building blocks matching client structure."""
-    from ..services.llm_service import PROMPTS_DIR, extract_correction_highlight
-    import inspect, re
+    from ..services.llm_service import PROMPTS_DIR
     try:
         conv = (PROMPTS_DIR / "conversation-prompt.md").read_text()
         judge = (PROMPTS_DIR / "end-result-prompt.md").read_text()
@@ -379,10 +379,7 @@ async def get_admin_prompts():
             else:
                 level_profiles[lvl] = f"(No profile file for {lvl})"
 
-        # Extract correction prompt from function source
-        correction_src = inspect.getsource(extract_correction_highlight)
-        prompt_match = re.search(r'prompt = f"""(.+?)"""', correction_src, re.DOTALL)
-        correction_prompt = prompt_match.group(1).strip() if prompt_match else "See llm_service.py → extract_correction_highlight()"
+        correction_prompt = (PROMPTS_DIR / "correction-extraction-prompt.md").read_text()
 
         return AdminPromptsResponse(
             conversation=conv,
@@ -431,13 +428,14 @@ async def jump_user_to_level(
         raise HTTPException(status_code=404, detail=f"No user found with email '{body.email}'")
 
     user.level = body.level.upper()
+    # Targets are level-specific even when the public unit ID repeats.
+    user.due_next = {}
 
     if body.reset_progress:
         user.skills_progress = {
             "owned": [], "emerging": [], "sightings": {},
             "strength": {}, "last_seen": {}, "effort": {"times_spoken_total": 0}
         }
-        user.due_next = {}
 
     db.add(user)
     await db.flush()
@@ -496,4 +494,3 @@ async def get_admin_curriculum(
     """Get dynamic curriculum structure representing levels, steps, and flat skills."""
     from ..core.curriculum_data import UNITS
     return UNITS
-

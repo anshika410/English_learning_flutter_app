@@ -293,10 +293,11 @@ LEVEL_TOPICS = {repr(LEVEL_TOPICS)}
 SKILLS = {{item[0]: {{"level": item[1], "strand": item[2], "text": item[3]}} for item in CAT}}
 
 UNIT_SKILLS = {{}}
+UNIT_SKILLS_BY_LEVEL = {{}}
 for lvl, u_list in UNITS.items():
     for u in u_list:
         for s in u["skills"]:
-            UNIT_SKILLS[s["id"]] = {{
+            metadata = {{
                 "id": s["id"],
                 "strand": s["strand"],
                 "text": s["text"],
@@ -304,6 +305,10 @@ for lvl, u_list in UNITS.items():
                 "step_name": u["name"],
                 "level": lvl
             }}
+            UNIT_SKILLS_BY_LEVEL[(lvl, s["id"])] = metadata
+            # Backward-compatible membership/strand map. Unit IDs repeat at
+            # every level, so never use this map for level-less text lookup.
+            UNIT_SKILLS.setdefault(s["id"], metadata)
 
 STRANDS = {{
     "VOC": "Vocabulary",
@@ -323,42 +328,168 @@ OWN_BAR = {{
 FLOOR = 0.70
 SIGHTINGS_TO_OWN = 3
 
+def _normalise_level(level) -> str:
+    return str(level or "").upper()
+
+def _split_unit_progress_key(skill_id: str) -> tuple[str | None, str]:
+    raw = str(skill_id or "")
+    scoped_level, separator, public_id = raw.partition(":")
+    scoped_level = scoped_level.upper()
+    if separator and (scoped_level, public_id) in UNIT_SKILLS_BY_LEVEL:
+        return scoped_level, public_id
+    return None, raw
+
+def unit_progress_key(level: str, skill_id: str) -> str | None:
+    '''Return the level-scoped storage key for a public unit skill ID.'''
+    lvl = _normalise_level(level)
+    scoped_level, public_id = _split_unit_progress_key(skill_id)
+    if scoped_level and scoped_level != lvl:
+        return None
+    if (lvl, public_id) not in UNIT_SKILLS_BY_LEVEL:
+        return None
+    return f"{{lvl}}:{{public_id}}"
+
+def progress_key_for(skill_id: str, level: str = None) -> str | None:
+    '''Resolve a public skill ID to its internal progress key.'''
+    if skill_id in SKILLS:
+        return skill_id
+    scoped_level, public_id = _split_unit_progress_key(skill_id)
+    if scoped_level:
+        if level and scoped_level != _normalise_level(level):
+            return None
+        return f"{{scoped_level}}:{{public_id}}"
+    if level:
+        return unit_progress_key(level, public_id)
+    # Bare unit IDs are legacy and ambiguous across levels. Never infer one.
+    return None
+
+def public_skill_id(skill_id: str) -> str:
+    '''Strip an internal unit scope while leaving flat skill IDs unchanged.'''
+    _, public_id = _split_unit_progress_key(skill_id)
+    return public_id
+
+def is_valid_skill_for_level(skill_id: str, level: str) -> bool:
+    lvl = _normalise_level(level)
+    if skill_id in SKILLS:
+        return SKILLS[skill_id]["level"] == lvl
+    scoped_level, public_id = _split_unit_progress_key(skill_id)
+    if scoped_level and scoped_level != lvl:
+        return False
+    return (lvl, public_id) in UNIT_SKILLS_BY_LEVEL
+
+def make_due_next(skill_ids: list[str], level: str) -> dict:
+    '''Build persisted due state with a required level and public target IDs.'''
+    lvl = _normalise_level(level)
+    valid_ids = []
+    for skill_id in skill_ids:
+        public_id = public_skill_id(skill_id)
+        if is_valid_skill_for_level(public_id, lvl) and public_id not in valid_ids:
+            valid_ids.append(public_id)
+    return {{
+        "level": lvl,
+        "primary": valid_ids[0] if valid_ids else None,
+        "watching": valid_ids[1:] if len(valid_ids) > 1 else [],
+    }}
+
+def validate_due_next(due_next: dict | None, level: str) -> dict:
+    '''Reject legacy or stale due state unless its level matches exactly.'''
+    lvl = _normalise_level(level)
+    if not isinstance(due_next, dict) or _normalise_level(due_next.get("level")) != lvl:
+        return {{}}
+    primary = due_next.get("primary")
+    if not primary or not is_valid_skill_for_level(primary, lvl):
+        return {{}}
+    watching = due_next.get("watching", [])
+    if not isinstance(watching, list):
+        watching = []
+    return make_due_next([primary, *watching], lvl)
+
+def progress_value(progress: dict, field: str, skill_id: str, level: str = None, default=None):
+    key = progress_key_for(skill_id, level)
+    values = progress.get(field, {{}})
+    if key is None or not isinstance(values, dict):
+        return default
+    return values.get(key, default)
+
+def public_progress_for_level(progress: dict, level: str) -> dict:
+    '''Expose the historical API shape without leaking scoped storage keys.'''
+    import copy
+    lvl = _normalise_level(level)
+    result = copy.deepcopy(progress if isinstance(progress, dict) else {{}})
+
+    for field in ("owned", "emerging"):
+        public_ids = []
+        values = result.get(field, [])
+        if not isinstance(values, list):
+            values = []
+        for key in values:
+            if key in SKILLS:
+                public_ids.append(key)
+                continue
+            scoped_level, public_id = _split_unit_progress_key(key)
+            if scoped_level == lvl and public_id not in public_ids:
+                public_ids.append(public_id)
+        result[field] = public_ids
+
+    for field in ("sightings", "strength", "last_seen", "evidence"):
+        public_values = {{}}
+        values = result.get(field, {{}})
+        if not isinstance(values, dict):
+            values = {{}}
+        for key, value in values.items():
+            if key in SKILLS:
+                public_values[key] = value
+                continue
+            scoped_level, public_id = _split_unit_progress_key(key)
+            if scoped_level == lvl:
+                public_values[public_id] = value
+        result[field] = public_values
+    return result
+
 def get_skill_text(skill_id: str, level = None) -> str:
     if skill_id in SKILLS:
         return SKILLS[skill_id]["text"]
+    scoped_level, public_id = _split_unit_progress_key(skill_id)
+    if scoped_level:
+        metadata = UNIT_SKILLS_BY_LEVEL.get((scoped_level, public_id))
+        if metadata:
+            return metadata["text"]
     if level:
-        level_upper = str(level).upper()
-        if level_upper in UNITS:
-            for unit in UNITS[level_upper]:
-                for s in unit["skills"]:
-                    if s["id"] == skill_id:
-                        return s["text"]
-    if skill_id in UNIT_SKILLS:
-        return UNIT_SKILLS[skill_id]["text"]
+        metadata = UNIT_SKILLS_BY_LEVEL.get((_normalise_level(level), public_id))
+        if metadata:
+            return metadata["text"]
     return skill_id
 
-def get_skill_strand(skill_id: str) -> str:
+def get_skill_strand(skill_id: str, level: str = None) -> str:
     if skill_id in SKILLS:
         return SKILLS[skill_id]["strand"]
-    if skill_id in UNIT_SKILLS:
-        return UNIT_SKILLS[skill_id]["strand"]
+    scoped_level, public_id = _split_unit_progress_key(skill_id)
+    if scoped_level:
+        return UNIT_SKILLS_BY_LEVEL[(scoped_level, public_id)]["strand"]
+    if level and (_normalise_level(level), public_id) in UNIT_SKILLS_BY_LEVEL:
+        return UNIT_SKILLS_BY_LEVEL[(_normalise_level(level), public_id)]["strand"]
+    if public_id in UNIT_SKILLS:
+        return UNIT_SKILLS[public_id]["strand"]
     return "VOC"
 
 def own_bar(level: str) -> float:
     return OWN_BAR.get(level.upper(), 0.70)
 
-def bucket_of(progress: dict, skill_id: str) -> str:
+def bucket_of(progress: dict, skill_id: str, level: str = None) -> str:
+    key = progress_key_for(skill_id, level)
+    if key is None:
+        return "locked"
     owned = progress.get("owned", [])
     emerging = progress.get("emerging", [])
-    if skill_id in owned:
+    if key in owned:
         return "owned"
-    if skill_id in emerging:
+    if key in emerging:
         return "emerging"
     return "locked"
 
-def unit_complete(progress: dict, u: dict) -> bool:
+def unit_complete(progress: dict, u: dict, level: str = None) -> bool:
     for s in u["skills"]:
-        b = bucket_of(progress, s["id"])
+        b = bucket_of(progress, s["id"], level)
         # FLU and VOC must be owned
         if s["strand"] in ("FLU", "VOC") and b != "owned":
             return False
@@ -372,7 +503,7 @@ def active_step(progress: dict, level: str = None) -> dict | None:
         level = progress.get("level", "A1")
     units_list = UNITS.get(level.upper(), UNITS.get("A1", []))
     for u in units_list:
-        if not unit_complete(progress, u):
+        if not unit_complete(progress, u, level):
             return u
     return None
 
@@ -384,7 +515,7 @@ def due_unit(progress: dict, level: str = None) -> dict:
     # Picks are skills in this unit that are NOT yet owned
     picks = []
     for s in u["skills"]:
-        if bucket_of(progress, s["id"]) != "owned":
+        if bucket_of(progress, s["id"], level) != "owned":
             picks.append({{"id": s["id"], "why": f"active unit: Step {{u['step']}} - {{u['name']}}"}} )
     
     return {{"picks": picks, "u": u}}
@@ -455,41 +586,46 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
     bar = own_bar(level)
     
     for sc in scores:
-        skill_id = sc["id"]
+        skill_id = public_skill_id(sc["id"])
+        if not is_valid_skill_for_level(skill_id, level):
+            continue
+        storage_key = progress_key_for(skill_id, level)
+        if storage_key is None:
+            continue
         confidence = sc.get("confidence", 0.0)
         prompted = sc.get("prompted", False)
         
-        prior = bucket_of(p, skill_id)
+        prior = bucket_of(p, storage_key)
         next_state = prior
         
         qualifies = confidence >= bar
         
         if confidence >= FLOOR:
-            p["last_seen"][skill_id] = datetime.now().isoformat()[:10]
+            p["last_seen"][storage_key] = datetime.now().isoformat()[:10]
             if qualifies:
-                p["sightings"][skill_id] = p["sightings"].get(skill_id, 0) + 1
+                p["sightings"][storage_key] = p["sightings"].get(storage_key, 0) + 1
             if not prompted:
-                p["strength"][skill_id] = p["strength"].get(skill_id, 0) + 1
+                p["strength"][storage_key] = p["strength"].get(storage_key, 0) + 1
                 
             evidence_text = sc.get("evidence")
             if evidence_text and evidence_text.strip():
-                if skill_id not in p["evidence"]:
-                    p["evidence"][skill_id] = []
-                existing = p["evidence"][skill_id]
+                if storage_key not in p["evidence"]:
+                    p["evidence"][storage_key] = []
+                existing = p["evidence"][storage_key]
                 existing_quotes = [e.get("evidence") if isinstance(e, dict) else e for e in existing]
                 if evidence_text.strip() not in existing_quotes:
-                    p["evidence"][skill_id].append({{
+                    p["evidence"][storage_key].append({{
                         "evidence": evidence_text.strip(),
                         "confidence": confidence,
                         "prompted": prompted,
                         "topic": topic or "General Conversation",
                         "created_at": created_at or datetime.now(timezone.utc).isoformat()
                     }})
-                    if len(p["evidence"][skill_id]) > 3:
-                        p["evidence"][skill_id] = p["evidence"][skill_id][-3:]
+                    if len(p["evidence"][storage_key]) > 3:
+                        p["evidence"][storage_key] = p["evidence"][storage_key][-3:]
                 
-        sightings = p["sightings"].get(skill_id, 0)
-        unprompted_count = p["strength"].get(skill_id, 0)
+        sightings = p["sightings"].get(storage_key, 0)
+        unprompted_count = p["strength"].get(storage_key, 0)
         
         # Effort path disabled in 4-state progression
         effort_path = False
@@ -504,125 +640,15 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
         if next_state != prior:
             changes.append({{"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id, level)}})
             if prior == "locked":
-                p["emerging"].append(skill_id)
+                p["emerging"].append(storage_key)
             if prior == "emerging" and next_state == "owned":
-                if skill_id in p["emerging"]:
-                    p["emerging"].remove(skill_id)
-                if skill_id not in p["owned"]:
-                    p["owned"].append(skill_id)
+                if storage_key in p["emerging"]:
+                    p["emerging"].remove(storage_key)
+                if storage_key not in p["owned"]:
+                    p["owned"].append(storage_key)
                     
     return p, changes
 
-# Elicitation Mapping & Prompting
-ELICITATION_BY_FUNCTION = {{
-    "describe": {{
-        "move": "Ask the learner to describe a real or imagined place/person/picture. Do not ask only yes/no.",
-        "question": "Tell me about your room/park/classroom. What can you see? Who is there? What are they doing?",
-        "fallback": "If they give one word, ask: Good. Say one more thing. What colour/size is it? Where is it?",
-        "evidence": "3 details, simple adjectives, or 2-4 connected fragments/sentences."
-    }},
-    "present_continuous": {{
-        "move": 'Create a "right now / picture" moment so the learner can use is/are + -ing.',
-        "question": "Imagine a picture. What is the boy doing? What are the people doing?",
-        "fallback": "If stuck, offer a frame: He is ___. They are ___.",
-        "evidence": "Any meaningful present-continuous attempt, even with errors: “boy running”, “she is play”."
-    }},
-
-    "past": {{
-        "move": "Ask about yesterday/last weekend and invite a tiny sequence.",
-        "question": "What did you do yesterday? Tell me two things.",
-        "fallback": "If they answer one word, ask: First? Then?",
-        "evidence": "Past-time expression or past event, even if tense is imperfect."
-    }},
-    "opinion": {{
-        "move": "Ask preference plus reason; keep it personal and easy.",
-        "question": "Which do you like more? Why?",
-        "fallback": "Offer a frame: I like ___ because ___.",
-        "evidence": "Opinion word/preference plus any reason."
-    }},
-    "future": {{
-        "move": "Ask about tomorrow/weekend plans using going to/will/want to.",
-        "question": "What will you do tomorrow or this weekend?",
-        "fallback": "Offer a frame: I am going to ___.",
-        "evidence": "Future plan/intention, even with errors."
-    }},
-    "sequence": {{
-        "move": "Ask for beginning-middle-end of a small story.",
-        "question": "Tell me what happened first, then, and at the end.",
-        "fallback": "Ask one step at a time: First? Then?",
-        "evidence": "2-3 ordered events or connectors."
-    }},
-    "self_intro": {{
-        "move": "Ask for name, age, and where they are from in a friendly first-meeting flow.",
-        "question": "What is your name? How old are you? Where are you from?",
-        "fallback": "If they answer only name, continue gently: Nice to meet you. How old are you?",
-        "evidence": "Gives name, age, or hometown."
-    }},
-    "everyday": {{
-        "move": "Ask about a familiar routine/object/person and gently extend.",
-        "question": "Tell me about it. What do you do? Who is with you?",
-        "fallback": "If one word, ask a choice question then one follow-up.",
-        "evidence": "Relevant answer that keeps the exchange alive."
-    }}
-}}
-
-def elicitation_function(skill_id: str) -> str:
-    # 1. Check unit skills
-    u = UNIT_SKILLS.get(skill_id)
-    if u:
-        step = str(u.get("step", ""))
-        strand = u.get("strand", "")
-        if step == '1':
-            return 'present_continuous' if strand == 'GRA' else 'describe'
-        elif step == '2':
-            return 'past'
-        elif step == '3':
-            return 'opinion'
-        elif step == '4':
-            return 'future'
-        elif step == '5':
-            return 'sequence'
-            
-    # 2. Check flat skills
-    text = get_skill_text(skill_id).lower()
-    if any(k in text for k in ['age', "where i'm from", "where i am from"]):
-        return 'self_intro'
-    if any(k in text for k in ['past', 'yesterday', 'story']):
-        return 'past'
-    if any(k in text for k in ['opinion', 'prefer', 'because', 'reason']):
-        return 'opinion'
-    if any(k in text for k in ['future', 'plan', 'will']):
-        return 'future'
-    if any(k in text for k in ['describe', 'adjective', 'look like']):
-        return 'describe'
-    return 'everyday'
-
-def get_elicitation_plan_for(skill_id: str, level: str = None) -> dict:
-    fn = elicitation_function(skill_id)
-    plan = ELICITATION_BY_FUNCTION.get(fn, ELICITATION_BY_FUNCTION["everyday"])
-    return {{
-        "id": skill_id,
-        "fn": fn,
-        "skill": get_skill_text(skill_id, level),
-        **plan
-    }}
-
-def plan_text(ids: list[str], level: str = None) -> str:
-    if not ids:
-        return "No specific target. Keep the learner talking and listen for interests."
-    lines = []
-    for i, skill_id in enumerate(ids):
-        p = get_elicitation_plan_for(skill_id, level)
-        role = "PRIMARY" if i == 0 else "WATCH"
-        lines.append(
-            f"{{role}} {{skill_id}} ({{p['fn']}})\\n"
-            f"- Skill: {{p['skill']}}\\n"
-            f"- Elicitation move: {{p['move']}}\\n"
-            f"- Strong question: {{p['question']}}\\n"
-            f"- If short/stuck: {{p['fallback']}}\\n"
-            f"- Judgeable evidence: {{p['evidence']}}"
-        )
-    return "\\n\\n".join(lines)
 """
 
     out_path = './backend/app/core/curriculum_data.py'

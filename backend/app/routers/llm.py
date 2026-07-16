@@ -86,10 +86,12 @@ async def conversation_turn(
         result = await llm_service.send_conversation_turn(
             messages=messages,
             topic=body.unit or "Free conversation",
-            level=body.level,
+            level=user.level or body.level,
             unit_label=body.unit_label,
             current_turn=body.current_turn,
             persona_memory=user.persona_memory,
+            due_next=user.due_next,
+            skills_progress=user.skills_progress or {},
         )
         return ConversationTurnResponse(**result)
     except Exception as e:
@@ -158,6 +160,9 @@ async def placement_turn(
             
             user.level = level
             user.unit_label = unit_name
+            user.due_next = {}
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(user, "due_next")
             if interests:
                 user.interests = ",".join(interests)
             db.add(user)
@@ -206,7 +211,7 @@ async def session_analysis(
         conversation.session_type = body.session_type
     db.add(conversation)
 
-    level = body.level or user.level or "A0"
+    level = user.level or body.level or "A0"
     messages = [m.model_dump() for m in body.messages]
     
     # Use the conversation's stored topic (set from due_next at creation time)

@@ -151,6 +151,7 @@ class GradedSkillScore(BaseModel):
     id: str
     confidence: float
     prompted: bool
+    support_level: str | None = None
     evidence: str | None = None
 
 

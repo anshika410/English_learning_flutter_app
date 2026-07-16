@@ -4,7 +4,10 @@ from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
 from ..schemas.user import UpdateProfileRequest, UpdateMemoryRequest, UserMemoryResponse, GardenResponse, TopicResponse, PlacementSubResponse, PlacementGardenResponse
-from ..core.curriculum_data import UNITS, active_step, unit_complete, bucket_of
+from ..core.curriculum_data import (
+    UNITS, bucket_of, progress_value, public_progress_for_level,
+    unit_progress_key, validate_due_next,
+)
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -33,7 +36,9 @@ def _compute_placement_garden(user: User) -> PlacementGardenResponse | None:
 def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserMemoryResponse:
     persona = user.persona_memory or {}
     progress = user.skills_progress or {}
-    due = user.due_next or {}
+    level_code = (user.level or "A0").upper()
+    public_progress = public_progress_for_level(progress, level_code)
+    due = validate_due_next(user.due_next, level_code)
     units_list = persona.get("units", [])
     if not isinstance(units_list, list):
         units_list = []
@@ -68,7 +73,6 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
 
     # Compute suggested next topics (avoid recently used)
     from ..core.curriculum_data import LEVEL_TOPICS
-    level_code = (user.level or "A0").upper()
     all_topics = LEVEL_TOPICS.get(level_code, [])
     valid_topics = [t for t in all_topics if t.get("name")]
     used = set(last_topics_list)
@@ -210,14 +214,14 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         last_time_recap=last_time_recap,
         placement=placement_data,
         placement_garden=_compute_placement_garden(user),
-        owned=progress.get("owned", []),
-        emerging=progress.get("emerging", []),
+        owned=public_progress.get("owned", []),
+        emerging=public_progress.get("emerging", []),
         due_next=due,
         next_topics=next_topics_obj,
-        effort=progress.get("effort", {"times_spoken_total": 0}),
-        sightings=progress.get("sightings", {}),
-        strength=progress.get("strength", {}),
-        updated_after_chat=progress.get("updated_after_chat", 0),
+        effort=public_progress.get("effort", {"times_spoken_total": 0}),
+        sightings=public_progress.get("sightings", {}),
+        strength=public_progress.get("strength", {}),
+        updated_after_chat=public_progress.get("updated_after_chat", 0),
         units=units_list,
         last_topics=last_topics_list,
         persona_memory={k: v for k, v in (user.persona_memory or {}).items() if k not in ("last_topics", "units")},
@@ -292,6 +296,8 @@ async def update_profile(
     if body.location is not None:
         user.location = body.location
     if body.level is not None:
+        if (user.level or "").upper() != body.level.upper():
+            user.due_next = {}
         user.level = body.level
     
     unit_val = body.unit or body.unit_label
@@ -420,10 +426,11 @@ async def get_user_garden(
     if is_previous_level:
         from ..core.curriculum_data import UNITS as _UNITS
         all_skill_ids = [
-            s["id"]
+            unit_progress_key(requested_level, s["id"])
             for u in _UNITS.get(requested_level, [])
             for s in u.get("skills", [])
         ]
+        all_skill_ids = [sid for sid in all_skill_ids if sid]
         from datetime import datetime, timezone
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         progress = {
@@ -443,7 +450,7 @@ async def get_user_garden(
     first_unowned_skill = None
     for u in units_list:
         for s in u["skills"]:
-            if bucket_of(progress, s["id"]) != "owned":
+            if bucket_of(progress, s["id"], level) != "owned":
                 first_unowned_skill = s["id"]
                 break
         if first_unowned_skill:
@@ -456,10 +463,16 @@ async def get_user_garden(
         skills_data = []
         
         for s in u["skills"]:
-            status = bucket_of(progress, s["id"])
-            sightings = progress.get("sightings", {}).get(s["id"], 0)
-            last_tested_at = progress.get("last_seen", {}).get(s["id"], None)
-            raw_evidence = progress.get("evidence", {}).get(s["id"], [])
+            status = bucket_of(progress, s["id"], level)
+            sightings = progress_value(
+                progress, "sightings", s["id"], level, 0
+            )
+            last_tested_at = progress_value(
+                progress, "last_seen", s["id"], level, None
+            )
+            raw_evidence = progress_value(
+                progress, "evidence", s["id"], level, []
+            )
             evidence_list = []
             for ev in raw_evidence:
                 if isinstance(ev, dict):
@@ -497,16 +510,26 @@ async def get_user_garden(
         })
         
     # Resolve dynamic recommended topic based on active target skill
-    due_next = user.due_next or {}
+    due_next = validate_due_next(user.due_next, level)
     primary_skill = due_next.get("primary") or first_unowned_skill
  
-    recommended_topic = "Today, I wanted to talk about cricket. Shall we?"
+    fallback_topics = {
+        "A0": "Rice or noodles?",
+        "A1": "What food do you like?",
+        "A2": "What is something you enjoyed recently?",
+        "B1": "What is one idea you have been thinking about?",
+        "B2": "What is a difficult choice people your age face?",
+        "C1": "Which idea would you enjoy examining from two sides?",
+    }
+    recommended_topic = fallback_topics.get(level, fallback_topics["A1"])
     if primary_skill:
-        from ..core.curriculum_data import get_elicitation_plan_for
+        from ..core.elicitation import get_elicitation_plan_for
         try:
-            plan = get_elicitation_plan_for(primary_skill)
-            if plan and plan.get("question"):
-                recommended_topic = plan["question"]
+            plan = get_elicitation_plan_for(primary_skill, level)
+            if plan.get("valid") and plan.get("question"):
+                # The planner may provide alternatives for Zoe. The UI should
+                # show one clean recommendation, not the whole option list.
+                recommended_topic = plan["question"].split(" / ", 1)[0]
         except Exception:
             pass
 
@@ -554,7 +577,7 @@ async def get_primary_target(user: User = Depends(get_current_user)):
     """
     Returns the student's current primary target ID and its text description.
     """
-    due = user.due_next or {}
+    due = validate_due_next(user.due_next, user.level or "A0")
     primary_id = due.get("primary")
     
     if not primary_id:
@@ -747,6 +770,4 @@ async def get_today_recap(
         super_sentence=super_sentence,
         correction_highlight=correction_highlight,
     )
-
-
 

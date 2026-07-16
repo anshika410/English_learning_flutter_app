@@ -8,8 +8,9 @@ from ..models.conversation import Conversation
 from ..models.session_analysis import SessionAnalysis
 from ..services import llm_service
 from ..core.curriculum_data import (
-    CAT, UNIT_SKILLS, FLOOR,
+    CAT, FLOOR, HEADLINES, UNITS,
     targets_list_for as targets_list_for_py, apply_merge, active_step,
+    bucket_of, make_due_next,
 )
 
 async def run_and_save_session_analysis(
@@ -23,6 +24,8 @@ async def run_and_save_session_analysis(
     db: AsyncSession,
     turns_total: int | None = None,
 ) -> dict:
+    level = (level or user.level or "A0").upper()
+
     # Guard — if the learner never spoke, skip analysis entirely.
     # This prevents Zoe's own starter message from being scored as learner evidence
     # when the user ends a session immediately without saying anything.
@@ -56,11 +59,16 @@ async def run_and_save_session_analysis(
     aimed = targets_list_for_py(progress, progression_model, level)
     
     if progression_model == "unit":
-        emerging_unit_skills = [sid for sid in progress.get("emerging", []) if sid in UNIT_SKILLS]
-        primary_ids = list(set(aimed + emerging_unit_skills))
+        emerging_unit_skills = [
+            skill["id"]
+            for unit in UNITS.get(level, [])
+            for skill in unit.get("skills", [])
+            if bucket_of(progress, skill["id"], level) == "emerging"
+        ]
+        primary_ids = list(dict.fromkeys(aimed + emerging_unit_skills))
     else:
         emerging_level_skills = [sid for sid in progress.get("emerging", []) if any(s[0] == sid and s[1] == level.upper() for s in CAT)]
-        primary_ids = list(set(aimed + emerging_level_skills))
+        primary_ids = list(dict.fromkeys(aimed + emerging_level_skills))
 
     # Run combined qualitative analysis and quantitative grading
     try:
@@ -100,37 +108,47 @@ async def run_and_save_session_analysis(
         turn_count = len([m for m in messages if m["role"] in ("user", "learner")])
     updated_progress["effort"]["times_spoken_total"] = updated_progress["effort"].get("times_spoken_total", 0) + turn_count
     
-    # Check for unit progression level-up
+    # Check for a single level-up before creating the next due target. Unit
+    # progress is level-scoped, so finishing A0 cannot complete A1 by collision.
+    next_level = level
     if progression_model == "unit":
-        next_step = active_step(updated_progress, level)
-        if next_step is None:  # Completed all units
-            levels_chain = ["A0", "A1", "A2", "B1", "B2", "C1"]
+        level_skills = [
+            skill["id"]
+            for unit in UNITS.get(level, [])
+            for skill in unit.get("skills", [])
+        ]
+        owned_count = sum(
+            1 for skill_id in level_skills
+            if bucket_of(updated_progress, skill_id, level) == "owned"
+        )
+        reached_threshold = bool(
+            level_skills and owned_count >= len(level_skills) * 0.8
+        )
+        completed_all_steps = active_step(updated_progress, level) is None
+        levels_chain = ["A0", "A1", "A2", "B1", "B2", "C1"]
+        if reached_threshold or completed_all_steps:
             try:
-                current_idx = levels_chain.index(level.upper())
+                current_idx = levels_chain.index(level)
                 if current_idx < len(levels_chain) - 1:
-                    next_lvl = levels_chain[current_idx + 1]
-                    user.level = next_lvl
-                    from ..core.curriculum_data import HEADLINES
-                    user.unit_label = HEADLINES.get(next_lvl, "Finding My Voice")
-                    level = next_lvl
+                    next_level = levels_chain[current_idx + 1]
+                    user.level = next_level
+                    user.unit_label = HEADLINES.get(next_level, "Finding My Voice")
             except ValueError:
                 pass
+    elif not user.level:
+        user.level = level
 
     # Compute next due targets
-    due_next_dict = {}
     if progression_model == "unit":
         from ..core.curriculum_data import due_unit
-        du = due_unit(updated_progress, level)
+        du = due_unit(updated_progress, next_level)
         picks = du["picks"]
     else:
         from ..core.curriculum_data import due_skill
-        picks = due_skill(updated_progress, level)
+        picks = due_skill(updated_progress, next_level)
         
     due_next_ids = [p["id"] for p in picks]
-    due_next_dict = {
-        "primary": due_next_ids[0] if due_next_ids else None,
-        "watching": due_next_ids[1:] if len(due_next_ids) > 1 else []
-    }
+    due_next_dict = make_due_next(due_next_ids, next_level)
 
     # Save user progress & targets
     user.skills_progress = updated_progress
@@ -141,28 +159,6 @@ async def run_and_save_session_analysis(
     # Mark first session as done
     if not user.first_session_done:
         user.first_session_done = True
-
-    # Check if user should advance level based on owned skills
-    from ..core.curriculum_data import UNITS
-    owned = updated_progress.get("owned", [])
-    current_level = user.level or "A0"
-    # Ensure level is always set in DB
-    if not user.level:
-        user.level = "A0"
-    level_units = UNITS.get(current_level.upper(), [])
-    if level_units:
-        # All skills across all units at this level
-        all_level_skills = []
-        for u in level_units:
-            all_level_skills.extend([s["id"] for s in u.get("skills", [])])
-        # If 80%+ of level skills are owned, advance to next level
-        if all_level_skills:
-            owned_at_level = [s for s in owned if s in all_level_skills]
-            if len(owned_at_level) >= len(all_level_skills) * 0.8:
-                level_order = ["A0", "A1", "A2", "B1", "B2", "C1"]
-                current_idx = level_order.index(current_level.upper()) if current_level.upper() in level_order else 0
-                if current_idx < len(level_order) - 1:
-                    user.level = level_order[current_idx + 1]
 
     # Persist qualitative and quantitative analysis
     best = analysis.get("best_moment", {})
@@ -192,10 +188,10 @@ async def run_and_save_session_analysis(
     
     # Extract correction_highlight via separate focused LLM call
     try:
-        correction_hl = await llm_service.extract_correction_highlight(messages)
+        correction_hl = await llm_service.extract_correction_highlight(messages, level=level)
         sa.correction_highlight = correction_hl
     except Exception:
-        sa.correction_highlight = analysis.get("correction_highlight")
+        sa.correction_highlight = None
 
     # Save grading checklist details
     hit = [sc["id"] for sc in scores if sc.get("confidence", 0.0) >= FLOOR]
