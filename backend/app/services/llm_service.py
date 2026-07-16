@@ -340,7 +340,7 @@ async def send_placement_turn(
     system_prompt = (
         raw_prompt
         .replace("{{NAME}}", name or "there")
-        .replace("{{AGE}}", str(age) if age is not None else "unknown")
+        .replace("{{AGE}}", str(age) if age is not None else '"unknown"')
     )
 
     # Count student turns (messages with role "user")
