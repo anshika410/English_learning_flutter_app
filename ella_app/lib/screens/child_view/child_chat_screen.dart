@@ -124,7 +124,7 @@ class _ChildChatScreenState extends ConsumerState<ChildChatScreen> {
                   if (!(ref.watch(connectivityProvider).valueOrNull ?? true))
                     ChatMessage(
                       id: 'offline_msg',
-                      text: "Hey ${ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName}, I'm having trouble connecting to the internet right now!",
+                      text: "Hey ${ref.read(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName}, I'm having trouble connecting to the internet right now!",
                       sender: MessageSender.zoe,
                       timestamp: DateTime.now(),
                     )

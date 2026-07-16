@@ -47,6 +47,7 @@
     .badge-c1 { background: #FFF0F3; color: #C82050; }
     .badge-done { background: #F0FBE8; color: #4E9A00; }
     .badge-pending { background: #FFF7EC; color: #C0A880; }
+    .badge-aborted { background: #F3F4F6; color: #6B7280; }
     .level-bar { display: flex; gap: 12px; flex-wrap: wrap; }
     .level-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #2C1E0F; }
     .level-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -575,9 +576,9 @@
         <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
         <td>${c.message_count}</td>
         <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
-        <td><span class="badge ${c.completed ? 'badge-done' : 'badge-pending'}">${c.completed ? 'Done' : 'In progress'}</span></td>
+        <td><span class="badge ${c.completed ? (c.message_count <= 1 ? 'badge-aborted' : 'badge-done') : 'badge-pending'}">${c.completed ? (c.message_count <= 1 ? 'No interaction' : 'Done') : 'In progress'}</span></td>
         <td>${formatDate(c.created_at)}</td>
-        <td><button class="transcript-btn" onclick="viewTranscript('${c.id}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
+        <td><button class="transcript-btn" onclick="viewSessionAnalysis('${c.id}', '${(c.user_name || 'Student').replace(/'/g, "\\'")}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
       </tr>
     `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
 
@@ -1085,6 +1086,41 @@
         </div>`;
       }
 
+      // Correction Highlight
+      if (d.correction_highlight && d.correction_highlight.student_said) {
+        html += `<div style="margin-bottom:16px;background:#ffebee;border-left:3px solid #ef5350;padding:10px 14px;border-radius:0 8px 8px 0;">
+          <div style="font-size:12px;font-weight:700;color:#c62828;margin-bottom:4px;">📝 Student Correction Highlight</div>
+          <div style="font-size:13px;color:#2c1e0f;margin-bottom:4px;"><strong>Student said:</strong> "${d.correction_highlight.student_said}"</div>
+          <div style="font-size:13px;color:#2e7d32;margin-bottom:4px;"><strong>Corrected:</strong> "${d.correction_highlight.corrected}"</div>
+          ${d.correction_highlight.highlight_word ? `<div style="font-size:12px;color:#ef5350;margin-top:4px;"><strong>Key change:</strong> ${d.correction_highlight.highlight_word}</div>` : ''}
+        </div>`;
+      }
+
+      // Next Steps
+      if (d.try_next && d.try_next.skill) {
+        html += `<div style="margin-bottom:16px;background:#f3e5f5;border-left:3px solid #ab47bc;padding:10px 14px;border-radius:0 8px 8px 0;">
+          <div style="font-size:12px;font-weight:700;color:#6a1b9a;margin-bottom:4px;">🚀 Next Step (Try next time)</div>
+          <div style="font-size:13px;color:#2c1e0f;"><strong>Skill:</strong> ${d.try_next.skill}</div>
+          ${d.try_next.example ? `<div style="font-size:13px;color:#4b5563;margin-top:4px;font-style:italic;">Example prompt: "${d.try_next.example}"</div>` : ''}
+        </div>`;
+      }
+
+      // Zoe's Recap
+      if (d.zoe_recap) {
+        html += `<div style="margin-bottom:16px;background:#e8f5e9;border-left:3px solid #66bb6a;padding:10px 14px;border-radius:0 8px 8px 0;">
+          <div style="font-size:12px;font-weight:700;color:#2e7d32;margin-bottom:4px;">🧠 Zoe's Memory/Recap for next session</div>
+          <div style="font-size:13px;color:#2c1e0f;line-height:1.5;">${d.zoe_recap}</div>
+        </div>`;
+      }
+
+      // Courage / Motivation
+      if (d.courage && d.courage.content) {
+        html += `<div style="margin-bottom:16px;background:#e0f7fa;border-left:3px solid #26c6da;padding:10px 14px;border-radius:0 8px 8px 0;">
+          <div style="font-size:12px;font-weight:700;color:#00838f;margin-bottom:4px;">💪 Student Courage & Motivation (${d.courage.type || 'General'})</div>
+          <div style="font-size:13px;color:#2c1e0f;">${d.courage.content}</div>
+        </div>`;
+      }
+
       // Transcript
       if (d.transcript && d.transcript.length > 0) {
         html += `<div style="margin-top:8px;">
@@ -1093,9 +1129,47 @@
         </div>`;
       }
 
+      // Developer Debug Section (Glass Box)
+      if (d.judge_prompt || d.judge_response) {
+        html += `
+          <div style="margin-top:24px;border-top:1.5px solid #F0E4CC;padding-top:16px;">
+            <button class="transcript-btn" style="border-color:#b45309;color:#b45309;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleDebugPanel()">
+              <span style="font-weight:600;">🔍 Developer Glass Box (Show Judge Prompt & Response)</span>
+              <span id="debug-arrow">▼</span>
+            </button>
+            <div id="debug-panel" style="display:none;margin-top:12px;background:#fdf6e2;padding:14px;border-radius:10px;border:1px solid #F0E4CC;">
+              
+              <div style="margin-bottom:12px;">
+                <div style="font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;margin-bottom:4px;">1. System Prompt Sent to LLM Judge</div>
+                <pre style="white-space:pre-wrap;font-family:monospace;font-size:12px;background:#fff;padding:10px;border:1px solid #f5e6d3;border-radius:6px;max-height:250px;overflow-y:auto;color:#333;margin:0;">${d.judge_prompt || 'No prompt payload available'}</pre>
+              </div>
+
+              <div>
+                <div style="font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;margin-bottom:4px;">2. Raw JSON Response Returned by LLM Judge</div>
+                <pre style="white-space:pre-wrap;font-family:monospace;font-size:12px;background:#fff;padding:10px;border:1px solid #f5e6d3;border-radius:6px;max-height:250px;overflow-y:auto;color:#1e293b;margin:0;">${JSON.stringify(d.judge_response || {}, null, 2)}</pre>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }
+
       document.getElementById('modal-content').innerHTML = html;
     } catch(e) {
       document.getElementById('modal-content').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  window.toggleDebugPanel = function() {
+    const panel = document.getElementById('debug-panel');
+    const arrow = document.getElementById('debug-arrow');
+    if (!panel) return;
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      if (arrow) arrow.textContent = '▲';
+    } else {
+      panel.style.display = 'none';
+      if (arrow) arrow.textContent = '▼';
     }
   }
 

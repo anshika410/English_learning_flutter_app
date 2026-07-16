@@ -757,7 +757,6 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
   @override
   Widget build(BuildContext context) {
     final step = widget.step;
-    final description = step.displayDescription;
     final visibleSkills = _expanded ? step.skills : step.skills.take(2);
     final hasMore = step.skills.length > 2 && !_expanded;
 
@@ -765,35 +764,6 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _ResolvedSvgIcon(
-              key: ValueKey('garden-unit-sheet-icon-${step.step}'),
-              rawIcon: step.icon,
-              fallbackAsset: _unitFallbackIcon,
-              size: 48,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                description,
-                style: EllaFonts.body(
-                  const TextStyle(
-                    fontSize: 16,
-                    height: 1.6,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0.064,
-                    color: _ink,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const _WoodDivider(),
-        const SizedBox(height: 16),
         Text(
           'On Mastery, You Will Be Able To',
           style: EllaFonts.body(

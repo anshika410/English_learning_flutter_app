@@ -239,8 +239,21 @@ async def send_conversation_turn(
                     facts.extend([str(item) for item in v])
                 elif isinstance(v, str):
                     facts.append(f"{k}: {v}")
-        if facts:
-            memory_str = "\n".join(f"- {fact}" for fact in facts)
+        
+        # Sanitize facts to only use first name
+        sanitized_facts = []
+        for fact in facts:
+            fact_str = str(fact)
+            if fact_str.lower().startswith("name:"):
+                # Extract first name
+                name_val = fact_str.split(":", 1)[1].strip()
+                first_name = name_val.split()[0].strip() if name_val else ""
+                sanitized_facts.append(f"Name: {first_name}")
+            else:
+                sanitized_facts.append(fact_str)
+                
+        if sanitized_facts:
+            memory_str = "\n".join(f"- {fact}" for fact in sanitized_facts)
 
     level_upper = level.upper() if level else "A1"
 
@@ -336,11 +349,15 @@ async def send_placement_turn(
     age: int | None = None,
 ) -> dict:
     raw_prompt = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+    
+    # Extract first name to use in prompts so Zoe doesn't use the full name
+    first_name = name.split()[0].strip() if name else "there"
+    
     # Inject student name and age into the prompt
     system_prompt = (
         raw_prompt
         .replace("{{NAME}}", name or "there")
-        .replace("{{AGE}}", str(age) if age is not None else "unknown")
+        .replace("{{AGE}}", str(age) if age is not None else '"unknown"')
     )
 
     # Count student turns (messages with role "user")

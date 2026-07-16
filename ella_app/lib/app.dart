@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_links/app_links.dart';
 import 'services/sounds.dart';
 import 'services/ella_api_service.dart';
+import 'services/analytics_service.dart';
 import 'providers/connectivity_provider.dart';
 import 'providers/service_providers.dart';
 import 'screens/login_screen.dart';
@@ -160,6 +161,15 @@ class _EllaAppState extends ConsumerState<EllaApp> {
           );
         } else if (path == '/privacy-policy') {
           return MaterialPageRoute(builder: (_) => const PrivacyPolicyWebviewScreen(), settings: settings);
+        } else if (path == '/onboarding') {
+          return PageRouteBuilder(
+            settings: settings,
+            pageBuilder: (_, __, ___) => const Scaffold(
+              backgroundColor: Colors.transparent,
+              body: OnboardingFlow(),
+            ),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+          );
         } else if (path == '/' || path == '/home') {
           return PageRouteBuilder(
             settings: settings,
@@ -316,6 +326,7 @@ class _EllaHomeState extends State<_EllaHome> {
   }
 
   void _openProfile() {
+    AnalyticsService.logSettingsOpened();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const Scaffold(

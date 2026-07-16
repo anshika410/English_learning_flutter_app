@@ -101,6 +101,9 @@ class PlacementNotifier extends Notifier<PlacementState> {
   // of posting the end message mid-turn.
   Future<void>? _inflight;
 
+  int _activeSttSessionId = 0;
+  bool _sttSessionFinalized = false;
+
   @override
   PlacementState build() {
     final nativeTts = ref.read(nativeTtsProvider);
@@ -164,6 +167,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
   /// call while already started is a no-op.
   Future<void> start() async {
     if (state.started) return;
+    AnalyticsService.logPlacementStarted();
     ref.read(audioProvider).playSfx(Sounds.start);
     state = state.copyWith(started: true, status: ChatStatus.zoeThinking);
 
@@ -206,6 +210,8 @@ class PlacementNotifier extends Notifier<PlacementState> {
       status: ChatStatus.zoeThinking,
       clearPartialStt: true,
     );
+    final turnNum = state.messages.where((m) => m.sender == MessageSender.child).length;
+    AnalyticsService.logPlacementTurn(turnNum);
     await _trackedTurn();
   }
 
@@ -242,6 +248,8 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
     if (!state.isComplete) {
       state = state.copyWith(isComplete: true, status: ChatStatus.idle);
+      final turnNum = state.messages.where((m) => m.sender == MessageSender.child).length;
+      AnalyticsService.logPlacementAbandoned(turnNum);
     }
 
     // Hard check: pull the freshest memory and branch on placement level.
@@ -274,6 +282,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
     } catch (e) {
       // Keep the child unstuck: surface the error and return to idle so they can
       // retry their turn.
+      AnalyticsService.logPlacementFailed(e.toString());
       state = state.copyWith(
         status: ChatStatus.idle,
         error: 'Placement turn failed: $e',
@@ -331,6 +340,10 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
   Future<void> startListening() async {
     if (state.status != ChatStatus.idle || state.isComplete) return;
+
+    _sttSessionFinalized = false;
+    final sessionId = ++_activeSttSessionId;
+
     state = state.copyWith(status: ChatStatus.userSpeaking);
     ref.read(audioProvider).playSfx(Sounds.listen);
     final stt = ref.read(sttProvider);
@@ -338,9 +351,14 @@ class PlacementNotifier extends Notifier<PlacementState> {
     // voice use rather than at app/screen load.
     await stt.initialize();
     await stt.startListening(
-      onPartial: (partial) =>
-          state = state.copyWith(partialStt: partial),
+      onPartial: (partial) {
+        if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+        state = state.copyWith(partialStt: partial);
+      },
       onFinal: (text) {
+        if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+        _sttSessionFinalized = true;
+
         final trimmed = text.trim();
         if (trimmed.isNotEmpty) {
           sendUserTurn(trimmed);
@@ -356,9 +374,15 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
   Future<void> stopListening() async {
     await ref.read(sttProvider).stopListening();
+    
+    final sessionId = _activeSttSessionId;
+
     // Safety net for platforms whose final result is slow/missing: if we're
     // still on userSpeaking after a beat, commit whatever partial we heard.
     Future.delayed(const Duration(milliseconds: 400), () {
+      if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+      _sttSessionFinalized = true;
+
       if (state.status != ChatStatus.userSpeaking) return;
       final partial = state.partialStt?.trim() ?? '';
       if (partial.isNotEmpty) {

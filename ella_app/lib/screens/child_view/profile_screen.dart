@@ -10,6 +10,7 @@ import '../../providers/service_providers.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/placement_provider.dart';
+import '../../services/analytics_service.dart';
 import '../../services/ella_api_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -40,6 +41,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Profile');
     final audio = ref.read(audioProvider);
     _sfxOn = audio.sfxEnabled;
     _loadAppVersion();
@@ -111,7 +113,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     await EllaApiService().logout();
 
-    ref.invalidate(onboardingProvider);
+    await ref.read(onboardingProvider.notifier).reset();
     ref.invalidate(placementProvider);
     ref.invalidate(chatProvider);
 
@@ -137,75 +139,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (updated == true) {
       setState(() => _isLoading = true);
       _loadProfile();
-    }
-  }
-
-  Future<void> _handleClearMemory() async {
-    final isOnline = ref.read(connectivityProvider).value ?? true;
-    if (!isOnline) {
-      OfflineAlertPopup.show(context);
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear Learning Progress?'),
-        content: const Text(
-          'Are you sure you want to clear your learning progress? This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text(
-              'Clear Progress',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      if (mounted) setState(() => _isLoading = true);
-      try {
-        await EllaApiService().resetUserMemory();
-        await EllaApiService().clearLocalMemoryState();
-        if (!mounted) return;
-
-        ref.invalidate(chatProvider);
-        ref.invalidate(onboardingProvider);
-        ref.invalidate(placementProvider);
-
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Learning progress cleared.')),
-        );
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/onboarding', (route) => false);
-      } catch (e) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('API Error'),
-              content: SingleChildScrollView(child: Text('$e')),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-      }
     }
   }
 
@@ -251,7 +184,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         } catch (_) {}
 
         ref.invalidate(chatProvider);
-        ref.invalidate(onboardingProvider);
+        await ref.read(onboardingProvider.notifier).reset();
         ref.invalidate(placementProvider);
 
         if (!mounted) return;
@@ -296,7 +229,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       backgroundColor: EllaColors.canvas,
       body: ProfileScenery(
         child: SafeArea(
-          bottom: false,
           child: Column(
             children: [
               // Top Bar outside scroll view
@@ -377,10 +309,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               Expanded(
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Shortest height the content can lay out at; on shorter
+                    // screens the whole section scales down uniformly so the
+                    // screen never scrolls.
+                    const minContentHeight = 660.0;
+                    final scale = constraints.maxHeight / minContentHeight;
+                    final content = SizedBox(
+                      width: scale < 1
+                          ? constraints.maxWidth / scale
+                          : constraints.maxWidth,
+                      height: scale < 1
+                          ? minContentHeight
+                          : constraints.maxHeight,
                       child: Column(
                         children: [
                           const SizedBox(height: 16),
@@ -651,244 +593,190 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     ],
                                   ),
                                 ),
-
-                                const SizedBox(height: 20),
-
-                                // Sign out button
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: _handleSignOut,
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 15,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.transparent,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        SvgPicture.asset(
-                                          '$_asset/sign-out.svg',
-                                          width: 20,
-                                          height: 20,
-                                          colorFilter: const ColorFilter.mode(
-                                            Color(0xFF8A877B),
-                                            BlendMode.srcIn,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Sign out',
-                                          style: EllaFonts.body(
-                                            const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF8A877B),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            const SizedBox(height: 32),
-                            const Divider(height: 1, color: Color(0xFFCFE0C8)),
+                          const Spacer(),
+                          const SizedBox(height: 24),
 
-                            // Privacy & Contact
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 18),
+                          // Sign out button
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _handleSignOut,
+                            child: Container(
+                              height: 56,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              decoration: BoxDecoration(
+                                color: EllaColors.errorLight,
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(
+                                  color: EllaColors.errorDark,
+                                  width: 3,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: EllaColors.berryDeep,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
+                              ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  InkWell(
-                                    onTap: () {
-                                      Navigator.of(
-                                        context,
-                                      ).pushNamed('/privacy-policy');
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.shield_outlined,
-                                            size: 18,
-                                            color: Color(0xFF5F5E5A),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'Privacy',
-                                            style: EllaFonts.body(
-                                              const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFF5F5E5A),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                  SvgPicture.asset(
+                                    '$_asset/sign-out.svg',
+                                    width: 24,
+                                    height: 24,
+                                    colorFilter: const ColorFilter.mode(
+                                      EllaColors.errorDark,
+                                      BlendMode.srcIn,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  InkWell(
-                                    onTap: () {},
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.chat_bubble_outline_rounded,
-                                            size: 18,
-                                            color: Color(0xFF5F5E5A),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'Contact us',
-                                            style: EllaFonts.body(
-                                              const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFF5F5E5A),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Sign Out',
+                                    style: EllaFonts.body(
+                                      const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: EllaColors.errorDark,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                          ),
 
-                            const Divider(height: 1, color: Color(0xFFCFE0C8)),
-                            const SizedBox(height: 16),
+                          const SizedBox(height: 24),
 
-                            // Clear progress
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _handleClearMemory,
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFFDF5),
-                                  border: Border.all(
-                                    color: const Color(0xFFE0C6B8),
-                                    width: 1.5,
+                          // Delete account
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _handleDeleteAccount,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: EllaColors.errorDark,
+                                    width: 2,
                                   ),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.cleaning_services_rounded,
-                                      size: 18,
-                                      color: Color(0xFF993556),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Clear learning progress',
-                                      style: EllaFonts.body(
-                                        const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF993556),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // Delete account
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _handleDeleteAccount,
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.transparent,
-                                  border: Border.all(
-                                    color: const Color(0xFFE24B4A),
-                                    width: 1.5,
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.delete_outline_rounded,
-                                      size: 18,
-                                      color: Color(0xFFA32D2D),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Delete account',
-                                      style: EllaFonts.body(
-                                        const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFFA32D2D),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            if (_appVersion.isNotEmpty)
-                              Text(
-                                _appVersion.contains('Version')
-                                    ? _appVersion
-                                    : 'Version ${_appVersion.replaceAll('v', '')}',
+                              child: Text(
+                                'Delete Account',
                                 style: EllaFonts.body(
                                   const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF5F5E5A),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: EllaColors.errorDark,
                                   ),
                                 ),
                               ),
+                            ),
+                          ),
 
-                            const SizedBox(height: 40),
-                          ],
-                        ),
+                          const SizedBox(height: 24),
+
+                          // Privacy Policy & Contact Us
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  Navigator.of(
+                                    context,
+                                  ).pushNamed('/privacy-policy');
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SvgPicture.asset(
+                                      '$_asset/keyhole.svg',
+                                      width: 24,
+                                      height: 24,
+                                      colorFilter: const ColorFilter.mode(
+                                        EllaColors.ink,
+                                        BlendMode.srcIn,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Privacy Policy',
+                                      style: EllaFonts.body(
+                                        const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: EllaColors.ink,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 32),
+                              InkWell(
+                                onTap: () {},
+                                borderRadius: BorderRadius.circular(8),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SvgPicture.asset(
+                                      '$_asset/address-book.svg',
+                                      width: 24,
+                                      height: 24,
+                                      colorFilter: const ColorFilter.mode(
+                                        EllaColors.ink,
+                                        BlendMode.srcIn,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Contact Us',
+                                      style: EllaFonts.body(
+                                        const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: EllaColors.ink,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          if (_appVersion.isNotEmpty)
+                            Text(
+                              _appVersion,
+                              style: EllaFonts.body(
+                                const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: EllaColors.ink,
+                                ),
+                              ),
+                            ),
+
+                          const SizedBox(height: 16),
+                        ],
                       ),
-                    ),
-                  ],
+                    );
+                    if (scale >= 1) {
+                      return content;
+                    }
+                    return FittedBox(
+                      fit: BoxFit.contain,
+                      alignment: Alignment.topCenter,
+                      child: content,
+                    );
+                  },
                 ),
               ),
             ],

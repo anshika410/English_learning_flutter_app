@@ -18,6 +18,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/chat_provider.dart' show ChatStatus;
 import '../../providers/service_providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/stt_tts_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
@@ -44,6 +45,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   bool _keyboardMode = false;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
+  bool _scheduledExit = false;
 
   // True while the End-Call closing line is playing (before we hand off to the
   // placement garden). Drives the ending phase: Zoe speaks a fixed farewell that
@@ -68,6 +70,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Placement');
     _tts = ref.read(ttsProvider);
     _placementNotifier = ref.read(placementProvider.notifier);
     final nativeTts = ref.read(nativeTtsProvider);
@@ -119,11 +122,14 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       if (!_advanceTimerStarted) {
         _advanceTimerStarted = true;
         // Safety net: force navigation after 5 seconds even if TTS completion handler fails to fire
-        Future.delayed(const Duration(seconds: 5), _goToComplete);
+        Future.delayed(const Duration(seconds: 5), _exit);
       }
       return;
     }
-    Future.delayed(const Duration(milliseconds: 1600), _goToComplete);
+    if (!_scheduledExit) {
+      _scheduledExit = true;
+      Future.delayed(const Duration(milliseconds: 1600), _exit);
+    }
   }
 
   // Swap to the placement garden screen (guarded so it only runs once). Used by
@@ -160,7 +166,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // finishes on its own. Personalised with the onboarding name.
   String _closingLine() {
     final name =
-        ref.read(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+        ref.read(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
     return 'It was really nice talking with you, $name! Let\'s talk again soon.';
   }
 
@@ -173,12 +179,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // the notifier's `ending` guard + _navigated.
   Future<void> _exit() async {
     if (_ending || _navigated) return;
-    // If the screening already finished, End means "go to my garden" — route to
-    // the placement garden instead of playing the farewell.
-    if (ref.read(placementProvider).isComplete) {
-      _goToComplete();
-      return;
-    }
+
     setState(() {
       _ending = true;
       _speaking = true;
@@ -200,7 +201,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     await Future.delayed(const Duration(milliseconds: 150));
 
     // Safety net: force navigation after 4.5 seconds if TTS done callback fails
-    final safetyTimer = Timer(const Duration(milliseconds: 4500), _goToComplete);
+    final safetyTimer = Timer(
+      const Duration(milliseconds: 4500),
+      _goToComplete,
+    );
 
     // Listen for TTS done stream to transition as soon as speech finishes
     StreamSubscription? doneSub;
@@ -252,7 +256,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
         });
       }
     });
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStart());
     final s = ref.watch(placementProvider);
     final isOnline = ref.watch(connectivityProvider).value ?? true;
@@ -276,10 +280,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
     // While ending, Zoe speaks the fixed farewell (which cross-fades in over the
     // last turn); otherwise show her latest line.
-    final zoeLine = _ending
-        ? _closingLine()
-        : _lastFrom(s, MessageSender.zoe);
-            
+    final zoeLine = _ending ? _closingLine() : _lastFrom(s, MessageSender.zoe);
+
     String? studentLine;
     bool studentLive = false;
     if (!_ending) {
@@ -312,7 +314,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
             : ConversationView(
                 phase: phase,
                 mascotSpeaking:
-                    _ending || s.status == ChatStatus.zoeSpeaking || _replaying || _speaking,
+                    _ending ||
+                    s.status == ChatStatus.zoeSpeaking ||
+                    _replaying ||
+                    _speaking,
                 mascotThinking: !_ending && s.status == ChatStatus.zoeThinking,
                 isOffline: !isOnline,
                 progress: _ending ? 1.0 : _progress(s),
@@ -322,15 +327,21 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 micState: micState,
                 textMode: _keyboardMode,
                 textController: _textController,
-                onMic: isOnline ? () => _onMic(s) : () {
-                  OfflineAlertPopup.show(context);
-                },
-                onToggleKeyboard: isOnline ? _toggleKeyboard : () {
-                  OfflineAlertPopup.show(context);
-                },
-                onSend: isOnline ? _sendTyped : () {
-                  OfflineAlertPopup.show(context);
-                },
+                onMic: isOnline
+                    ? () => _onMic(s)
+                    : () {
+                        OfflineAlertPopup.show(context);
+                      },
+                onToggleKeyboard: isOnline
+                    ? _toggleKeyboard
+                    : () {
+                        OfflineAlertPopup.show(context);
+                      },
+                onSend: isOnline
+                    ? _sendTyped
+                    : () {
+                        OfflineAlertPopup.show(context);
+                      },
                 onEnd: _exit,
                 // Speaker dot on Zoe's bubble: replays the line when idle.
                 // While she's already talking the tap is a no-op (never stops

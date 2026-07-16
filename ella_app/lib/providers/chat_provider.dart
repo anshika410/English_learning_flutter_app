@@ -196,6 +196,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   late String _childId;
   // true when auth+ensureChild succeeded — gates Supabase writes in endChat.
   bool _online = false;
+  int _activeSttSessionId = 0;
+  bool _sttSessionFinalized = false;
 
   String get childId => _childId;
   bool get online => _online;
@@ -256,6 +258,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         final wasSpeaking = cur.currentlySpeakingMessageId != null;
         state = AsyncValue.data(
           cur.copyWith(
+            status: ChatStatus.idle,
             clearCurrentlySpeaking: true,
             highlightStart: -1,
             highlightEnd: -1,
@@ -426,6 +429,14 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         clearSyncError: true,
       ),
     );
+
+    try {
+      final tName = topic?.topic ?? 'Free Talk';
+      AnalyticsService.logTopicStarted(tName);
+      for (final skill in serverAimedAt) {
+        AnalyticsService.logSkillAttempted(skill);
+      }
+    } catch (_) {}
 
     final zoeMsg = ChatMessage(
       sender: MessageSender.zoe,
@@ -789,13 +800,21 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     final sysMsg = ChatMessage(sender: MessageSender.system, text: sysText);
 
     try {
+      final topicName = cur.currentTopic?.topic ?? 'Free Talk';
+      await AnalyticsService.logTopicCompleted(topicName);
+
       await AnalyticsService.logConversationComplete(
-        topic: cur.currentTopic?.topic ?? 'Free Talk',
+        topic: topicName,
         messageCount: cur.turnCount,
         durationSeconds: 0,
         level: mem.level,
         progressionModel: mode,
       );
+
+      if (newMem.level != mem.level) {
+        await AnalyticsService.logCefrLevelAssigned(newMem.level);
+        await AnalyticsService.logGardenCompleted(mem.level);
+      }
 
       for (final c in effectiveChanges) {
         if (c.to == 'owned' || c.to == 'emerging') {
@@ -975,6 +994,10 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     } else if (cur.status != ChatStatus.idle) {
       return;
     }
+
+    _sttSessionFinalized = false;
+    final sessionId = ++_activeSttSessionId;
+
     state = AsyncValue.data(
       state.requireValue.copyWith(status: ChatStatus.userSpeaking),
     );
@@ -985,6 +1008,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     await stt.initialize();
     await stt.startListening(
       onPartial: (partial) {
+        if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
         if (state.hasValue) {
           state = AsyncValue.data(
             state.requireValue.copyWith(partialStt: partial),
@@ -993,6 +1017,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       },
       onFinal: (text) {
         // Fired either by 4s-pause auto-stop OR by manual stopListening.
+        if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+        _sttSessionFinalized = true;
+
         if (!state.hasValue) return;
         final trimmed = text.trim();
         if (trimmed.isNotEmpty) {
@@ -1034,6 +1061,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   Future<void> stopListening() async {
     final stt = ref.read(sttProvider);
     await stt.stopListening();
+    
+    final sessionId = _activeSttSessionId;
+
     // After stop(), the plugin normally fires onResult(finalResult: true),
     // which onFinal commits. On platforms where that final is slow/missing
     // (Android SpeechRecognizer), this safety net kicks in: if we're still
@@ -1041,6 +1071,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // dropping to idle — going idle here would briefly flash Zoe's previous
     // line before the turn lands (the manual-stop bug).
     Future.delayed(const Duration(milliseconds: 400), () {
+      if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
+      _sttSessionFinalized = true;
+
       if (!state.hasValue) return;
       final s = state.requireValue;
       if (s.status != ChatStatus.userSpeaking) return; // onFinal handled it
