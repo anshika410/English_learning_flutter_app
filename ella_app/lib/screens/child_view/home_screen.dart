@@ -160,7 +160,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   String get _recap {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
     if (!isOnline) {
-      final name = ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+      final name = ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
       return "Hey $name, I'm having trouble connecting to the internet right now!";
     }
     return _memory?.lastTimeRecap ?? '';
@@ -303,8 +303,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
             children: [
               _HeaderRow(
                 name:
-                    ref.watch(onboardingProvider).valueOrNull?.name ??
-                    kHomeChildName,
+                    ref.watch(onboardingProvider).valueOrNull?.firstName ??
+                        kHomeChildName,
                 onOpenProfile: widget.onOpenProfile,
                 onOpenGarden: widget.onOpenGarden,
               ),
