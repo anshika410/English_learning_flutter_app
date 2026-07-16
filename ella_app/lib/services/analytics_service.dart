@@ -83,4 +83,60 @@ class AnalyticsService {
     if (age != null) await _analytics.setUserProperty(name: 'user_age', value: age.toString());
     if (level != null) await _analytics.setUserProperty(name: 'user_level', value: level);
   }
+
+  // Track screen views
+  static Future<void> logScreenView(String screenName) async {
+    await _analytics.logScreenView(screenName: screenName);
+  }
+
+  // Track placement turn progress (funnel analysis)
+  static Future<void> logPlacementTurn(int turnNumber) async {
+    await _analytics.logEvent(
+      name: 'placement_turn_reached',
+      parameters: {
+        'turn_number': turnNumber,
+      },
+    );
+  }
+
+  // Track speech recognition errors
+  static Future<void> logSttError(String errorCode, String errorMessage) async {
+    await _analytics.logEvent(
+      name: 'stt_error',
+      parameters: {
+        'error_code': errorCode,
+        'error_message': errorMessage,
+      },
+    );
+  }
+
+  // Track keyboard toggle events
+  static Future<void> logKeyboardToggled(bool isKeyboardEnabled) async {
+    await _analytics.logEvent(
+      name: 'keyboard_toggled',
+      parameters: {
+        'keyboard_enabled': isKeyboardEnabled ? 1 : 0,
+      },
+    );
+  }
+
+  // Track when a user taps the speak-again button
+  static Future<void> logReplayClicked(String lineText) async {
+    await _analytics.logEvent(
+      name: 'replay_clicked',
+      parameters: {
+        'line_length': lineText.length,
+      },
+    );
+  }
+
+  // Track bottom-sheet confirmation options selected by the child
+  static Future<void> logExitSheetInteraction(String action) async {
+    await _analytics.logEvent(
+      name: 'exit_sheet_interaction',
+      parameters: {
+        'action_chosen': action,
+      },
+    );
+  }
 }

@@ -18,6 +18,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/chat_provider.dart' show ChatStatus;
 import '../../providers/service_providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/stt_tts_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
@@ -69,6 +70,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Placement');
     _tts = ref.read(ttsProvider);
     _placementNotifier = ref.read(placementProvider.notifier);
     final nativeTts = ref.read(nativeTtsProvider);

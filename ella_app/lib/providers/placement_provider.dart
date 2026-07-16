@@ -209,6 +209,8 @@ class PlacementNotifier extends Notifier<PlacementState> {
       status: ChatStatus.zoeThinking,
       clearPartialStt: true,
     );
+    final turnNum = state.messages.where((m) => m.sender == MessageSender.child).length;
+    AnalyticsService.logPlacementTurn(turnNum);
     await _trackedTurn();
   }
 

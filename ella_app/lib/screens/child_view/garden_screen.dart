@@ -24,6 +24,7 @@ import '../../models/garden.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import '../../services/stt_tts_service.dart';
@@ -426,6 +427,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Garden');
     _audio = ref.read(audioProvider);
     _tts = ref.read(ttsProvider);
     _soundOn = _audio.musicEnabled && _audio.sfxEnabled;
