@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_links/app_links.dart';
 import 'services/sounds.dart';
 import 'services/ella_api_service.dart';
+import 'services/analytics_service.dart';
 import 'providers/connectivity_provider.dart';
 import 'providers/service_providers.dart';
 import 'screens/login_screen.dart';
@@ -325,6 +326,7 @@ class _EllaHomeState extends State<_EllaHome> {
   }
 
   void _openProfile() {
+    AnalyticsService.logSettingsOpened();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const Scaffold(

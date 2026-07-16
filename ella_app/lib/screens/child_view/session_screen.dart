@@ -92,6 +92,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   void initState() {
     super.initState();
     AnalyticsService.logScreenView('Chat');
+    if (!widget.previewMode) {
+      final topicName = widget.initialTopic?.topic ?? 'Free Talk';
+      AnalyticsService.logConversationStarted(topicName);
+    }
     _tts = ref.read(ttsProvider);
     _chatNotifier = widget.previewMode ? null : ref.read(chatProvider.notifier);
     final nativeTts = ref.read(nativeTtsProvider);
@@ -262,6 +266,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     });
     
     if (!widget.previewMode) {
+      final chatState = ref.read(chatProvider).valueOrNull;
+      if (chatState != null && !chatState.sessionEnded) {
+        AnalyticsService.logConversationAbandoned(
+          topic: chatState.currentTopic?.topic ?? 'Free Talk',
+          turnCount: chatState.turnCount,
+        );
+      }
       final notifier = ref.read(chatProvider.notifier);
       await notifier.stopListening();
       

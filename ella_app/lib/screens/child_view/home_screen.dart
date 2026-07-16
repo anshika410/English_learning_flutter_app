@@ -21,6 +21,7 @@ import '../../providers/connectivity_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import 'all_topics_screen.dart';
@@ -197,6 +198,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
       _highlightStart = -1;
       _highlightEnd = -1;
     });
+    AnalyticsService.logTodayRecapOpened();
+    AnalyticsService.logDailyRecapOpened();
     try {
       await tts.speak(text);
     } catch (_) {

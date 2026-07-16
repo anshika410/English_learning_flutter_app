@@ -167,6 +167,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
   /// call while already started is a no-op.
   Future<void> start() async {
     if (state.started) return;
+    AnalyticsService.logPlacementStarted();
     ref.read(audioProvider).playSfx(Sounds.start);
     state = state.copyWith(started: true, status: ChatStatus.zoeThinking);
 
@@ -247,6 +248,8 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
     if (!state.isComplete) {
       state = state.copyWith(isComplete: true, status: ChatStatus.idle);
+      final turnNum = state.messages.where((m) => m.sender == MessageSender.child).length;
+      AnalyticsService.logPlacementAbandoned(turnNum);
     }
 
     // Hard check: pull the freshest memory and branch on placement level.
@@ -279,6 +282,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
     } catch (e) {
       // Keep the child unstuck: surface the error and return to idle so they can
       // retry their turn.
+      AnalyticsService.logPlacementFailed(e.toString());
       state = state.copyWith(
         status: ChatStatus.idle,
         error: 'Placement turn failed: $e',

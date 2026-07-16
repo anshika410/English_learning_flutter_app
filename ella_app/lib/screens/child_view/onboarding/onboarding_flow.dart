@@ -28,6 +28,7 @@ import '../../../providers/connectivity_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/sounds.dart';
+import '../../../services/analytics_service.dart';
 import '../../../services/stt_tts_service.dart';
 import '../placement_garden_screen.dart';
 import '../widgets/chat_reply_composer.dart';
@@ -93,6 +94,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logOnboardingStarted();
     _tts = ref.read(ttsProvider);
 
     final nativeTts = ref.read(nativeTtsProvider);
