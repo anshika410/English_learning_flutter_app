@@ -25,7 +25,7 @@ services:
     depends_on:
       - db
     volumes:
-      - ../frontend/assets/prompts:/app/assets/prompts:ro
+      - ./app/prompts:/app/assets/prompts:ro
 
 volumes:
   postgres_data:
