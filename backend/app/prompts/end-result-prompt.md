@@ -7,6 +7,10 @@ You are an expert English language coach. Analyze the following student conversa
 
 STUDENT LEVEL: {{LEVEL}} ({{LEVEL_LABEL}})
 TOPIC: {{TOPIC}}
+
+TARGET SKILLS FOR THIS SESSION:
+{{TARGET_SKILLS}}
+
 TRANSCRIPT:
 {{FULL_TRANSCRIPT}}
 
