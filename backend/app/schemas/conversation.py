@@ -63,6 +63,7 @@ class SessionLogGradedSkill(BaseModel):
     name: str
     confidence: float
     prompted: bool
+    support_level: str | None = None
     evidence: str
     reason: str
 
@@ -110,4 +111,3 @@ class ConversationTurnResponse(BaseModel):
     transcript: list[SessionLogTranscriptMessage]
     conversation_complete: bool = False
     prompt_debug: dict | None = None
-

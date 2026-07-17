@@ -33,7 +33,8 @@ class ChatProvider extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
   String _currentTranscript = '';
   bool _isListening = false;
-  bool _isMicRecognizing = false; // true only when recognizer is actively running
+  bool _isMicRecognizing =
+      false; // true only when recognizer is actively running
   bool _isLoading = false;
   bool _isSpeaking = false;
   bool _autoSpeak = true;
@@ -172,10 +173,15 @@ class ChatProvider extends ChangeNotifier {
     if (_messages.isNotEmpty) return;
     String starter;
     try {
-      final result = await _llm.generateConversationStarter(topic: topic);
+      final result = await _llm.generateConversationStarter(
+        topic: topic,
+        level: _userLevel ?? 'A1',
+      );
       starter = result.starter;
     } catch (_) {
-      starter = "Hi! I'm Zoe. What would you like to talk about today?";
+      starter = (_userLevel ?? '').toUpperCase() == 'A0'
+          ? 'Rice or noodles?'
+          : "Hi! I'm Zoe. What would you like to talk about today?";
     }
     _messages.add(ChatMessage(role: MessageRole.assistant, content: starter));
     notifyListeners();
@@ -205,7 +211,8 @@ class ChatProvider extends ChangeNotifier {
 
     // Create conversation on backend before starting
     await _api.ensureAuthenticated();
-    _conversationId = await _api.createConversation(topic: topic);
+    final createdSession = await _api.createConversation(topic: topic);
+    _conversationId = createdSession?.id;
     if (_conversationId != null) {
       debugPrint('✅ Backend conversation created: $_conversationId');
     } else {
@@ -215,20 +222,37 @@ class ChatProvider extends ChangeNotifier {
     String starter;
     String headerTitle;
     try {
-      // Try backend LLM first, fall back to direct
-      final backendResult = await _backendLlm.generateConversationStarter(topic: topic);
-      if (backendResult != null) {
-        starter = backendResult.starter;
-        headerTitle = backendResult.headerTitle;
-        debugPrint('LLM: using backend proxy');
+      final storedStarter = createdSession?.starter?.trim();
+      if (storedStarter != null && storedStarter.isNotEmpty) {
+        starter = storedStarter;
+        headerTitle = createdSession?.headerTitle?.trim().isNotEmpty == true
+            ? createdSession!.headerTitle!.trim()
+            : topic ?? 'Free Talk';
+        debugPrint('LLM: using starter stored with backend conversation');
       } else {
-        final result = await _llm.generateConversationStarter(topic: topic);
-        starter = result.starter;
-        headerTitle = result.headerTitle;
-        debugPrint('LLM: using direct DeepSeek (backend unavailable)');
+        // If session creation failed before producing a starter, try the
+        // stateless backend proxy, then the direct provider.
+        final backendResult = await _backendLlm.generateConversationStarter(
+          topic: topic,
+        );
+        if (backendResult != null) {
+          starter = backendResult.starter;
+          headerTitle = backendResult.headerTitle;
+          debugPrint('LLM: using stateless backend starter');
+        } else {
+          final result = await _llm.generateConversationStarter(
+            topic: topic,
+            level: _userLevel ?? 'A1',
+          );
+          starter = result.starter;
+          headerTitle = result.headerTitle;
+          debugPrint('LLM: using direct DeepSeek (backend unavailable)');
+        }
       }
     } catch (_) {
-      starter = "Hi! I'm Zoe. What would you like to talk about today?";
+      starter = (_userLevel ?? '').toUpperCase() == 'A0'
+          ? 'Rice or noodles?'
+          : "Hi! I'm Zoe. What would you like to talk about today?";
       headerTitle = topic ?? 'Free Talk';
     }
     _messages.add(ChatMessage(role: MessageRole.assistant, content: starter));
@@ -246,7 +270,9 @@ class ChatProvider extends ChangeNotifier {
   Future<EndResultAnalysis?> analyzeConversationEnd() async {
     // Mark conversation complete on backend
     if (_conversationId != null) {
-      final durationSeconds = _messages.isNotEmpty ? _messages.length * 30 : null;
+      final durationSeconds = _messages.isNotEmpty
+          ? _messages.length * 30
+          : null;
       _api.completeConversation(
         _conversationId!,
         durationSeconds: durationSeconds,
@@ -330,10 +356,6 @@ class ChatProvider extends ChangeNotifier {
         }
         _sttStartTime = null;
         notifyListeners();
-        if (transcript.isNotEmpty) {
-          await sendMessage(transcript, sttDuration: sttDuration);
-        }
-        _sttStartTime = null;
       } else {
         await _stt.stopListening();
         await _finishListening();
@@ -459,7 +481,9 @@ class ChatProvider extends ChangeNotifier {
 
     Duration? llmDuration;
     Duration? ttsDuration;
-    final turnNumber = _messages.where((m) => m.role == MessageRole.user).length;
+    final turnNumber = _messages
+        .where((m) => m.role == MessageRole.user)
+        .length;
 
     try {
       // --- LLM (backend proxy first, direct fallback) ---
@@ -485,15 +509,6 @@ class ChatProvider extends ChangeNotifier {
             );
             conversationComplete = backendResult.conversationComplete;
             llmDuration = DateTime.now().difference(llmStart);
-
-            // Persist user message to backend
-            _api.storeMessage(
-              conversationId: _conversationId!,
-              role: 'user',
-              content: text.trim(),
-              sttDurationMs: sttDuration?.inMilliseconds,
-              turnNumber: turnNumber,
-            );
           } else {
             throw Exception('Backend returned null');
           }
@@ -521,6 +536,19 @@ class ChatProvider extends ChangeNotifier {
         llmDuration = DateTime.now().difference(llmStart);
         reply = result.message;
         conversationComplete = result.conversationComplete;
+      }
+
+      // The stateless LLM endpoint does not store messages. Persist the user
+      // turn for both backend and direct-provider paths before saving Zoe's
+      // reply, so transcript order is deterministic for later analysis.
+      if (_conversationId != null) {
+        await _api.storeMessage(
+          conversationId: _conversationId!,
+          role: 'user',
+          content: text.trim(),
+          sttDurationMs: sttDuration?.inMilliseconds,
+          turnNumber: turnNumber,
+        );
       }
 
       // --- TTS ---
@@ -559,7 +587,7 @@ class ChatProvider extends ChangeNotifier {
 
       // Persist assistant message to backend
       if (_conversationId != null) {
-        _api.storeMessage(
+        await _api.storeMessage(
           conversationId: _conversationId!,
           role: 'assistant',
           content: reply.content,

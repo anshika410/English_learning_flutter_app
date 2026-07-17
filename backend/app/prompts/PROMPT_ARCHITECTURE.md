@@ -1,213 +1,230 @@
-# Ella Prompt Architecture — Complete Documentation
+# Ella Prompt Architecture
 
-## Overview
+## Design principle
 
-There are **12 prompt files** across 4 categories:
-- 3 Dynamic Templates (assembled at runtime with variables)
-- 6 Static Level Profiles (loaded as-is, no variables)
-- 3 Simulator-Only (not used by live app)
-- 1 Hardcoded in Python (no file)
+Ella's live conversation prompt is assembled from three independent layers:
 
----
+1. **Base** — invariant identity, safety, truth, meaning-first interaction, and repair behavior.
+2. **Level** — turn length, language complexity, question types, scaffolding depth, and correction policy.
+3. **Unit** — the current communicative goal, target skills, learner memory, elicitation plan, turn number, and closing.
 
-## DIAGRAM
+The layers have an explicit priority:
 
-```
-USER OPENS APP AND CHATS
-│
-├── PLACEMENT FLOW (first time)
-│   └── placement-check-prompt.md
-│       + {{NAME}} + {{AGE}}
-│       → DeepSeek → REPLY: or JSON assessment
-│
-├── CONVERSATION TURN (every turn)
-│   └── conversation-prompt.md  ← shell template
-│       + {{LEVEL_BLOCK}}       ← from profile-A0/A1/A2/B1/B2/C1.md
-│       + {{UNITNAME}}          ← from curriculum_data.py
-│       + {{UNITFOCUS}}         ← from curriculum_data.py
-│       + {{TARGETS}}           ← skill IDs + text for this session
-│       + {{ELICITATION}}       ← HOW to elicit those skills
-│       + {{STUDENT_MEMORY}}    ← facts about learner from DB
-│       + {{CURRENT_TURN}}      ← turn number (1-6)
-│       → DeepSeek → Zoe's reply
-│
-├── SESSION END (after conversation completes)
-│   └── end-result-prompt.md
-│       + {{LEVEL}}             ← learner's CEFR level
-│       + {{UNIT_LABEL}}        ← current unit name
-│       + {{TOPIC}}             ← session topic
-│       + {{TARGET_SKILLS}}     ← skill IDs aimed at this session
-│       + {{FULL_TRANSCRIPT}}   ← full conversation text
-│       → DeepSeek → JSON (scores, best moment, state changes)
-│
-└── CORRECTION HIGHLIGHT (separate call after each turn)
-    └── Hardcoded in llm_service.py (extract_correction_highlight)
-        + transcript injected inline
-        → DeepSeek → JSON (student_said, corrected, highlight_word)
+`safety → learner meaning/truth → natural conversation → unit target → language polish`
+
+This prevents a generic teaching habit from overriding the needs of a particular level. For example, the base prompt cannot force an A0 learner to repeat a recast, because the A0 profile defines modelling as last-resort support.
+
+## Live conversation assembly
+
+```text
+conversation-prompt.md
+├── {{BASE_BLOCK}}  ← base-prompt.md
+├── {{LEVEL_BLOCK}} ← profile-A0.md ... profile-C1.md
+└── {{UNIT_BLOCK}}  ← rendered conv-unit-framing.md
+    ├── unit name and focus
+    ├── target skill IDs and statements
+    ├── level-aware elicitation plan
+    ├── student memory
+    └── current turn
 ```
 
----
+Assembly happens in `app/services/llm_service.py → send_conversation_turn()`.
 
-## CATEGORY 1 — Dynamic Templates (live app)
+The conversation shell contains only hierarchy and output rules. It does not duplicate the base or unit content.
 
-### 1. `conversation-prompt.md`
-**What it does:** Main system prompt for every conversation turn. The shell that brings everything together.
-
-**Type:** Dynamic template — 7 variables substituted at runtime
-
-**Variables:**
-| Variable | Source | Example |
-|----------|--------|---------|
-| `{{LEVEL_BLOCK}}` | profile-XX.md file | "LEVEL: A0. Your role: ECHO-BUILDER..." |
-| `{{UNITNAME}}` | curriculum_data.py → active unit | "First words" |
-| `{{UNITFOCUS}}` | curriculum_data.py → active unit | "Naming the things I can see." |
-| `{{TARGETS}}` | curriculum_data.py → due_next skills | "- [U1-VOC-01] I can name colours..." |
-| `{{ELICITATION}}` | curriculum_data.py → plan_text() | "Ask: what colour is your bag?" |
-| `{{STUDENT_MEMORY}}` | DB → user.persona_memory | "- Likes cricket\n- Lives in Delhi" |
-| `{{CURRENT_TURN}}` | turn counter | "3" |
-
-**Used in:** `llm_service.py → send_conversation_turn()`
-
-**Final prompt size:** ~800-1200 words depending on level and memory
-
----
-
-### 2. `placement-check-prompt.md`
-**What it does:** Runs the placement screening. Zoe chats naturally for 5-9 turns to assess the learner's CEFR level without them knowing they're being tested.
-
-**Type:** Dynamic template — 2 variables substituted at runtime
-
-**Variables:**
-| Variable | Source | Example |
-|----------|--------|---------|
-| `{{NAME}}` | onboarding form | "Kavya" |
-| `{{AGE}}` | onboarding form | "14" |
-
-**Used in:** `llm_service.py → send_placement_turn()`
-
-**Output:** Either `REPLY: <question>` (still in conversation) OR JSON assessment with level, confidence, interests
-
----
-
-### 3. `end-result-prompt.md`
-**What it does:** Post-session analysis. After conversation ends, scores each targeted skill, extracts best moment, correction, memory facts.
-
-**Type:** Dynamic template — 5 variables substituted at runtime
-
-**Variables:**
-| Variable | Source | Example |
-|----------|--------|---------|
-| `{{LEVEL}}` | user.level from DB | "A1" |
-| `{{UNIT_LABEL}}` | current unit name | "Finding My Voice" |
-| `{{TOPIC}}` | session topic | "My school" |
-| `{{TARGET_SKILLS}}` | skill IDs aimed at session | "- U1-VOC-01: I can name colours..." |
-| `{{FULL_TRANSCRIPT}}` | all messages joined | "ZOE: Hi! STUDENT: Hello..." |
-
-**Used in:** `llm_service.py → analyze_and_grade_session()`
-
-**Output:** JSON with scores (0-1 confidence per skill), best_moment, correction_highlight, state_changes
-
----
-
-## CATEGORY 2 — Static Level Profiles (live app)
-
-These 6 files define **how Zoe behaves** at each CEFR level. Loaded at server startup into `_LEVEL_BLOCKS` dict. Injected into `conversation-prompt.md` as `{{LEVEL_BLOCK}}`.
-
-**No variables. Edit file → behavior changes immediately after redeploy.**
-
-### `profile-A0.md` — ECHO-BUILDER
-- Role: Repeat-after-me teacher
-- Length: 3–6 words per sentence
-- Only yes/no and this-or-that questions
-- Must ask learner to repeat words
-- Accept Hindi, reply with English word
-
-### `profile-A1.md` — CARRIER
-- Role: Carry the conversation
-- Length: 8–18 words per turn
-- Accept fragments, scaffold one extension
-- No correction, only natural recasting
-
-### `profile-A2.md` — BRIDGE-BUILDER
-- Role: Turn fragments into real conversation
-- Length: 10–22 words per turn
-- Simple open questions now allowed
-- Occasional echo of corrected form
-
-### `profile-B1.md` — SPACE-CREATOR
-- Role: Talk less, learner talks more
-- Length: 12–35 words per turn
-- Open questions for reasons/opinions
-- Gentle nudge correction only
-
-### `profile-B2.md` — SPARRING PARTNER
-- Role: Give learner something to push against
-- Length: 15–40 words per turn
-- Take positions, disagree playfully
-- Invite register shifts
-
-### `profile-C1.md` — PEER
-- Role: Genuinely interesting conversation partner
-- 2–3 sentences per turn
-- Abstract/philosophical topics
-- Precision feedback on word choice
-
----
-
-## CATEGORY 3 — Simulator-Only (NOT used by live app)
-
-These files exist for the loop simulator at `/v2/conversation-flow/`. They are fetched via `/admin/prompts` and displayed in the Glass Box panel.
+## Prompt files
 
 ### `base-prompt.md`
-Zoe's identity and absolute rules. In the simulator this is the "Base Prompt" layer. **In the live app, these rules are duplicated inside `conversation-prompt.md` directly.**
+
+Single source of truth for all conversation invariants:
+
+- respond to meaning before form
+- preserve truth and learner intent
+- ask at most one question
+- never re-ask answered information
+- use the least support needed
+- check uncertain speech instead of guessing
+- understand code-switching without penalising it
+- child safety and privacy
+
+The base prompt deliberately does not define a universal correction or question strategy. Those belong to the level profiles.
+
+### `profile-A0.md` through `profile-C1.md`
+
+Each profile controls:
+
+- Zoe's interaction role
+- output length
+- vocabulary and question complexity
+- expected learner output
+- scaffolding depth
+- correction behavior
+- how to increase challenge
+
+Current roles:
+
+| Level | Role | Core move |
+|---|---|---|
+| A0 | Meaning-Maker | Elicit truthful independent words and first sentences |
+| A1 | Carrier | Sustain a simple exchange and invite one detail |
+| A2 | Bridge-Builder | Connect short sentences into conversation |
+| B1 | Space-Creator | Leave room for developed reasons and examples |
+| B2 | Sparring Partner | Introduce positions, tensions, and trade-offs |
+| C1 | Peer | Explore nuance, framing, and implications |
 
 ### `conv-unit-framing.md`
-The unit/skill framing section. **In the live app, this content is baked into `conversation-prompt.md` directly.** This file is the standalone version used by the simulator's Client (Mock) mode.
+
+Controls the session-level teaching behavior:
+
+- one primary target; later targets are watch-only
+- one clear independent opportunity; at most one differently worded second opportunity when evidence is unclear
+- no repeated wording after an answer
+- learner language, not Zoe's model, is the evidence
+- coherent topic threads
+- memory use without invented assumptions
+- turn-6 closing contract
+
+### `conversation-prompt.md`
+
+Thin runtime shell. It inserts the base, level, and rendered unit blocks and defines the spoken-output contract.
+
+### `starter-prompt.md`
+
+Generates the first line for a topic-based session. It receives both the base
+prompt and active level profile, so safety, privacy, truth, and A0 elicitation
+rules apply from the first spoken line.
+
+Used by `generate_conversation_starter()`.
+
+### `placement-check-prompt.md`
+
+Standalone adaptive placement conversation:
+
+- receives `base-prompt.md`, so the same safety, privacy, truth, and AI-identity rules apply
+- six levels, A0 through C1
+- minimum five and maximum nine learner turns
+- concrete-to-complex adaptive probing
+- meaning-first support ladder
+- no correction or forced imitation
+- accent and code-switching are not proficiency scores
+- output includes level, confidence, evidence, interests, and next-session guidance
+
+### `end-result-prompt.md`
+
+Standalone post-session analysis and skill grader:
+
+- receives the exact target-skill list
+- records support as `spontaneous`, `open_question`, `choice`, `frame`, or `model`
+- allows one-word A0 best moments
+- caps imitation as partial A0 evidence unless independently adapted
+- extracts only explicit, stable, non-sensitive memory facts
+- returns one transcript note for every learner turn
+
+Runtime validation rejects fabricated best-moment and score-evidence quotes,
+and rebuilds transcript notes from the real learner turns.
+
+### `correction-extraction-prompt.md`
+
+Standalone focused correction selector. It returns `null` when:
+
+- speech may be misrecognised
+- the issue is accent, code-switching, or accepted Indian English
+- the only differences are minor
+- A0 language was copied from Zoe
+
+Used by `extract_correction_highlight()`.
 
 ### `zoe-judge-prompt.md`
-QA audit prompt. Scores Zoe's behavior on 10 dimensions (warmth, turn length, question stacking, escalation, etc.). **Only used in the simulator's Judge tab.** Never sent to DeepSeek in the live app.
 
----
+Simulator and QA audit prompt. It evaluates Zoe on:
 
-## CATEGORY 4 — Hardcoded in Python (no file)
+- the injected base rules and active level profile
+- meaning-first response
+- truth and memory accuracy
+- independent elicitation
+- support fit
+- question count
+- forward conversational flow
+- natural target steering
+- level fit
+- repair accuracy
+- correction fit
+- warmth without repetitive praise
+- safety and privacy
 
-### `_STARTER_PROMPT` (in `llm_service.py`)
-Generates Zoe's opening line for a new conversation. Short, rarely changes, so it stayed inline. Produces a 1-2 sentence starter + `TITLE: <header>`.
+## Elicitation planning
 
----
+The sole elicitation planner lives in `app/core/elicitation.py`.
 
-## Key Relationships
+It derives a communicative function from the actual target skill text. It does **not** infer the function from unit step number because step numbers mean different things at different levels.
 
+Examples:
+
+- A0 Step 2 → self-introduction, `I am`, and possession
+- A1 Step 2 → past events
+- B1 Step 2 → hedging, conditionals, and reported speech
+
+The old step-number mapper has been removed. It incorrectly treated every Step
+2 as past tense, every Step 4 as future, and every Step 5 as sequencing.
+
+Each generated plan contains:
+
+- target skill text
+- natural communicative move
+- possible prompt
+- fallback support
+- definition of learner evidence
+
+Unit IDs repeat across levels, so the planner resolves every unit skill with
+both its ID and active level. Unknown or level-mismatched targets are discarded
+instead of leaking a raw ID or another level's skill into the prompt.
+
+Progress storage scopes repeated unit IDs internally, for example
+`A0:U2-GRA-01`, while prompts and APIs continue to use the public ID
+`U2-GRA-01`. Persisted `due_next` data also carries its level and is rejected
+when stale or ambiguous.
+
+## Runtime flow
+
+```text
+New session
+└── starter-prompt.md
+    ├── base-prompt.md
+    └── active level profile
+
+Each conversation turn
+└── conversation-prompt.md
+    ├── base-prompt.md
+    ├── profile-{level}.md
+    └── conv-unit-framing.md
+        └── elicitation.py plan
+
+Placement
+└── placement-check-prompt.md
+    └── base-prompt.md
+
+Session completion
+├── end-result-prompt.md
+└── correction-extraction-prompt.md
+
+QA sample
+└── zoe-judge-prompt.md
+    ├── base-prompt.md
+    └── active level profile
 ```
-conversation-prompt.md
-    CONTAINS the rules from base-prompt.md (duplicated inline)
-    CONTAINS conv-unit-framing.md content (duplicated inline)
-    INJECTS profile-XX.md as {{LEVEL_BLOCK}}
 
-profile-*.md
-    Single source of truth for level behavior
-    Used by BOTH the live app AND the simulator Server tab
-    Edit here → changes everywhere after redeploy
+## Source-of-truth and mirrors
 
-placement-check-prompt.md
-    Completely standalone — does not use any other prompt
-    Has its own level criteria, conversation rules, output format
+Canonical prompt source:
 
-end-result-prompt.md
-    Completely standalone — post-session only
-    Receives the full transcript, returns structured JSON
+`backend/app/prompts/`
 
-zoe-judge-prompt.md
-    Simulator only — audits Zoe's behavior
-    Never reaches production users
-```
+The Flutter/simulator asset mirror is:
 
----
+`frontend/assets/prompts/`
 
-## Known Issues / Technical Debt
+The two directories must remain byte-for-byte synchronized for files used by both environments.
 
-1. **`base-prompt.md` and `conv-unit-framing.md` are duplicated** — their content exists both as standalone files AND embedded inside `conversation-prompt.md`. If you edit `base-prompt.md`, the live app doesn't change (it reads from `conversation-prompt.md`). Only the simulator's Client tab would change.
-
-2. **A0 profile compliance** — `profile-A0.md` rules are written as instructions but the LLM drifts toward fluent responses. Needs few-shot examples added to improve compliance.
-
-3. **`_STARTER_PROMPT` is hardcoded** — should eventually be moved to a `starter-prompt.md` file for consistency.
+The Flutter direct-LLM fallback assembles the same base + level + unit stack
+from this mirror. Backend and direct fallbacks also enforce completion from
+turn 6 even if the model omits the completion signal.

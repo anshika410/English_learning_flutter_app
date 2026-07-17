@@ -22,7 +22,8 @@ class BackendLlmService {
 
   // ── Conversation turn ────────────────────────────────────────────────────
 
-  Future<({String reply, String? correction, bool conversationComplete})?> sendConversationTurn({
+  Future<({String reply, String? correction, bool conversationComplete})?>
+  sendConversationTurn({
     required String conversationId,
     required List<ChatMessage> history,
     String? topic,
@@ -32,10 +33,12 @@ class BackendLlmService {
   }) async {
     final messages = history
         .where((m) => m.role != MessageRole.system)
-        .map((m) => {
-              'role': m.role == MessageRole.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
+        .map(
+          (m) => {
+            'role': m.role == MessageRole.user ? 'user' : 'assistant',
+            'content': m.content,
+          },
+        )
         .toList();
 
     final data = await _api.sendConversationTurn(
@@ -72,7 +75,7 @@ class BackendLlmService {
     final isComplete = data['is_complete'] as bool? ?? false;
     if (isComplete) {
       return PlacementMessageResult.complete(
-        levelCode: data['level_code'] as String?,
+        levelCode: (data['level'] ?? data['level_code']) as String?,
         levelName: (data['unit_name'] ?? data['level_name']) as String?,
         levelDescription: data['level_description'] as String?,
         confidence: data['confidence'] as String?,
@@ -100,10 +103,12 @@ class BackendLlmService {
   }) async {
     final msgList = messages
         .where((m) => m.role != MessageRole.system)
-        .map((m) => {
-              'role': m.role == MessageRole.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
+        .map(
+          (m) => {
+            'role': m.role == MessageRole.user ? 'user' : 'assistant',
+            'content': m.content,
+          },
+        )
         .toList();
 
     final data = await _api.getSessionAnalysis(
@@ -118,7 +123,8 @@ class BackendLlmService {
 
     try {
       final bestMoment = data['best_moment'] as Map<String, dynamic>? ?? {};
-      final courage = data['courage_or_motivation'] as Map<String, dynamic>? ?? {};
+      final courage =
+          data['courage_or_motivation'] as Map<String, dynamic>? ?? {};
       final tryNext = data['try_next_time'] as Map<String, dynamic>? ?? {};
       final notesRaw = data['transcript_notes'] as List<dynamic>? ?? [];
 
@@ -166,19 +172,19 @@ class PlacementMessageResult {
   final List<String>? interests;
 
   const PlacementMessageResult.reply(String text)
-      : reply = text,
-        isComplete = false,
-        levelCode = null,
-        levelName = null,
-        levelDescription = null,
-        confidence = null,
-        possibleHigher = null,
-        evidenceSummary = null,
-        turnsTaken = null,
-        notesForFirstSession = null,
-        extractedName = null,
-        extractedAge = null,
-        interests = null;
+    : reply = text,
+      isComplete = false,
+      levelCode = null,
+      levelName = null,
+      levelDescription = null,
+      confidence = null,
+      possibleHigher = null,
+      evidenceSummary = null,
+      turnsTaken = null,
+      notesForFirstSession = null,
+      extractedName = null,
+      extractedAge = null,
+      interests = null;
 
   const PlacementMessageResult.complete({
     this.levelCode,
@@ -192,6 +198,6 @@ class PlacementMessageResult {
     this.extractedName,
     this.extractedAge,
     this.interests,
-  })  : reply = null,
-        isComplete = true;
+  }) : reply = null,
+       isComplete = true;
 }

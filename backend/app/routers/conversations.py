@@ -25,7 +25,9 @@ async def create_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     from ..services import llm_service
-    from ..core.curriculum_data import UNITS, LEVEL_TOPICS
+    from ..core.curriculum_data import (
+        UNITS, LEVEL_TOPICS, targets_list_for, validate_due_next,
+    )
 
     # Determine aimed_at skills based on active unit step
     aimed_skills = []
@@ -40,7 +42,10 @@ async def create_conversation(
                 break
 
     if not active_unit_obj:
-        due = user.due_next or {}
+        due = validate_due_next(user.due_next, level)
+        if not due:
+            aimed = targets_list_for(user.skills_progress or {}, "unit", level)
+            due = {"primary": aimed[0] if aimed else None}
         primary_skill_id = due.get("primary")
         if primary_skill_id:
             for u in units:
@@ -95,9 +100,13 @@ async def create_conversation(
     try:
         starter_data = await llm_service.generate_conversation_starter(topic=topic_name, starters=starters, level=user.level or "A1")
         starter_text = starter_data["starter"]
-    except Exception as e:
-        # Fallback starter if LLM fails
-        starter_text = "Hi! I’m Zoe. Let's talk!"
+    except Exception:
+        # Keep the fallback compatible with the active level profile.
+        starter_text = (
+            "Rice or noodles?"
+            if level == "A0"
+            else "What would you like to talk about today?"
+        )
 
     conv = Conversation(user_id=user.id, topic=unit_name, header_title=topic_name)
     db.add(conv)
@@ -294,6 +303,7 @@ async def get_session_log(
             "name": get_skill_text(s.get("id"), user.level),
             "confidence": conf,
             "prompted": s.get("prompted", False),
+            "support_level": s.get("support_level"),
             "evidence": s.get("evidence") or "",
             "reason": get_miss_reason(conf),
         })
@@ -382,17 +392,16 @@ async def conversation_turn(
     unit_label = level_label_map.get(level_code.upper(), "Finding My Voice")
 
     # Resolve target skills
-    due_next = user.due_next or {}
+    from ..core.curriculum_data import (
+        make_due_next, targets_list_for, validate_due_next,
+    )
+    due_next = validate_due_next(user.due_next, level_code)
     if not due_next or not due_next.get("primary"):
-        from ..core.curriculum_data import targets_list_for
         session_type = conv.session_type or "unit"
         if session_type not in ("unit", "skill"):
             session_type = "unit"
         aimed = targets_list_for(user.skills_progress or {}, session_type, level_code)
-        due_next = {
-            "primary": aimed[0] if aimed else None,
-            "watching": aimed[1:] if len(aimed) > 1 else []
-        }
+        due_next = make_due_next(aimed, level_code)
 
     # 6. Call LLM service to get Zoe's response
     start_time = time.time()
