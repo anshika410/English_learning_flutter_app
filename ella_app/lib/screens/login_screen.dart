@@ -523,15 +523,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   // body copy, left-aligned.
   Widget _buildPrivacyNote() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SvgPicture.asset(_kShieldCheckAsset, width: 32, height: 32),
         const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            'Your learning data is protected. Learn how we use it',
-            style: EllaTextStyles.authBody.copyWith(fontSize: 15),
-          ),
+        Text(
+          'Your learning data is protected.',
+          style: EllaTextStyles.authBody.copyWith(fontSize: 15),
         ),
       ],
     );
