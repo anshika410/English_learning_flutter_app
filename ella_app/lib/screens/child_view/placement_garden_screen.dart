@@ -193,7 +193,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
   void _startPlacementResultBranch() {
     final known = ref.read(placementProvider).levelAssigned;
     if (known != null) {
-      _after(0, () => _onPlacementResolved(known));
+      _after(_reducedMotion ? 0 : 1000, () => _onPlacementResolved(known));
       return;
     }
     _after(_reducedMotion ? 500 : 6000, () {
@@ -209,11 +209,11 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
       // Abandoned placement: show the sprout with no CTA for a beat, then the
       // spotlight nudge that invites the child to talk again.
       setState(() => _phase = _Phase.placementSproutHold);
-      _after(_reducedMotion ? 0 : 1000, _beginSproutSpotlight);
+      _after(_reducedMotion ? 0 : 2000, _beginSproutSpotlight);
       return;
     }
     setState(() => _phase = _Phase.placementSprout);
-    _after(_reducedMotion ? 0 : 1000, _beginPlacementBloomReveal);
+    _after(_reducedMotion ? 0 : 2000, _beginPlacementBloomReveal);
   }
 
   void _beginOnboardingReveal() {
