@@ -44,13 +44,13 @@ class AllTopicsScreen extends ConsumerWidget {
                   onTap: () => Navigator.of(context).maybePop(),
                 ),
                 const SizedBox(height: 12),
-                const _MascotPrompt(text: 'Choose any topic that you like'),
+                const _MascotPrompt(text: "Choose a topic you'd like to talk about."),
                 const SizedBox(height: 18),
                 Expanded(
                   child: topics.isEmpty
                       ? Center(
                           child: Text(
-                            'No topics to show yet.',
+                            'New topics will appear here soon.',
                             style: EllaTextStyles.bodyBase.copyWith(
                               color: EllaColors.textSecondary,
                             ),

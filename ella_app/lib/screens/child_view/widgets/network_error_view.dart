@@ -33,7 +33,7 @@ class NetworkErrorView extends ConsumerWidget {
 
   const NetworkErrorView({
     super.key,
-    this.message = 'Please check your internet connection and try again.',
+    this.message = 'Connect to the internet, then try again.',
     required this.onRetry,
   });
 
@@ -60,7 +60,7 @@ class NetworkErrorView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    "No Internet Connection",
+                    "You're offline",
                     textAlign: TextAlign.center,
                     style: EllaTextStyles.titleMedium,
                   ),
@@ -76,7 +76,7 @@ class NetworkErrorView extends ConsumerWidget {
                   SizedBox(
                     width: 200,
                     child: EllaPrimaryButton(
-                      label: 'Refresh',
+                      label: 'Try Again',
                       height: 56,
                       leading: const Icon(
                         Icons.refresh_rounded,

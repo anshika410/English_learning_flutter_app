@@ -13,7 +13,7 @@ import '../services/sounds.dart';
 
 /// The single copy shown for any backend / server-side failure across the app.
 const String kGenericServerErrorMessage =
-    'Something went wrong. Please try again later.';
+    'Something went wrong. Try again';
 
 /// Shows the standard server-error toast. Pass a custom [message] only for a
 /// deliberately different, non-server message (input validation stays as its

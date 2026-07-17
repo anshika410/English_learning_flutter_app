@@ -573,7 +573,7 @@ class _EvidenceSection extends StatelessWidget {
             SvgPicture.asset(_talkIconAsset, width: 32, height: 32),
             const SizedBox(width: 12),
             Text(
-              'What You Said',
+              'You Said',
               style: EllaFonts.body(
                 const TextStyle(
                   fontSize: 16,
@@ -717,7 +717,7 @@ class _EmptySkillState extends StatelessWidget {
           SvgPicture.asset(_tileAsset, width: 63, height: 48),
           const SizedBox(height: 16),
           Text(
-            'Talk with Zoe to start growing this skill',
+            'Talk with Zoe to grow this skill.',
             key: const ValueKey('garden-empty-skill-message'),
             textAlign: TextAlign.center,
             style: EllaFonts.body(
@@ -765,7 +765,7 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'On Mastery, You Will Be Able To',
+          "When this blooms, you'll be able to",
           style: EllaFonts.body(
             const TextStyle(
               fontSize: 14,
