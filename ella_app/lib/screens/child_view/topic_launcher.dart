@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/topic_data.dart';
 import '../../providers/chat_provider.dart';
-import '../../providers/garden_provider.dart';
+import '../../services/analytics_service.dart';
 import 'session_screen.dart';
 
 /// Starts a session on the topic named [topicName]. If the previous session
@@ -22,16 +22,7 @@ Future<void> startTopicByName(
   String topicName, {
   VoidCallback? onConversationEnded,
 }) async {
-  if (ref.read(gardenPreviewEnabledProvider)) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            SessionScreen(previewMode: true, onEnded: onConversationEnded),
-      ),
-    );
-    return;
-  }
-
+  AnalyticsService.logTopicSelected(topicName);
   final chatState = ref.read(chatProvider);
   final level = chatState.hasValue ? chatState.requireValue.memory.level : 'A1';
   final engineTopic = Topic(

@@ -110,6 +110,7 @@ class EllaApiService {
 
   Future<bool> loginWithGoogle(String idToken) async {
     try {
+      AnalyticsService.logLoginStarted();
       final deviceId = await getDeviceId();
       final data = await _request(
         'POST',
@@ -263,6 +264,10 @@ class EllaApiService {
 
   Future<void> resetUserMemory() async {
     await _request('DELETE', '/users/me/memory');
+    // Also clear the profile name/age on the backend so the child goes through onboarding again.
+    try {
+      await updateProfile(name: '', age: 0);
+    } catch (_) {}
   }
 
   Future<void> deleteAccount() async {
@@ -547,6 +552,7 @@ class EllaApiService {
       response = await request.timeout(const Duration(seconds: 45));
     } catch (e) {
       _log('NETWORK ERROR  $method $path', '$e');
+      AnalyticsService.logApiFailed(path, e.toString());
       rethrow;
     }
 
@@ -557,9 +563,9 @@ class EllaApiService {
       return _request(method, path, auth: auth, body: body);
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw EllaApiException(
-        '$method $path HTTP ${response.statusCode}: ${response.body}',
-      );
+      final errorMsg = '$method $path HTTP ${response.statusCode}: ${response.body}';
+      AnalyticsService.logApiFailed(path, errorMsg);
+      throw EllaApiException(errorMsg);
     }
     if (response.body.trim().isEmpty) return {};
     final decoded = jsonDecode(response.body);

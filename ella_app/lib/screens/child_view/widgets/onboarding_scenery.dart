@@ -47,39 +47,47 @@ class OnboardingScenery extends StatelessWidget {
                 bottom: -(hillHeight - visibleHillHeight),
                 width: hillWidth,
                 height: hillHeight,
-                child: SvgPicture.asset(
-                  'assets/auth/onboarding-hills.svg',
-                  fit: BoxFit.fill,
+                child: RepaintBoundary(
+                  child: SvgPicture.asset(
+                    'assets/auth/onboarding-hills.svg',
+                    fit: BoxFit.fill,
+                  ),
                 ),
               ),
               Positioned(
                 left: width * 0.067,
                 bottom: _clampDouble(height * 0.026, 16, 26),
-                child: _SwayingBloom(
-                  asset: 'assets/gardent-view/plannts-vocobulary-bloom.svg',
-                  height: plantHeight,
-                  phaseMs: 0,
+                child: RepaintBoundary(
+                  child: _SwayingBloom(
+                    asset: 'assets/gardent-view/plannts-vocobulary-bloom.svg',
+                    height: plantHeight,
+                    phaseMs: 0,
+                  ),
                 ),
               ),
               Positioned(
                 right: width * 0.13,
                 bottom: _clampDouble(height * 0.044, 24, 42),
-                child: _SwayingBloom(
-                  asset: 'assets/gardent-view/plants-grammer-bloom.svg',
-                  height: plantHeight,
-                  phaseMs: 1200,
+                child: RepaintBoundary(
+                  child: _SwayingBloom(
+                    asset: 'assets/gardent-view/plants-grammer-bloom.svg',
+                    height: plantHeight,
+                    phaseMs: 1200,
+                  ),
                 ),
               ),
               Positioned(
                 right: -width * 0.004,
                 bottom: _clampDouble(height * 0.022, 14, 22),
-                child: _SwayingBloom(
-                  asset: 'assets/gardent-view/plants-fluency-bloom.svg',
-                  height: plantHeight,
-                  phaseMs: 2400,
+                child: RepaintBoundary(
+                  child: _SwayingBloom(
+                    asset: 'assets/gardent-view/plants-fluency-bloom.svg',
+                    height: plantHeight,
+                    phaseMs: 2400,
+                  ),
                 ),
               ),
-              child,
+              RepaintBoundary(child: child),
             ],
           ),
         );

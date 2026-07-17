@@ -10,10 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
-import '../../core/topic_preview_data.dart';
 import '../../models/child_memory.dart';
 import '../../providers/chat_provider.dart';
-import '../../providers/garden_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
@@ -29,14 +27,7 @@ class AllTopicsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final memory = ref.watch(chatProvider).asData?.value.memory;
-    final previewEnabled = ref.watch(gardenPreviewEnabledProvider);
-    final previewGarden = previewEnabled
-        ? ref.watch(gardenPreviewControllerProvider)
-        : null;
-    final previewLevel = previewGarden?.level;
-    final topics = previewEnabled
-        ? topicPreviewTopicsForLevel(previewLevel ?? 'A0')
-        : _topicsFrom(memory);
+    final topics = _topicsFrom(memory);
 
     // Scaffold gives a Material ancestor so Text renders without the debug
     // yellow underline (this screen is pushed as a bare route).
@@ -78,9 +69,7 @@ class AllTopicsScreen extends ConsumerWidget {
                                 columnCount;
 
                             return ListView.separated(
-                              key: ValueKey(
-                                'all-topics-list-${previewLevel ?? 'live'}',
-                              ),
+                              key: const ValueKey('all-topics-list'),
                               padding: const EdgeInsets.only(bottom: 4),
                               itemCount: rowCount,
                               separatorBuilder: (_, _) =>
@@ -166,15 +155,6 @@ class AllTopicsScreen extends ConsumerWidget {
                           },
                         ),
                 ),
-                if (previewEnabled) ...[
-                  const SizedBox(height: 12),
-                  _TopicPreviewLevelSelector(
-                    selectedLevel: previewLevel ?? 'A0',
-                    onSelected: (level) => ref
-                        .read(gardenPreviewControllerProvider.notifier)
-                        .selectLevel(level),
-                  ),
-                ],
               ],
             ),
           ),
@@ -337,90 +317,6 @@ class _TopicCard extends StatelessWidget {
               slotHeight: labelSlotHeight,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopicPreviewLevelSelector extends StatelessWidget {
-  final String selectedLevel;
-  final ValueChanged<String> onSelected;
-
-  const _TopicPreviewLevelSelector({
-    required this.selectedLevel,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('topic-preview-level-selector'),
-      height: 50,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: EllaColors.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: EllaColors.border, width: 1.5),
-      ),
-      child: Row(
-        children: [
-          for (var index = 0; index < gardenPreviewLevels.length; index++) ...[
-            if (index > 0) const SizedBox(width: 4),
-            Expanded(
-              child: _TopicPreviewLevelOption(
-                level: gardenPreviewLevels[index],
-                selected: selectedLevel == gardenPreviewLevels[index].code,
-                onTap: () => onSelected(gardenPreviewLevels[index].code),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicPreviewLevelOption extends StatelessWidget {
-  final GardenPreviewLevel level;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TopicPreviewLevelOption({
-    required this.level,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: 'Preview ${level.code} ${level.label} topics',
-      child: GestureDetector(
-        key: ValueKey('topic-preview-level-${level.code}'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          playTapClick();
-          onTap();
-        },
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? EllaColors.greenLight : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: selected
-                ? Border.all(color: EllaColors.greenDeep, width: 1.5)
-                : null,
-          ),
-          child: Text(
-            level.code,
-            style: EllaTextStyles.caption.copyWith(
-              color: selected ? EllaColors.greenDeep : EllaColors.ink,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
         ),
       ),
     );

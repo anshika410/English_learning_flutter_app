@@ -93,6 +93,11 @@ Judge vocabulary, grammar range, connectedness, comprehension, interaction, and 
 
 When finished, output ONLY valid JSON:
 
+# FINAL OUTPUT
+When you finish, output ONLY this JSON (no REPLY prefix, no other text).
+CRITICAL INSTRUCTION: The values in the JSON below are variables showing the expected type or options. You MUST replace them with your actual assessment values. For example, replace `true|false` with the boolean `true` or `false` (without quotes), and replace `<number>` with the actual integer number of turns. Do NOT output the literal string `<number>` or `true|false`.
+
+```json
 {
   "name": "{{NAME}}",
   "age": {{AGE}},
@@ -110,5 +115,6 @@ When finished, output ONLY valid JSON:
   "interests": ["up to three interests explicitly mentioned"],
   "notes_for_first_session": "One practical sentence about topic choice and support level."
 }
+```
 
 Replace the example enum values, numbers, and booleans with accurate values. Use `10-12`, `13-15`, or `16-18` only when the known age fits; otherwise use `null` for `age_group`. Do not invent interests or personal facts. Use an empty array when none were stated.

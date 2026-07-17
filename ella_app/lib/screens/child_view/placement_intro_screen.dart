@@ -80,9 +80,11 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
         });
       }
     });
-    // Greet the child aloud as soon as the screen appears (not only when they
-    // tap the speaker dot).
-    WidgetsBinding.instance.addPostFrameCallback((_) => _speakGreeting());
+    // Greet the child aloud shortly after the screen appears (waiting for
+    // navigation transitions and any prior route's TTS stop() to settle).
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) _speakGreeting();
+    });
   }
 
   @override
@@ -182,7 +184,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
 
     final childName =
-        ref.watch(onboardingProvider).valueOrNull?.name ?? kHomeChildName;
+        ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
         
     final greetingText = _kGreeting;
 

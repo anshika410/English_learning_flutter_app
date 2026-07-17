@@ -1,7 +1,7 @@
 // ConversationView — pure presentation for the voice-first conversation screen
 // (Figma "Learning Flow" call frames). No provider/engine imports: it takes
-// display inputs + callbacks so each state can be rendered from mock data (see
-// conversation_states_preview.dart) or from live ChatState (see session_screen).
+// display inputs + callbacks so each state can be rendered from mock data
+// or from live ChatState (see session_screen).
 //
 // Layout: garden sky/hills backdrop, the sprout mascot pinned near the top, the
 // current turn's bubbles (Zoe cream-left, student pink-right), and a bottom dock
@@ -51,7 +51,6 @@ class ConversationView extends StatelessWidget {
   final VoidCallback? onToggleKeyboard;
   final VoidCallback? onSend;
   final VoidCallback? onEnd;
-  final VoidCallback? onEndLongPress;
 
   /// Toggles TTS for Zoe's current line — powers the speaker dot straddling
   /// her bubble's top-right border (shown for every Zoe line, including the
@@ -83,7 +82,6 @@ class ConversationView extends StatelessWidget {
     this.onToggleKeyboard,
     this.onSend,
     this.onEnd,
-    this.onEndLongPress,
     this.onSpeakAgain,
     this.progress,
     this.highlightStart = -1,
@@ -189,7 +187,6 @@ class ConversationView extends StatelessWidget {
                           onMic: onMic,
                           onKeyboard: onToggleKeyboard,
                           onEnd: onEnd,
-                          onEndLongPress: onEndLongPress,
                         ),
                 )
               else
@@ -458,14 +455,12 @@ class _VoiceDock extends StatelessWidget {
   final VoidCallback? onMic;
   final VoidCallback? onKeyboard;
   final VoidCallback? onEnd;
-  final VoidCallback? onEndLongPress;
 
   const _VoiceDock({
     required this.micState,
     required this.onMic,
     required this.onKeyboard,
     required this.onEnd,
-    required this.onEndLongPress,
   });
 
   static const double _micSize = 100;
@@ -517,7 +512,6 @@ class _VoiceDock extends StatelessWidget {
                 shadow: EllaColors.errorDark,
                 size: _sideSize,
                 onTap: onEnd,
-                onLongPress: onEndLongPress,
               ),
             ),
             // Mic + label, raised and centred.
@@ -554,7 +548,6 @@ class _DockCircle extends StatelessWidget {
   final Color shadow;
   final double size;
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
 
   const _DockCircle({
     super.key,
@@ -564,7 +557,6 @@ class _DockCircle extends StatelessWidget {
     required this.shadow,
     required this.size,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
@@ -572,7 +564,6 @@ class _DockCircle extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: withTapClick(onTap),
-      onLongPress: onLongPress == null ? null : withTapClick(onLongPress!),
       child: Container(
         width: size,
         height: size,

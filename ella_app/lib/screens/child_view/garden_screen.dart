@@ -12,6 +12,7 @@ import 'dart:ui';
 
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -24,6 +25,7 @@ import '../../models/garden.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
 import '../../services/stt_tts_service.dart';
@@ -404,10 +406,10 @@ class GardenScreen extends ConsumerStatefulWidget {
 
 class _GardenScreenState extends ConsumerState<GardenScreen>
     with RouteAware, WidgetsBindingObserver {
-  // Last-seen garden payload while this screen is mounted. Used for preview
-  // growth and for the rare case where a conversation ends while the garden is
-  // already visible. Normal post-chat reveals are queued by ChatNotifier from
-  // an exact before/after backend diff.
+  // Last-seen garden payload while this screen is mounted. Used for the rare
+  // case where a conversation ends while the garden is already visible. Normal
+  // post-chat reveals are queued by ChatNotifier from an exact before/after
+  // backend diff.
   GardenData? _lastGardenData;
 
   // Captured in initState so dispose() never reads `ref` (unreliable while the
@@ -426,6 +428,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logScreenView('Garden');
     _audio = ref.read(audioProvider);
     _tts = ref.read(ttsProvider);
     _soundOn = _audio.musicEnabled && _audio.sfxEnabled;
@@ -561,10 +564,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
     return true;
   }
 
-  void _registerGardenForReveal(
-    GardenData data, {
-    required bool allowDebugInference,
-  }) {
+  void _registerGardenForReveal(GardenData data) {
     final postConversation = ref.read(postConversationGardenRevealProvider);
     final revealQueue = ref.read(gardenGrowthRevealProvider);
     if (postConversation != null) {
@@ -608,20 +608,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
     _lastGardenData = data;
     if (revealQueue.isNotEmpty) return;
 
-    final hasPreviewGrowth = data.steps
-        .expand((step) => step.skills)
-        .any(
-          (skill) =>
-              (skill.id.startsWith('preview-growth') ||
-                  skill.id.startsWith('preview-two')) &&
-              skill.sightings > 0,
-        );
-    final items = buildGardenGrowthRevealItems(
-      before: previous,
-      after: data,
-      inferFromAfter:
-          previous == null && allowDebugInference && hasPreviewGrowth,
-    );
+    final items = buildGardenGrowthRevealItems(before: previous, after: data);
     if (items.isNotEmpty) {
       ref.read(gardenGrowthRevealProvider.notifier).setQueue(items);
     }
@@ -668,10 +655,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
       }
       if (next is! AsyncData<GardenData>) return;
       final data = next.value;
-      _registerGardenForReveal(
-        data,
-        allowDebugInference: ref.read(gardenPreviewEnabledProvider),
-      );
+      _registerGardenForReveal(data);
     });
     final gardenAsync = ref.watch(gardenProvider);
     final postConversation = ref.watch(postConversationGardenRevealProvider);
@@ -692,10 +676,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
               (postConversation?.isResolved ?? false)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
-              _registerGardenForReveal(
-                data,
-                allowDebugInference: ref.read(gardenPreviewEnabledProvider),
-              );
+              _registerGardenForReveal(data);
             });
           }
           return _GardenView(
@@ -1132,15 +1113,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
         currentLevel: currentLevel,
         ownerFirstName: ownerFirstName,
       ),
-    );
-  }
-
-  void _showGardenPreviewSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const _GardenPreviewSheet(),
     );
   }
 
@@ -1599,14 +1571,11 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     // The student's actual current level (drives the "You're here" chip).
     final currentLevel = data.level;
     // The level being *viewed* — may be overridden when the student taps an
-    // unlocked garden in the switcher. In preview mode the preview controller
-    // already swaps `data.level`, so no override is needed there.
-    final previewEnabled = ref.watch(gardenPreviewEnabledProvider);
-    final viewedLevel = (previewEnabled || postConversation != null || revealQueue.isNotEmpty)
+    // unlocked garden in the switcher.
+    final viewedLevel = (postConversation != null || revealQueue.isNotEmpty)
         ? currentLevel
         : (ref.watch(selectedGardenLevelProvider) ?? currentLevel);
     final completedPreviousActive =
-        !previewEnabled &&
         postConversation == null &&
         revealQueue.isEmpty &&
         isViewingCompletedPreviousGarden(
@@ -1664,9 +1633,11 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     return Stack(
       children: [
         Positioned.fill(
-          child: _GardenBackdrop(
-            key: ValueKey('garden-backdrop-${spec.code}'),
-            spec: spec,
+          child: RepaintBoundary(
+            child: _GardenBackdrop(
+              key: ValueKey('garden-backdrop-${spec.code}'),
+              spec: spec,
+            ),
           ),
         ),
         Positioned(
@@ -1674,35 +1645,37 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           right: 0,
           top: scrollClipTop,
           bottom: 0,
-          child: _HillClippedScroll(
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              padding: EdgeInsets.only(
-                top: math.max(
-                  0.0,
-                  media.padding.top + _scrollStartY - scrollClipTop,
+          child: RepaintBoundary(
+            child: _HillClippedScroll(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: EdgeInsets.only(
+                  top: math.max(
+                    0.0,
+                    media.padding.top + _scrollStartY - scrollClipTop,
+                  ),
+                  bottom: media.padding.bottom + _ctaFadeHeight + 32,
                 ),
-                bottom: media.padding.bottom + _ctaFadeHeight + 32,
-              ),
-              child: displayData.steps.isEmpty
-                  ? const _EmptyGardenState()
-                  : Column(
-                      children: [
-                        for (var i = 0; i < displayData.steps.length; i++)
-                          _GardenUnitRow(
-                            data: displayData,
-                            step: displayData.steps[i],
-                            index: i,
-                            spec: spec,
-                            grownSkillIds: activeGrownSkillIds,
-                            skillAnchorFor: _skillAnchorKeyFor,
-                            plotAnchorKey: _plotAnchorKeyFor(
-                              displayData.steps[i],
+                child: displayData.steps.isEmpty
+                    ? const _EmptyGardenState()
+                    : Column(
+                        children: [
+                          for (var i = 0; i < displayData.steps.length; i++)
+                            _GardenUnitRow(
+                              data: displayData,
+                              step: displayData.steps[i],
+                              index: i,
+                              spec: spec,
+                              grownSkillIds: activeGrownSkillIds,
+                              skillAnchorFor: _skillAnchorKeyFor,
+                              plotAnchorKey: _plotAnchorKeyFor(
+                                displayData.steps[i],
+                              ),
+                              isPreviousGarden: completedPreviousActive,
                             ),
-                            isPreviousGarden: completedPreviousActive,
-                          ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
@@ -1710,38 +1683,41 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           left: 0,
           right: 0,
           top: 0,
-          child: _PinnedGardenHeader(
-            spec: spec,
-            levelName: levelName,
-            gardenTitle: "$titleName's Garden",
-            scrollProgress: (_scrollOffset / 88).clamp(0.0, 1.0),
-            soundOn: widget.soundOn,
-            onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-            onToggleSound: widget.onToggleSound,
-            onLevelTap: () => _showGardenSwitcherSheet(
-              currentLevel: currentLevel,
-              ownerFirstName: titleName,
+          child: RepaintBoundary(
+            child: _PinnedGardenHeader(
+              spec: spec,
+              levelName: levelName,
+              gardenTitle: "$titleName's Garden",
+              scrollProgress: (_scrollOffset / 88).clamp(0.0, 1.0),
+              soundOn: widget.soundOn,
+              onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+              onToggleSound: widget.onToggleSound,
+              onLevelTap: () => _showGardenSwitcherSheet(
+                currentLevel: currentLevel,
+                ownerFirstName: titleName,
+              ),
             ),
-            onLevelLongPress: previewEnabled ? _showGardenPreviewSheet : null,
           ),
         ),
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          child: AnimatedSwitcher(
-            duration: Duration(
-              milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 450,
+          child: RepaintBoundary(
+            child: AnimatedSwitcher(
+              duration: Duration(
+                milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 450,
+              ),
+              child: widget.showTalkBar && !modalLayerActive
+                  ? _LetsTalkBar(
+                      key: const ValueKey('garden-talk-bar-layer'),
+                      // The button returns to Home, where the child picks a topic
+                      // and starts a session (the garden no longer starts one
+                      // directly).
+                      onTalk: widget.onTalk,
+                    )
+                  : const SizedBox.shrink(),
             ),
-            child: widget.showTalkBar && !modalLayerActive
-                ? _LetsTalkBar(
-                    key: const ValueKey('garden-talk-bar-layer'),
-                    // The button returns to Home, where the child picks a topic
-                    // and starts a session (the garden no longer starts one
-                    // directly).
-                    onTalk: widget.onTalk,
-                  )
-                : const SizedBox.shrink(),
           ),
         ),
         if (revealLayerActive)
@@ -2045,7 +2021,6 @@ class _PinnedGardenHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onToggleSound;
   final VoidCallback? onLevelTap;
-  final VoidCallback? onLevelLongPress;
 
   const _PinnedGardenHeader({
     required this.spec,
@@ -2056,7 +2031,6 @@ class _PinnedGardenHeader extends StatelessWidget {
     required this.onBack,
     required this.onToggleSound,
     required this.onLevelTap,
-    this.onLevelLongPress,
   });
 
   @override
@@ -2110,7 +2084,6 @@ class _PinnedGardenHeader extends StatelessWidget {
                             levelName: levelName,
                             iconAsset: spec.iconAsset,
                             onTap: onLevelTap,
-                            onLongPress: onLevelLongPress,
                           ),
                         ),
                       ),
@@ -2205,12 +2178,10 @@ class _LevelSelectorPill extends StatelessWidget {
   final String levelName;
   final String iconAsset;
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
   const _LevelSelectorPill({
     required this.levelName,
     required this.iconAsset,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
@@ -2271,134 +2242,7 @@ class _LevelSelectorPill extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap == null ? null : withTapClick(onTap!),
-        onLongPress: onLongPress,
         child: pill,
-      ),
-    );
-  }
-}
-
-class _GardenPreviewSheet extends ConsumerWidget {
-  const _GardenPreviewSheet();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(gardenPreviewControllerProvider);
-    final controller = ref.read(gardenPreviewControllerProvider.notifier);
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        key: const ValueKey('garden-preview-sheet'),
-        decoration: const BoxDecoration(
-          color: EllaColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: EllaColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Garden level preview',
-                    style: EllaFonts.bricolage(
-                      const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
-                        color: EllaColors.ink,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  key: const ValueKey('garden-preview-close'),
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  color: EllaColors.textSecondary,
-                  tooltip: 'Close',
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final level in gardenPreviewLevels)
-                  _GardenPreviewLevelChip(
-                    level: level,
-                    selected: data.level == level.code,
-                    onTap: () {
-                      controller.selectLevel(level.code);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'To preview conversation outcomes, long-press End Call in the local preview chat.',
-              style: EllaTextStyles.caption.copyWith(
-                color: EllaColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GardenPreviewLevelChip extends StatelessWidget {
-  final GardenPreviewLevel level;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _GardenPreviewLevelChip({
-    required this.level,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      key: ValueKey('garden-preview-option-${level.code}'),
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        backgroundColor: selected ? EllaColors.greenLight : EllaColors.surface,
-        foregroundColor: selected ? EllaColors.greenDeep : EllaColors.ink,
-        side: BorderSide(
-          color: selected ? EllaColors.greenDeep : EllaColors.border,
-          width: selected ? 2.4 : 1.6,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      ),
-      child: Text(
-        '${level.code} ${level.label}',
-        style: EllaFonts.body(
-          const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
       ),
     );
   }
@@ -2471,12 +2315,7 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
   }
 
   void _onUnlockedTap(String code) {
-    final previewEnabled = ref.read(gardenPreviewEnabledProvider);
-    if (previewEnabled) {
-      ref.read(gardenPreviewControllerProvider.notifier).selectLevel(code);
-    } else {
-      ref.read(selectedGardenLevelProvider.notifier).state = code;
-    }
+    ref.read(selectedGardenLevelProvider.notifier).state = code;
     Navigator.of(context).pop();
   }
 
@@ -3271,13 +3110,19 @@ class _GardenUnitRow extends StatelessWidget {
                         Positioned(
                           left: sidePropOffset.dx,
                           top: sidePropOffset.dy,
-                          child: _SideProp(spec: spec),
+                          // Decorative: must never intercept taps meant for
+                          // the tiles/boulder underneath.
+                          child: IgnorePointer(child: _SideProp(spec: spec)),
                         ),
                         if (step.hasGrowth || index < 4)
                           Positioned(
                             left: ambientOffset.dx,
                             top: ambientOffset.dy,
-                            child: _AmbientCreature(kind: spec.ambientKind),
+                            // Decorative: the creature hovers over the tile
+                            // lattice and must never swallow tile taps.
+                            child: IgnorePointer(
+                              child: _AmbientCreature(kind: spec.ambientKind),
+                            ),
                           ),
                       ],
                     ),
@@ -3451,29 +3296,9 @@ class _UnitBoulder extends StatelessWidget {
                 ],
                 SizedBox(
                   width: safeTextWidth,
-                  child: Text(
+                  child: _BoulderLabel(
                     key: const ValueKey('garden-unit-sign-label'),
-                    name,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: EllaFonts.body(
-                      const TextStyle(
-                        fontSize: 14,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700,
-                        color: EllaColors.textSecondary,
-                        shadows: [
-                          // Light lower "lip" gives the letters a carved,
-                          // engraved-into-the-stone relief.
-                          Shadow(
-                            color: Color(0x66FFFFFF),
-                            offset: Offset(0, 1),
-                            blurRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                    ),
+                    text: name,
                   ),
                 ),
               ],
@@ -3481,6 +3306,72 @@ class _UnitBoulder extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BoulderLabel extends StatelessWidget {
+  final String text;
+
+  const _BoulderLabel({super.key, required this.text});
+
+  static const double _maxFontSize = 14;
+  static const double _minFontSize = 9.5;
+  static const int _maxLines = 3;
+
+  TextStyle _style(double fontSize) {
+    return EllaFonts.body(
+      TextStyle(
+        fontSize: fontSize,
+        height: 1.12,
+        fontWeight: FontWeight.w700,
+        color: EllaColors.textSecondary,
+        shadows: const [
+          // Light lower "lip" gives the letters a carved,
+          // engraved-into-the-stone relief.
+          Shadow(
+            color: Color(0x66FFFFFF),
+            offset: Offset(0, 1),
+            blurRadius: 0.5,
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _fittingFontSize(BuildContext context, double maxWidth) {
+    final textDirection = Directionality.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    for (
+      var fontSize = _maxFontSize;
+      fontSize >= _minFontSize;
+      fontSize -= 0.5
+    ) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _style(fontSize)),
+        maxLines: _maxLines,
+        textAlign: TextAlign.center,
+        textDirection: textDirection,
+        textScaler: textScaler,
+      )..layout(maxWidth: maxWidth);
+      if (!painter.didExceedMaxLines) return fontSize;
+    }
+    return _minFontSize;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fontSize = _fittingFontSize(context, constraints.maxWidth);
+        return Text(
+          text,
+          textAlign: TextAlign.center,
+          maxLines: _maxLines,
+          softWrap: true,
+          style: _style(fontSize),
+        );
+      },
     );
   }
 }
@@ -3769,7 +3660,7 @@ class _SideProp extends StatelessWidget {
 
 // ── Plot: turf-shadow ellipse + tile + bush + plants + butterfly ──────────────
 
-class _Plot extends StatelessWidget {
+class _Plot extends StatefulWidget {
   final GardenData data;
   final GardenStep step;
   final _GardenLevelVisualSpec spec;
@@ -3789,8 +3680,58 @@ class _Plot extends StatelessWidget {
   });
 
   @override
+  State<_Plot> createState() => _PlotState();
+}
+
+class _PlotState extends State<_Plot> {
+  // Skill whose tile is currently held down; that tile (and its plant) dip a
+  // few px so the child sees exactly which tile they hit.
+  String? _pressedSkillId;
+  // A tap plays the full dip choreography (down → spring back) before the
+  // skill sheet opens, so the feedback is always visible.
+  Timer? _tapSequenceTimer;
+  bool _tapSequenceRunning = false;
+
+  void _setPressed(String skillId, bool pressed) {
+    final next = pressed
+        ? skillId
+        : (_pressedSkillId == skillId ? null : _pressedSkillId);
+    if (next == _pressedSkillId) return;
+    setState(() => _pressedSkillId = next);
+  }
+
+  void _handleTileTap(String skillId, VoidCallback openSheet) {
+    if (_tapSequenceRunning) return;
+    _tapSequenceRunning = true;
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    if (reducedMotion) {
+      setState(() => _pressedSkillId = null);
+      _tapSequenceRunning = false;
+      openSheet();
+      return;
+    }
+    // Hold the dip long enough to land, release, let it spring back, then
+    // open the sheet.
+    setState(() => _pressedSkillId = skillId);
+    _tapSequenceTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      setState(() => _pressedSkillId = null);
+      _tapSequenceTimer = Timer(const Duration(milliseconds: 130), () {
+        _tapSequenceRunning = false;
+        if (mounted) openSheet();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _tapSequenceTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final skills = step.skills;
+    final skills = widget.step.skills;
     final tileSpots = _tileSpotsFor(skills.length);
 
     // Paint back-to-front (higher = further back) so front tiles/plants overlap
@@ -3803,7 +3744,7 @@ class _Plot extends StatelessWidget {
     final cols = math.max(1, math.sqrt(skills.length).ceil());
 
     return SizedBox(
-      key: plotAnchorKey,
+      key: widget.plotAnchorKey,
       width: _plotW,
       height: _plotH,
       child: Stack(
@@ -3812,16 +3753,26 @@ class _Plot extends StatelessWidget {
           // Turf shadow disc.
           Positioned(top: 9, left: 0, child: const _GardenPlate()),
           // Bush resting inside the turf-shadow ellipse (front-left).
-          Positioned(top: 66, left: 20, child: _PlotBush(tint: spec.bushTint)),
+          Positioned(
+            top: 66,
+            left: 20,
+            child: _PlotBush(tint: widget.spec.bushTint),
+          ),
           for (final i in order)
             _SkillTile(
               skill: skills[i],
               spot: tileSpots[i],
-              onTap: () => showSkillSheet(
-                context,
-                step,
-                skills[i],
-                isPreviousGarden: isPreviousGarden,
+              pressed: _pressedSkillId == skills[i].id,
+              onPressChanged: (pressed) =>
+                  _setPressed(skills[i].id, pressed),
+              onTap: () => _handleTileTap(
+                skills[i].id,
+                () => showSkillSheet(
+                  context,
+                  widget.step,
+                  skills[i],
+                  isPreviousGarden: widget.isPreviousGarden,
+                ),
               ),
             ),
           for (final i in order)
@@ -3830,14 +3781,9 @@ class _Plot extends StatelessWidget {
                 skill: skills[i],
                 spot: tileSpots[i],
                 swayDelayMs: ((i % cols) + (i ~/ cols)) * 400,
-                animateGrowth: grownSkillIds.contains(skills[i].id),
-                anchorKey: skillAnchorFor(skills[i].id),
-                onTap: () => showSkillSheet(
-                  context,
-                  step,
-                  skills[i],
-                  isPreviousGarden: isPreviousGarden,
-                ),
+                animateGrowth: widget.grownSkillIds.contains(skills[i].id),
+                anchorKey: widget.skillAnchorFor(skills[i].id),
+                pressed: _pressedSkillId == skills[i].id,
               ),
         ],
       ),
@@ -3933,13 +3879,84 @@ List<_TileSpot> _tileSpotsFor(int count) {
   ];
 }
 
+// How far a held tile (and its plant) sinks while the finger is down.
+const double _tilePressDip = 7.0;
+
+/// Press feedback shared by the tile and its plant: dips [_tilePressDip] px
+/// down while [pressed], springing back on release/cancel.
+class _TilePressDip extends StatelessWidget {
+  final bool pressed;
+  final Widget child;
+  const _TilePressDip({required this.pressed, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    return AnimatedContainer(
+      duration: Duration(milliseconds: reducedMotion ? 0 : 100),
+      curve: Curves.easeOut,
+      transform: Matrix4.translationValues(0, pressed ? _tilePressDip : 0, 0),
+      child: child,
+    );
+  }
+}
+
+/// Restricts hit testing to the tile's visible isometric footprint — the top
+/// diamond face plus the front thickness — instead of the full bounding box.
+/// Tiles overlap on the lattice (~48×24 spot spacing vs a 105×80 box), so a
+/// rectangular hit area lets a front tile's empty corner steal taps from the
+/// visible edge of the tile behind it. Rejected taps fall through to the
+/// correct tile in the plot Stack.
+class _TileFootprintHitBox extends SingleChildRenderObjectWidget {
+  const _TileFootprintHitBox({super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTileFootprintHitBox();
+}
+
+class _RenderTileFootprintHitBox extends RenderProxyBox {
+  // Tile SVG geometry (viewBox 105×80): top face is the diamond
+  // (52.5,7.5)-(97.5,30)-(52.5,52.5)-(7.5,30); the front thickness extends
+  // 18.75px below the lower face edges.
+  static const double _faceCenterX = 52.5;
+  static const double _faceCenterY = 30;
+  static const double _faceHalfW = 45;
+  static const double _faceHalfH = 22.5;
+  static const double _thickness = 18.75;
+
+  bool _inFootprint(Offset p) {
+    if (size.isEmpty) return false;
+    final x = p.dx * _tileW / size.width;
+    final y = p.dy * _tileH / size.height;
+    final u = (x - _faceCenterX).abs() / _faceHalfW;
+    if (u > 1) return false;
+    final faceTop = _faceCenterY - _faceHalfH * (1 - u);
+    final faceBottom = _faceCenterY + _faceHalfH * (1 - u);
+    return y >= faceTop && y <= faceBottom + _thickness;
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position) || !_inFootprint(position)) return false;
+    return super.hitTest(result, position: position);
+  }
+
+  @override
+  bool hitTestSelf(Offset position) => true;
+}
+
 class _SkillTile extends StatelessWidget {
   final GardenSkill skill;
   final _TileSpot spot;
+  final bool pressed;
+  final ValueChanged<bool> onPressChanged;
   final VoidCallback onTap;
   const _SkillTile({
     required this.skill,
     required this.spot,
+    required this.pressed,
+    required this.onPressChanged,
     required this.onTap,
   });
 
@@ -3955,12 +3972,25 @@ class _SkillTile extends StatelessWidget {
       left: spot.left,
       child: GestureDetector(
         key: ValueKey('garden-skill-tile-${skill.id}'),
+        onTapDown: (_) => onPressChanged(true),
+        // No onTapUp release: a completed tap hands the dip to the plot's tap
+        // sequence (dip lands → springs back → sheet opens). Only a cancelled
+        // gesture releases here.
+        onTapCancel: () => onPressChanged(false),
         onTap: withTapClick(onTap),
-        behavior: HitTestBehavior.translucent,
-        child: SizedBox(
-          width: _tileW,
-          height: _tileH,
-          child: SvgPicture.asset(tileAsset, fit: BoxFit.fill),
+        // deferToChild + _TileFootprintHitBox: only the visible isometric
+        // footprint is tappable; taps on the empty box corners fall through
+        // to the neighbouring tile behind this one.
+        behavior: HitTestBehavior.deferToChild,
+        child: _TilePressDip(
+          pressed: pressed,
+          child: _TileFootprintHitBox(
+            child: SizedBox(
+              width: _tileW,
+              height: _tileH,
+              child: SvgPicture.asset(tileAsset, fit: BoxFit.fill),
+            ),
+          ),
         ),
       ),
     );
@@ -3973,14 +4003,14 @@ class _SkillPlant extends StatelessWidget {
   final int swayDelayMs;
   final bool animateGrowth;
   final Key? anchorKey;
-  final VoidCallback onTap;
+  final bool pressed;
   const _SkillPlant({
     required this.skill,
     required this.spot,
     required this.swayDelayMs,
     required this.animateGrowth,
     this.anchorKey,
-    required this.onTap,
+    required this.pressed,
   });
 
   @override
@@ -3997,20 +4027,27 @@ class _SkillPlant extends StatelessWidget {
           plantHeight * _plantBaseYFrac +
           _plantVerticalNudgeFor(skill),
       left: spot.left + _tileW / 2 - _plantSlotW / 2,
-      child: SizedBox(
-        key: anchorKey,
-        width: _plantSlotW,
-        height: plantHeight,
-        child: SizedBox(
-          key: ValueKey('garden-plant-slot-${skill.id}'),
-          width: _plantSlotW,
-          height: plantHeight,
-          child: Center(
-            child: _Plant(
-              skill: skill,
-              swayDelayMs: swayDelayMs,
-              animateGrowth: animateGrowth,
-              onTap: onTap,
+      // The plant is invisible to hit testing: every tap falls through to the
+      // tile beneath it, so a planted tile is exactly as clickable as an empty
+      // one. The plant still dips with its tile via the shared pressed state.
+      child: IgnorePointer(
+        child: _TilePressDip(
+          pressed: pressed,
+          child: SizedBox(
+            key: anchorKey,
+            width: _plantSlotW,
+            height: plantHeight,
+            child: SizedBox(
+              key: ValueKey('garden-plant-slot-${skill.id}'),
+              width: _plantSlotW,
+              height: plantHeight,
+              child: Center(
+                child: _Plant(
+                  skill: skill,
+                  swayDelayMs: swayDelayMs,
+                  animateGrowth: animateGrowth,
+                ),
+              ),
             ),
           ),
         ),
@@ -4289,12 +4326,10 @@ class _Plant extends StatefulWidget {
   final GardenSkill skill;
   final int swayDelayMs;
   final bool animateGrowth;
-  final VoidCallback onTap;
   const _Plant({
     required this.skill,
     required this.swayDelayMs,
     required this.animateGrowth,
-    required this.onTap,
   });
 
   @override
@@ -4389,15 +4424,11 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
     };
     if (asset.isEmpty) return const SizedBox.shrink();
 
-    final art = GestureDetector(
-      onTap: withTapClick(widget.onTap),
-      behavior: HitTestBehavior.opaque,
-      child: SvgPicture.asset(
-        key: ValueKey('garden-plant-art-${widget.skill.id}'),
-        asset,
-        height: height,
-        fit: BoxFit.contain,
-      ),
+    final art = SvgPicture.asset(
+      key: ValueKey('garden-plant-art-${widget.skill.id}'),
+      asset,
+      height: height,
+      fit: BoxFit.contain,
     );
 
     return AnimatedBuilder(

@@ -33,6 +33,12 @@ class OnboardingState {
         name: name ?? this.name,
         age: age ?? this.age,
       );
+
+  String? get firstName {
+    final trimmed = name?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
 }
 
 class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
@@ -156,6 +162,14 @@ class OnboardingNotifier extends AsyncNotifier<OnboardingState> {
 
     // Unlike complete(), we don't swallow errors here so the UI can show them
     await api.updateProfile(name: name, age: age);
+
+    try {
+      await AnalyticsService.logProfileUpdated();
+      final userId = await api.getCachedUserId();
+      if (userId != null) {
+        await AnalyticsService.setUserProfile(userId: userId, name: name, age: age);
+      }
+    } catch (_) {}
 
     ref.read(placementProvider.notifier).seedProfile(name: name, age: age);
 

@@ -66,6 +66,8 @@ enum PlacementGardenMode {
 
 enum _Phase {
   empty,
+  revealSproutHold,
+  revealSpotlightOnly,
   reveal,
   exploreReady,
   settled,
@@ -113,8 +115,6 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
     _ => _Phase.empty,
   };
 
-
-
   final List<Timer> _timers = [];
   bool _started = false;
   bool _resolved = false;
@@ -129,6 +129,10 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
 
   bool get _isOnboardingReveal =>
       widget.mode == PlacementGardenMode.onboardingReveal;
+  bool get _revealSpotlightOn =>
+      _phase == _Phase.revealSpotlightOnly ||
+      _phase == _Phase.reveal ||
+      _phase == _Phase.exploreReady;
   bool get _revealLayerOn =>
       _phase == _Phase.reveal || _phase == _Phase.exploreReady;
   // The sprout spotlight callout (Zoe + nudge bubble) is on during the
@@ -189,7 +193,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
   void _startPlacementResultBranch() {
     final known = ref.read(placementProvider).levelAssigned;
     if (known != null) {
-      _after(0, () => _onPlacementResolved(known));
+      _after(_reducedMotion ? 0 : 1000, () => _onPlacementResolved(known));
       return;
     }
     _after(_reducedMotion ? 500 : 6000, () {
@@ -205,20 +209,35 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
       // Abandoned placement: show the sprout with no CTA for a beat, then the
       // spotlight nudge that invites the child to talk again.
       setState(() => _phase = _Phase.placementSproutHold);
-      _after(_reducedMotion ? 0 : 1000, _beginSproutSpotlight);
+      _after(_reducedMotion ? 0 : 2000, _beginSproutSpotlight);
       return;
     }
     setState(() => _phase = _Phase.placementSprout);
-    _after(_reducedMotion ? 0 : 1000, _beginPlacementBloomReveal);
+    _after(_reducedMotion ? 0 : 2000, _beginPlacementBloomReveal);
   }
 
   void _beginOnboardingReveal() {
     setState(() {
-      _phase = _Phase.reveal;
-      _zoeMode = ZoeMascotMode.speaking;
+      _phase = _Phase.revealSproutHold;
+      _zoeMode = ZoeMascotMode.listening;
     });
     unawaited(_audio.playSfx(Sounds.sprout));
-    unawaited(_speakRevealAndUnlockExplore());
+
+    _after(_reducedMotion ? 0 : 1500, () {
+      if (!mounted) return;
+      setState(() {
+        _phase = _Phase.revealSpotlightOnly;
+      });
+
+      _after(_reducedMotion ? 0 : 800, () {
+        if (!mounted) return;
+        setState(() {
+          _phase = _Phase.reveal;
+          _zoeMode = ZoeMascotMode.speaking;
+        });
+        unawaited(_speakRevealAndUnlockExplore());
+      });
+    });
   }
 
   void _beginPlacementBloomReveal() {
@@ -415,7 +434,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
   String get _resolvedName {
     final fromWidget = widget.onboardingName?.trim();
     if (fromWidget != null && fromWidget.isNotEmpty) return fromWidget;
-    final fromProvider = ref.read(onboardingProvider).valueOrNull?.name?.trim();
+    final fromProvider = ref.read(onboardingProvider).valueOrNull?.firstName;
     if (fromProvider != null && fromProvider.isNotEmpty) return fromProvider;
     return kHomeChildName;
   }
@@ -435,7 +454,8 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       _audio.stopMusic();
     } else if (state == AppLifecycleState.resumed && mounted) {
       final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
@@ -455,7 +475,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
 
     final name =
         widget.onboardingName ??
-        ref.watch(onboardingProvider).valueOrNull?.name ??
+        ref.watch(onboardingProvider).valueOrNull?.firstName ??
         kHomeChildName;
     final child = Scaffold(
       backgroundColor: const Color(0xFFDDEFE4),
@@ -470,43 +490,53 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
             key: const ValueKey('placement-garden-screen'),
             fit: StackFit.expand,
             children: [
-              const _PlacementGardenBackdrop(),
-              _PlacementDecorations(metrics: metrics),
+              const RepaintBoundary(child: _PlacementGardenBackdrop()),
+              RepaintBoundary(child: _PlacementDecorations(metrics: metrics)),
               Positioned(
                 left: metrics.headerPadding,
                 right: metrics.headerPadding,
                 top: metrics.headerTop,
-                child: PlacementGardenHeader(
-                  name: name,
-                  onBack: _handleBack,
-                  // Every garden speaker is a mute-only toggle for the ambient
-                  // garden music (matches the real garden's speaker button).
-                  trailing: const GardenSoundButton(size: 32),
+                child: RepaintBoundary(
+                  child: PlacementGardenHeader(
+                    name: name,
+                    onBack: _handleBack,
+                    // Every garden speaker is a mute-only toggle for the ambient
+                    // garden music (matches the real garden's speaker button).
+                    trailing: const GardenSoundButton(size: 32),
+                  ),
                 ),
               ),
               Positioned(
                 left: (constraints.maxWidth - metrics.plotWidth) / 2,
                 top: metrics.plotTop,
-                child: _PlacementPlot(
-                  width: metrics.plotWidth,
-                  showPlant: _showPlant,
-                  bloom: _showBloom,
-                  reducedMotion: _reducedMotion,
+                child: RepaintBoundary(
+                  child: _PlacementPlot(
+                    width: metrics.plotWidth,
+                    showPlant: _showPlant,
+                    bloom: _showBloom,
+                    reducedMotion: _reducedMotion,
+                  ),
                 ),
               ),
               Positioned(
                 left: metrics.fenceLeft,
                 right: metrics.fenceRight,
                 top: metrics.fenceTop,
-                child: _PlacementFence(scale: metrics.scale),
+                child: RepaintBoundary(
+                  child: _PlacementFence(scale: metrics.scale),
+                ),
               ),
               IgnorePointer(
                 child: AnimatedOpacity(
-                  opacity: (_revealLayerOn || _placementRevealLayerOn) ? 1 : 0,
+                  opacity: (_revealSpotlightOn || _placementRevealLayerOn)
+                      ? 1
+                      : 0,
                   duration: Duration(milliseconds: _reducedMotion ? 0 : 600),
-                  child: SpotlightOverlay(
-                    center: metrics.spotlightCenter,
-                    radius: metrics.spotlightRadius,
+                  child: RepaintBoundary(
+                    child: SpotlightOverlay(
+                      center: metrics.spotlightCenter,
+                      radius: metrics.spotlightRadius,
+                    ),
                   ),
                 ),
               ),
@@ -1183,7 +1213,8 @@ class _PlacementBloomBubble extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           TypewriterText(
-            text: "You've got a brand new garden\nwaiting with space for even more\nplants",
+            text:
+                "You've got a brand new garden\nwaiting with space for even more\nplants",
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.ink,
             ),

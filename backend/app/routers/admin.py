@@ -256,6 +256,62 @@ async def get_conversation_analysis(
         for ch in (sa.state_changes or [])
     ]
 
+    # Reconstruct the system prompt and raw response for developer debugging
+    judge_prompt = ""
+    judge_response = {}
+    try:
+        from pathlib import Path
+        import json
+        PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
+        template = (PROMPTS_DIR / "end-result-prompt.md").read_text()
+        
+        # Format transcript
+        formatted_transcript = "\n".join(
+            f"{'STUDENT' if m['role'] == 'me' else 'ZOE'}: {m['content']}"
+            for m in transcript
+        )
+        
+        # Format target skills
+        aimed_ids = sa.aimed_at or []
+        id_list = "\n".join(f"- {sid}: {get_skill_text(sid, level)}" for sid in aimed_ids) if aimed_ids else "None"
+        
+        # Reconstruct the template (with target skills fix)
+        template_fixed = template
+        if "{{TARGET_SKILLS}}" not in template:
+            template_fixed = template.replace("TRANSCRIPT:", "TARGET SKILLS:\n{{TARGET_SKILLS}}\n\nTRANSCRIPT:")
+            
+        judge_prompt = (
+            template_fixed
+            .replace("{{LEVEL}}", level)
+            .replace("{{LEVEL_LABEL}}", "First Words" if level == "A0" else level)
+            .replace("{{UNIT_LABEL}}", conv.topic or "First words")
+            .replace("{{TOPIC}}", conv.header_title or conv.topic or "Free Talk")
+            .replace("{{TARGET_SKILLS}}", id_list)
+            .replace("{{FULL_TRANSCRIPT}}", formatted_transcript)
+        )
+        
+        judge_response = {
+            "overall": sa.overall,
+            "zoe_recap": sa.zoe_recap,
+            "best_moment": {
+                "quote": sa.best_moment_quote,
+                "note": sa.best_moment_note
+            },
+            "correction_highlight": sa.correction_highlight,
+            "courage_or_motivation": {
+                "type": sa.courage_type,
+                "content": sa.courage_content
+            },
+            "try_next_time": {
+                "skill": sa.try_next_skill,
+                "example": sa.try_next_example
+            },
+            "scores": sa.skills_evidenced,
+            "transcript_notes": json.loads(sa.transcript_notes_json or "[]")
+        }
+    except Exception as e:
+        judge_prompt = f"Failed to reconstruct prompt: {str(e)}"
+
     return {
         "available": True,
         "session_id": conversation_id,
@@ -270,9 +326,14 @@ async def get_conversation_analysis(
         "scores": enriched_scores,
         "state_changes": enriched_changes,
         "best_moment": {"quote": sa.best_moment_quote, "note": sa.best_moment_note},
+        "courage": {"type": sa.courage_type, "content": sa.courage_content},
+        "try_next": {"skill": sa.try_next_skill, "example": sa.try_next_example},
+        "zoe_recap": sa.zoe_recap,
         "correction_highlight": sa.correction_highlight,
         "floor_pct": round(FLOOR * 100),
         "transcript": transcript,
+        "judge_prompt": judge_prompt,
+        "judge_response": judge_response,
     }
 
 

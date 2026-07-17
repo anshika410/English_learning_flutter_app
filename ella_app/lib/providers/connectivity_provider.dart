@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../services/analytics_service.dart';
 
 /// `true` when the device has a usable network interface (Wi-Fi, Cellular, etc).
 /// Streams live updates using connectivity_plus which hooks into the OS for instant,
@@ -16,6 +17,11 @@ final connectivityProvider = StreamProvider<bool>((ref) {
     
     if (lastEmitted != online) {
       lastEmitted = online;
+      if (online) {
+        AnalyticsService.logNetworkRestored();
+      } else {
+        AnalyticsService.logNetworkOffline();
+      }
       if (!controller.isClosed) {
         controller.add(online);
       }

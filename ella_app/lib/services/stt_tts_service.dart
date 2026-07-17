@@ -5,8 +5,10 @@
 
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'analytics_service.dart';
 
 // ── Shared emoji / non-speech unicode stripping ──────────────────────────────
+
 
 /// Regex that matches all common emoji and non-speech unicode codepoints.
 /// Shared by both TTS services and TypewriterText so offsets always align.
@@ -65,7 +67,17 @@ class SpeechToTextService implements SttInterface {
     // Idempotent: the first call triggers the OS mic-permission prompt via the
     // speech_to_text plugin; later calls are no-ops so we don't re-prompt.
     if (_ready) return;
-    _ready = await _stt.initialize();
+    _ready = await _stt.initialize(
+      onError: (error) {
+        AnalyticsService.logSttError(error.errorMsg, error.permanent ? 'permanent' : 'transient');
+        if (error.errorMsg == 'error_permission') {
+          AnalyticsService.logMicPermissionDenied();
+        }
+      },
+    );
+    if (!_ready) {
+      AnalyticsService.logMicPermissionDenied();
+    }
   }
 
   @override
@@ -75,6 +87,7 @@ class SpeechToTextService implements SttInterface {
   }) async {
     if (!_ready || _listening) return;
     _listening = true;
+    AnalyticsService.logSttStarted();
     _sessionPrefix = '';
     _lastWords = '';
 
@@ -90,6 +103,7 @@ class SpeechToTextService implements SttInterface {
           Future.delayed(const Duration(milliseconds: 300), () {
             if (!_listening && _stt.lastRecognizedWords.isEmpty) {
               final finalVal = _sessionPrefix.isEmpty ? _lastWords : "$_sessionPrefix $_lastWords";
+              AnalyticsService.logSttSuccess();
               onFinal(finalVal.trim());
             }
           });
@@ -113,6 +127,7 @@ class SpeechToTextService implements SttInterface {
 
         if (r.finalResult) {
           _listening = false;
+          AnalyticsService.logSttSuccess();
           onFinal(fullTranscript.trim());
         } else {
           onPartial(fullTranscript.trim());

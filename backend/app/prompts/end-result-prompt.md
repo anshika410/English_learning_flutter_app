@@ -35,11 +35,11 @@ Return ONLY valid JSON in this exact structure:
   ],
   "scores": [
     {
-      "id": "<exact target skill id>",
+      "id": "<COPY the skill id EXACTLY as given in the TARGET SKILLS list below — do not invent or rephrase>",
       "confidence": 0.0,
       "prompted": true,
       "support_level": "open_question",
-      "evidence": "<short exact learner quote or empty string>"
+      "evidence": "<exact substring from a STUDENT: line, or '' — DO NOT use words from ZOE: lines>"
     }
   ],
   "transcript_notes": [
@@ -69,6 +69,11 @@ Return ONLY valid JSON in this exact structure:
 - Do not award evidence when Zoe supplied the essential content and the learner only said yes/no, unless the target itself is comprehension or choice-making.
 
 ## Qualitative rules
+
+CRITICAL SCORING RULES:
+- Zoe's words are NEVER evidence, even if Zoe praises the student for using them. You MUST verify the exact words appear in a line starting with `STUDENT:`.
+- The `id` in each score entry MUST be copied EXACTLY from the TARGET SKILLS list. Do not invent, shorten, or rephrase IDs.
+- Only return scores for skills that appear in the TARGET SKILLS list.
 
 - Judge communication, independence, persistence, and level-appropriate range—not grammatical perfection.
 - `overall = good`: meaningful communication with manageable support.
