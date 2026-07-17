@@ -1,7 +1,7 @@
 // ConversationView — pure presentation for the voice-first conversation screen
 // (Figma "Learning Flow" call frames). No provider/engine imports: it takes
-// display inputs + callbacks so each state can be rendered from mock data (see
-// conversation_states_preview.dart) or from live ChatState (see session_screen).
+// display inputs + callbacks so each state can be rendered from mock data
+// or from live ChatState (see session_screen).
 //
 // Layout: garden sky/hills backdrop, the sprout mascot pinned near the top, the
 // current turn's bubbles (Zoe cream-left, student pink-right), and a bottom dock

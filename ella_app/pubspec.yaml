@@ -83,7 +83,6 @@ flutter:
 
   assets:
     - .env
-    - assets/mascot-animations/
     - assets/auth/
     - assets/chillax/
     - assets/homescreen/

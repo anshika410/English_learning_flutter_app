@@ -303,7 +303,7 @@ class MemoryState {
   };
 }
 
-// Lightweight message used by buildConvPrompt — no Flutter dependency.
+// Lightweight conversation message — no Flutter dependency.
 class ConvMessage {
   final String role; // 'zoe' | 'user' | 'sys'
   final String text;
