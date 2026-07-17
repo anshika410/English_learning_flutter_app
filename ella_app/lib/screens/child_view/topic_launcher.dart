@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/topic_data.dart';
 import '../../providers/chat_provider.dart';
-import '../../providers/garden_provider.dart';
 import '../../services/analytics_service.dart';
 import 'session_screen.dart';
 
@@ -24,16 +23,6 @@ Future<void> startTopicByName(
   VoidCallback? onConversationEnded,
 }) async {
   AnalyticsService.logTopicSelected(topicName);
-  if (ref.read(gardenPreviewEnabledProvider)) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            SessionScreen(previewMode: true, onEnded: onConversationEnded),
-      ),
-    );
-    return;
-  }
-
   final chatState = ref.read(chatProvider);
   final level = chatState.hasValue ? chatState.requireValue.memory.level : 'A1';
   final engineTopic = Topic(

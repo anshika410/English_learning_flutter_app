@@ -155,7 +155,6 @@ Widget _harness(
   _FakeAudioService? audio,
   StateProvider<GardenData>? gardenDataProvider,
   String childName = 'Narendra',
-  bool usePreviewProvider = false,
   bool previousGardenFails = false,
   PostConversationGardenReveal? postConversationReveal,
   Size mediaSize = const Size(430, 932),
@@ -169,7 +168,6 @@ Widget _harness(
     ttsProvider.overrideWithValue(tts ?? _ImmediateTtsService()),
     chatProvider.overrideWith(() => _FakeChatNotifier(data.level)),
     onboardingProvider.overrideWith(() => _FakeOnboardingNotifier(childName)),
-    gardenPreviewEnabledProvider.overrideWithValue(usePreviewProvider),
     previousGardenProvider.overrideWith(
       (ref, level) async => previousGardenFails
           ? throw const EllaApiException('previous_garden_unavailable')
@@ -181,12 +179,8 @@ Widget _harness(
             _SeededPostConversationRevealController(postConversationReveal),
       ),
     ...extraOverrides,
+    gardenProvider.overrideWith((ref) async => ref.watch(sourceProvider)),
   ];
-  if (!usePreviewProvider) {
-    overrides.add(
-      gardenProvider.overrideWith((ref) async => ref.watch(sourceProvider)),
-    );
-  }
 
   return ProviderScope(
     overrides: overrides,
@@ -393,9 +387,6 @@ Future<void> _pumpGarden(
   await tester.pump(const Duration(milliseconds: 10));
 }
 
-GardenSkill _previewGrowthSkill(ProviderContainer container) =>
-    container.read(gardenPreviewControllerProvider).steps.first.skills.first;
-
 Future<void> _pumpUntilSpeaking(
   WidgetTester tester,
   _ControllableTtsService tts,
@@ -444,105 +435,6 @@ void main() {
     SharedPreferences.setMockInitialValues({'ella_api_user_id': _testUserId});
   });
 
-  test('preview mock data has multiple units and mixed growth states', () {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-
-    final data = container.read(gardenPreviewControllerProvider);
-    final skills = data.steps.expand((step) => step.skills).toList();
-    final sightings = skills.map((skill) => skill.sightings).toSet();
-
-    expect(data.steps, hasLength(5));
-    expect(sightings, containsAll(<int>[0, 1, 2, 3]));
-    expect(skills.any((skill) => skill.evidence.length >= 2), isTrue);
-    expect(skills.any((skill) => skill.status == SkillStatus.owned), isTrue);
-  });
-
-  test('preview trigger advances growth and loops with a new skill id', () {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final controller = container.read(gardenPreviewControllerProvider.notifier);
-
-    final initialId = _previewGrowthSkill(container).id;
-    expect(_previewGrowthSkill(container).sightings, 0);
-
-    controller.triggerGrowth();
-    expect(_previewGrowthSkill(container).id, initialId);
-    expect(_previewGrowthSkill(container).sightings, 1);
-
-    controller.triggerGrowth();
-    expect(_previewGrowthSkill(container).id, initialId);
-    expect(_previewGrowthSkill(container).sightings, 2);
-
-    controller.triggerGrowth();
-    expect(_previewGrowthSkill(container).id, initialId);
-    expect(_previewGrowthSkill(container).sightings, 3);
-
-    controller.triggerGrowth();
-    expect(_previewGrowthSkill(container).id, isNot(initialId));
-    expect(_previewGrowthSkill(container).sightings, 1);
-  });
-
-  testWidgets('preview coordinator exposes and resolves a delayed judge', (
-    tester,
-  ) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final before = container.read(gardenPreviewControllerProvider);
-
-    container
-        .read(gardenConversationPreviewControllerProvider)
-        .start(
-          outcome: GardenPreviewConversationOutcome.watering,
-          judgeDelay: const Duration(seconds: 8),
-        );
-
-    final analyzing = container.read(postConversationGardenRevealProvider);
-    expect(analyzing?.isResolved, isFalse);
-    expect(analyzing?.turnCount, 4);
-    expect(container.read(gardenPreviewControllerProvider), same(before));
-
-    await tester.pump(const Duration(seconds: 7));
-    expect(
-      container.read(postConversationGardenRevealProvider)?.isResolved,
-      isFalse,
-    );
-
-    await tester.pump(const Duration(seconds: 1));
-    final resolved = container.read(postConversationGardenRevealProvider);
-    expect(resolved?.isResolved, isTrue);
-    expect(resolved?.sessionScores.single.evidence, contains('day'));
-    expect(container.read(gardenPreviewControllerProvider), same(before));
-  });
-
-  testWidgets('new preview result cancels a stale judge timer', (tester) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-
-    container
-        .read(gardenConversationPreviewControllerProvider)
-        .start(
-          outcome: GardenPreviewConversationOutcome.singleSkillGrowth,
-          judgeDelay: const Duration(seconds: 12),
-        );
-    container
-        .read(gardenConversationPreviewControllerProvider)
-        .start(
-          outcome: GardenPreviewConversationOutcome.quickHello,
-          judgeDelay: Duration.zero,
-        );
-
-    final quick = container.read(postConversationGardenRevealProvider);
-    expect(quick?.isResolved, isTrue);
-    expect(quick?.turnCount, 1);
-    final chatNumber = quick?.chatNumber;
-
-    await tester.pump(const Duration(seconds: 12));
-    final stillQuick = container.read(postConversationGardenRevealProvider);
-    expect(stillQuick?.chatNumber, chatNumber);
-    expect(_previewGrowthSkill(container).sightings, 0);
-  });
-
   testWidgets('known levels render their Figma garden labels', (tester) async {
     final cases = {
       'A0': 'Dawn Glade',
@@ -567,141 +459,6 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
     }
-  });
-
-  testWidgets('preview long-press pill opens QA sheet and switches gardens', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _harness(_gardenData(level: 'A0'), usePreviewProvider: true),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 10));
-
-    // The QA preview sheet now lives behind a long-press (tap opens the
-    // real garden switcher instead).
-    await tester.longPress(find.byKey(const ValueKey('garden-level-selector')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byKey(const ValueKey('garden-preview-sheet')), findsOneWidget);
-    expect(find.text('Garden level preview'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('garden-preview-trigger-growth')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('garden-preview-trigger-two-growth')),
-      findsNothing,
-    );
-    for (final level in gardenPreviewLevels) {
-      expect(find.text('${level.code} ${level.label}'), findsOneWidget);
-    }
-
-    await tester.tap(find.byKey(const ValueKey('garden-preview-option-B2')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Twilight Valley'), findsOneWidget);
-    expect(find.byKey(const ValueKey('garden-backdrop-B2')), findsOneWidget);
-
-    await tester.longPress(find.byKey(const ValueKey('garden-level-selector')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.byKey(const ValueKey('garden-preview-option-C1')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Starlight Summit'), findsOneWidget);
-    expect(find.byKey(const ValueKey('garden-backdrop-C1')), findsOneWidget);
-  });
-
-  testWidgets('preview growth trigger uses real growth animation path', (
-    tester,
-  ) async {
-    final audio = _FakeAudioService();
-    await tester.pumpWidget(
-      _harness(
-        _gardenData(level: 'A0'),
-        usePreviewProvider: true,
-        disableAnimations: false,
-        audio: audio,
-      ),
-    );
-    await tester.pump();
-
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(GardenScreen)),
-    );
-    final initialSkill = _previewGrowthSkill(container);
-    expect(initialSkill.sightings, 0);
-    expect(
-      find.byKey(ValueKey('garden-plant-scale-${initialSkill.id}')),
-      findsNothing,
-    );
-
-    container
-        .read(gardenConversationPreviewControllerProvider)
-        .start(
-          outcome: GardenPreviewConversationOutcome.singleSkillGrowth,
-          judgeDelay: Duration.zero,
-        );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1900));
-    await tester.pump();
-    await _pumpUntilSfx(tester, audio);
-
-    final grownSkill = _previewGrowthSkill(container);
-    expect(grownSkill.sightings, 1);
-    expect(grownSkill.evidence, hasLength(1));
-    expect(container.read(gardenGrowthRevealProvider), isNotEmpty);
-    expect(audio.playedSfx, contains(Sounds.newSprout));
-    expect(find.text('A new skill is sprouting'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('garden-growth-reveal-card')),
-      findsOneWidget,
-    );
-
-    final plantKey = ValueKey('garden-plant-scale-${grownSkill.id}');
-    expect(find.byKey(plantKey), findsOneWidget);
-  });
-
-  testWidgets('preview can trigger two skills in different units', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _harness(_gardenData(level: 'A0'), usePreviewProvider: true),
-    );
-    await tester.pump();
-
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(GardenScreen)),
-    );
-    container
-        .read(gardenConversationPreviewControllerProvider)
-        .start(
-          outcome: GardenPreviewConversationOutcome.twoSkillGrowth,
-          judgeDelay: Duration.zero,
-        );
-    await tester.pump();
-    await _pumpUntilRevealCard(tester);
-
-    final queue = container.read(gardenGrowthRevealProvider);
-    expect(queue, hasLength(2));
-    expect(queue.map((item) => item.skillId), [
-      'preview-two-a-c0',
-      'preview-two-b-c0',
-    ]);
-    expect(queue.map((item) => item.stepIndex), [1, 3]);
-    expect(find.text('Connect two ideas'), findsOneWidget);
-    expect(find.text('See Next Plant'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('garden-growth-reveal-cta')));
-    await tester.pump();
-    await _pumpUntilFound(tester, find.text('Use but for contrast'));
-
-    expect(find.text('Use but for contrast'), findsOneWidget);
-    expect(find.text('Explore Garden'), findsOneWidget);
   });
 
   test('growth reveal diff uses garden order and skips missing snapshot', () {
@@ -2483,20 +2240,8 @@ void main() {
     },
   );
 
-  testWidgets('current garden and preview mode skip completed previous intro', (
-    tester,
-  ) async {
+  testWidgets('current garden skips completed previous intro', (tester) async {
     await _pumpGarden(tester, _gardenData(level: 'B1'));
-    expect(
-      find.byKey(const ValueKey('garden-completed-previous-intro')),
-      findsNothing,
-    );
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpWidget(
-      _harness(_gardenData(level: 'B1'), usePreviewProvider: true),
-    );
-    await tester.pump();
     expect(
       find.byKey(const ValueKey('garden-completed-previous-intro')),
       findsNothing,

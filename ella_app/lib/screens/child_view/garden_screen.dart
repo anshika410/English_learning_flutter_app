@@ -406,10 +406,10 @@ class GardenScreen extends ConsumerStatefulWidget {
 
 class _GardenScreenState extends ConsumerState<GardenScreen>
     with RouteAware, WidgetsBindingObserver {
-  // Last-seen garden payload while this screen is mounted. Used for preview
-  // growth and for the rare case where a conversation ends while the garden is
-  // already visible. Normal post-chat reveals are queued by ChatNotifier from
-  // an exact before/after backend diff.
+  // Last-seen garden payload while this screen is mounted. Used for the rare
+  // case where a conversation ends while the garden is already visible. Normal
+  // post-chat reveals are queued by ChatNotifier from an exact before/after
+  // backend diff.
   GardenData? _lastGardenData;
 
   // Captured in initState so dispose() never reads `ref` (unreliable while the
@@ -564,10 +564,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
     return true;
   }
 
-  void _registerGardenForReveal(
-    GardenData data, {
-    required bool allowDebugInference,
-  }) {
+  void _registerGardenForReveal(GardenData data) {
     final postConversation = ref.read(postConversationGardenRevealProvider);
     final revealQueue = ref.read(gardenGrowthRevealProvider);
     if (postConversation != null) {
@@ -611,20 +608,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
     _lastGardenData = data;
     if (revealQueue.isNotEmpty) return;
 
-    final hasPreviewGrowth = data.steps
-        .expand((step) => step.skills)
-        .any(
-          (skill) =>
-              (skill.id.startsWith('preview-growth') ||
-                  skill.id.startsWith('preview-two')) &&
-              skill.sightings > 0,
-        );
-    final items = buildGardenGrowthRevealItems(
-      before: previous,
-      after: data,
-      inferFromAfter:
-          previous == null && allowDebugInference && hasPreviewGrowth,
-    );
+    final items = buildGardenGrowthRevealItems(before: previous, after: data);
     if (items.isNotEmpty) {
       ref.read(gardenGrowthRevealProvider.notifier).setQueue(items);
     }
@@ -671,10 +655,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
       }
       if (next is! AsyncData<GardenData>) return;
       final data = next.value;
-      _registerGardenForReveal(
-        data,
-        allowDebugInference: ref.read(gardenPreviewEnabledProvider),
-      );
+      _registerGardenForReveal(data);
     });
     final gardenAsync = ref.watch(gardenProvider);
     final postConversation = ref.watch(postConversationGardenRevealProvider);
@@ -695,10 +676,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
               (postConversation?.isResolved ?? false)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
-              _registerGardenForReveal(
-                data,
-                allowDebugInference: ref.read(gardenPreviewEnabledProvider),
-              );
+              _registerGardenForReveal(data);
             });
           }
           return _GardenView(
@@ -1135,15 +1113,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
         currentLevel: currentLevel,
         ownerFirstName: ownerFirstName,
       ),
-    );
-  }
-
-  void _showGardenPreviewSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const _GardenPreviewSheet(),
     );
   }
 
@@ -1602,14 +1571,11 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     // The student's actual current level (drives the "You're here" chip).
     final currentLevel = data.level;
     // The level being *viewed* — may be overridden when the student taps an
-    // unlocked garden in the switcher. In preview mode the preview controller
-    // already swaps `data.level`, so no override is needed there.
-    final previewEnabled = ref.watch(gardenPreviewEnabledProvider);
-    final viewedLevel = (previewEnabled || postConversation != null || revealQueue.isNotEmpty)
+    // unlocked garden in the switcher.
+    final viewedLevel = (postConversation != null || revealQueue.isNotEmpty)
         ? currentLevel
         : (ref.watch(selectedGardenLevelProvider) ?? currentLevel);
     final completedPreviousActive =
-        !previewEnabled &&
         postConversation == null &&
         revealQueue.isEmpty &&
         isViewingCompletedPreviousGarden(
@@ -1730,7 +1696,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
                 currentLevel: currentLevel,
                 ownerFirstName: titleName,
               ),
-              onLevelLongPress: previewEnabled ? _showGardenPreviewSheet : null,
             ),
           ),
         ),
@@ -2056,7 +2021,6 @@ class _PinnedGardenHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onToggleSound;
   final VoidCallback? onLevelTap;
-  final VoidCallback? onLevelLongPress;
 
   const _PinnedGardenHeader({
     required this.spec,
@@ -2067,7 +2031,6 @@ class _PinnedGardenHeader extends StatelessWidget {
     required this.onBack,
     required this.onToggleSound,
     required this.onLevelTap,
-    this.onLevelLongPress,
   });
 
   @override
@@ -2121,7 +2084,6 @@ class _PinnedGardenHeader extends StatelessWidget {
                             levelName: levelName,
                             iconAsset: spec.iconAsset,
                             onTap: onLevelTap,
-                            onLongPress: onLevelLongPress,
                           ),
                         ),
                       ),
@@ -2216,12 +2178,10 @@ class _LevelSelectorPill extends StatelessWidget {
   final String levelName;
   final String iconAsset;
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
   const _LevelSelectorPill({
     required this.levelName,
     required this.iconAsset,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
@@ -2282,134 +2242,7 @@ class _LevelSelectorPill extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap == null ? null : withTapClick(onTap!),
-        onLongPress: onLongPress,
         child: pill,
-      ),
-    );
-  }
-}
-
-class _GardenPreviewSheet extends ConsumerWidget {
-  const _GardenPreviewSheet();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(gardenPreviewControllerProvider);
-    final controller = ref.read(gardenPreviewControllerProvider.notifier);
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        key: const ValueKey('garden-preview-sheet'),
-        decoration: const BoxDecoration(
-          color: EllaColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: EllaColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Garden level preview',
-                    style: EllaFonts.bricolage(
-                      const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.35,
-                        color: EllaColors.ink,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  key: const ValueKey('garden-preview-close'),
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  color: EllaColors.textSecondary,
-                  tooltip: 'Close',
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final level in gardenPreviewLevels)
-                  _GardenPreviewLevelChip(
-                    level: level,
-                    selected: data.level == level.code,
-                    onTap: () {
-                      controller.selectLevel(level.code);
-                      Navigator.of(context).pop();
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'To preview conversation outcomes, long-press End Call in the local preview chat.',
-              style: EllaTextStyles.caption.copyWith(
-                color: EllaColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GardenPreviewLevelChip extends StatelessWidget {
-  final GardenPreviewLevel level;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _GardenPreviewLevelChip({
-    required this.level,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      key: ValueKey('garden-preview-option-${level.code}'),
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        backgroundColor: selected ? EllaColors.greenLight : EllaColors.surface,
-        foregroundColor: selected ? EllaColors.greenDeep : EllaColors.ink,
-        side: BorderSide(
-          color: selected ? EllaColors.greenDeep : EllaColors.border,
-          width: selected ? 2.4 : 1.6,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      ),
-      child: Text(
-        '${level.code} ${level.label}',
-        style: EllaFonts.body(
-          const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
       ),
     );
   }
@@ -2482,12 +2315,7 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
   }
 
   void _onUnlockedTap(String code) {
-    final previewEnabled = ref.read(gardenPreviewEnabledProvider);
-    if (previewEnabled) {
-      ref.read(gardenPreviewControllerProvider.notifier).selectLevel(code);
-    } else {
-      ref.read(selectedGardenLevelProvider.notifier).state = code;
-    }
+    ref.read(selectedGardenLevelProvider.notifier).state = code;
     Navigator.of(context).pop();
   }
 

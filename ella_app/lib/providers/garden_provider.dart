@@ -12,18 +12,24 @@ import '../models/garden.dart';
 import '../services/ella_api_service.dart';
 import 'service_providers.dart';
 
-const List<GardenPreviewLevel> gardenPreviewLevels = [
-  GardenPreviewLevel('A0', 'Dawn Glade'),
-  GardenPreviewLevel('A1', 'Morning Meadow'),
-  GardenPreviewLevel('A2', 'Midday Grove'),
-  GardenPreviewLevel('B1', 'Golden Orchard'),
-  GardenPreviewLevel('B2', 'Twilight Valley'),
-  GardenPreviewLevel('C1', 'Starlight Summit'),
-];
+/// A garden level: CEFR code plus its display name.
+class GardenLevel {
+  final String code;
+  final String label;
 
-/// Canonical ordered garden sequence (A0 → C1). Shared by the preview
-/// controller and the garden switcher sheet.
-const List<GardenPreviewLevel> gardenSequence = gardenPreviewLevels;
+  const GardenLevel(this.code, this.label);
+}
+
+/// Canonical ordered garden sequence (A0 → C1). Used by the garden switcher
+/// sheet and the level index helpers.
+const List<GardenLevel> gardenSequence = [
+  GardenLevel('A0', 'Dawn Glade'),
+  GardenLevel('A1', 'Morning Meadow'),
+  GardenLevel('A2', 'Midday Grove'),
+  GardenLevel('B1', 'Golden Orchard'),
+  GardenLevel('B2', 'Twilight Valley'),
+  GardenLevel('C1', 'Starlight Summit'),
+];
 
 /// One row in the garden switcher sheet.
 class GardenSwitcherEntry {
@@ -54,8 +60,7 @@ class GardenSwitcherEntry {
 /// card. Levels beyond the next one are omitted. When the current level is
 /// the last in the sequence, no locked entry is appended.
 ///
-/// An unknown/absent level falls back to the first entry in the sequence
-/// (mirrors [_previewLabelFor]).
+/// An unknown/absent level falls back to the first entry in the sequence.
 List<GardenSwitcherEntry> gardenSwitcherEntries(String currentLevel) {
   var currentIndex = gardenSequence.indexWhere((l) => l.code == currentLevel);
   if (currentIndex < 0) currentIndex = 0;
@@ -433,16 +438,13 @@ int _growthStageRank(GardenGrowthStage stage) => switch (stage) {
 List<GardenGrowthRevealItem> buildGardenGrowthRevealItems({
   required GardenData? before,
   required GardenData after,
-  bool inferFromAfter = false,
 }) {
-  if (before == null && !inferFromAfter) return const [];
+  if (before == null) return const [];
 
   final beforeById = <String, GardenSkill>{};
-  if (before != null) {
-    for (final step in before.steps) {
-      for (final skill in step.skills) {
-        beforeById[skill.id] = skill;
-      }
+  for (final step in before.steps) {
+    for (final skill in step.skills) {
+      beforeById[skill.id] = skill;
     }
   }
 
@@ -452,21 +454,9 @@ List<GardenGrowthRevealItem> buildGardenGrowthRevealItems({
     for (var skillIndex = 0; skillIndex < step.skills.length; skillIndex++) {
       final skill = step.skills[skillIndex];
       final previous = beforeById[skill.id];
-      final shouldInfer =
-          before == null &&
-          inferFromAfter &&
-          skill.sightings > 0 &&
-          (skill.id.startsWith('preview-growth') ||
-              skill.id.startsWith('preview-two') ||
-              items.isEmpty);
-      final grewExactly =
-          previous != null && skill.sightings > previous.sightings;
-      if (!grewExactly && !shouldInfer) continue;
+      if (previous == null || skill.sightings <= previous.sightings) continue;
 
-      final fromSightings = grewExactly
-          ? previous.sightings
-          : _inferredPreviousSightings(skill.sightings);
-      final fromStage = gardenGrowthStageFor(fromSightings);
+      final fromStage = gardenGrowthStageFor(previous.sightings);
       final toStage = gardenGrowthStageFor(skill.sightings);
       if (fromStage == toStage) continue;
 
@@ -602,12 +592,6 @@ GardenGrowthRevealItem? buildGardenWateringRevealItem({
   return null;
 }
 
-int _inferredPreviousSightings(int sightings) {
-  final capped = sightings >= 3 ? 3 : sightings;
-  if (capped <= 0) return 0;
-  return capped - 1;
-}
-
 GardenEvidence? _growthEvidenceFor(GardenSkill? before, GardenSkill after) {
   final beforeQuotes = {
     for (final evidence in before?.evidence ?? const <GardenEvidence>[])
@@ -647,138 +631,7 @@ GardenEvidence? _evidenceFromScore(SkillScore? score) {
   );
 }
 
-final gardenPreviewEnabledProvider = Provider<bool>(
-  (ref) => const bool.fromEnvironment('GARDEN_PREVIEW'),
-);
-
-final gardenPreviewControllerProvider =
-    StateNotifierProvider<GardenPreviewController, GardenData>(
-      (ref) => GardenPreviewController(),
-    );
-
-enum GardenPreviewConversationOutcome {
-  singleSkillGrowth,
-  twoSkillGrowth,
-  watering,
-  quickHello,
-}
-
-extension GardenPreviewConversationOutcomeCopy
-    on GardenPreviewConversationOutcome {
-  String get label => switch (this) {
-    GardenPreviewConversationOutcome.singleSkillGrowth => 'Single-skill growth',
-    GardenPreviewConversationOutcome.twoSkillGrowth => 'Two-skill growth',
-    GardenPreviewConversationOutcome.watering => 'No growth — watering',
-    GardenPreviewConversationOutcome.quickHello => 'Quick hello',
-  };
-
-  String get description => switch (this) {
-    GardenPreviewConversationOutcome.singleSkillGrowth =>
-      'One plant advances to its next stage.',
-    GardenPreviewConversationOutcome.twoSkillGrowth =>
-      'Two plants advance and reveal in garden order.',
-    GardenPreviewConversationOutcome.watering =>
-      'A full conversation ends without a stage change.',
-    GardenPreviewConversationOutcome.quickHello =>
-      'Fewer than three turns; no plant is spotlighted.',
-  };
-}
-
-final gardenConversationPreviewControllerProvider =
-    Provider<GardenConversationPreviewController>((ref) {
-      final controller = GardenConversationPreviewController(ref);
-      ref.onDispose(controller.dispose);
-      return controller;
-    });
-
-/// Drives the production post-conversation handoff using only preview data.
-///
-/// The controller intentionally outlives [SessionScreen]: the judge timer starts
-/// before Zoe's farewell and may resolve after the chat route has popped and the
-/// garden has mounted. It never calls the Ella API or mutates live learner
-/// memory.
-class GardenConversationPreviewController {
-  final Ref _ref;
-  Timer? _judgeTimer;
-  int _chatNumber = 100000;
-
-  GardenConversationPreviewController(this._ref);
-
-  void start({
-    required GardenPreviewConversationOutcome outcome,
-    required Duration judgeDelay,
-  }) {
-    _judgeTimer?.cancel();
-    _ref.read(gardenGrowthRevealProvider.notifier).clear();
-    _ref.read(postConversationGardenRevealProvider.notifier).clear();
-
-    final gardenController = _ref.read(
-      gardenPreviewControllerProvider.notifier,
-    );
-    final beforeGarden = _ref.read(gardenPreviewControllerProvider);
-    final targetSkillIds = gardenController.targetSkillIdsFor(outcome);
-    final before = _previewMemoryFromGarden(
-      beforeGarden,
-      targetSkillIds: targetSkillIds,
-    );
-    final chatNumber = ++_chatNumber;
-    final turnCount = outcome == GardenPreviewConversationOutcome.quickHello
-        ? 1
-        : 4;
-
-    _ref
-        .read(postConversationGardenRevealProvider.notifier)
-        .begin(
-          chatNumber: chatNumber,
-          turnCount: turnCount,
-          targetSkillIds: targetSkillIds,
-          before: before,
-        );
-
-    void resolve() {
-      switch (outcome) {
-        case GardenPreviewConversationOutcome.singleSkillGrowth:
-          gardenController.triggerGrowth();
-          break;
-        case GardenPreviewConversationOutcome.twoSkillGrowth:
-          gardenController.triggerTwoSkillsGrowth();
-          break;
-        case GardenPreviewConversationOutcome.watering:
-        case GardenPreviewConversationOutcome.quickHello:
-          break;
-      }
-
-      final afterGarden = _ref.read(gardenPreviewControllerProvider);
-      final after = _previewMemoryFromGarden(
-        afterGarden,
-        targetSkillIds: targetSkillIds,
-      );
-      _ref
-          .read(postConversationGardenRevealProvider.notifier)
-          .resolve(
-            chatNumber: chatNumber,
-            turnCount: turnCount,
-            targetSkillIds: targetSkillIds,
-            before: before,
-            after: after,
-            sessionScores: _previewScoresFor(outcome, targetSkillIds),
-          );
-    }
-
-    if (judgeDelay <= Duration.zero) {
-      resolve();
-    } else {
-      _judgeTimer = Timer(judgeDelay, resolve);
-    }
-  }
-
-  void dispose() => _judgeTimer?.cancel();
-}
-
 final gardenProvider = FutureProvider.autoDispose<GardenData>((ref) async {
-  if (ref.watch(gardenPreviewEnabledProvider)) {
-    return ref.watch(gardenPreviewControllerProvider);
-  }
   final api = ref.read(ellaApiServiceProvider);
   return api.getGarden();
 });
@@ -799,384 +652,3 @@ final previousGardenProvider = FutureProvider.autoDispose
       return garden;
     });
 
-class GardenPreviewLevel {
-  final String code;
-  final String label;
-
-  const GardenPreviewLevel(this.code, this.label);
-}
-
-class GardenPreviewController extends StateNotifier<GardenData> {
-  String _level = gardenPreviewLevels.first.code;
-  int _growthSightings = 0;
-  int _growthCycle = 0;
-  int _twoSkillGrowthSightings = 0;
-  int _twoSkillGrowthCycle = 0;
-
-  GardenPreviewController()
-    : super(
-        _buildPreviewGarden(
-          level: gardenPreviewLevels.first.code,
-          growthSightings: 0,
-          growthCycle: 0,
-          twoSkillGrowthSightings: 0,
-          twoSkillGrowthCycle: 0,
-        ),
-      );
-
-  void selectLevel(String level) {
-    if (!_isPreviewLevel(level)) return;
-    _level = level;
-    _growthSightings = 0;
-    _growthCycle++;
-    _twoSkillGrowthSightings = 0;
-    _twoSkillGrowthCycle++;
-    _refresh();
-  }
-
-  void triggerGrowth() {
-    if (_growthSightings >= 3) {
-      _growthCycle++;
-      _growthSightings = 1;
-    } else {
-      _growthSightings++;
-    }
-    _refresh();
-  }
-
-  void triggerTwoSkillsGrowth() {
-    if (_twoSkillGrowthSightings >= 3) {
-      _twoSkillGrowthCycle++;
-      _twoSkillGrowthSightings = 1;
-    } else {
-      _twoSkillGrowthSightings++;
-    }
-    _refresh();
-  }
-
-  List<String> targetSkillIdsFor(
-    GardenPreviewConversationOutcome outcome,
-  ) => switch (outcome) {
-    GardenPreviewConversationOutcome.singleSkillGrowth => [
-      'preview-growth-c${_growthSightings >= 3 ? _growthCycle + 1 : _growthCycle}',
-    ],
-    GardenPreviewConversationOutcome.twoSkillGrowth => [
-      'preview-two-a-c${_twoSkillGrowthSightings >= 3 ? _twoSkillGrowthCycle + 1 : _twoSkillGrowthCycle}',
-      'preview-two-b-c${_twoSkillGrowthSightings >= 3 ? _twoSkillGrowthCycle + 1 : _twoSkillGrowthCycle}',
-    ],
-    GardenPreviewConversationOutcome.watering ||
-    GardenPreviewConversationOutcome.quickHello => const ['preview-u3-s0'],
-  };
-
-  void _refresh() {
-    state = _buildPreviewGarden(
-      level: _level,
-      growthSightings: _growthSightings,
-      growthCycle: _growthCycle,
-      twoSkillGrowthSightings: _twoSkillGrowthSightings,
-      twoSkillGrowthCycle: _twoSkillGrowthCycle,
-    );
-  }
-}
-
-MemoryState _previewMemoryFromGarden(
-  GardenData garden, {
-  required List<String> targetSkillIds,
-}) {
-  final owned = <String>[];
-  final emerging = <String>[];
-  final sightings = <String, int>{};
-  for (final step in garden.steps) {
-    for (final skill in step.skills) {
-      sightings[skill.id] = skill.sightings;
-      switch (skill.status) {
-        case SkillStatus.owned:
-          owned.add(skill.id);
-        case SkillStatus.emerging:
-          emerging.add(skill.id);
-        case SkillStatus.locked:
-          break;
-      }
-    }
-  }
-  return MemoryState(
-    childId: 'garden-preview',
-    level: garden.level,
-    owned: owned,
-    emerging: emerging,
-    sightings: sightings,
-    dueNext: DueNext(
-      primary: targetSkillIds.isEmpty ? null : targetSkillIds.first,
-      watching: targetSkillIds.skip(1).toList(growable: false),
-    ),
-  );
-}
-
-List<SkillScore> _previewScoresFor(
-  GardenPreviewConversationOutcome outcome,
-  List<String> targetSkillIds,
-) => switch (outcome) {
-  GardenPreviewConversationOutcome.singleSkillGrowth => [
-    SkillScore(
-      id: targetSkillIds.first,
-      confidence: 0.92,
-      prompted: false,
-      evidence: 'I chose a more precise word for my story.',
-    ),
-  ],
-  GardenPreviewConversationOutcome.twoSkillGrowth => [
-    SkillScore(
-      id: targetSkillIds.first,
-      confidence: 0.94,
-      prompted: false,
-      evidence: 'I connected my ideas into one clear answer.',
-    ),
-    SkillScore(
-      id: targetSkillIds.last,
-      confidence: 0.89,
-      prompted: false,
-      evidence: 'I used but to show the difference.',
-    ),
-  ],
-  GardenPreviewConversationOutcome.watering => [
-    SkillScore(
-      id: targetSkillIds.first,
-      confidence: 0.86,
-      prompted: false,
-      evidence: 'I told Zoe about a day I really enjoyed.',
-    ),
-  ],
-  GardenPreviewConversationOutcome.quickHello => const [],
-};
-
-bool _isPreviewLevel(String level) =>
-    gardenPreviewLevels.any((entry) => entry.code == level);
-
-String _previewLabelFor(String level) => gardenPreviewLevels
-    .firstWhere(
-      (entry) => entry.code == level,
-      orElse: () => gardenPreviewLevels.first,
-    )
-    .label;
-
-GardenData _buildPreviewGarden({
-  required String level,
-  required int growthSightings,
-  required int growthCycle,
-  required int twoSkillGrowthSightings,
-  required int twoSkillGrowthCycle,
-}) {
-  final label = _previewLabelFor(level);
-  return GardenData(
-    level: level,
-    levelLabel: label,
-    theme: label,
-    activeStepIndex: 2,
-    recommendedTopic: 'Preview practice',
-    steps: [
-      _previewStep(
-        step: 1,
-        name: 'Finding Better Words',
-        skills: [
-          _previewSkill(
-            id: 'preview-growth-c$growthCycle',
-            strand: Strand.voc,
-            text: 'Use a more precise word',
-            sightings: growthSightings,
-          ),
-          _previewSkill(
-            id: 'preview-u1-s1',
-            strand: Strand.gra,
-            text: 'Use simple past tense',
-            sightings: 1,
-          ),
-          _previewSkill(
-            id: 'preview-u1-s2',
-            strand: Strand.flu,
-            text: 'Answer in a full sentence',
-            sightings: 2,
-          ),
-          _previewSkill(
-            id: 'preview-u1-s3',
-            strand: Strand.voc,
-            text: 'Describe a place clearly',
-            sightings: 3,
-          ),
-        ],
-      ),
-      _previewStep(
-        step: 2,
-        name: 'Telling A Short Story',
-        skills: [
-          _previewSkill(
-            id: 'preview-two-a-c$twoSkillGrowthCycle',
-            strand: Strand.flu,
-            text: 'Connect two ideas',
-            sightings: twoSkillGrowthSightings,
-          ),
-          _previewSkill(
-            id: 'preview-u2-s1',
-            strand: Strand.voc,
-            text: 'Use feeling words',
-            sightings: 1,
-          ),
-          _previewSkill(
-            id: 'preview-u2-s2',
-            strand: Strand.gra,
-            text: 'Use because correctly',
-            sightings: 2,
-          ),
-          _previewSkill(
-            id: 'preview-u2-s3',
-            strand: Strand.flu,
-            text: 'Speak without long pauses',
-            sightings: 3,
-          ),
-          _previewSkill(
-            id: 'preview-u2-s4',
-            strand: Strand.voc,
-            text: 'Choose a stronger verb',
-            sightings: 4,
-          ),
-        ],
-      ),
-      _previewStep(
-        step: 3,
-        name: 'Asking Better Questions',
-        skills: [
-          _previewSkill(
-            id: 'preview-u3-s0',
-            strand: Strand.gra,
-            text: 'Start questions with did',
-            sightings: 0,
-          ),
-          _previewSkill(
-            id: 'preview-u3-s1',
-            strand: Strand.flu,
-            text: 'Ask a follow-up question',
-            sightings: 1,
-          ),
-          _previewSkill(
-            id: 'preview-u3-s2',
-            strand: Strand.voc,
-            text: 'Use topic words',
-            sightings: 2,
-          ),
-        ],
-      ),
-      _previewStep(
-        step: 4,
-        name: 'Explaining Your Opinion',
-        skills: [
-          _previewSkill(
-            id: 'preview-u4-s0',
-            strand: Strand.voc,
-            text: 'Use opinion phrases',
-            sightings: 1,
-          ),
-          _previewSkill(
-            id: 'preview-u4-s1',
-            strand: Strand.gra,
-            text: 'Use comparatives',
-            sightings: 2,
-          ),
-          _previewSkill(
-            id: 'preview-u4-s2',
-            strand: Strand.flu,
-            text: 'Give a reason',
-            sightings: 3,
-          ),
-          _previewSkill(
-            id: 'preview-two-b-c$twoSkillGrowthCycle',
-            strand: Strand.gra,
-            text: 'Use but for contrast',
-            sightings: twoSkillGrowthSightings,
-          ),
-        ],
-      ),
-      _previewStep(
-        step: 5,
-        name: 'Making A Clear Plan',
-        skills: [
-          _previewSkill(
-            id: 'preview-u5-s0',
-            strand: Strand.flu,
-            text: 'Sequence steps clearly',
-            sightings: 2,
-          ),
-          _previewSkill(
-            id: 'preview-u5-s1',
-            strand: Strand.voc,
-            text: 'Use time words',
-            sightings: 3,
-          ),
-          _previewSkill(
-            id: 'preview-u5-s2',
-            strand: Strand.gra,
-            text: 'Use going to',
-            sightings: 1,
-          ),
-          _previewSkill(
-            id: 'preview-u5-s3',
-            strand: Strand.voc,
-            text: 'Name the next action',
-            sightings: 0,
-          ),
-          _previewSkill(
-            id: 'preview-u5-s4',
-            strand: Strand.flu,
-            text: 'Finish with confidence',
-            sightings: 4,
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-GardenStep _previewStep({
-  required int step,
-  required String name,
-  required List<GardenSkill> skills,
-}) => GardenStep(
-  step: step,
-  name: name,
-  focus: 'Preview',
-  isCompleted: step < 3,
-  skills: skills,
-);
-
-GardenSkill _previewSkill({
-  required String id,
-  required Strand strand,
-  required String text,
-  required int sightings,
-}) => GardenSkill(
-  id: id,
-  strand: strand,
-  text: text,
-  status: _previewStatusFor(sightings),
-  sightings: sightings,
-  evidence: _previewEvidenceFor(text, sightings),
-);
-
-SkillStatus _previewStatusFor(int sightings) {
-  if (sightings >= 3) return SkillStatus.owned;
-  if (sightings >= 1) return SkillStatus.emerging;
-  return SkillStatus.locked;
-}
-
-List<GardenEvidence> _previewEvidenceFor(String text, int sightings) => [
-  for (var i = 0; i < sightings.clamp(0, 3); i++)
-    GardenEvidence(
-      quote: switch (i) {
-        0 => 'I can ${text.toLowerCase()}.',
-        1 => 'Then I tried it again with more detail.',
-        _ => 'Now it feels easy when I talk.',
-      },
-      confidence: 0.72 + i * 0.08,
-      prompted: i == 0,
-      topic: 'Preview conversation',
-      createdAt: DateTime(2026, 7, 1 + i),
-    ),
-];

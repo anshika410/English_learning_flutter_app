@@ -93,62 +93,104 @@ class TopicLabelLayout {
   final double fontSize;
   final double height;
   final int maxLines;
+  final bool didOverflow;
 
   const TopicLabelLayout({
     required this.fontSize,
     required this.height,
     required this.maxLines,
+    required this.didOverflow,
   });
 }
 
-TextStyle topicLabelStyle(Color color, {double fontSize = 16}) => EllaTextStyles
-    .bodySmall
-    .copyWith(fontSize: fontSize, fontWeight: FontWeight.w700, color: color);
+const double kTopicIconSize = 56;
+const double kTopicIconLabelGap = 4;
+const double kTopicCardVerticalPadding = 12;
+const double kTopicCardMaximumHorizontalPadding = 12;
+const double kTopicCardMinimumHorizontalPadding = 8;
+const double kTopicLabelFontSize = 12;
+const double kTopicLabelMaximumFontSize = 14;
+
+TextStyle topicLabelStyle(
+  Color color, {
+  double fontSize = kTopicLabelFontSize,
+}) => EllaTextStyles.bodySmall.copyWith(
+  fontSize: fontSize,
+  fontWeight: FontWeight.w700,
+  color: color,
+);
+
+/// Respects system scaling until the rendered topic label reaches 14px.
+TextScaler topicLabelTextScaler(BuildContext context) =>
+    MediaQuery.textScalerOf(
+      context,
+    ).clamp(maxScaleFactor: kTopicLabelMaximumFontSize / kTopicLabelFontSize);
 
 /// Measures a label using the same typography used by [TopicCardLabel].
 ///
-/// Multi-word labels may wrap to two lines. A single long word stays on one
-/// line and reduces only its text size, never the accompanying topic icon.
+/// Every label uses the compact 12px topic-card size. Multi-word labels may
+/// wrap to two lines, while a single word stays on one line.
 TopicLabelLayout measureTopicLabel(
   BuildContext context, {
   required String text,
   required double maxWidth,
   bool allowWrap = true,
 }) {
-  const maximumFontSize = 16.0;
-  const minimumFontSize = 12.0;
+  const fontSize = kTopicLabelFontSize;
   final isSingleWord = !text.trim().contains(RegExp(r'\s'));
   final maxLines = !allowWrap || isSingleWord ? 1 : 2;
   final textDirection = Directionality.of(context);
-  final textScaler = MediaQuery.textScalerOf(context);
+  final textScaler = topicLabelTextScaler(context);
 
-  TopicLabelLayout? smallestLayout;
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: topicLabelStyle(Colors.black, fontSize: fontSize),
+    ),
+    maxLines: maxLines,
+    ellipsis: '…',
+    textDirection: textDirection,
+    textScaler: textScaler,
+    textAlign: TextAlign.center,
+  )..layout(maxWidth: maxWidth);
+
+  return TopicLabelLayout(
+    fontSize: fontSize,
+    height: painter.height,
+    maxLines: maxLines,
+    didOverflow: painter.didExceedMaxLines,
+  );
+}
+
+/// Chooses one horizontal inset for an entire row of equal-width topic cards.
+///
+/// Rows keep the preferred 12px inset whenever every label fits. On narrower
+/// screens the inset steps down uniformly to 8px, avoiding per-card visual
+/// jitter while giving long labels a little more room.
+double responsiveTopicHorizontalPadding(
+  BuildContext context, {
+  required Iterable<String> labels,
+  required double cardWidth,
+  Iterable<String> singleLineLabels = const [],
+}) {
+  final oneLine = singleLineLabels.toSet();
   for (
-    var fontSize = maximumFontSize;
-    fontSize >= minimumFontSize;
-    fontSize -= 0.5
+    var padding = kTopicCardMaximumHorizontalPadding;
+    padding >= kTopicCardMinimumHorizontalPadding;
+    padding -= 0.5
   ) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: topicLabelStyle(Colors.black, fontSize: fontSize),
-      ),
-      maxLines: maxLines,
-      ellipsis: '…',
-      textDirection: textDirection,
-      textScaler: textScaler,
-      textAlign: TextAlign.center,
-    )..layout(maxWidth: maxWidth);
-    final layout = TopicLabelLayout(
-      fontSize: fontSize,
-      height: painter.height,
-      maxLines: maxLines,
+    final labelWidth = cardWidth - padding * 2;
+    final allFit = labels.every(
+      (label) => !measureTopicLabel(
+        context,
+        text: label,
+        maxWidth: labelWidth,
+        allowWrap: !oneLine.contains(label),
+      ).didOverflow,
     );
-    smallestLayout = layout;
-    if (!painter.didExceedMaxLines) return layout;
+    if (allFit) return padding;
   }
-
-  return smallestLayout!;
+  return kTopicCardMinimumHorizontalPadding;
 }
 
 /// A topic label occupying a row-wide label slot. One-line cards in a mixed
@@ -176,6 +218,7 @@ class TopicCardLabel extends StatelessWidget {
         alignment: Alignment.topCenter,
         child: Text(
           text,
+          textScaler: topicLabelTextScaler(context),
           maxLines: layout.maxLines,
           softWrap: layout.maxLines > 1,
           textAlign: TextAlign.center,
@@ -210,6 +253,8 @@ class TopicIcon extends StatelessWidget {
         'assets/topic-icons/$icon.svg',
         width: size,
         height: size,
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
       );
     }
     return Icon(Icons.chat_bubble_rounded, size: size, color: fallbackColor);

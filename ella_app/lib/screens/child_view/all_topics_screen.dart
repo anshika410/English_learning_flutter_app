@@ -59,22 +59,17 @@ class AllTopicsScreen extends ConsumerWidget {
                       : LayoutBuilder(
                           builder: (context, constraints) {
                             const columnCount = 3;
-                            const horizontalGap = 14.0;
-                            const horizontalPadding = 8.0;
-                            const verticalPadding = 8.0;
-                            const iconSize = 53.0;
-                            const iconLabelGap = 4.0;
+                            const horizontalGap = 8.0;
                             final cardWidth =
                                 (constraints.maxWidth -
                                     horizontalGap * (columnCount - 1)) /
                                 columnCount;
-                            final labelWidth =
-                                cardWidth - horizontalPadding * 2;
                             final rowCount =
                                 (topics.length + columnCount - 1) ~/
                                 columnCount;
 
                             return ListView.separated(
+                              key: const ValueKey('all-topics-list'),
                               padding: const EdgeInsets.only(bottom: 4),
                               itemCount: rowCount,
                               separatorBuilder: (_, _) =>
@@ -86,6 +81,16 @@ class AllTopicsScreen extends ConsumerWidget {
                                   topics.length,
                                 );
                                 final rowTopics = topics.sublist(start, end);
+                                final horizontalPadding =
+                                    responsiveTopicHorizontalPadding(
+                                      context,
+                                      labels: rowTopics.map(
+                                        (topic) => topic.display,
+                                      ),
+                                      cardWidth: cardWidth,
+                                    );
+                                final labelWidth =
+                                    cardWidth - horizontalPadding * 2;
                                 final layouts = [
                                   for (final topic in rowTopics)
                                     measureTopicLabel(
@@ -101,9 +106,9 @@ class AllTopicsScreen extends ConsumerWidget {
                                   }
                                 }
                                 final rowHeight =
-                                    verticalPadding * 2 +
-                                    iconSize +
-                                    iconLabelGap +
+                                    kTopicCardVerticalPadding * 2 +
+                                    kTopicIconSize +
+                                    kTopicIconLabelGap +
                                     rowLabelHeight;
 
                                 return SizedBox(
@@ -128,6 +133,8 @@ class AllTopicsScreen extends ConsumerWidget {
                                                       layouts[columnIndex],
                                                   labelSlotHeight:
                                                       rowLabelHeight,
+                                                  horizontalPadding:
+                                                      horizontalPadding,
                                                   onTap: () {
                                                     ref
                                                         .read(audioProvider)
@@ -257,12 +264,14 @@ class _TopicCard extends StatelessWidget {
   final TopicChoice topic;
   final TopicLabelLayout labelLayout;
   final double labelSlotHeight;
+  final double horizontalPadding;
   final VoidCallback onTap;
 
   const _TopicCard({
     required this.topic,
     required this.labelLayout,
     required this.labelSlotHeight,
+    required this.horizontalPadding,
     required this.onTap,
   });
 
@@ -273,9 +282,14 @@ class _TopicCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         key: ValueKey('all-topics-card-${topic.name}'),
-        // The smooth 1.5px outline supplies the remainder of the original
-        // 8px inset.
-        padding: const EdgeInsets.all(6.5),
+        // The smooth 1.5px outline supplies the remainder of each effective
+        // inset, keeping the artwork aligned with home chips.
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding - 1.5,
+          kTopicCardVerticalPadding - 1.5,
+          horizontalPadding - 1.5,
+          kTopicCardVerticalPadding - 1.5,
+        ),
         alignment: Alignment.topCenter,
         decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
@@ -291,10 +305,10 @@ class _TopicCard extends StatelessWidget {
             TopicIcon(
               key: ValueKey('all-topics-icon-${topic.name}'),
               icon: topic.icon,
-              size: 53,
+              size: kTopicIconSize,
               fallbackColor: EllaColors.ink,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: kTopicIconLabelGap),
             TopicCardLabel(
               key: ValueKey('all-topics-label-${topic.name}'),
               text: topic.display,
