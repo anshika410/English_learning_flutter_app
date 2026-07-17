@@ -22,7 +22,7 @@ import 'widgets/mascot_loading_screen.dart';
 import 'widgets/need_to_go_sheet.dart';
 import 'widgets/network_error_view.dart';
 
-const String _kGoodbye = 'It was great talking to you. See you again later!';
+const String _kGoodbye = 'Great talking with you. See you next time!';
 
 class SessionScreen extends ConsumerStatefulWidget {
   final String? introText;

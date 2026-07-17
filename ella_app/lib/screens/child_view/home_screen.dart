@@ -172,8 +172,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   String get _recap {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
     if (!isOnline) {
-      final name = ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
-      return "Hey $name, I'm having trouble connecting to the internet right now!";
+      return "I'm having trouble connecting right now. Check your internet and try again";
     }
     return _memory?.lastTimeRecap ?? '';
   }
@@ -204,7 +203,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     }
     final text = _recap.trim().isNotEmpty
         ? _recap.trim()
-        : "This is our first chat together — I can't wait!";
+        : 'Ready for your first chat?';
     setState(() {
       _speaking = true;
       _highlightStart = -1;
@@ -288,9 +287,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     final selected = _selected;
     final selectedLabel = selected?.display ?? '';
     final ctaLabel = selectedLabel.isNotEmpty
-        ? "Let's Talk About $selectedLabel"
-        : "Let's Talk";
-    const pickPrompt = 'Not this topic. Pick your own.';
+        ? 'Talk about $selectedLabel'
+        : 'Start Talking';
+    const pickPrompt = 'Want a different topic?';
 
     final mascotW = (MediaQuery.of(context).size.width * _kMascotWidthFactor)
         .clamp(128.0, 168.0);
@@ -341,7 +340,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                             speaking: _speaking,
                           ),
                           const SizedBox(height: 16),
-                          const _SectionDivider(label: 'Next Session'),
+                          const _SectionDivider(label: 'Up Next'),
                           const SizedBox(height: 12),
                           // Short wobble whenever the selected topic changes.
                           ShakeOnChange(
@@ -417,7 +416,7 @@ class _TalkAboutCtaLabel extends StatelessWidget {
 
   const _TalkAboutCtaLabel({required this.topicLabel});
 
-  static const String _prefix = "Let's Talk About";
+  static const String _prefix = 'Talk about';
 
   TextStyle _style() {
     return EllaTextStyles.button.copyWith(
@@ -442,7 +441,7 @@ class _TalkAboutCtaLabel extends StatelessWidget {
     final topic = topicLabel.trim();
     if (topic.isEmpty) {
       return Text(
-        "Let's Talk",
+        'Start Talking',
         textAlign: TextAlign.center,
         maxLines: 1,
         style: style,
@@ -580,7 +579,7 @@ class _LastTimeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final body = recap.trim().isNotEmpty
         ? recap.trim()
-        : "This is our first chat together — I can't wait!";
+        : 'Ready for your first chat?';
 
     final card = Container(
       width: double.infinity,

@@ -41,13 +41,13 @@ const String _kPlantBloom = 'assets/garden/plants/placement-plant-bloom.svg';
 const String _kFlowerIcon = 'assets/information-box/flower.svg';
 
 const String _kRevealText =
-    'Look, your first plant\nEvery conversation grows something new here';
+    "Here's your first plant\nEvery conversation helps your garden grow.";
 const String _kPlacementBloomText =
-    "Your flower is blooming!\nYou've got a brand new garden waiting with space for even more plants";
+    'Your plant is blooming!\nYour new garden is ready—with room for more plants.';
 // Spoken when the child ends the screening early (no level determined): the
 // sprout-spotlight nudge that encourages them to talk again.
 const String _kPlacementSproutText =
-    "Your plant is soaking up sunshine.\nLet's talk again and watch it grow!";
+    'Your plant is soaking up sunshine.\nTalk again to help it grow';
 
 enum PlacementGardenMode {
   /// Post-age onboarding reveal: empty garden, spotlight, Zoe line, Explore,
@@ -582,7 +582,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
                           ),
                           child: _SmallBerryButton(
                             key: const ValueKey('placement-garden-explore'),
-                            label: 'Explore Garden',
+                            label: 'See your Garden',
                             width: metrics.exploreWidth,
                             height: 56,
                             leadingAsset: _kExplorePlantIcon,
@@ -608,7 +608,7 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
                             key: const ValueKey(
                               'placement-garden-sprout-explore',
                             ),
-                            label: 'Explore Garden',
+                            label: 'See your Garden',
                             width: metrics.exploreWidth,
                             height: 56,
                             leadingAsset: _kExplorePlantIcon,
@@ -1164,8 +1164,8 @@ class _RevealBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SpotlightCalloutBubble(
       key: ValueKey('placement-garden-reveal-bubble'),
-      title: 'Look, your first plant',
-      body: 'Every conversation grows something new here',
+      title: "Here's your first plant",
+      body: 'Every conversation helps your garden grow.',
       highlightStart: -1,
       highlightEnd: -1,
     );
@@ -1177,7 +1177,7 @@ class _PlacementBloomBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = 'Your flower is blooming!';
+    final title = 'Your plant is blooming!';
     return Container(
       key: const ValueKey('placement-garden-bloom-bubble'),
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
@@ -1214,7 +1214,7 @@ class _PlacementBloomBubble extends StatelessWidget {
           const SizedBox(height: 16),
           TypewriterText(
             text:
-                "You've got a brand new garden\nwaiting with space for even more\nplants",
+                'Your new garden is ready—\nwith room for more plants.',
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.ink,
             ),
@@ -1271,7 +1271,7 @@ class _PlacementSproutBubble extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           TypewriterText(
-            text: "sunshine. Let's talk again and\nwatch it grow!",
+            text: 'sunshine. Talk again to\nhelp it grow',
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.greenDeep,
             ),
@@ -1319,7 +1319,7 @@ class _SmallBerryButton extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -1335,12 +1335,15 @@ class _SmallBerryButton extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: EllaTextStyles.buttonSmall.copyWith(
-                  color: EllaColors.onPrimary,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: EllaTextStyles.buttonSmall.copyWith(
+                    color: EllaColors.onPrimary,
+                  ),
                 ),
               ),
             ),
@@ -1379,7 +1382,7 @@ class _SettledTalkBar extends StatelessWidget {
         ),
         child: Center(
           child: SizedBox(
-            width: 224,
+            width: 240,
             height: 64,
             child: Stack(
               alignment: Alignment.bottomCenter,
@@ -1398,8 +1401,8 @@ class _SettledTalkBar extends StatelessWidget {
                   bottom: 0,
                   child: _SmallBerryButton(
                     key: const ValueKey('placement-garden-settled-talk'),
-                    label: "Let's Talk",
-                    width: 154,
+                    label: 'Start Talking',
+                    width: 170,
                     height: 48,
                     leadingAsset: _kVoiceIcon,
                     onTap: onTalk,

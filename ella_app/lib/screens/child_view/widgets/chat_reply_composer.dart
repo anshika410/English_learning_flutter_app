@@ -78,6 +78,7 @@ class ChatReplyComposer extends StatelessWidget {
               decoration: InputDecoration(
                 isCollapsed: true,
                 border: InputBorder.none,
+                counterText: '',
                 hintText: hintText,
                 hintStyle: EllaTextStyles.bodySemiboldLarge.copyWith(
                   color: EllaColors.textTertiary,

@@ -38,8 +38,8 @@ const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
 const String _kPlantIcon = 'assets/homescreen/new/Plant.svg';
 
 const String _kGreeting =
-    "I'd love to know more about you! Tell me about your world. "
-    "It'll help your garden grow.";
+    "Let's find a good place to start. I'll ask a few questions about "
+    'things you know and like. There are no wrong answers';
 
 class PlacementIntroScreen extends ConsumerStatefulWidget {
   const PlacementIntroScreen({super.key});
@@ -225,7 +225,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                       ),
                       const SizedBox(height: 24),
                       EllaPrimaryButton(
-                        label: "Let's Talk",
+                        label: 'Start Talking',
                         height: 60,
                         leading: SvgPicture.asset(
                           _kVoiceIcon,

@@ -403,13 +403,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   child: Column(
                     children: [
                       Text(
-                        'ZoSpeak',
+                        'zoSpeak',
                         textAlign: TextAlign.center,
                         style: EllaTextStyles.authDisplay,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Talk More. Grow Your English',
+                        'Speak More. Grow your English.',
                         textAlign: TextAlign.center,
                         style: EllaTextStyles.authTitle,
                       ),
@@ -478,7 +478,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           )
         else
           EllaPrimaryButton(
-            label: 'Continue With Google',
+            label: 'Continue with Google',
             height: metrics.buttonHeight,
             horizontalPadding: 16,
             leadingGap: 12,
@@ -501,7 +501,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         SizedBox(height: metrics.buttonGap),
 
         EllaPrimaryButton(
-          label: 'Continue With Email',
+          label: 'Continue with Email',
           height: metrics.buttonHeight,
           horizontalPadding: 16,
           leadingGap: 12,
@@ -529,7 +529,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            'Your learning data stays private and is never shared with anyone',
+            'Your learning data is protected. Learn how we use it',
             style: EllaTextStyles.authBody.copyWith(fontSize: 15),
           ),
         ),
@@ -544,13 +544,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Sign In With Email',
+          'Sign in with Email',
           textAlign: TextAlign.center,
           style: EllaTextStyles.authTitle,
         ),
         SizedBox(height: metrics.emailTitleGap),
         Text(
-          'We will send you a link. No password needed',
+          "We'll email you a sign-in link. No password needed",
           textAlign: TextAlign.center,
           style: EllaTextStyles.authBody,
         ),
@@ -564,7 +564,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             textAlignVertical: TextAlignVertical.center,
             style: EllaTextStyles.authBody,
             decoration: InputDecoration(
-              hintText: 'Eg. xyz@gmail.com',
+              hintText: 'name@example.com',
               hintStyle: EllaTextStyles.authBody.copyWith(
                 color: EllaColors.textTertiary,
               ),
@@ -597,7 +597,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         SizedBox(height: metrics.formGap),
         EllaPrimaryButton(
-          label: 'Send Me a Link',
+          label: 'Send Sign-In Link',
           height: 72,
           horizontalPadding: 16,
           leadingGap: 12,
@@ -640,7 +640,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 text: TextSpan(
                   style: EllaTextStyles.authBodySemibold,
                   children: [
-                    TextSpan(text: 'We have sent a link to ${_emailController.text}'),
+                    TextSpan(text: 'We sent a sign-in link to ${_emailController.text}.'),
                   ],
                 ),
               ),
@@ -655,19 +655,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     try {
                       await intent.launch();
                     } catch (_) {
-                      if (mounted) showEllaErrorToast(context, 'No mail app installed.');
+                      if (mounted) showEllaErrorToast(context, 'No email app found. Open your email in a browser');
                     }
                   } else if (Platform.isIOS) {
                     final url = Uri(scheme: 'message');
                     if (await canLaunchUrl(url)) {
                       await launchUrl(url);
                     } else {
-                      if (mounted) showEllaErrorToast(context, 'No mail app installed.');
+                      if (mounted) showEllaErrorToast(context, 'No email app found. Open your email in a browser');
                     }
                   }
                 }),
                 child: Text(
-                  'Open Your Inbox!',
+                  'Open Email App',
                   textAlign: TextAlign.center,
                   style: EllaTextStyles.authBodySemibold.copyWith(
                     color: EllaColors.berryMain,
@@ -681,7 +681,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         TextButton(
           onPressed: withTapClick(_resetToEmailInput),
           child: Text(
-            'Use a Different Email',
+            'Use Another Email',
             style: EllaTextStyles.authBodySemibold.copyWith(
               color: EllaColors.berryMain,
             ),

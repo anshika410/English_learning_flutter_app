@@ -73,7 +73,7 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
 
     if (name.isEmpty || age == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid name and age.')),
+        const SnackBar(content: Text('Enter a name and age.')),
       );
       return;
     }
@@ -86,14 +86,15 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
+      debugPrint('Profile update failed: $e');
       if (mounted) {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('API Error'),
-            content: SingleChildScrollView(child: Text('$e')),
+            title: const Text("Couldn't save changes"),
+            content: const Text('Try again'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
             ],
           ),
         );
@@ -125,7 +126,7 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _woodBanner("${widget.initialName.split(' ').first}'s Profile"),
+          _woodBanner('Edit Profile'),
           const SizedBox(height: 16),
           _label('Name'),
           const SizedBox(height: 8),
@@ -268,7 +269,7 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
             SvgPicture.asset('$_asset/checks.svg', width: 32, height: 32),
             const SizedBox(width: 12),
             Text(
-              'Update Profile',
+              'Save Changes',
               style: EllaFonts.body(const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,

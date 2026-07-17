@@ -152,14 +152,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account?'),
+        title: const Text('Delete zoSpeak Account?'),
         content: const Text(
-          'Are you sure you want to permanently delete your account? This will erase all your data and cannot be undone.',
+          "This permanently deletes your profile, learning progress, conversations, and garden. This can't be undone",
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Keep Account'),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -189,7 +189,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account deleted successfully.')),
+          const SnackBar(content: Text('Account deleted.')),
         );
 
         Navigator.of(
@@ -197,17 +197,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           rootNavigator: true,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
       } catch (e) {
+        debugPrint('Account deletion failed: $e');
         if (mounted) {
           setState(() => _isLoading = false);
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('API Error'),
-              content: SingleChildScrollView(child: Text('$e')),
+              title: const Text("Couldn't delete account"),
+              content: const Text('Try again'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
+                  child: const Text('Close'),
                 ),
               ],
             ),
@@ -508,7 +509,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    'Sound effects',
+                                                    'Sounds',
                                                     style: EllaFonts.body(
                                                       const TextStyle(
                                                         fontSize: 16,
@@ -522,7 +523,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                   ),
                                                   const SizedBox(height: 2),
                                                   Text(
-                                                    'Music and tap sounds',
+                                                    'Music and sound effects',
                                                     style: EllaFonts.body(
                                                       const TextStyle(
                                                         fontSize: 13,

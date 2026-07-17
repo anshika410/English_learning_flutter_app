@@ -8,7 +8,7 @@ class OfflineAlertPopup extends StatelessWidget {
 
   const OfflineAlertPopup({super.key, required this.text});
 
-  static void show(BuildContext context, {String text = "Oops! I need the internet to do that."}) {
+  static void show(BuildContext context, {String text = "You're offline. Connect to the internet, then try again"}) {
     showDialog(
       context: context,
       builder: (context) => OfflineAlertPopup(text: text),
@@ -38,7 +38,7 @@ class OfflineAlertPopup extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             EllaPrimaryButton(
-              label: 'OK',
+              label: 'Close',
               onTap: () => Navigator.of(context).pop(),
             ),
           ],
