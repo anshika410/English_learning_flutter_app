@@ -107,6 +107,7 @@ async def create_conversation(
             persona_memory=user.persona_memory
         )
         starter_text = starter_data["starter"]
+        prompt_debug = starter_data.get("prompt_debug")
     except Exception:
         # Keep the fallback compatible with the active level profile.
         starter_text = (
@@ -114,6 +115,7 @@ async def create_conversation(
             if level == "A0"
             else "What would you like to talk about today?"
         )
+        prompt_debug = None
 
     conv = Conversation(user_id=user.id, topic=unit_name, header_title=topic_name)
     db.add(conv)
@@ -132,7 +134,7 @@ async def create_conversation(
     # Determine aimed_at skills from the current unit
     aimed_at = aimed_skills if aimed_skills else []
 
-    return _conv_out(conv, starter=starter_text, level=level, aimed_at=aimed_at)
+    return _conv_out(conv, starter=starter_text, level=level, aimed_at=aimed_at, prompt_debug=prompt_debug)
 
 
 @router.get("", response_model=list[ConversationOut])
@@ -479,7 +481,7 @@ async def _get_owned(conv_id: str, user_id: str, db: AsyncSession) -> Conversati
     return conv
 
 
-def _conv_out(c: Conversation, starter: str | None = None, level: str | None = None, aimed_at: list | None = None) -> ConversationOut:
+def _conv_out(c: Conversation, starter: str | None = None, level: str | None = None, aimed_at: list | None = None, prompt_debug: dict | None = None) -> ConversationOut:
     return ConversationOut(
         session_id=c.id,
         unit=c.topic,
@@ -489,6 +491,7 @@ def _conv_out(c: Conversation, starter: str | None = None, level: str | None = N
         aimed_at=aimed_at,
         completed=c.completed,
         created_at=c.created_at,
+        prompt_debug=prompt_debug,
     )
 
 

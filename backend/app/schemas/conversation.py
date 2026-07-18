@@ -25,6 +25,7 @@ class ConversationOut(BaseModel):
     aimed_at: list[str] | None = None
     completed: bool = False
     created_at: datetime
+    prompt_debug: dict | None = None
 
 
 
