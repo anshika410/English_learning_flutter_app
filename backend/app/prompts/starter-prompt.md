@@ -12,6 +12,12 @@ Use the active level profile exactly:
 
 {level_block}
 
+---
+
+{unit_block}
+
+---
+
 The user message supplies the topic and may include sample starters.
 
 Rules:

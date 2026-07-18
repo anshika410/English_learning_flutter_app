@@ -98,7 +98,14 @@ async def create_conversation(
 
     # Generate starter using LLM
     try:
-        starter_data = await llm_service.generate_conversation_starter(topic=topic_name, starters=starters, level=user.level or "A1")
+        starter_data = await llm_service.generate_conversation_starter(
+            topic=topic_name,
+            starters=starters,
+            level=level,
+            due_next=user.due_next,
+            skills_progress=user.skills_progress,
+            persona_memory=user.persona_memory
+        )
         starter_text = starter_data["starter"]
     except Exception:
         # Keep the fallback compatible with the active level profile.

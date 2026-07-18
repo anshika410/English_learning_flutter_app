@@ -102,18 +102,134 @@ async def extract_correction_highlight(
 # ── Conversation Starter ──────────────────────────────────────────────────────
 
 async def generate_conversation_starter(
-    topic: str | None = None, starters: list[str] | None = None, level: str = "A1"
+    topic: str | None = None,
+    starters: list[str] | None = None,
+    level: str = "A1",
+    due_next: dict | None = None,
+    skills_progress: dict | None = None,
+    persona_memory: dict | None = None,
 ) -> dict:
+    from ..core.curriculum_data import (
+        UNITS, active_step, targets_list_for, validate_due_next,
+    )
+    from ..core.elicitation import plan_text, resolve_skill_text
+
     level_upper = str(level or "A1").upper()
     if level_upper not in _LEVEL_BLOCKS:
         level_upper = "A1"
     level_block = _LEVEL_BLOCKS.get(level_upper, "")
+
+    # Format persona memory
+    memory_str = "None"
+    if persona_memory:
+        facts = persona_memory.get("facts", [])
+        if not isinstance(facts, list):
+            facts = [facts] if facts else []
+        if not facts and isinstance(persona_memory, dict):
+            for k, v in persona_memory.items():
+                if isinstance(v, list):
+                    facts.extend([str(item) for item in v])
+                elif isinstance(v, str):
+                    facts.append(f"{k}: {v}")
+        
+        # Sanitize facts to only use first name
+        sanitized_facts = []
+        for fact in facts:
+            fact_str = str(fact)
+            if fact_str.lower().startswith("name:"):
+                name_val = fact_str.split(":", 1)[1].strip()
+                first_name = name_val.split()[0].strip() if name_val else ""
+                sanitized_facts.append(f"Name: {first_name}")
+            else:
+                sanitized_facts.append(fact_str)
+                
+        if sanitized_facts:
+            memory_str = "\n".join(f"- {fact}" for fact in sanitized_facts)
+
+    # Get aimed IDs
+    valid_due_next = validate_due_next(due_next, level_upper)
+    primary_id = valid_due_next.get("primary")
+    watching_ids = valid_due_next.get("watching", [])
+    
+    candidate_ids = []
+    if primary_id:
+        candidate_ids.append(primary_id)
+    if watching_ids:
+        for wid in watching_ids:
+            if wid not in candidate_ids:
+                candidate_ids.append(wid)
+                
+    if not candidate_ids:
+        # Fallback to computing targets on the fly
+        candidate_ids = targets_list_for(skills_progress or {}, "unit", level_upper)
+
+    target_ids = [
+        sid for sid in candidate_ids
+        if resolve_skill_text(sid, level_upper) is not None
+    ]
+    if not target_ids:
+        fallback_ids = targets_list_for(
+            skills_progress or {}, "unit", level_upper
+        )
+        target_ids = [
+            sid for sid in fallback_ids
+            if resolve_skill_text(sid, level_upper) is not None
+        ]
+
+    # Get active unit name & focus
+    active_unit = None
+    if target_ids:
+        primary_target = target_ids[0]
+        active_unit = next(
+            (
+                unit
+                for unit in UNITS.get(level_upper, [])
+                if primary_target in {
+                    skill.get("id") for skill in unit.get("skills", [])
+                }
+            ),
+            None,
+        )
+    if active_unit is None:
+        active_unit = active_step(skills_progress or {}, level_upper)
+    if active_unit:
+        unit_name = active_unit.get("name", topic) or topic
+        unit_focus = active_unit.get("focus", "General conversation practice")
+    else:
+        unit_name = topic
+        unit_focus = "General conversation practice"
+
+    # Build targets list text showing IDs and descriptions
+    if target_ids:
+        targets_str = "\n".join(
+            f"- [{sid}] {resolve_skill_text(sid, level_upper)}"
+            for sid in target_ids
+        )
+    else:
+        targets_str = "- General conversation practice"
+
+    # Build elicitation plan (using plan_text(target_ids))
+    elicitation_str = plan_text(target_ids, level_upper)
+
+    unit_template = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+    unit_block = (
+        unit_template
+        .replace("{{UNITNAME}}", str(unit_name))
+        .replace("{{UNITFOCUS}}", str(unit_focus))
+        .replace("{{TARGETS}}", targets_str)
+        .replace("{{ELICITATION}}", elicitation_str)
+        .replace("{{STUDENT_MEMORY}}", memory_str)
+        .replace("{{CURRENT_TURN}}", "1")
+        .strip()
+    )
+
     base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
     system_prompt = (
         (PROMPTS_DIR / "starter-prompt.md")
         .read_text()
         .replace("{base_block}", base_block)
         .replace("{level_block}", level_block)
+        .replace("{unit_block}", unit_block)
     )
     topic_line = (
         "Topic: free conversation."
