@@ -251,15 +251,7 @@ async def generate_conversation_starter(
     title_match = re.search(r"TITLE:\s*(.+)", text, re.IGNORECASE)
     header_title = title_match.group(1).strip() if title_match else (topic or "Free Talk")
     starter = re.sub(r"TITLE:.*", "", text, flags=re.IGNORECASE).strip()
-    return {
-        "starter": starter or text.strip(),
-        "header_title": header_title,
-        "prompt_debug": {
-            "system_prompt": system_prompt,
-            "target_ids": target_ids,
-            "targets_str": targets_str,
-        }
-    }
+    return {"starter": starter or text.strip(), "header_title": header_title}
 
 
 # ── Level blocks — loaded from profile-*.md files ────────────────────────────
