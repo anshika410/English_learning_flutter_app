@@ -13,6 +13,17 @@ This section details the API calls, data payloads, and state updates that occur 
 Below is the end-to-end data flow showing how the React frontend, the FastAPI backend, the PostgreSQL Database, and the LLM Judge orchestrate user state, level transitions, and garden progress.
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#E8F5E9',
+    'primaryTextColor': '#1B5E20',
+    'primaryBorderColor': '#A5D6A7',
+    'lineColor': '#8C6239',
+    'secondaryColor': '#F5F5F5',
+    'tertiaryColor': '#FAF8F5'
+  }
+}}%%
 graph TD
     %% Frontend Client
     subgraph Frontend [React Loop Simulator Client]
@@ -31,7 +42,7 @@ graph TD
 
     %% Database & LLM
     DB[(PostgreSQL Database)]
-    LLM[Google Gemini LLM Service]
+    LLM[Language Model / LLM Service]
 
     %% Flow Mappings
     UI -->|1. Request Auth/Profile| AuthRouter
@@ -58,6 +69,29 @@ graph TD
 When the student opens the application, the client establishes user identity, fetches user history, and builds the visual garden layout.
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#E8F5E9',
+    'primaryTextColor': '#1B5E20',
+    'primaryBorderColor': '#A5D6A7',
+    'lineColor': '#8C6239',
+    'secondaryColor': '#F5F5F5',
+    'tertiaryColor': '#FAF8F5',
+    'noteBkgColor': '#FFF9C4',
+    'noteTextColor': '#6D4C41',
+    'actorBkg': '#E8F5E9',
+    'actorBorder': '#81C784',
+    'actorTextColor': '#1B5E20',
+    'actorLineColor': '#388E3C',
+    'signalColor': '#8C6239',
+    'signalTextColor': '#8C6239',
+    'labelBoxBkgColor': '#FAF8F5',
+    'labelBoxBorderColor': '#A5D6A7',
+    'labelTextTextColor': '#1B5E20',
+    'loopTextColor': '#1B5E20'
+  }
+}}%%
 sequenceDiagram
     autonumber
     participant Client as React Client
@@ -95,40 +129,122 @@ sequenceDiagram
 
 ### 2. Active Chat Session
 
-When the student clicks "Start Chatting", the client initiates a conversation session based on the active step's target skill.
+When the student clicks "Start Chatting", the client initiates a conversation session based on the active step's target skill. Below is the detailed sequence diagram showing the step-by-step execution flow of a single conversation turn between the client, backend, database, and the LLM service.
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#E8F5E9',
+    'primaryTextColor': '#1B5E20',
+    'primaryBorderColor': '#A5D6A7',
+    'lineColor': '#8C6239',
+    'secondaryColor': '#F5F5F5',
+    'tertiaryColor': '#FAF8F5',
+    'noteBkgColor': '#FFF9C4',
+    'noteTextColor': '#6D4C41',
+    'actorBkg': '#E8F5E9',
+    'actorBorder': '#81C784',
+    'actorTextColor': '#1B5E20',
+    'actorLineColor': '#388E3C',
+    'signalColor': '#8C6239',
+    'signalTextColor': '#8C6239',
+    'labelBoxBkgColor': '#FAF8F5',
+    'labelBoxBorderColor': '#A5D6A7',
+    'labelTextTextColor': '#1B5E20',
+    'loopTextColor': '#1B5E20'
+  }
+}}%%
 sequenceDiagram
     autonumber
-    participant Client as React Client
+    actor Learner as Student / Learner
+    participant Client as Client App (Flutter/React)
     participant API as FastAPI Backend
+    participant DB as DB (PostgreSQL/SQLite)
+    participant LLM as Language Model (LLM)
 
-    Note over Client: User clicks "Start Chatting"
-    Client->>API: POST /session (Creates active session)
-    API-->>Client: Response: { session_id: "sess_xyz", starter: "Hello!..." }
-
-    Note over Client: Chat Panel Opens (Zoe speaks starter)
+    Learner->>Client: Speaks or types message
+    Client->>Client: Captures text, plays send sound, & sets state to 'Zoe Thinking'
+    Client->>API: POST /session/{session_id}/turn { "content": "..." }
     
-    loop Conversation Turns
-        Client->>API: POST /session/sess_xyz/turn { "content": "Learner speech text..." }
-        API-->>Client: Response: { "zoe": "Assistant's reply text..." }
-    end
+    Note over API: 1. Fetch conversation & history
+    API->>DB: SELECT messages WHERE conversation_id = session_id
+    DB-->>API: Message History List
+    
+    Note over API: 2. Fetch student memory & aimed targets
+    API->>DB: SELECT user_memory WHERE user_id = user_id
+    DB-->>API: User level, aimed skills, facts
+    
+    Note over API: 3. Assemble dynamic system prompt
+    API->>API: Injects topic, targets, turn, memory, and level block
+    
+    API->>LLM: Call Language Model (System Prompt + History + New Turn)
+    LLM-->>API: Zoe's reply + Complete flag (if turn >= 6)
+    
+    Note over API: 4. Save Zoe's reply to DB
+    API->>DB: INSERT Message (user reply & zoe reply)
+    DB-->>API: Commit successful
+    
+    API-->>Client: Return JSON { transcript: [...], conversation_complete: true/false }
+    
+    Client->>Client: TTS speaks response aloud & displays text
+    Client->>Learner: Shows Zoe's next response
 ```
 
-#### Client State Updates
-* **`activeConvId`** is set to the generated `session_id`.
-* **`msgs`** array appends messages live as chat balloons appear in the scrollable viewport.
+#### Client-Side Lifecycle (Flutter & React)
+* **Capturing Input:** The client captures student speech through the Speech-To-Text (STT) engine or from the text input field.
+* **Optimistic Local State Update:** The client immediately plays the send audio cue, appends the user's message to the local transcript, increments the turn count, and transitions the status to `"zoeThinking"` (displaying a loading/typing indicator).
+* **API Dispatch:** The client triggers a POST request to `/session/{session_id}/turn` carrying only:
+  ```json
+  {
+    "content": "Student speech/text transcript"
+  }
+  ```
+
+#### Server-Side Lifecycle (FastAPI Backend)
+* **Retrieve History:** The backend looks up all previous messages of that conversation from the database and appends the student's new reply at the end to construct the full chronological history.
+* **Retrieve Student Context:** The server fetches the student's level, targeted skills (`due_next`), and facts (`persona_memory`) from the database.
+* **Assemble System Prompt:** The server combines `base-prompt.md`, `level-block` (CEFR constraints), and `conv-unit-framing.md` (which contains topic details, target skills, elicitation instructions, and turn count) into a custom system prompt.
+* **Run Chat Completion:** It calls the LLM API with the system prompt and the chronological message history.
+* **Commit & Return:** The server stores both the user's message and Zoe's generated reply in the `messages` table, updates the conversation status to `completed = True` if the LLM signaled completion or the turn limit is reached, and returns the updated transcript to the client.
+
+#### Client-Side Completion
+* **Render Zoe:** Once the client receives the response, it extracts Zoe's reply, appends it to the local transcript, and invokes the Text-to-Speech (TTS) engine to speak it aloud.
+* **Auto-End check:** If `conversation_complete` is true, the client automatically triggers the final grading (`POST /llm/judge`) workflow and moves the student to the post-conversation garden screen.
 
 ### 3. Judging, Merging, and Level-up
 
 When the conversation terminates, the backend runs the LLM Judge to check targeted skills, save quote evidence, and progress levels.
 
 ```mermaid
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#E8F5E9',
+    'primaryTextColor': '#1B5E20',
+    'primaryBorderColor': '#A5D6A7',
+    'lineColor': '#8C6239',
+    'secondaryColor': '#F5F5F5',
+    'tertiaryColor': '#FAF8F5',
+    'noteBkgColor': '#FFF9C4',
+    'noteTextColor': '#6D4C41',
+    'actorBkg': '#E8F5E9',
+    'actorBorder': '#81C784',
+    'actorTextColor': '#1B5E20',
+    'actorLineColor': '#388E3C',
+    'signalColor': '#8C6239',
+    'signalTextColor': '#8C6239',
+    'labelBoxBkgColor': '#FAF8F5',
+    'labelBoxBorderColor': '#A5D6A7',
+    'labelTextTextColor': '#1B5E20',
+    'loopTextColor': '#1B5E20'
+  }
+}}%%
 sequenceDiagram
     autonumber
     participant Client as React Client
     participant API as FastAPI Backend
-    participant LLM as Gemini LLM
+    participant LLM as Language Model (LLM)
     participant DB as PostgreSQL DB
 
     Note over Client: User clicks "End Chat"

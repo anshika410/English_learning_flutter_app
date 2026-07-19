@@ -6,6 +6,7 @@ not from the unit step number. Step numbers mean different things at
 different levels.
 """
 
+from __future__ import annotations
 import logging
 
 from .curriculum_data import SKILLS, UNITS

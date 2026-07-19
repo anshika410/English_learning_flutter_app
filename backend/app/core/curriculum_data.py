@@ -1,3 +1,4 @@
+from __future__ import annotations
 # Auto-generated from Ella_Framework_Complete.xlsx
 # Do not modify manually. Regenerate using parse_framework.py
 

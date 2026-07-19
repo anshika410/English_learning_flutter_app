@@ -221,7 +221,7 @@ async def get_conversation_analysis(
             "topic": conv.header_title or conv.topic,
             "turns_total": len([m for m in transcript if m["role"] == "me"]),
             "transcript": transcript,
-            "message": "Analysis not available — conversation may still be in progress or analysis did not run.",
+            "message": "Judge response is not available — conversation may still be in progress or judge did not run.",
         }
 
     def miss_reason(confidence: float) -> str:
