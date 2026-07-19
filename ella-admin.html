@@ -397,6 +397,45 @@
 
   const LEVEL_COLORS = { A1: '#f59e0b', A2: '#3b82f6', B1: '#10b981', B2: '#8b5cf6', C1: '#ec4899' };
 
+  function syntaxHighlightJSON(json) {
+    if (typeof json !== 'string') {
+      json = JSON.stringify(json, undefined, 2);
+    }
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, function (match) {
+      var cls = 'number';
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = 'key';
+        } else {
+          cls = 'string';
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'boolean';
+      } else if (/null/.test(match)) {
+        cls = 'null';
+      }
+      
+      let color = '#d4d4d4';
+      if (cls === 'key') color = '#9cdcfe';
+      else if (cls === 'string') color = '#ce9178';
+      else if (cls === 'number') color = '#b5cea8';
+      else if (cls === 'boolean') color = '#569cd6';
+      else if (cls === 'null') color = '#569cd6';
+      
+      return '<span style="color:' + color + ';">' + match + '</span>';
+    });
+  }
+
+  function syntaxHighlightPrompt(text) {
+    if (!text) return 'Prompt not available';
+    let escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    escaped = escaped.replace(/^(#+\s+.*)$/gm, '<span style="color:#ffd700; font-weight:bold;">$1</span>');
+    escaped = escaped.replace(/(TARGET SKILLS:|TRANSCRIPT:|CRITICAL INSTRUCTIONS:|SYSTEM INSTRUCTIONS:|RULES:|SCAFFOLDING LADDER:)/gi, '<span style="color:#569cd6; font-weight:bold;">$1</span>');
+    escaped = escaped.replace(/(\{\{[A-Z_]+\}\})/g, '<span style="color:#ce9178; font-weight:bold;">$1</span>');
+    return escaped;
+  }
+
   function formatDate(isoString) {
     if (!isoString) return '—';
     const date = new Date(isoString);
@@ -1193,25 +1232,35 @@
       }
 
       // Developer Debug Section
+      const requestUrl = `${BASE_URL}/admin/conversations/${convId}/analysis`;
       html += `
-        <div style="margin-top:24px; border-top:1px solid #e5e7eb; padding-top:16px; margin-bottom:16px;">
+        <div style="margin-top:28px; border-top:1px solid #e5e7eb; padding-top:20px; margin-bottom:16px;">
           <div style="font-size:12px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">🛠️ Developer Debug Logs</div>
           
-          <details style="margin-bottom:8px; border:1px solid #e5e7eb; border-radius:6px; background:#f9fafb;">
-            <summary style="font-size:12.5px; font-weight:600; color:#4b5563; padding:10px; cursor:pointer; user-select:none;">
-              📝 Exact System Prompt Shared (what we have shared)
+          <!-- Endpoint Indicator -->
+          <div style="background:#1e1e1e; border:1px solid #333333; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-family:Consolas, 'Courier New', monospace; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <span style="color:#569cd6; font-weight:700;">GET</span> 
+              <span style="color:#9cdcfe; word-break:break-all;">${requestUrl}</span>
+            </div>
+            <div style="background:#4ec9b0; color:#1e1e1e; font-size:10px; font-weight:800; padding:2px 6px; border-radius:3px; text-transform:uppercase;">200 OK</div>
+          </div>
+
+          <details style="margin-bottom:10px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#b5cea8; margin-right:6px;">⚡</span> Request Payload (what we are sending to LLM)
             </summary>
-            <div style="padding:10px; border-top:1px solid #e5e7eb; background:#ffffff;">
-              <textarea readonly style="width:100%; height:250px; font-family:monospace; font-size:11.5px; padding:8px; border:1px solid #d1d5db; border-radius:4px; box-sizing:border-box; white-space:pre; overflow:auto;">${d.judge_prompt || 'Prompt not available'}</textarea>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre-wrap; word-break:break-word;">
+              ${syntaxHighlightPrompt(d.judge_prompt)}
             </div>
           </details>
           
-          <details style="border:1px solid #e5e7eb; border-radius:6px; background:#f9fafb;">
-            <summary style="font-size:12.5px; font-weight:600; color:#4b5563; padding:10px; cursor:pointer; user-select:none;">
-              📥 Raw LLM Response Body (what we are getting)
+          <details style="border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#ce9178; margin-right:6px;">📥</span> Response Body (what we are getting from LLM)
             </summary>
-            <div style="padding:10px; border-top:1px solid #e5e7eb; background:#ffffff;">
-              <textarea readonly style="width:100%; height:250px; font-family:monospace; font-size:11.5px; padding:8px; border:1px solid #d1d5db; border-radius:4px; box-sizing:border-box; white-space:pre; overflow:auto;">${d.judge_response ? JSON.stringify(d.judge_response, null, 2) : 'Response not available'}</textarea>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre; overflow-x:auto;">
+              ${d.judge_response ? syntaxHighlightJSON(d.judge_response) : '<span style="color:#6a9955;">No response body available</span>'}
             </div>
           </details>
         </div>
