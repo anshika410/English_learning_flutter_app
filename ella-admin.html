@@ -1231,6 +1231,20 @@
     const pill = (text, bg, fg) =>
       `<span style="display:inline-block;background:${bg};color:${fg};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:3px 3px 3px 0;">${text}</span>`;
 
+    const getStrandColors = (id) => {
+      const m = id.match(/-(VOC|GRA|FLU)-/i);
+      const strand = m ? m[1].toUpperCase() : 'VOC';
+      if (strand === 'VOC') return { bg: '#fff3e0', border: '#ffd180', text: '#d84315' }; // Orange
+      if (strand === 'GRA') return { bg: '#f3e5f5', border: '#ea80fc', text: '#6a1b9a' }; // Purple
+      if (strand === 'FLU') return { bg: '#e8f5e9', border: '#b9f6ca', text: '#2e7d32' }; // Green
+      return { bg: '#f3f4f6', border: '#d1d5db', text: '#374151' }; // Gray
+    };
+
+    const skillBadge = (id) => {
+      const c = getStrandColors(id);
+      return `<span style="display:inline-block; background:${c.bg}; color:${c.text}; border:1px solid ${c.border}; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; margin:2px 4px 2px 0;" title="${id}">${id}</span>`;
+    };
+
     let html = '';
 
     // Profile
@@ -1280,9 +1294,9 @@
     const watching = dueNext.watching || [];
     html += section('Next Skill Targets', '#1A6CC8',
       (primary || watching.length > 0)
-        ? `<div style="font-size:13px;">
-            ${primary ? `<div style="margin-bottom:6px;">${pill('Primary', '#E8F4FF', '#1A6CC8')} <strong>${primary}</strong></div>` : ''}
-            ${watching.length > 0 ? `<div>${pill('Watching', '#F0F4FF', '#6B5AB0')} ${watching.join(', ')}</div>` : ''}
+        ? `<div style="font-size:13px; display:flex; flex-direction:column; gap:6px;">
+            ${primary ? `<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">${pill('Primary', '#E8F4FF', '#1A6CC8')} ${skillBadge(primary)}</div>` : ''}
+            ${watching.length > 0 ? `<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">${pill('Watching', '#F0F4FF', '#6B5AB0')} <div style="display:inline-flex; flex-wrap:wrap; gap:2px;">${watching.map(skillBadge).join('')}</div></div>` : ''}
           </div>`
         : '<span style="color:#aaa;font-size:13px;">No targets set yet</span>'
     );
@@ -1294,8 +1308,8 @@
         <div style="background:#FFFBEB;padding:6px 12px;border-radius:8px;border:1px solid #fcd34d;"><strong style="color:#D97706;">${emerging.length}</strong> Emerging</div>
         <div style="background:#F3F4F6;padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;"><strong style="color:#374151;">${effort.times_spoken_total || 0}</strong> Total speaking turns</div>
       </div>
-      ${owned.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">${owned.map(id => pill(id, '#E6FDF4', '#059669')).join('')}</div>` : ''}
-      ${emerging.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">${emerging.map(id => pill(id, '#FFFBEB', '#D97706')).join('')}</div>` : ''}
+      ${owned.length > 0 ? `<div style="margin-top:4px;font-size:12px;">${owned.map(skillBadge).join('')}</div>` : ''}
+      ${emerging.length > 0 ? `<div style="margin-top:4px;font-size:12px;">${emerging.map(skillBadge).join('')}</div>` : ''}
     `);
 
     // Evidence
@@ -1305,7 +1319,7 @@
       let evHtml = '';
       evidenceEntries.forEach(([skillId, entries]) => {
         evHtml += `<div style="margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:#6B5740;margin-bottom:4px;">${skillId}</div>`;
+          <div style="margin-bottom:4px;">${skillBadge(skillId)}</div>`;
         (Array.isArray(entries) ? entries : [entries]).forEach(e => {
           const text = typeof e === 'string' ? e : e.evidence || '';
           const topic = typeof e === 'string' ? '' : e.topic || '';
