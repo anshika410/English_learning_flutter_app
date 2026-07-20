@@ -1232,37 +1232,114 @@
       }
 
       // Developer Debug Section
-      const requestUrl = `${BASE_URL}/admin/conversations/${convId}/analysis`;
+      // Reconstruct Android Client's Request Body (SessionAnalysisRequest)
+      const androidRequestBody = {
+        session_id: convId,
+        messages: d.transcript.map(m => ({
+          role: m.role === 'me' ? 'user' : 'assistant',
+          content: m.content
+        })),
+        unit: d.topic,
+        level: d.level,
+        unit_label: d.topic || "First words",
+        progression_model: "unit",
+        turns_total: d.turns_total
+      };
+
+      // Reconstruct Android Client's Response Body (SessionAnalysisResponse)
+      const androidResponseBody = {
+        session_id: convId,
+        overall: d.overall,
+        best_moment: d.best_moment,
+        courage: d.courage,
+        try_next: d.try_next,
+        zoe_recap: d.zoe_recap,
+        scores: d.scores.map(sc => ({
+          id: sc.id,
+          name: sc.skill_text,
+          confidence: Number((sc.confidence_pct / 100).toFixed(2)),
+          prompted: sc.prompted,
+          support_level: sc.support_level || null,
+          evidence: sc.evidence,
+          reason: sc.passed ? "Strong evidence; counts as a qualifying sighting." : sc.miss_reason
+        })),
+        state_changes: d.state_changes,
+        correction_highlight: d.correction_highlight
+      };
+
+      const adminRequestUrl = `${BASE_URL}/admin/conversations/${convId}/analysis`;
+      const judgeRequestUrl = `${BASE_URL}/llm/judge`;
+
       html += `
         <div style="margin-top:28px; border-top:1px solid #e5e7eb; padding-top:20px; margin-bottom:16px;">
           <div style="font-size:12px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">🛠️ Developer Debug Logs</div>
           
-          <!-- Endpoint Indicator -->
-          <div style="background:#1e1e1e; border:1px solid #333333; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-family:Consolas, 'Courier New', monospace; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="font-size:12.5px; font-weight:700; color:#4b5563; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span>📱 MOBILE APP API LOGS (Android app -> Backend)</span>
+          </div>
+
+          <!-- Mobile App -> Backend API Log -->
+          <div style="background:#1e1e1e; border:1px solid #333333; border-radius:6px; padding:10px 14px; margin-bottom:8px; font-family:Consolas, 'Courier New', monospace; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
-              <span style="color:#569cd6; font-weight:700;">GET</span> 
-              <span style="color:#9cdcfe; word-break:break-all;">${requestUrl}</span>
+              <span style="color:#569cd6; font-weight:700;">POST</span> 
+              <span style="color:#9cdcfe; word-break:break-all;">${judgeRequestUrl}</span>
             </div>
             <div style="background:#4ec9b0; color:#1e1e1e; font-size:10px; font-weight:800; padding:2px 6px; border-radius:3px; text-transform:uppercase;">200 OK</div>
           </div>
 
-          <details style="margin-bottom:10px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+          <details style="margin-bottom:8px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
             <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
-              <span style="color:#b5cea8; margin-right:6px;">⚡</span> Request Payload (what we are sending to LLM)
+              <span style="color:#b5cea8; margin-right:6px;">⚡</span> Mobile App Request Body (what Android sends)
+            </summary>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre; overflow-x:auto;">
+              ${syntaxHighlightJSON(androidRequestBody)}
+            </div>
+          </details>
+          
+          <details style="margin-bottom:20px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#ce9178; margin-right:6px;">📥</span> Mobile App Response Body (what Android receives)
+            </summary>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre; overflow-x:auto;">
+              ${syntaxHighlightJSON(androidResponseBody)}
+            </div>
+          </details>
+
+          <div style="font-size:12.5px; font-weight:700; color:#4b5563; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span>🤖 BACKEND ➔ LLM JUDGE COMPLETIONS</span>
+          </div>
+
+          <!-- Backend -> LLM completions endpoint -->
+          <div style="background:#1e1e1e; border:1px solid #333333; border-radius:6px; padding:10px 14px; margin-bottom:8px; font-family:Consolas, 'Courier New', monospace; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <span style="color:#569cd6; font-weight:700;">POST</span> 
+              <span style="color:#9cdcfe; word-break:break-all;">https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent</span>
+            </div>
+            <div style="background:#4ec9b0; color:#1e1e1e; font-size:10px; font-weight:800; padding:2px 6px; border-radius:3px; text-transform:uppercase;">200 OK</div>
+          </div>
+
+          <details style="margin-bottom:8px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#b5cea8; margin-right:6px;">⚡</span> LLM Prompt Payload (what backend sends to LLM)
             </summary>
             <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre-wrap; word-break:break-word;">
               ${syntaxHighlightPrompt(d.judge_prompt)}
             </div>
           </details>
           
-          <details style="border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+          <details style="margin-bottom:20px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
             <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
-              <span style="color:#ce9178; margin-right:6px;">📥</span> Response Body (what we are getting from LLM)
+              <span style="color:#ce9178; margin-right:6px;">📥</span> LLM Raw JSON Response (what backend receives from LLM)
             </summary>
             <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre; overflow-x:auto;">
               ${d.judge_response ? syntaxHighlightJSON(d.judge_response) : '<span style="color:#6a9955;">No response body available</span>'}
             </div>
           </details>
+
+          <!-- Admin dashboard API route -->
+          <div style="font-size:11px; color:#6b7280; text-align:right;">
+            Dashboard API: <a href="${adminRequestUrl}?key=${encodeURIComponent(ADMIN_KEY)}" target="_blank" style="color:#1a73e8; text-decoration:none;">GET /analysis</a>
+          </div>
         </div>
       `;
 
