@@ -1313,7 +1313,8 @@
           <div style="background:#1e1e1e; border:1px solid #333333; border-radius:6px; padding:10px 14px; margin-bottom:8px; font-family:Consolas, 'Courier New', monospace; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>
               <span style="color:#569cd6; font-weight:700;">POST</span> 
-              <span style="color:#9cdcfe; word-break:break-all;">https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent</span>
+              <span style="color:#9cdcfe; word-break:break-all;">${d.judge_endpoint || 'https://api.deepseek.com/v1/chat/completions'}</span>
+              ${d.judge_model ? `<span style="color:#6b7280; font-size:11px; margin-left:6px;">(${d.judge_model})</span>` : '<span style="color:#6b7280; font-size:11px; margin-left:6px;">(deepseek-chat)</span>'}
             </div>
             <div style="background:#4ec9b0; color:#1e1e1e; font-size:10px; font-weight:800; padding:2px 6px; border-radius:3px; text-transform:uppercase;">200 OK</div>
           </div>

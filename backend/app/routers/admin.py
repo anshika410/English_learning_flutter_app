@@ -188,6 +188,8 @@ async def get_conversation_analysis(
     from ..models.session_analysis import SessionAnalysis
     from ..models.message import Message
     from ..core.curriculum_data import get_skill_text, FLOOR
+    from ..core.config import get_settings
+    settings = get_settings()
 
     conv_result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
     conv = conv_result.scalar_one_or_none()
@@ -334,6 +336,8 @@ async def get_conversation_analysis(
         "transcript": transcript,
         "judge_prompt": judge_prompt,
         "judge_response": judge_response,
+        "judge_endpoint": f"{settings.deepseek_base_url}/chat/completions",
+        "judge_model": settings.deepseek_model,
     }
 
 
