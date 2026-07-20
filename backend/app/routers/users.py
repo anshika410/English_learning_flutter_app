@@ -53,7 +53,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         age_val = int(user.age)
 
     profile_data = {
-        "name": user.name or None,
+        "name": user.first_name or None,
         "age": age_val,
         "city": user.location or None,
         "grade": None,
