@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 
+import '../../core/app_toast.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
@@ -185,6 +186,21 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     });
   }
 
+  // The garden needs live data (it fetches from the API), so opening it offline
+  // would only land on the error view. Block navigation and surface a snackbar
+  // instead so the offline state stays on the calmer Home screen.
+  void _handleOpenGarden() {
+    final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
+    if (!isOnline) {
+      showEllaErrorToast(
+        context,
+        "You're offline. Connect to the internet to visit your garden",
+      );
+      return;
+    }
+    widget.onOpenGarden?.call();
+  }
+
   // Replays the "Last time" recap aloud. Speaks the same fallback line that the
   // card shows when the server hasn't sent a recap yet. A no-op while TTS is
   // already speaking (placement-flow behavior), so taps can't stack utterances.
@@ -305,7 +321,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                     ref.watch(onboardingProvider).valueOrNull?.firstName ??
                         kHomeChildName,
                 onOpenProfile: widget.onOpenProfile,
-                onOpenGarden: widget.onOpenGarden,
+                onOpenGarden: _handleOpenGarden,
               ),
               // Upper group (mascot + Last-time + Next-Session + CTA), centred in
               // the space above the chips; scrolls on short screens. The
@@ -381,26 +397,31 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                   ),
                 ),
               ),
-              // Bottom group — pick-your-own prompt + topic chips.
-              const SizedBox(height: 8),
-              Text(
-                pickPrompt,
-                style: EllaTextStyles.caption.copyWith(
-                  color: EllaColors.greenDeep,
+              // Bottom group — pick-your-own prompt + topic chips. Hidden while
+              // offline: topics can't load, so the row would show empty
+              // placeholders that read as broken. The sleeping mascot, offline
+              // recap, and disabled CTA already convey the paused state.
+              if (isOnline) ...[
+                const SizedBox(height: 8),
+                Text(
+                  pickPrompt,
+                  style: EllaTextStyles.caption.copyWith(
+                    color: EllaColors.greenDeep,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              _TopicChipsRow(
-                // Pass the EFFECTIVE selection (explicit pick, else the
-                // server's recommended) so the topic on the "Let's Talk About…"
-                // CTA is the first, highlighted chip in the row below.
-                recommended: _recommended,
-                alternatives: _alternatives,
-                selected: _selected,
-                promoteSelected: _promoteSelectedTopic,
-                onSelect: _selectTopic,
-                onSeeMore: _openSeeMore,
-              ),
+                const SizedBox(height: 10),
+                _TopicChipsRow(
+                  // Pass the EFFECTIVE selection (explicit pick, else the
+                  // server's recommended) so the topic on the "Let's Talk About…"
+                  // CTA is the first, highlighted chip in the row below.
+                  recommended: _recommended,
+                  alternatives: _alternatives,
+                  selected: _selected,
+                  promoteSelected: _promoteSelectedTopic,
+                  onSelect: _selectTopic,
+                  onSeeMore: _openSeeMore,
+                ),
+              ],
             ],
           ),
         ),

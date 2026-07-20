@@ -34,7 +34,7 @@ class OfflineAlertPopup extends StatelessWidget {
             Text(
               text,
               textAlign: TextAlign.center,
-              style: EllaTextStyles.headline.copyWith(color: EllaColors.ink, fontSize: 24),
+              style: EllaTextStyles.bodySemiboldLarge,
             ),
             const SizedBox(height: 32),
             EllaPrimaryButton(

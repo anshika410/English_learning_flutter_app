@@ -12,6 +12,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/service_providers.dart';
@@ -470,6 +471,18 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
     ref.listen(placementProvider.select((s) => s.levelAssigned), (_, next) {
       if (widget.mode == PlacementGardenMode.placementResult && next != null) {
         _onPlacementResolved(next);
+      }
+    });
+    // Treat losing connectivity like pausing the app: stop the ambient garden
+    // loop so the offline state feels paused. Resume on reconnect only if this
+    // is still the visible screen and music is on. Tap SFX are unaffected.
+    ref.listen<AsyncValue<bool>>(connectivityProvider, (prev, next) {
+      final online = next.valueOrNull ?? true;
+      if (!online) {
+        _audio.stopMusic();
+      } else if (mounted && _audio.musicEnabled) {
+        final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+        if (isCurrent) _audio.playMusic(Sounds.gardenMusic);
       }
     });
 

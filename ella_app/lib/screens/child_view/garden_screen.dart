@@ -22,6 +22,7 @@ import '../../route_observer.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/garden.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
@@ -656,6 +657,18 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
       if (next is! AsyncData<GardenData>) return;
       final data = next.value;
       _registerGardenForReveal(data);
+    });
+    // Treat losing connectivity like pausing the app: stop the ambient garden
+    // loop so the offline state feels paused. Resume on reconnect only if this
+    // is still the visible garden and sound is on. Tap SFX are unaffected.
+    ref.listen<AsyncValue<bool>>(connectivityProvider, (prev, next) {
+      final online = next.valueOrNull ?? true;
+      if (!online) {
+        _stopMusic();
+      } else if (mounted && _soundOn) {
+        final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+        if (isCurrent) _startMusic();
+      }
     });
     final gardenAsync = ref.watch(gardenProvider);
     final postConversation = ref.watch(postConversationGardenRevealProvider);

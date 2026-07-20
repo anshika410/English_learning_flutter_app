@@ -59,25 +59,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     final cache = await EllaApiService().getOnboardingState();
+    final cachedEmail = await EllaApiService().getCachedEmail();
     final providerName = ref.read(onboardingProvider).valueOrNull?.name;
     final fallbackName = providerName ?? cache.name ?? '';
     final fallbackAge = cache.age ?? 0;
 
     try {
       final profile = await EllaApiService().getUserProfile();
+      final profMap = profile['profile'] as Map<String, dynamic>? ?? {};
+      debugPrint('FULL PROFILE RESPONSE: $profile');
+      final apiEmail =
+          (profile['email'] as String?) ?? (profMap['email'] as String?);
+      // Remember a freshly fetched email so Profile can show it while offline.
+      if (apiEmail != null && apiEmail.trim().isNotEmpty) {
+        await EllaApiService().cacheUserEmail(apiEmail.trim());
+      }
       if (mounted) {
         setState(() {
-          final profMap = profile['profile'] as Map<String, dynamic>? ?? {};
-          debugPrint('FULL PROFILE RESPONSE: $profile');
-
           _name = profMap['name'] as String? ?? fallbackName;
           if (_name.isEmpty) _name = fallbackName;
           if (_name.isEmpty) _name = 'Student';
 
-          _email =
-              (profile['email'] as String?) ??
-              (profMap['email'] as String?) ??
-              'No email found';
+          _email = (apiEmail != null && apiEmail.trim().isNotEmpty)
+              ? apiEmail.trim()
+              : (cachedEmail ?? 'No email found');
 
           final ageVal = profMap['age'];
           if (ageVal is num) {
@@ -98,6 +103,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         setState(() {
           _name = fallbackName.isEmpty ? 'Student' : fallbackName;
           _age = fallbackAge;
+          // Offline / API failure: fall back to the last cached email so the
+          // field isn't blank.
+          _email = cachedEmail ?? 'No email found';
           _isLoading = false;
         });
       }
