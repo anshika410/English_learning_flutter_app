@@ -49,6 +49,12 @@ class User(Base):
     level_label: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
     @property
+    def first_name(self) -> str | None:
+        if not self.name:
+            return None
+        return self.name.strip().split(" ")[0]
+
+    @property
     def unit_label(self) -> str | None:
         return self.level_label
 

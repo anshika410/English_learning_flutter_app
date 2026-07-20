@@ -117,7 +117,7 @@ async def placement_turn(
         return PlacementTurnResponse(
             reply=None,
             is_complete=True,
-            name=body.name or user.name,
+            name=user.first_name if not body.name else body.name.split()[0].strip(),
             age=body.age,
             level=None,
             unit_name=None,
@@ -190,24 +190,6 @@ async def session_analysis(
     - Runs the LLM Judge to grade the conversation target skills.
     - Deterministically merges grades into the user's `skills_progress` and updates next targets.
     """
-    import time
-    import json
-    from datetime import datetime
-    
-    start_time = time.time()
-    
-    # Log the incoming request body
-    try:
-        req_json = body.model_dump()
-        print("\n" + "─" * 60)
-        print("POST /llm/judge")
-        print("─" * 60)
-        print("▸ Request Body:")
-        print(json.dumps(req_json, indent=2))
-        print("─" * 60 + "\n", flush=True)
-    except Exception as logger_err:
-        print(f"[Logger Error] Failed to print request body: {logger_err}", flush=True)
-
     # Verify conversation belongs to this user
     conv_result = await db.execute(
         select(Conversation).where(
@@ -220,9 +202,9 @@ async def session_analysis(
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     # Update completion status and metadata (automatically calculate duration from turns_total if provided)
-    from datetime import datetime as dt_cls, timezone
+    from datetime import datetime, timezone
     conversation.completed = True
-    conversation.completed_at = dt_cls.now(timezone.utc)
+    conversation.completed_at = datetime.now(timezone.utc)
     turns = body.turns_total if body.turns_total is not None else len([m for m in body.messages if m.role in ("user", "learner")])
     conversation.duration_seconds = turns * 30
     if body.session_type is not None:
@@ -248,17 +230,4 @@ async def session_analysis(
         turns_total=body.turns_total,
     )
     
-    # Log the response body and measured latency
-    try:
-        latency = time.time() - start_time
-        current_time_str = datetime.now().strftime("%H:%M:%S")
-        print("\n" + "─" * 60)
-        print(f"Time: {current_time_str}  |  Status: 200 OK  |  Latency: {latency:.2f}s")
-        print("─" * 60)
-        print("▸ Response Body:")
-        print(json.dumps(analysis_out, indent=2))
-        print("─" * 60 + "\n", flush=True)
-    except Exception as logger_err:
-        print(f"[Logger Error] Failed to print response body: {logger_err}", flush=True)
-
     return SessionAnalysisResponse(**analysis_out)

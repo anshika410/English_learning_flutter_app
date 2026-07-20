@@ -489,7 +489,7 @@ async def send_placement_turn(
     system_prompt = (
         raw_prompt
         .replace("{{BASE_BLOCK}}", base_block)
-        .replace("{{NAME}}", name or "there")
+        .replace("{{NAME}}", first_name)
         .replace("{{AGE}}", str(age) if age is not None else '"unknown"')
     )
 
