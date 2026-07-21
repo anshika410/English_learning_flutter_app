@@ -334,6 +334,7 @@ async def get_conversation_analysis(
         "correction_highlight": sa.correction_highlight,
         "floor_pct": round(FLOOR * 100),
         "transcript": transcript,
+        "prompt_used": conv.prompt_used,
         "judge_prompt": judge_prompt,
         "judge_response": judge_response,
         "judge_endpoint": f"{settings.deepseek_base_url}/chat/completions",

@@ -445,6 +445,11 @@ async def conversation_turn(
     if llm_result.get("conversation_complete"):
         conv.completed = True
         conv.completed_at = datetime.now(timezone.utc)
+
+    # Store the prompt used for this session (first turn only, to avoid overwriting)
+    if not conv.prompt_used and llm_result.get("prompt_debug"):
+        debug = llm_result["prompt_debug"]
+        conv.prompt_used = debug.get("system_prompt", "") if isinstance(debug, dict) else str(debug)
         
     await db.commit()
     

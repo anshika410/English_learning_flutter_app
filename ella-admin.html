@@ -1263,6 +1263,17 @@
         </div>`;
       }
 
+      // Conversation prompt used
+      if (d.prompt_used) {
+        html += `<div style="margin-top:16px;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📋 Conversation Prompt Used (what Zoe saw)</div>
+          <details>
+            <summary style="cursor:pointer;font-size:12px;color:#6B5740;padding:6px 0;">Click to expand full system prompt</summary>
+            <pre style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;margin-top:8px;">${d.prompt_used.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+          </details>
+        </div>`;
+      }
+
       // Developer Debug Section
       // Reconstruct Android Client's Request Body (SessionAnalysisRequest)
       const androidRequestBody = {
