@@ -177,6 +177,7 @@ async def store_message(
         role=body.role,
         content=body.content,
         turn_number=body.turn_number,
+        input_mode=body.input_mode,
     )
     db.add(msg)
     await db.flush()
@@ -375,6 +376,7 @@ async def conversation_turn(
         role="user",
         content=body.content,
         turn_number=user_turn_number,
+        input_mode=body.input_mode,
     )
     db.add(user_msg)
     await db.flush()
@@ -498,5 +500,6 @@ def _msg_out(m: Message) -> MessageOut:
         role=m.role,
         content=m.content,
         turn_number=m.turn_number,
+        input_mode=m.input_mode,
         created_at=m.created_at,
     )

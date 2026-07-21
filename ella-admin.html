@@ -531,9 +531,10 @@
     
     const ownedList = (u.skills_progress && u.skills_progress.owned) || [];
     let ownedCount = 0;
+    const lvl = u.level.toUpperCase();
     steps.forEach(step => {
       step.skills.forEach(s => {
-        if (ownedList.includes(s.id)) ownedCount++;
+        if (ownedList.includes(s.id) || ownedList.includes(`${lvl}:${s.id}`)) ownedCount++;
       });
     });
     
@@ -886,8 +887,8 @@
     let emergingCount = 0;
     steps.forEach(step => {
       step.skills.forEach(s => {
-        if (ownedList.includes(s.id)) ownedCount++;
-        else if (emergingList.includes(s.id)) emergingCount++;
+        if (ownedList.includes(s.id) || ownedList.includes(`${currentLevel}:${s.id}`)) ownedCount++;
+        else if (emergingList.includes(s.id) || emergingList.includes(`${currentLevel}:${s.id}`)) emergingCount++;
       });
     });
 
@@ -948,17 +949,17 @@
         step.skills.forEach(s => {
           let status = 'locked';
           let statusText = 'Locked';
-          if (ownedList.includes(s.id)) {
+          if (ownedList.includes(s.id) || ownedList.includes(`${currentLevel}:${s.id}`)) {
             status = 'owned';
             statusText = 'Mastered';
-          } else if (emergingList.includes(s.id)) {
+          } else if (emergingList.includes(s.id) || emergingList.includes(`${currentLevel}:${s.id}`)) {
             status = 'emerging';
             statusText = 'Emerging';
           }
 
           // Build evidence logs
           let evidenceHtml = '';
-          const rawEvidence = (progress.evidence && progress.evidence[s.id]) || [];
+          const rawEvidence = (progress.evidence && (progress.evidence[s.id] || progress.evidence[`${currentLevel}:${s.id}`])) || [];
           if (rawEvidence.length > 0) {
             evidenceHtml = `<div class="evidence-box">`;
             rawEvidence.forEach(ev => {
@@ -1062,7 +1063,7 @@
           </div>
           ${d.transcript && d.transcript.length ? `
             <div style="margin-top:16px;font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript</div>
-            ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+            ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? (m.input_mode === 'text' ? '⌨️ Student (typed)' : '🎤 Student') : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
           ` : ''}
         `;
         return;
@@ -1227,7 +1228,7 @@
       if (d.transcript && d.transcript.length > 0) {
         html += `<div style="margin-top:8px;">
           <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript (${d.transcript.length} turns)</div>
-          ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+          ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? (m.input_mode === 'text' ? '⌨️ Student (typed)' : '🎤 Student') : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
         </div>`;
       }
 
@@ -1407,6 +1408,9 @@
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Level:</strong> ${u.level || '—'}</div>
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Unit:</strong> ${u.unit_label || '—'}</div>
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>First session done:</strong> ${u.first_session_done ? 'Yes' : 'No'}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Total sessions:</strong> ${u.total_sessions || 0}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Completed:</strong> ${u.completed_sessions || 0}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Turns spoken:</strong> ${effort.times_spoken_total || 0}</div>
       </div>
     `);
 
@@ -1460,8 +1464,22 @@
         <div style="background:#FFFBEB;padding:6px 12px;border-radius:8px;border:1px solid #fcd34d;"><strong style="color:#D97706;">${emerging.length}</strong> Emerging</div>
         <div style="background:#F3F4F6;padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;"><strong style="color:#374151;">${effort.times_spoken_total || 0}</strong> Total speaking turns</div>
       </div>
-      ${owned.length > 0 ? `<div style="margin-top:4px;font-size:12px;">${owned.map(skillBadge).join('')}</div>` : ''}
-      ${emerging.length > 0 ? `<div style="margin-top:4px;font-size:12px;">${emerging.map(skillBadge).join('')}</div>` : ''}
+      ${owned.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">Owned: ${owned.map(id => pill(id, '#E6FDF4', '#059669')).join('')}</div>` : ''}
+      ${emerging.length > 0 ? `<div style="margin-top:8px;font-size:12px;color:#6B5740;">Emerging:</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+          ${emerging.map(id => {
+            const s = sightings[id] || 0;
+            const pct = Math.round((s / 3) * 100);
+            const barColor = s >= 3 ? '#059669' : s >= 2 ? '#f59e0b' : '#3b82f6';
+            return `<div style="display:flex;align-items:center;gap:8px;">
+              ${pill(id, '#FFFBEB', '#D97706')}
+              <div style="flex:1;max-width:120px;height:8px;background:#eee;border-radius:4px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;"></div>
+              </div>
+              <span style="font-size:11px;font-weight:700;color:${barColor};">${s}/3</span>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
     `);
 
     // Evidence

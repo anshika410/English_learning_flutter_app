@@ -182,12 +182,9 @@ class PlacementNotifier extends Notifier<PlacementState> {
       _age ??= cached.age;
     } catch (_) {}
 
-    // Per the documented placement sequence, open a session record first. The
-    // /llm/placement-turn endpoint itself is stateless (no session_id), so this
-    // is best-effort context only and never blocks the screening.
-    try {
-      await api.createConversation();
-    } catch (_) {}
+    // Per the documented placement sequence, the /llm/placement-turn endpoint
+    // is stateless (no session_id), so no conversation record is needed.
+    // Placement results are stored in the placements table directly.
 
     await _trackedTurn();
   }
