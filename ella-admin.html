@@ -531,9 +531,10 @@
     
     const ownedList = (u.skills_progress && u.skills_progress.owned) || [];
     let ownedCount = 0;
+    const lvl = u.level.toUpperCase();
     steps.forEach(step => {
       step.skills.forEach(s => {
-        if (ownedList.includes(s.id)) ownedCount++;
+        if (ownedList.includes(s.id) || ownedList.includes(`${lvl}:${s.id}`)) ownedCount++;
       });
     });
     
@@ -886,8 +887,8 @@
     let emergingCount = 0;
     steps.forEach(step => {
       step.skills.forEach(s => {
-        if (ownedList.includes(s.id)) ownedCount++;
-        else if (emergingList.includes(s.id)) emergingCount++;
+        if (ownedList.includes(s.id) || ownedList.includes(`${levelUpper}:${s.id}`)) ownedCount++;
+        else if (emergingList.includes(s.id) || emergingList.includes(`${levelUpper}:${s.id}`)) emergingCount++;
       });
     });
 
@@ -948,17 +949,17 @@
         step.skills.forEach(s => {
           let status = 'locked';
           let statusText = 'Locked';
-          if (ownedList.includes(s.id)) {
+          if (ownedList.includes(s.id) || ownedList.includes(`${levelUpper}:${s.id}`)) {
             status = 'owned';
             statusText = 'Mastered';
-          } else if (emergingList.includes(s.id)) {
+          } else if (emergingList.includes(s.id) || emergingList.includes(`${levelUpper}:${s.id}`)) {
             status = 'emerging';
             statusText = 'Emerging';
           }
 
           // Build evidence logs
           let evidenceHtml = '';
-          const rawEvidence = (progress.evidence && progress.evidence[s.id]) || [];
+          const rawEvidence = (progress.evidence && (progress.evidence[s.id] || progress.evidence[`${levelUpper}:${s.id}`])) || [];
           if (rawEvidence.length > 0) {
             evidenceHtml = `<div class="evidence-box">`;
             rawEvidence.forEach(ev => {
