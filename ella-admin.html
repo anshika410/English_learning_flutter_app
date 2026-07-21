@@ -1408,6 +1408,9 @@
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Level:</strong> ${u.level || '—'}</div>
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Unit:</strong> ${u.unit_label || '—'}</div>
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>First session done:</strong> ${u.first_session_done ? 'Yes' : 'No'}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Total sessions:</strong> ${u.total_sessions || 0}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Completed:</strong> ${u.completed_sessions || 0}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Turns spoken:</strong> ${effort.times_spoken_total || 0}</div>
       </div>
     `);
 
