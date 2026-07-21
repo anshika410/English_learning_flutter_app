@@ -1,7 +1,7 @@
 """Read-only admin stats endpoint — protected by a secret key in the query string."""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, Table, Column, String, Text, DateTime, MetaData
 from ..core.database import get_db
 from ..core.config import get_settings
 from ..models.user import User
@@ -10,8 +10,21 @@ from ..models.message import Message
 from ..models.placement import Placement
 from pydantic import BaseModel
 from datetime import datetime
+from ..core.database import Base
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# Prompt version history table (lightweight, no ORM model needed)
+metadata = MetaData()
+prompt_history_table = Table(
+    "prompt_history", Base.metadata,
+    Column("id", String(36), primary_key=True, default=lambda: __import__('uuid').uuid4().hex),
+    Column("prompt_name", String(100)),
+    Column("content", Text),
+    Column("author", String(100)),
+    Column("created_at", DateTime(timezone=True)),
+    extend_existing=True,
+)
 
 
 def _check_key(key: str = Query(..., alias="key")):
@@ -509,12 +522,14 @@ async def test_prompt(
 class PromptDeployRequest(BaseModel):
     prompt_name: str  # e.g. "base-prompt", "profile-A0", "end-result-prompt"
     content: str
+    author: str = "unknown"  # who deployed this
 
 
 @router.put("/prompts/deploy")
 async def deploy_prompt(
     body: PromptDeployRequest,
     _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
 ):
     """Deploy a prompt to production — overwrites the .md file. USE WITH CAUTION."""
     from ..services.llm_service import PROMPTS_DIR
@@ -534,9 +549,22 @@ async def deploy_prompt(
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"Prompt file not found: {body.prompt_name}.md")
 
-    # Backup current version
+    # Save current version to history before overwriting
+    old_content = target.read_text()
+    from datetime import datetime, timezone
+    await db.execute(
+        prompt_history_table.insert().values(
+            prompt_name=body.prompt_name,
+            content=old_content,
+            author=body.author,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await db.commit()
+
+    # Backup current version as .bak file too
     backup = PROMPTS_DIR / f"{body.prompt_name}.md.bak"
-    backup.write_text(target.read_text())
+    backup.write_text(old_content)
 
     # Write new content
     target.write_text(body.content)
@@ -547,6 +575,30 @@ async def deploy_prompt(
         "chars": len(body.content),
         "backup": f"{body.prompt_name}.md.bak",
     }
+
+
+@router.get("/prompts/history")
+async def get_prompt_history(
+    prompt_name: str = Query(None),
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get version history for prompts. Optionally filter by prompt_name."""
+    query = select(prompt_history_table).order_by(desc(prompt_history_table.c.created_at)).limit(50)
+    if prompt_name:
+        query = query.where(prompt_history_table.c.prompt_name == prompt_name)
+    result = await db.execute(query)
+    rows = result.fetchall()
+    return [
+        {
+            "id": row.id,
+            "prompt_name": row.prompt_name,
+            "content": row.content,
+            "author": row.author,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
 
 
 class JumpRequest(BaseModel):
