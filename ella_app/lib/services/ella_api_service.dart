@@ -391,11 +391,15 @@ class EllaApiService {
   Future<ConversationTurnApiResponse> conversationTurn({
     required String sessionId,
     required String content,
+    String? inputMode,
   }) async {
     final data = await _request(
       'POST',
       '/session/$sessionId/turn',
-      body: {'content': content},
+      body: {
+        'content': content,
+        if (inputMode != null) 'input_mode': inputMode,
+      },
     );
     return ConversationTurnApiResponse(
       transcript: [

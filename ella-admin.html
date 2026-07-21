@@ -1062,7 +1062,7 @@
           </div>
           ${d.transcript && d.transcript.length ? `
             <div style="margin-top:16px;font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript</div>
-            ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+            ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? (m.input_mode === 'text' ? '⌨️ Student (typed)' : '🎤 Student') : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
           ` : ''}
         `;
         return;
@@ -1227,7 +1227,7 @@
       if (d.transcript && d.transcript.length > 0) {
         html += `<div style="margin-top:8px;">
           <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript (${d.transcript.length} turns)</div>
-          ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+          ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? (m.input_mode === 'text' ? '⌨️ Student (typed)' : '🎤 Student') : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
         </div>`;
       }
 

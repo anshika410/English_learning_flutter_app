@@ -25,4 +25,5 @@ class Message(Base):
     llm_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tts_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     turn_number: Mapped[int] = mapped_column(Integer, default=0)
+    input_mode: Mapped[str | None] = mapped_column(String(10), nullable=True)  # "voice" or "text", null for old messages
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

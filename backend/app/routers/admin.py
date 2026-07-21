@@ -205,7 +205,7 @@ async def get_conversation_analysis(
         .order_by(Message.turn_number, Message.created_at)
     )
     transcript = [
-        {"role": "zoe" if m.role in ("zoe", "assistant") else "me", "content": m.content}
+        {"role": "zoe" if m.role in ("zoe", "assistant") else "me", "content": m.content, "input_mode": m.input_mode}
         for m in msg_result.scalars().all()
     ]
 
@@ -360,6 +360,7 @@ async def get_transcript(
             "content": m.content,
             "correction": m.correction,
             "turn_number": m.turn_number,
+            "input_mode": m.input_mode,
             "stt_ms": m.stt_duration_ms,
             "llm_ms": m.llm_duration_ms,
             "tts_ms": m.tts_duration_ms,

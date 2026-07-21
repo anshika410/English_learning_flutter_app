@@ -34,6 +34,7 @@ class MessageOut(BaseModel):
     role: str
     content: str
     turn_number: int = 0
+    input_mode: str | None = None
     created_at: datetime
 
 
@@ -41,13 +42,15 @@ class StoreMessageRequest(BaseModel):
     role: str
     content: str
     turn_number: int = 0
+    input_mode: str | None = None  # "voice" or "text", optional for backward compat
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "role": "user",
                 "content": "Hello Zoe! I want to talk about dogs today.",
-                "turn_number": 1
+                "turn_number": 1,
+                "input_mode": "voice"
             }
         }
     }
@@ -97,6 +100,7 @@ class SessionLogResponse(BaseModel):
 
 class ConversationTurnRequest(BaseModel):
     content: str
+    input_mode: str | None = None  # "voice" or "text", optional
 
     model_config = {
         "json_schema_extra": {
