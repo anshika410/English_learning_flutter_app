@@ -205,6 +205,7 @@
       <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid #F0E4CC; padding-bottom:10px;">
         <button id="tab-btn-overview" class="tab-btn active" onclick="switchTab('overview')">Overview</button>
         <button id="tab-btn-metrics" class="tab-btn" onclick="switchTab('metrics')">Metrics Framework 📈</button>
+        <button id="tab-btn-prompts" class="tab-btn" onclick="switchTab('prompts')">Prompts ✏️</button>
       </div>
 
       <!-- Overview Tab Content -->
@@ -363,6 +364,30 @@
   </div>
 </div>
 
+<!-- Prompts Tab Content -->
+<div id="view-prompts" style="display:none;padding:24px 0;">
+  <div class="section">
+    <h2>Prompt Editor — Edit & Test (Isolated)</h2>
+    <p style="font-size:13px;color:#6B5740;margin-bottom:16px;">Edit any prompt below and click "Test" to see how the LLM responds. This does NOT affect production users until you click "Deploy to Production".</p>
+    <div style="margin-bottom:12px;">
+      <select id="prompt-select" onchange="loadSelectedPrompt()" style="padding:8px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:14px;background:#FFFDF8;">
+        <option value="">-- Select a prompt --</option>
+      </select>
+    </div>
+    <textarea id="prompt-editor" rows="20" style="width:100%;font-family:monospace;font-size:12.5px;padding:12px;border:1.5px solid #F0E4CC;border-radius:8px;background:#FFFDF8;resize:vertical;line-height:1.5;"></textarea>
+    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+      <button onclick="testPrompt()" style="padding:10px 20px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">🧪 Test (Isolated)</button>
+      <button onclick="deployPrompt()" style="padding:10px 20px;background:#dc2626;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">🚀 Deploy to Production</button>
+      <span id="prompt-status" style="font-size:12px;color:#6B5740;align-self:center;"></span>
+    </div>
+    <div id="prompt-test-result" style="margin-top:16px;display:none;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#3b82f6;margin-bottom:6px;">Test Result (isolated — no users affected)</div>
+      <div id="prompt-test-reply" style="background:#1f1b16;color:#efe9d8;padding:12px;border-radius:8px;font-family:monospace;font-size:12.5px;white-space:pre-wrap;max-height:300px;overflow-y:auto;"></div>
+      <div id="prompt-test-usage" style="font-size:11px;color:#6B5740;margin-top:6px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Transcript modal -->
 <div class="modal" id="transcript-modal">
   <div class="modal-box">
@@ -469,8 +494,10 @@
   function switchTab(tab) {
     document.getElementById('tab-btn-overview').classList.remove('active');
     document.getElementById('tab-btn-metrics').classList.remove('active');
+    document.getElementById('tab-btn-prompts').classList.remove('active');
     document.getElementById('view-overview').style.display = 'none';
     document.getElementById('view-metrics').style.display = 'none';
+    document.getElementById('view-prompts').style.display = 'none';
 
     if (tab === 'overview') {
       document.getElementById('tab-btn-overview').classList.add('active');
@@ -480,6 +507,10 @@
       document.getElementById('view-metrics').style.display = 'block';
       if (window.chartConvs) window.chartConvs.resize();
       if (window.chartTurns) window.chartTurns.resize();
+    } else if (tab === 'prompts') {
+      document.getElementById('tab-btn-prompts').classList.add('active');
+      document.getElementById('view-prompts').style.display = 'block';
+      if (!window._promptsLoaded) loadPrompts();
     }
   }
 
@@ -1513,6 +1544,100 @@
 
   function closeMemoryModal() {
     document.getElementById('memory-modal').classList.remove('open');
+  }
+
+  // ── Prompts Tab ─────────────────────────────────────────────────────────────
+
+  let _allPrompts = {};
+  window._promptsLoaded = false;
+
+  async function loadPrompts() {
+    try {
+      const res = await fetch(`${BASE_URL}/admin/prompts`);
+      const data = await res.json();
+      _allPrompts = {};
+      // Flatten into name → content
+      if (data.base) _allPrompts['base-prompt'] = data.base;
+      if (data.conversation) _allPrompts['conversation-prompt'] = data.conversation;
+      if (data.conv_unit_framing) _allPrompts['conv-unit-framing'] = data.conv_unit_framing;
+      if (data.judge) _allPrompts['end-result-prompt'] = data.judge;
+      if (data.placement) _allPrompts['placement-check-prompt'] = data.placement;
+      if (data.correction_extraction) _allPrompts['correction-extraction-prompt'] = data.correction_extraction;
+      if (data.level_profiles) {
+        Object.entries(data.level_profiles).forEach(([lvl, content]) => {
+          _allPrompts[`profile-${lvl}`] = content;
+        });
+      }
+      // Populate select
+      const sel = document.getElementById('prompt-select');
+      sel.innerHTML = '<option value="">-- Select a prompt --</option>';
+      Object.keys(_allPrompts).sort().forEach(name => {
+        sel.innerHTML += `<option value="${name}">${name}</option>`;
+      });
+      window._promptsLoaded = true;
+    } catch (e) {
+      document.getElementById('prompt-status').textContent = 'Failed to load prompts: ' + e.message;
+    }
+  }
+
+  function loadSelectedPrompt() {
+    const name = document.getElementById('prompt-select').value;
+    if (!name) { document.getElementById('prompt-editor').value = ''; return; }
+    document.getElementById('prompt-editor').value = _allPrompts[name] || '';
+    document.getElementById('prompt-test-result').style.display = 'none';
+    document.getElementById('prompt-status').textContent = `Loaded: ${name} (${_allPrompts[name].length} chars)`;
+  }
+
+  async function testPrompt() {
+    const systemPrompt = document.getElementById('prompt-editor').value.trim();
+    if (!systemPrompt) { alert('Enter a prompt first'); return; }
+    document.getElementById('prompt-status').textContent = 'Testing...';
+    try {
+      const res = await fetch(`${BASE_URL}/admin/prompts/test?key=${encodeURIComponent(ADMIN_KEY)}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          system_prompt: systemPrompt,
+          messages: [{ role: 'user', content: 'Hello, what should we talk about today?' }],
+          max_tokens: 300,
+          temperature: 0.75,
+        })
+      });
+      const data = await res.json();
+      document.getElementById('prompt-test-result').style.display = 'block';
+      document.getElementById('prompt-test-reply').textContent = data.reply || data.detail || 'No response';
+      document.getElementById('prompt-test-usage').textContent = data.usage
+        ? `Tokens: ${data.usage.prompt_tokens} prompt + ${data.usage.completion_tokens} completion = ${data.usage.total_tokens} total | Model: ${data.model || '?'}`
+        : '';
+      document.getElementById('prompt-status').textContent = 'Test complete ✓';
+    } catch (e) {
+      document.getElementById('prompt-status').textContent = 'Test failed: ' + e.message;
+    }
+  }
+
+  async function deployPrompt() {
+    const name = document.getElementById('prompt-select').value;
+    const content = document.getElementById('prompt-editor').value.trim();
+    if (!name) { alert('Select a prompt first'); return; }
+    if (!content) { alert('Prompt content is empty'); return; }
+    if (!confirm(`⚠️ DEPLOY TO PRODUCTION?\n\nThis will overwrite "${name}" for ALL users immediately.\n\nAre you sure?`)) return;
+    document.getElementById('prompt-status').textContent = 'Deploying...';
+    try {
+      const res = await fetch(`${BASE_URL}/admin/prompts/deploy?key=${encodeURIComponent(ADMIN_KEY)}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ prompt_name: name, content: content })
+      });
+      const data = await res.json();
+      if (data.status === 'deployed') {
+        document.getElementById('prompt-status').textContent = `✅ Deployed "${name}" (${data.chars} chars). Backup saved as ${data.backup}`;
+        _allPrompts[name] = content;
+      } else {
+        document.getElementById('prompt-status').textContent = '❌ Deploy failed: ' + (data.detail || JSON.stringify(data));
+      }
+    } catch (e) {
+      document.getElementById('prompt-status').textContent = '❌ Deploy failed: ' + e.message;
+    }
   }
 </script>
 </body>

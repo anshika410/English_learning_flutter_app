@@ -462,6 +462,92 @@ async def get_admin_prompts():
         )
 
 
+class PromptTestRequest(BaseModel):
+    system_prompt: str
+    messages: list[dict] = []  # [{"role": "user", "content": "..."}, ...]
+    max_tokens: int = 300
+    temperature: float = 0.75
+
+
+@router.post("/prompts/test")
+async def test_prompt(
+    body: PromptTestRequest,
+    _: None = Depends(_check_key),
+):
+    """Test a prompt with the LLM — isolated, never touches production or any user."""
+    from ..core.config import get_settings
+    import httpx
+
+    settings = get_settings()
+    api_messages = [{"role": "system", "content": body.system_prompt}] + body.messages
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{settings.deepseek_base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {settings.deepseek_api_key}"},
+                json={
+                    "model": settings.deepseek_model,
+                    "messages": api_messages,
+                    "max_tokens": body.max_tokens,
+                    "temperature": body.temperature,
+                },
+            )
+            data = resp.json()
+            reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            usage = data.get("usage", {})
+            return {
+                "reply": reply,
+                "usage": usage,
+                "model": data.get("model"),
+            }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
+
+
+class PromptDeployRequest(BaseModel):
+    prompt_name: str  # e.g. "base-prompt", "profile-A0", "end-result-prompt"
+    content: str
+
+
+@router.put("/prompts/deploy")
+async def deploy_prompt(
+    body: PromptDeployRequest,
+    _: None = Depends(_check_key),
+):
+    """Deploy a prompt to production — overwrites the .md file. USE WITH CAUTION."""
+    from ..services.llm_service import PROMPTS_DIR
+
+    # Validate prompt name
+    valid_names = [
+        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "end-result-prompt", "placement-check-prompt",
+        "correction-extraction-prompt", "starter-prompt",
+        "profile-A0", "profile-A1", "profile-A2",
+        "profile-B1", "profile-B2", "profile-C1",
+    ]
+    if body.prompt_name not in valid_names:
+        raise HTTPException(status_code=400, detail=f"Invalid prompt name. Valid: {valid_names}")
+
+    target = PROMPTS_DIR / f"{body.prompt_name}.md"
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"Prompt file not found: {body.prompt_name}.md")
+
+    # Backup current version
+    backup = PROMPTS_DIR / f"{body.prompt_name}.md.bak"
+    backup.write_text(target.read_text())
+
+    # Write new content
+    target.write_text(body.content)
+
+    return {
+        "status": "deployed",
+        "prompt_name": body.prompt_name,
+        "chars": len(body.content),
+        "backup": f"{body.prompt_name}.md.bak",
+    }
+
+
 class JumpRequest(BaseModel):
     email: str
     level: str  # A0, A1, A2, B1, B2, C1
