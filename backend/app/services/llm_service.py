@@ -493,7 +493,7 @@ async def send_conversation_turn(
 
     # Check for conversation_complete signal
     max_turns = 6
-    max_turn_match = re.search(r"CURRENT TURN:\s*\{\{CURRENT_TURN\}\}\s*of\s*(\d+)", unit_template, re.IGNORECASE)
+    max_turn_match = re.search(r"CURRENT[_\s]+TURN:\s*\{\{CURRENT_TURN\}\}\s*(?:of|/)\s*(\d+)", unit_template, re.IGNORECASE)
     if max_turn_match:
         max_turns = int(max_turn_match.group(1))
 
