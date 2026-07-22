@@ -1998,7 +1998,7 @@ function App(){
         {tab==='session'&&<SessionView sessions={sessions}/>}
         {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
  {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)} level={level} tabActive={tab==='prompt'} sessionType={sessionType} mem={mem} prompts={prompts} lastSystemPrompt={lastSystemPrompt}/>}
-        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI} sessionType={sessionType} level={level}/>}
+        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI} sessionType={sessionType} level={level} isChatEnded={!!judgeOut || !!placementAssessment}/>}
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
         {tab==='units'&&<UnitsView mem={mem}/>}
         {tab==='hist'&&<HistView history={history}/>}
@@ -2574,7 +2574,7 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
     <small className="note">Each colored section shows which building block produced that part of the final prompt. Base (green) | Profile (blue) | Framing (amber) | Topic (purple) | Arc (pink) | Context (lime) | Transcript (grey).</small>
   </div>);
 }
-function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
+function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChatEnded}){
   const [activeSource, setActiveSource] = React.useState('server'); // 'client' | 'server'
   const [serverPrompts, setServerPrompts] = React.useState(null);
   const [editedServerPrompts, setEditedServerPrompts] = React.useState(null);
