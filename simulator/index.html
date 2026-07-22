@@ -3085,7 +3085,7 @@ function VersionBadge() {
     fetchVer();
     const interval = setInterval(fetchVer, 10000);
     const onDeployed = () => { fetchVer(); setRestored(null); };
-    const onRestored = () => setRestored(window.__restoredFrom);
+    const onRestored = () => { fetchVer(); setRestored(window.__restoredFrom); };
     window.addEventListener('prompt-deployed', onDeployed);
     window.addEventListener('prompt-restored', onRestored);
     return () => {
