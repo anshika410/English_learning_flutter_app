@@ -252,6 +252,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       }
     }
     
+    // Extract just the first name
+    t = t.split(RegExp(r'\s+')).first;
     return (t[0].toUpperCase() + t.substring(1), null);
   }
 
