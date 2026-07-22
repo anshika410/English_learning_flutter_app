@@ -1372,7 +1372,14 @@ function App(){
     if (sessionType === 'placement') {
       if (placementAssessment) return;
     } else {
-      if(autoStep.current>=6){await endChat();return;}
+      let maxTurns = 6;
+      const ta = document.querySelector('textarea[data-promptkey="conv-unit-framing"]');
+      const template = (ta ? ta.value : '') || prompts.convUnit || prompts.convSkill || prompts.conversation || '';
+      const match = template.match(/CURRENT[_\s]+TURN:\s*\{\{CURRENT_TURN\}\}\s*(?:of|\x2f)\s*(\d+)/i);
+      if (match) {
+        maxTurns = parseInt(match[1], 10);
+      }
+      if(autoStep.current>=maxTurns){await endChat();return;}
     }
     setBusy(true); const k=await mockKidLLM(); setBusy(false); autoStep.current++; await sendKid(k);
   }
