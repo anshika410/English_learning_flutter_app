@@ -3119,9 +3119,14 @@ function VersionBadge() {
     );
   }
 
+  let noteText = ver.notes;
+  if (noteText && noteText.toLowerCase().includes('rolled back')) {
+    noteText = 'Rolled Back';
+  }
+
   return (
     <div style={{fontSize:11, color:'#555', padding:'4px 10px', background:'#f5f3ee', borderRadius:6, marginBottom:10, display:'inline-block'}}>
-      Current version: <b>{ver.version}</b> {ver.notes ? <span>({ver.notes}) </span> : null}by {ver.author} &middot; {date}
+      Current version: <b>{ver.version}</b> {noteText ? <span style={{color:'var(--rust)', fontWeight:600}}>({noteText}) </span> : null}by {ver.author} &middot; {date}
     </div>
   );
 }
