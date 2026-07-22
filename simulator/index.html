@@ -2576,6 +2576,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
   const [activeSource, setActiveSource] = React.useState('server'); // 'client' | 'server'
   const [serverPrompts, setServerPrompts] = React.useState(null);
   const [editedServerPrompts, setEditedServerPrompts] = React.useState(null);
+  const [isSandbox, setIsSandbox] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
 
@@ -2585,6 +2586,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
       callEllaAPI('/admin/prompts')
         .then(data => {
           setServerPrompts(data);
+          setIsSandbox(!!data.is_sandbox);
           const initialEdits = {
             placement: data.placement || '',
             base: data.base || '',
@@ -2700,6 +2702,11 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
         }} ref={el=>{if(el){const p=el.parentElement;if(p&&!p.__hasListener){p.__hasListener=true;p.addEventListener('input',()=>{const tas=p.querySelectorAll('textarea');const vals=Array.from(tas).filter(t=>t.value.trim()).map(t=>t.value.trim());if(vals.length>0)window.__editedPrompts=vals.join('\n\n---\n\n');});}}}}>
         </div>
         <VersionBadge />
+        {isSandbox && (
+          <div style={{marginBottom:12, padding:'8px 12px', background:'#f3e5f5', border:'1.5px solid #ab47bc', borderRadius:8, fontSize:11, color:'#6a1b9a', fontWeight:600}}>
+            <span>🧪 <b>Personal Sandbox Active:</b> You are viewing and editing your personal sandbox prompts. Any changes you save here are private to your Google account and will survive page refreshes. Click <b>Clear Sandbox</b> to revert to the global production prompts.</span>
+          </div>
+        )}
         {loading && <div style={{ color: '#8a8678', fontStyle: 'italic', padding: 20 }}>Loading production prompts from server...</div>}
         {error && <div style={{ color: 'var(--rust)', padding: 20 }}>Error: {error}</div>}
         {serverPrompts && (
@@ -2936,6 +2943,9 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                       body: JSON.stringify({ snapshot })
                     });
                     const d = await r.json();
+                    if (d.status === 'success' || d.message) {
+                      setIsSandbox(true);
+                    }
                     alert(d.message || 'Saved to sandbox!');
                   } catch(e) {
                     alert('Error: ' + e);
@@ -2946,33 +2956,34 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   if(!confirm('Clear all your sandbox overrides and revert to production prompts?')) return;
                   try{
                     const r = await fetch(LLM_CONFIG.ellaApiUrl+'/admin/prompts/sandbox', {
-                      method: 'DELETE',
-                      headers: {
-                        'Authorization': 'Bearer ' + localStorage.getItem('ella_access_token')
-                      }
-                    });
-                    const d = await r.json();
-                    alert(d.message || 'Sandbox cleared!');
-                    setServerPrompts(null);
-                    setLoading(true);
-                    callEllaAPI('/admin/prompts')
-                      .then(data => { 
-                        setServerPrompts(data); 
-                        const initialEdits = {
-                          placement: data.placement || '',
-                          base: data.base || '',
-                          'conv-unit-framing': data.conv_unit_framing || '',
-                          judge: data.judge || '',
-                          'correction-extraction': data.correction_extraction || '',
-                        };
-                        if (data.level_profiles) {
-                          Object.entries(data.level_profiles).forEach(([lvl, txt]) => {
-                            initialEdits[`profile-${lvl}`] = txt || '';
-                          });
-                        }
-                        setEditedServerPrompts(initialEdits);
-                        setLoading(false);
-                      });
+                       method: 'DELETE',
+                       headers: {
+                         'Authorization': 'Bearer ' + localStorage.getItem('ella_access_token')
+                       }
+                     });
+                     const d = await r.json();
+                     alert(d.message || 'Sandbox cleared!');
+                     setServerPrompts(null);
+                     setLoading(true);
+                     callEllaAPI('/admin/prompts')
+                       .then(data => { 
+                         setServerPrompts(data); 
+                         setIsSandbox(!!data.is_sandbox);
+                         const initialEdits = {
+                           placement: data.placement || '',
+                           base: data.base || '',
+                           'conv-unit-framing': data.conv_unit_framing || '',
+                           judge: data.judge || '',
+                           'correction-extraction': data.correction_extraction || '',
+                         };
+                         if (data.level_profiles) {
+                           Object.entries(data.level_profiles).forEach(([lvl, txt]) => {
+                             initialEdits[`profile-${lvl}`] = txt || '';
+                           });
+                         }
+                         setEditedServerPrompts(initialEdits);
+                         setLoading(false);
+                       });
                   } catch(e) {
                     alert('Error: ' + e);
                   }
@@ -2983,6 +2994,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   setLoading(true);
                   callEllaAPI('/admin/prompts')
                     .then(data => { setServerPrompts(data); setLoading(false);
+                      setIsSandbox(!!data.is_sandbox);
                       window.__restoredFrom = null;
                       window.dispatchEvent(new Event('prompt-restored'));
                   // Initialize __editedPrompts with loaded server values

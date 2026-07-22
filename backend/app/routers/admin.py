@@ -448,31 +448,36 @@ class AdminPromptsResponse(BaseModel):
     base: str
     level_profiles: dict[str, str]
     conv_unit_framing: str
+    is_sandbox: bool = False
 
 
 @router.get("/prompts", response_model=AdminPromptsResponse)
-async def get_admin_prompts():
+async def get_admin_prompts(
+    user: User = Depends(get_current_user),
+):
     """Get active LLM prompt templates — modular building blocks matching client structure."""
-    from ..services.llm_service import PROMPTS_DIR
+    from ..services.llm_service import PROMPTS_DIR, resolve_prompt
     try:
-        conv = (PROMPTS_DIR / "conversation-prompt.md").read_text()
-        judge = (PROMPTS_DIR / "end-result-prompt.md").read_text()
-        placement = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+        user_id = user.id if user else None
         
-        # Read modular prompt files
-        base = (PROMPTS_DIR / "base-prompt.md").read_text()
-        conv_unit_framing = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+        # Check if sandbox exists for this user
+        is_sandbox = False
+        if user_id:
+            sandbox_dir = PROMPTS_DIR / "sandboxes" / user_id
+            if sandbox_dir.exists() and any(sandbox_dir.iterdir()):
+                is_sandbox = True
+
+        conv = resolve_prompt("conversation-prompt.md", user_id=user_id)
+        judge = resolve_prompt("end-result-prompt.md", user_id=user_id)
+        placement = resolve_prompt("placement-check-prompt.md", user_id=user_id)
+        base = resolve_prompt("base-prompt.md", user_id=user_id)
+        conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=user_id)
+        correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=user_id)
         
         # Read level profiles
         level_profiles = {}
         for lvl in ["A0", "A1", "A2", "B1", "B2", "C1"]:
-            profile_path = PROMPTS_DIR / f"profile-{lvl}.md"
-            if profile_path.exists():
-                level_profiles[lvl] = profile_path.read_text()
-            else:
-                level_profiles[lvl] = f"(No profile file for {lvl})"
-
-        correction_prompt = (PROMPTS_DIR / "correction-extraction-prompt.md").read_text()
+            level_profiles[lvl] = resolve_prompt(f"profile-{lvl}.md", user_id=user_id)
 
         return AdminPromptsResponse(
             conversation=conv,
@@ -482,6 +487,7 @@ async def get_admin_prompts():
             base=base,
             level_profiles=level_profiles,
             conv_unit_framing=conv_unit_framing,
+            is_sandbox=is_sandbox,
         )
     except Exception as e:
         raise HTTPException(
