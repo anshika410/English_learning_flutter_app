@@ -1081,7 +1081,7 @@ function App(){
         setCurrentTopic(apiTopic);
         const starterText = conv.starter || "Hi! Let's talk!";
         setMsgs([
-          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(apiTopic?(' — topic: '+apiTopic.topic):'')+(customPrompts?' (custom prompts)':'')},
+          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+mctx.level+(apiTopic?(' — topic: '+apiTopic.topic):'')+(customPrompts?' (custom prompts)':'')},
           {role:'zoe',text:starterText}
         ]);
         setLlmLive(true);
@@ -1122,7 +1122,7 @@ function App(){
         setCurrentTopic(apiTopic);
         const starterText = conv.starter || "Hi! Let's talk!";
         setMsgs([
-          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(apiTopic?(' — topic: '+apiTopic.topic):'')+(customPrompts?' (custom prompts)':'')},
+          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+mctx.level+(apiTopic?(' — topic: '+apiTopic.topic):'')+(customPrompts?' (custom prompts)':'')},
           {role:'zoe',text:starterText}
         ]);
         setLlmLive(true);
@@ -1227,7 +1227,7 @@ function App(){
     const defaultOpen = primary ? ("Hi! I'm Zoe. " + skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
     const plannedOpen = lvl === 'A0' ? a0Open : defaultOpen;
     setMsgs([
-      {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(topic?(' — topic: '+topic.topic):'')},
+      {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+lvl+(topic?(' — topic: '+topic.topic):'')},
       {role:'zoe',text:plannedOpen}
     ]);
   }
