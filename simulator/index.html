@@ -195,23 +195,11 @@ window.__restoreVersion = async function(versionId) {
     const detail = await r.json();
     if (!detail.snapshot) { alert('Could not load snapshot.'); return; }
     
-    // Map database snapshot keys to React state keys
-    const mapped = {
-      placement: detail.snapshot['placement-check-prompt'] || detail.snapshot['placement'] || '',
-      base: detail.snapshot['base-prompt'] || detail.snapshot['base'] || '',
-      'conv-unit-framing': detail.snapshot['conv-unit-framing'] || '',
-      judge: detail.snapshot['end-result-prompt'] || detail.snapshot['judge'] || '',
-      'correction-extraction': detail.snapshot['correction-extraction-prompt'] || detail.snapshot['correction-extraction'] || '',
-    };
-    for (const lvl of ["A0", "A1", "A2", "B1", "B2", "C1"]) {
-      mapped[`profile-${lvl}`] = detail.snapshot[`profile-${lvl}`] || '';
-    }
-
     if (window.__setEditedServerPrompts) {
-      window.__setEditedServerPrompts(mapped);
+      window.__setEditedServerPrompts(detail.snapshot);
     }
     if (window.__setClientPrompts) {
-      window.__setClientPrompts(mapped);
+      window.__setClientPrompts(detail.snapshot);
     }
     
     const panel = document.getElementById('version-history-panel');
