@@ -657,11 +657,11 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
         f.write(py_code)
     print("Success: Generated curriculum_data.py successfully!")
 
-    # 5. Also update loop-simulator.html
-    sim_path = './docs/loop-simulator.html'
+    # 5. Also update simulator/index.html
+    sim_path = './simulator/index.html'
     if os.path.exists(sim_path):
         import json
-        print("Updating loop-simulator.html...")
+        print("Updating simulator/index.html...")
         with open(sim_path, 'r', encoding='utf-8') as f:
             sim_content = f.read()
         
@@ -680,9 +680,9 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
         if updated_units or updated_cat:
             with open(sim_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(lines))
-            print(f"Success: Updated loop-simulator.html (UNITS: {updated_units}, CAT: {updated_cat}) successfully!")
+            print(f"Success: Updated simulator/index.html (UNITS: {updated_units}, CAT: {updated_cat}) successfully!")
         else:
-            print("Warning: Could not find const UNITS or const CAT in loop-simulator.html")
+            print("Warning: Could not find const UNITS or const CAT in simulator/index.html")
 
 if __name__ == '__main__':
     main()

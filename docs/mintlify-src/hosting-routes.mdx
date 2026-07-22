@@ -18,7 +18,7 @@ Server root: `/var/www/ella/`
 | [https://ella.navgurukul.org/](https://ella.navgurukul.org/) | Static HTML | `index.html` (root) | Landing page / redirect |
 | [https://ella.navgurukul.org/v1/](https://ella.navgurukul.org/v1/) | Flutter Web | `frontend/` project | Product v1 — original Flutter web app |
 | [https://ella.navgurukul.org/v2/](https://ella.navgurukul.org/v2/) | Flutter Web | `ella_app/` project | Product v2 — new Ella app (home, garden, conversation) |
-| [https://ella.navgurukul.org/v2/conversation-flow/](https://ella.navgurukul.org/v2/conversation-flow/) | Static HTML | `docs/loop-simulator.html` | Loop Simulator — standalone dev tool for testing conversation flow |
+| [https://ella.navgurukul.org/v2/conversation-flow/](https://ella.navgurukul.org/v2/conversation-flow/) | Static HTML | `simulator/index.html` | Loop Simulator — standalone dev tool for testing conversation flow |
 | [https://ella.navgurukul.org/docs/](https://ella.navgurukul.org/docs/) | Mintlify Static Export | `docs/mintlify-src/` | Documentation site (API reference, architecture, systems) |
 | [https://ella.navgurukul.org/api/](https://ella.navgurukul.org/api/) | FastAPI (Docker) | `backend/` project | Backend API — proxied via Nginx to port 8000 |
 | [https://ella.navgurukul.org/admin/](https://ella.navgurukul.org/admin/) | Static HTML | `ella-admin.html` | Pilot Dashboard — screening results viewer |
@@ -77,11 +77,11 @@ Source: `ella_app/` project. Remember to keep `/v2/conversation-flow/` intact af
 
 ```bash
 # Deploy:
-# Copy docs/loop-simulator.html to /var/www/ella/v2/conversation-flow/index.html on the server
+# Copy simulator/index.html to /var/www/ella/v2/conversation-flow/index.html on the server
 # (See team wiki for SSH access details)
 ```
 
-Source: `docs/loop-simulator.html` — single self-contained HTML file with embedded JS. No build step.
+Source: `simulator/index.html` — single self-contained HTML file with embedded JS. No build step.
 
 ---
 
