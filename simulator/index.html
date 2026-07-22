@@ -2525,37 +2525,33 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
     }
   }
 
-  const sections = [];
-  const sectionDefs = [
-    { marker: 'LEVEL:', label: 'LEVEL PROFILE', color: '#3b82f6', bg: '#ffffff' },
-    { marker: "TODAY'S UNIT:", label: 'CONVERSATION FRAMING', color: '#f59e0b', bg: '#ffffff' },
-    { marker: "TODAY'S TOPIC:", label: 'TOPIC', color: '#8b5cf6', bg: '#ffffff' },
-    { marker: 'SESSION ARC:', label: 'SESSION ARC', color: '#ec4899', bg: '#ffffff' },
-    { marker: 'LEARNER SUPPORT SIGNAL:', label: 'SUPPORT SIGNAL', color: '#06b6d4', bg: '#ffffff' },
-    { marker: 'LEARNER INTERESTS:', label: 'LEARNER CONTEXT', color: '#84cc16', bg: '#ffffff' },
-    { marker: 'CONVERSATION SO FAR:', label: 'TRANSCRIPT', color: '#6b7280', bg: '#ffffff' },
-    { marker: '---', label: 'SECTION BREAK', color: '#d1d5db', bg: '#ffffff' },
-  ];
-  let remaining = displayText;
-  let baseEnd = remaining.length;
-  for (const def of sectionDefs) {
-    const idx = remaining.indexOf(def.marker);
-    if (idx !== -1 && idx < baseEnd) baseEnd = idx;
-  }
-  if (baseEnd > 0) sections.push({ label: 'BASE PROMPT', color: '#10b981', bg: '#ffffff', text: remaining.substring(0, baseEnd).trim() });
-  for (let i = 0; i < sectionDefs.length; i++) {
-    const def = sectionDefs[i];
-    const idx = remaining.indexOf(def.marker);
-    if (idx === -1) continue;
-    let endIdx = remaining.length;
-    for (let j = i + 1; j < sectionDefs.length; j++) {
-      const nextIdx = remaining.indexOf(sectionDefs[j].marker);
-      if (nextIdx !== -1 && nextIdx > idx && nextIdx < endIdx) endIdx = nextIdx;
+  let sections = [];
+  if (sessionType === 'placement') {
+    const parts = displayText.split(/\n\s*---\s*\n/);
+    sections = [
+      { label: 'PLACEMENT PROMPT', color: '#8b5cf6', bg: '#ffffff', text: parts[0]?.trim() || '' },
+      { label: 'BASE PROMPT', color: '#10b981', bg: '#ffffff', text: parts[1]?.trim() || '' }
+    ].filter(s => s.text);
+  } else {
+    // Split by the --- separator
+    const parts = displayText.split(/\n\s*---\s*\n/);
+    if (parts.length >= 3) {
+      // If we have at least 3 parts, it's: Base, Level Profile, and Unit Framing
+      sections = [
+        { label: 'BASE PROMPT', color: '#10b981', bg: '#ffffff', text: parts[0].trim() },
+        { label: 'LEVEL PROFILE', color: '#3b82f6', bg: '#ffffff', text: parts[1].trim() },
+        { label: 'UNIT FRAMING & CONTRACT', color: '#f59e0b', bg: '#ffffff', text: parts.slice(2).join('\n\n---\n\n').trim() }
+      ];
+    } else if (parts.length === 2) {
+      sections = [
+        { label: 'BASE PROMPT', color: '#10b981', bg: '#ffffff', text: parts[0].trim() },
+        { label: 'LEVEL PROFILE', color: '#3b82f6', bg: '#ffffff', text: parts[1].trim() }
+      ];
+    } else {
+      sections = [{ label: 'SYSTEM PROMPT', color: '#10b981', bg: '#ffffff', text: displayText.trim() }];
     }
-    sections.push({ ...def, text: remaining.substring(idx, endIdx).trim() });
   }
-  // If showing real backend prompt or placement prompt, display as plain text (no section parsing)
-  const showPlain = !!(lastSystemPrompt && sessionType !== 'placement') || (sessionType === 'placement');
+
   return(<div><VersionBadge />
   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
     <div className="lbl" style={{margin:0}}>{promptLabel}</div>
@@ -2564,11 +2560,6 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
       return <button onClick={()=>{navigator.clipboard.writeText(displayText).then(()=>{setC(true);setTimeout(()=>setC(false),2000);}).catch(()=>{const ta=document.createElement('textarea');ta.value=displayText;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setC(true);setTimeout(()=>setC(false),2000);});}} style={{padding:'3px 10px',fontSize:11,fontWeight:600,background:c?'#2f7d46':'white',color:c?'white':'inherit',border:'1.5px solid var(--ink)',borderRadius:6,cursor:'pointer',flexShrink:0}}>{c?'✓ Copied':'Copy'}</button>;
     },{})}
   </div>
-    {showPlain ? (
-      <div style={{background:'#fafaf8',border:'1.5px solid #e5e5e5',borderRadius:8,padding:16}}>
-        <pre className="mono" style={{margin:0,whiteSpace:'pre-wrap',wordBreak:'break-word',color:'#2C1E0F',fontSize:12.5,lineHeight:1.6}}>{displayText}</pre>
-      </div>
-    ) : (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
       {sections.map((s, i) => (
         <div key={i} style={{background:s.bg,borderLeft:'3px solid '+s.color,borderRadius:4,padding:'12px 12px 12px 16px',position:'relative',background:'#fafaf8'}}>
@@ -2577,8 +2568,7 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
         </div>
       ))}
     </div>
-    )}
-    <small className="note">Each colored section shows which building block produced that part of the final prompt. Base (green) | Profile (blue) | Framing (amber) | Topic (purple) | Arc (pink) | Context (lime) | Transcript (grey).</small>
+    <small className="note">Each colored section shows which building block produced that part of the final prompt. Base (green) | Profile (blue) | Framing (amber) | Placement (purple).</small>
   </div>);
 }
 function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChatEnded}){
