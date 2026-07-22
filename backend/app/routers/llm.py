@@ -138,6 +138,7 @@ async def placement_turn(
             messages=messages,
             name=body.name or user.name,
             age=body.age or (int(user.age) if user.age and user.age.isdigit() else None),
+            custom_prompts=body.custom_prompts,
         )
         
         if result.get("is_complete"):

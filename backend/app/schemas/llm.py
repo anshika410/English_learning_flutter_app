@@ -60,6 +60,7 @@ class PlacementTurnRequest(BaseModel):
     name: str | None = None
     age: int | None = None
     cancel: bool = False
+    custom_prompts: dict | None = None  # for simulator prompt testing
 
     model_config = {
         "json_schema_extra": {

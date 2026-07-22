@@ -108,6 +108,7 @@ async def generate_conversation_starter(
     due_next: dict | None = None,
     skills_progress: dict | None = None,
     persona_memory: dict | None = None,
+    custom_prompts: dict | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -117,7 +118,13 @@ async def generate_conversation_starter(
     level_upper = str(level or "A1").upper()
     if level_upper not in _LEVEL_BLOCKS:
         level_upper = "A1"
-    level_block = _LEVEL_BLOCKS.get(level_upper, "")
+    # Use custom level profile if provided
+    if custom_prompts and custom_prompts.get(f"profile-{level_upper}"):
+        level_block = custom_prompts[f"profile-{level_upper}"]
+    elif custom_prompts and custom_prompts.get("level_profile"):
+        level_block = custom_prompts["level_profile"]
+    else:
+        level_block = _LEVEL_BLOCKS.get(level_upper, "")
 
     # Format persona memory
     memory_str = "None"
@@ -223,7 +230,10 @@ async def generate_conversation_starter(
         .strip()
     )
 
-    base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
+    base_block = custom_prompts.get("base", "") if custom_prompts else ""
+    if not base_block:
+        base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
+
     system_prompt = (
         (PROMPTS_DIR / "starter-prompt.md")
         .read_text()
@@ -307,6 +317,7 @@ async def send_conversation_turn(
     persona_memory: dict | None = None,
     due_next: dict | None = None,
     skills_progress: dict | None = None,
+    custom_prompts: dict | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -412,11 +423,22 @@ async def send_conversation_turn(
     # Build elicitation plan (using plan_text(target_ids))
     elicitation_str = plan_text(target_ids, level_upper)
 
-    # Get level block
-    level_block = _LEVEL_BLOCKS.get(level_upper, _LEVEL_BLOCKS["A1"])
+    # Get level block — use custom if provided
+    if custom_prompts and custom_prompts.get(f"profile-{level_upper}"):
+        level_block = custom_prompts[f"profile-{level_upper}"]
+    elif custom_prompts and custom_prompts.get("level_profile"):
+        level_block = custom_prompts["level_profile"]
+    else:
+        level_block = _LEVEL_BLOCKS.get(level_upper, _LEVEL_BLOCKS["A1"])
 
-    base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
-    unit_template = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+    base_block = custom_prompts.get("base", "") if custom_prompts else ""
+    if not base_block:
+        base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
+
+    unit_template = custom_prompts.get("conv-unit-framing", "") if custom_prompts else ""
+    if not unit_template:
+        unit_template = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+
     unit_block = (
         unit_template
         .replace("{{UNITNAME}}", unit_name)
@@ -428,7 +450,10 @@ async def send_conversation_turn(
         .strip()
     )
 
-    prompt_template = (PROMPTS_DIR / "conversation-prompt.md").read_text()
+    prompt_template = custom_prompts.get("conversation", "") if custom_prompts else ""
+    if not prompt_template:
+        prompt_template = (PROMPTS_DIR / "conversation-prompt.md").read_text()
+
     system_prompt = (
         prompt_template
         .replace("{{BASE_BLOCK}}", base_block)
@@ -479,9 +504,15 @@ async def send_placement_turn(
     messages: list[dict],
     name: str | None = None,
     age: int | None = None,
+    custom_prompts: dict | None = None,
 ) -> dict:
-    raw_prompt = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
-    base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
+    # Use custom prompts if provided (from simulator), else read from .md files
+    if custom_prompts and custom_prompts.get("placement"):
+        raw_prompt = custom_prompts["placement"]
+        base_block = custom_prompts.get("base", (PROMPTS_DIR / "base-prompt.md").read_text().strip())
+    else:
+        raw_prompt = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+        base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
     
     # Extract first name to use in prompts so Zoe doesn't use the full name
     first_name = name.split()[0].strip() if name else "there"
