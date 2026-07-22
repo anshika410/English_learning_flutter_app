@@ -205,6 +205,7 @@ window.__restoreVersion = async function(versionId) {
     const panel = document.getElementById('version-history-panel');
     if (panel) panel.style.display = 'none';
     window.__restoredFrom = detail.version; 
+    window.dispatchEvent(new Event('prompt-restored'));
     alert('✅ Restored ' + detail.version + ' (by ' + detail.author + ')\n\nPrompts loaded into editor.\n\nReview, then Deploy to make live.');
   } catch (e) { alert('Error: ' + e); }
 };
@@ -2904,6 +2905,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     if(d.version){
                       var msg = 'Deployed ' + d.version; if(window.__restoredFrom){msg += ' (rolled back to '+window.__restoredFrom+')';} msg += '\nby '+d.author; alert(msg); window.__restoredFrom = null;
                       window.dispatchEvent(new Event('prompt-deployed'));
+                      window.dispatchEvent(new Event('prompt-restored'));
                     } else {
                       alert('Error: '+(d.detail||JSON.stringify(d)));
                     }
@@ -2981,6 +2983,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   setLoading(true);
                   callEllaAPI('/admin/prompts')
                     .then(data => { setServerPrompts(data); setLoading(false);
+                      window.__restoredFrom = null;
+                      window.dispatchEvent(new Event('prompt-restored'));
                   // Initialize __editedPrompts with loaded server values
                   const lvl = level || 'A0';
                   const parts = [data.placement, data.base];
@@ -3070,6 +3074,7 @@ function GoogleSignIn() {
 
 function VersionBadge() {
   const [ver, setVer] = React.useState(null);
+  const [restored, setRestored] = React.useState(window.__restoredFrom);
   const fetchVer = () => {
     fetch(LLM_CONFIG.ellaApiUrl + '/admin/prompts/versions?key=ella-admin-2026-xK9m')
       .then(r => r.json())
@@ -3079,14 +3084,27 @@ function VersionBadge() {
   React.useEffect(() => {
     fetchVer();
     const interval = setInterval(fetchVer, 10000);
-    window.addEventListener('prompt-deployed', fetchVer);
+    const onDeployed = () => { fetchVer(); setRestored(null); };
+    const onRestored = () => setRestored(window.__restoredFrom);
+    window.addEventListener('prompt-deployed', onDeployed);
+    window.addEventListener('prompt-restored', onRestored);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('prompt-deployed', fetchVer);
+      window.removeEventListener('prompt-deployed', onDeployed);
+      window.removeEventListener('prompt-restored', onRestored);
     };
   }, []);
   if (!ver) return null;
   const date = new Date(ver.created_at).toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true});
+  
+  if (restored) {
+    return (
+      <div style={{fontSize:11, padding:'4px 10px', background:'#ffebee', border:'1.5px solid #ef5350', color:'#c62828', borderRadius:6, marginBottom:10, display:'inline-block'}}>
+        ⚠️ Restored Draft: <b>{restored}</b> (unsaved editor draft) &middot; <span style={{fontWeight:600}}>Deploy to push this live!</span>
+      </div>
+    );
+  }
+
   return (
     <div style={{fontSize:11, color:'#555', padding:'4px 10px', background:'#f5f3ee', borderRadius:6, marginBottom:10, display:'inline-block'}}>
       Current version: <b>{ver.version}</b> {ver.notes ? <span>({ver.notes}) </span> : null}by {ver.author} &middot; {date}
