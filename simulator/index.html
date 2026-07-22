@@ -3084,14 +3084,16 @@ function VersionBadge() {
   React.useEffect(() => {
     fetchVer();
     const interval = setInterval(fetchVer, 10000);
-    const onDeployed = () => { fetchVer(); setRestored(null); };
-    const onRestored = () => { fetchVer(); setRestored(window.__restoredFrom); };
-    window.addEventListener('prompt-deployed', onDeployed);
-    window.addEventListener('prompt-restored', onRestored);
+    const updateState = () => {
+      fetchVer();
+      setRestored(window.__restoredFrom);
+    };
+    window.addEventListener('prompt-deployed', updateState);
+    window.addEventListener('prompt-restored', updateState);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('prompt-deployed', onDeployed);
-      window.removeEventListener('prompt-restored', onRestored);
+      window.removeEventListener('prompt-deployed', updateState);
+      window.removeEventListener('prompt-restored', updateState);
     };
   }, []);
   if (!ver) return null;
