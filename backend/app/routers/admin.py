@@ -290,8 +290,8 @@ async def get_conversation_analysis(
     try:
         from pathlib import Path
         import json
-        PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
-        template = (PROMPTS_DIR / "end-result-prompt.md").read_text()
+        from ..services.llm_service import resolve_prompt
+        template = resolve_prompt("end-result-prompt.md", user_id=conv.user_id)
         
         # Format transcript
         formatted_transcript = "\n".join(

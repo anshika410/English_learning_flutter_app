@@ -41,6 +41,8 @@ def resolve_prompt(
         # Fallback maps
         if filename == "correction-extraction-prompt.md" and "correction_extraction" in custom_prompts:
             return custom_prompts["correction_extraction"]
+        if filename == "conv-unit-framing.md" and "conv_unit_framing" in custom_prompts:
+            return custom_prompts["conv_unit_framing"]
 
         key = key_mappings.get(filename)
         if key and key in custom_prompts:

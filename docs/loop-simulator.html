@@ -988,7 +988,7 @@ function App(){
         const text = conv.starter || "Hi! Let's talk!";
 
         setMsgs([
-          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(apiTopic?(' — topic: '+apiTopic.topic):'')},
+          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+mctx.level+(apiTopic?(' — topic: '+apiTopic.topic):'')},
           {role:'zoe',text:text}
         ]);
         setLlmLive(true);
@@ -1028,7 +1028,7 @@ function App(){
         const text = conv.starter || "Hi! Let's talk!";
 
         setMsgs([
-          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(apiTopic?(' — topic: '+apiTopic.topic):'')},
+          {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+mctx.level+(apiTopic?(' — topic: '+apiTopic.topic):'')},
           {role:'zoe',text:text}
         ]);
         setLlmLive(true);
@@ -1052,7 +1052,7 @@ function App(){
     const defaultOpen = primary ? ("Hi! I'm Zoe. " + skillPlan(primary, lvl).question) : "Hi! I'm Zoe. What's your name?";
     const plannedOpen = lvl === 'A0' ? a0Open : defaultOpen;
     setMsgs([
-      {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+level+(topic?(' — topic: '+topic.topic):'')},
+      {role:'sys',text:'Chat '+activeChatNum+' — '+activeModel+' mode — '+lvl+(topic?(' — topic: '+topic.topic):'')},
       {role:'zoe',text:plannedOpen}
     ]);
   }
@@ -1199,7 +1199,13 @@ function App(){
     if (sessionType === 'placement') {
       if (placementAssessment) return;
     } else {
-      if(autoStep.current>=6){await endChat();return;}
+      let maxTurns = 6;
+      const unitTemplate = (serverPrompts && serverPrompts.conv_unit_framing) || '';
+      const match = unitTemplate.match(/CURRENT[_\s]+TURN:\s*\{\{CURRENT_TURN\}\}\s*(?:of|\/)\s*(\d+)/i);
+      if (match) {
+        maxTurns = parseInt(match[1], 10);
+      }
+      if(autoStep.current>=maxTurns){await endChat();return;}
     }
     setBusy(true); const k=await mockKidLLM(); setBusy(false); autoStep.current++; await sendKid(k);
   }
