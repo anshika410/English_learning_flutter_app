@@ -5,6 +5,7 @@ from sqlalchemy import select, func, desc, Table, Column, String, Text, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.database import get_db
 from ..core.config import get_settings
+from ..core.deps import get_current_user
 from ..models.user import User
 from ..models.conversation import Conversation
 from ..models.message import Message
@@ -494,8 +495,6 @@ async def get_admin_prompts(
             status_code=500, detail=f"Failed to read prompt templates: {e}"
         )
 
-
-from ..core.deps import get_current_user
 
 class PromptSandboxDeployRequest(BaseModel):
     snapshot: dict[str, str]
