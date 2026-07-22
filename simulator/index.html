@@ -2708,15 +2708,23 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
           <>
             {/* Active prompt indicator */}
             <div style={{marginBottom:12, padding:'6px 10px', background:'#e8f5e9', border:'1.5px solid #2e7d32', borderRadius:8, fontSize:11, color:'#1b5e20', fontWeight:600}}>
-              🟢 Active in current conversation:
-              {sessionType === 'placement'
-                ? ' placement-check-prompt.md'
-                : ` conversation-prompt.md + profile-${level}.md`}
+              {isChatEnded ? (
+                <>🟢 Active in post-session grading: <b>end-result-prompt.md + correction-extraction-prompt.md</b></>
+              ) : (
+                <>
+                  🟢 Active in current conversation:{' '}
+                  <b>
+                    {sessionType === 'placement'
+                      ? 'placement-check-prompt.md'
+                      : `conversation-prompt.md + profile-${level}.md + conv-unit-framing.md`}
+                  </b>
+                </>
+              )}
             </div>
 
             <div className="lbl">Placement</div>
-            <div style={{ marginBottom: 14, border: sessionType === 'placement' ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: sessionType === 'placement' ? 4 : 0 }}>
-              {sessionType === 'placement' && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
+            <div style={{ marginBottom: 14, border: (sessionType === 'placement' && !isChatEnded) ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: (sessionType === 'placement' && !isChatEnded) ? 4 : 0 }}>
+              {(sessionType === 'placement' && !isChatEnded) && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
               <div className="lbl" style={{fontSize:9}}>placement-check-prompt.md</div>
               <textarea 
                 data-promptkey="placement"
@@ -2730,13 +2738,13 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
                     return up;
                   });
                 }}
-                style={{ background: sessionType === 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'text', height: 220 }}
+                style={{ background: (sessionType === 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: 'text', height: 220 }}
               />
             </div>
 
             <div className="lbl" style={{marginTop:20}}>Conversation — Base (shared)</div>
-            <div style={{ marginBottom: 14, border: sessionType !== 'placement' ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: sessionType !== 'placement' ? 4 : 0 }}>
-              {sessionType !== 'placement' && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
+            <div style={{ marginBottom: 14, border: (sessionType !== 'placement' && !isChatEnded) ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: (sessionType !== 'placement' && !isChatEnded) ? 4 : 0 }}>
+              {(sessionType !== 'placement' && !isChatEnded) && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
               <textarea 
                 data-promptkey="base"
                 value={(editedServerPrompts && editedServerPrompts.base) || ''} 
@@ -2749,13 +2757,13 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
                     return up;
                   });
                 }}
-                style={{ background: sessionType !== 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 150 }}
+                style={{ background: (sessionType !== 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 150 }}
               />
             </div>
 
             <div className="lbl">Conversation — Level Profiles</div>
             {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => {
-              const isActive = sessionType !== 'placement' && lvl === level;
+              const isActive = sessionType !== 'placement' && lvl === level && !isChatEnded;
               const pkey = `profile-${lvl}`;
               return (
               <div key={lvl} style={{ marginBottom: 6, border: isActive ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: isActive ? 4 : 0 }}>
@@ -2780,60 +2788,84 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
               );
             })}
 
-            <div className="lbl" style={{marginTop:16}}>Conversation — Unit Framing</div>
-            <div style={{ marginBottom: 14 }}>
-              <textarea 
-                data-promptkey="conv-unit-framing"
-                value={(editedServerPrompts && editedServerPrompts['conv-unit-framing']) || ''} 
-                readOnly={false} 
-                onChange={e=>{
-                  const val = e.target.value;
-                  setEditedServerPrompts(prev => {
-                    const up = {...prev, 'conv-unit-framing': val};
-                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
-                    return up;
-                  });
-                }}
-                style={{ background: '#f4f1ea', cursor: 'default', height: 140 }}
-              />
-            </div>
+            {/* Unit Framing */}
+            {(() => {
+              const isUnitFramingActive = sessionType !== 'placement' && !isChatEnded;
+              return (
+                <div style={{ marginBottom: 14, border: isUnitFramingActive ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: isUnitFramingActive ? 4 : 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 10, color: isUnitFramingActive ? '#2e7d32' : 'var(--purple)', marginBottom: 2 }}>
+                    {isUnitFramingActive ? '🟢 ACTIVE — ' : ''}Conversation — Unit Framing
+                  </div>
+                  <textarea 
+                    data-promptkey="conv-unit-framing"
+                    value={(editedServerPrompts && editedServerPrompts['conv-unit-framing']) || ''} 
+                    readOnly={false} 
+                    onChange={e=>{
+                      const val = e.target.value;
+                      setEditedServerPrompts(prev => {
+                        const up = {...prev, 'conv-unit-framing': val};
+                        window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                        return up;
+                      });
+                    }}
+                    style={{ background: isUnitFramingActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 140 }}
+                  />
+                </div>
+              );
+            })()}
 
-            <div className="lbl" style={{marginTop:16}}>Judge (post-session)</div>
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl" style={{fontSize:9}}>end-result-prompt.md</div>
-              <textarea 
-                data-promptkey="judge"
-                value={(editedServerPrompts && editedServerPrompts['judge']) || ''} 
-                readOnly={false} 
-                onChange={e=>{
-                  const val = e.target.value;
-                  setEditedServerPrompts(prev => {
-                    const up = {...prev, judge: val};
-                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
-                    return up;
-                  });
-                }}
-                style={{ background: '#f4f1ea', cursor: 'default', height: 200 }}
-              />
-            </div>
+            {/* Judge */}
+            {(() => {
+              const isJudgeActive = !!isChatEnded;
+              return (
+                <div style={{ marginBottom: 14, border: isJudgeActive ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: isJudgeActive ? 4 : 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 10, color: isJudgeActive ? '#2e7d32' : 'var(--purple)', marginBottom: 2 }}>
+                    {isJudgeActive ? '🟢 ACTIVE — ' : ''}Judge (post-session)
+                  </div>
+                  <div className="lbl" style={{fontSize:9}}>end-result-prompt.md</div>
+                  <textarea 
+                    data-promptkey="judge"
+                    value={(editedServerPrompts && editedServerPrompts['judge']) || ''} 
+                    readOnly={false} 
+                    onChange={e=>{
+                      const val = e.target.value;
+                      setEditedServerPrompts(prev => {
+                        const up = {...prev, judge: val};
+                        window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                        return up;
+                      });
+                    }}
+                    style={{ background: isJudgeActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 200 }}
+                  />
+                </div>
+              );
+            })()}
 
-            <div className="lbl">Correction Extraction (separate call)</div>
-            <div style={{ marginBottom: 14 }}>
-              <textarea 
-                data-promptkey="correction-extraction"
-                value={(editedServerPrompts && editedServerPrompts['correction-extraction']) || ''} 
-                readOnly={false} 
-                onChange={e=>{
-                  const val = e.target.value;
-                  setEditedServerPrompts(prev => {
-                    const up = {...prev, 'correction-extraction': val};
-                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
-                    return up;
-                  });
-                }}
-                style={{ background: '#f4f1ea', cursor: 'default', height: 120 }}
-              />
-            </div>
+            {/* Correction Extraction */}
+            {(() => {
+              const isCorrectionActive = !!isChatEnded;
+              return (
+                <div style={{ marginBottom: 14, border: isCorrectionActive ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: isCorrectionActive ? 4 : 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 10, color: isCorrectionActive ? '#2e7d32' : 'var(--purple)', marginBottom: 2 }}>
+                    {isCorrectionActive ? '🟢 ACTIVE — ' : ''}Correction Extraction (separate call)
+                  </div>
+                  <textarea 
+                    data-promptkey="correction-extraction"
+                    value={(editedServerPrompts && editedServerPrompts['correction-extraction']) || ''} 
+                    readOnly={false} 
+                    onChange={e=>{
+                      const val = e.target.value;
+                      setEditedServerPrompts(prev => {
+                        const up = {...prev, 'correction-extraction': val};
+                        window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                        return up;
+                      });
+                    }}
+                    style={{ background: isCorrectionActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 120 }}
+                  />
+                </div>
+              );
+            })()}
             <div id="version-history-anchor" style={{marginTop:16}}></div>
             <div style={{marginTop:12, paddingTop:16, borderTop:'1px solid #e5e5e5'}}>
               <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
