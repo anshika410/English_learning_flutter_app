@@ -2300,7 +2300,7 @@ function PromptView({text}){
   </div>);
 }
 function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
-  const [activeSource, setActiveSource] = React.useState('client'); // 'client' | 'server'
+  const [activeSource, setActiveSource] = React.useState('server'); // 'client' | 'server'
   const [serverPrompts, setServerPrompts] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
