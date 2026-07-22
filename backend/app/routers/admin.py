@@ -818,6 +818,7 @@ async def deploy_snapshot(
             .values(
                 author=new_authors,
                 snapshot=body.snapshot,
+                notes=body.notes,
                 created_at=datetime.now(timezone.utc),
             )
         )
