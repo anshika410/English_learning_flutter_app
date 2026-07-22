@@ -489,7 +489,7 @@ async def get_admin_prompts():
         )
 
 
-from ..core.auth import get_current_user
+from ..core.deps import get_current_user
 
 class PromptSandboxDeployRequest(BaseModel):
     snapshot: dict[str, str]
