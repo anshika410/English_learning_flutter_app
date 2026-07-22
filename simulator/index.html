@@ -191,24 +191,21 @@ const TOPICS={"A1": [{"theme": "Self", "topic": "My name and where I'm from", "s
 <script>
 window.__restoreVersion = async function(versionId) {
   try {
-    const r = await fetch('https://ella.navgurukul.org/api/admin/prompts/versions/' + versionId + '?key=ella-admin-2026-xK9m');
+    const r = await fetch(LLM_CONFIG.ellaApiUrl + '/admin/prompts/versions/' + versionId + '?key=ella-admin-2026-xK9m');
     const detail = await r.json();
     if (!detail.snapshot) { alert('Could not load snapshot.'); return; }
-    const fileNames = ['placement-check-prompt','base-prompt','profile-A0','profile-A1','profile-A2','profile-B1','profile-B2','profile-C1','conv-unit-framing','end-result-prompt','correction-extraction-prompt'];
-    const textareas = document.querySelectorAll('textarea');
-    const taArr = Array.from(textareas).filter(ta => ta.offsetParent !== null);
-    let restored = 0;
-    for (let i = 0; i < Math.min(taArr.length, fileNames.length); i++) {
-      if (detail.snapshot[fileNames[i]]) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-        nativeInputValueSetter.call(taArr[i], detail.snapshot[fileNames[i]]);
-        taArr[i].dispatchEvent(new Event('input', { bubbles: true }));
-        restored++;
-      }
+    
+    if (window.__setEditedServerPrompts) {
+      window.__setEditedServerPrompts(detail.snapshot);
     }
+    if (window.__setClientPrompts) {
+      window.__setClientPrompts(detail.snapshot);
+    }
+    
     const panel = document.getElementById('version-history-panel');
     if (panel) panel.style.display = 'none';
-    window.__restoredFrom = detail.version; alert('\u2705 Restored ' + detail.version + ' (by ' + detail.author + ')\n\n' + restored + ' prompts loaded into editor.\n\nReview, then Deploy to make live.');
+    window.__restoredFrom = detail.version; 
+    alert('✅ Restored ' + detail.version + ' (by ' + detail.author + ')\n\nPrompts loaded into editor.\n\nReview, then Deploy to make live.');
   } catch (e) { alert('Error: ' + e); }
 };
 </script>
@@ -1200,20 +1197,25 @@ function App(){
 
 
   function collectCustomPrompts() {
-    // Collect all edited prompts from the Prompts tab textareas
-    // Returns a dict keyed by prompt name matching what the backend expects
-    const fileNames = ['placement','base','profile-A0','profile-A1','profile-A2','profile-B1','profile-B2','profile-C1','conv-unit-framing','conversation','correction-extraction'];
-    const allTextareas = document.querySelectorAll('textarea');
-    const taArr = Array.from(allTextareas).filter(ta => ta.value && ta.value.trim());
-    if (taArr.length === 0 && !window.__editedPrompts) return null;
     const result = {};
-    taArr.forEach((ta, i) => {
-      if (i < fileNames.length) {
-        result[fileNames[i]] = ta.value.trim();
+    const textareas = document.querySelectorAll('textarea[data-promptkey]');
+    textareas.forEach(ta => {
+      const key = ta.getAttribute('data-promptkey');
+      if (key && ta.value && ta.value.trim()) {
+        result[key] = ta.value.trim();
+        if (key === 'profile-A1') {
+          result['profile-A2'] = ta.value.trim();
+        }
+        if (key === 'profile-B1') {
+          result['profile-B2'] = ta.value.trim();
+          result['profile-C1'] = ta.value.trim();
+        }
       }
     });
-    // Also expose base and level_profile for llm_service fallbacks
-    if (result['base']) result['base'] = result['base'];
+    // Fallback conversation template
+    if (!result['conversation'] && typeof serverPrompts !== 'undefined' && serverPrompts && serverPrompts.conversation) {
+      result['conversation'] = serverPrompts.conversation;
+    }
     return Object.keys(result).length > 0 ? result : null;
   }
 
@@ -1408,6 +1410,7 @@ function App(){
           content: m.text
         }));
 
+        const customPrompts = collectCustomPrompts();
         const analysis = await callEllaAPI('/llm/judge', 'POST', {
           session_id: activeConvId,
           messages: apiMsgs,
@@ -1415,7 +1418,8 @@ function App(){
           level: level,
           unit_label: HEADLINES[level] || "Finding My Voice",
           progression_model: model,
-          session_type: model
+          session_type: model,
+          ...(customPrompts ? { custom_prompts: customPrompts } : {})
         });
 
         setBackendAnalysis(analysis);
@@ -2573,6 +2577,7 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
 function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
   const [activeSource, setActiveSource] = React.useState('server'); // 'client' | 'server'
   const [serverPrompts, setServerPrompts] = React.useState(null);
+  const [editedServerPrompts, setEditedServerPrompts] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
 
@@ -2582,6 +2587,19 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
       callEllaAPI('/admin/prompts')
         .then(data => {
           setServerPrompts(data);
+          const initialEdits = {
+            placement: data.placement || '',
+            base: data.base || '',
+            'conv-unit-framing': data.conv_unit_framing || '',
+            judge: data.judge || '',
+            'correction-extraction': data.correction_extraction || '',
+          };
+          if (data.level_profiles) {
+            Object.entries(data.level_profiles).forEach(([lvl, txt]) => {
+              initialEdits[`profile-${lvl}`] = txt || '';
+            });
+          }
+          setEditedServerPrompts(initialEdits);
           setLoading(false);
           // Initialize global edited prompts store
           const lvlInit = level || 'A0';
@@ -2597,6 +2615,39 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
         });
     }
   }, [activeSource]);
+  React.useEffect(() => {
+    window.__setEditedServerPrompts = (snapshot) => {
+      const mapped = {
+        placement: snapshot['placement-check-prompt'] || '',
+        base: snapshot['base-prompt'] || '',
+        'conv-unit-framing': snapshot['conv-unit-framing'] || '',
+        judge: snapshot['end-result-prompt'] || '',
+        'correction-extraction': snapshot['correction-extraction-prompt'] || '',
+      };
+      const levels = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1'];
+      levels.forEach(lvl => {
+        mapped[`profile-${lvl}`] = snapshot[`profile-${lvl}`] || '';
+      });
+      setEditedServerPrompts(mapped);
+      window.__editedPrompts = Object.values(mapped).filter(Boolean).join('\n\n---\n\n');
+    };
+    window.__setClientPrompts = (snapshot) => {
+      setPrompts({
+        base: snapshot['base-prompt'] || '',
+        profileA0: snapshot['profile-A0'] || '',
+        profileA1: snapshot['profile-A1'] || '',
+        profileB1: snapshot['profile-B1'] || '',
+        convUnit: snapshot['conv-unit-framing'] || '',
+        convSkill: snapshot['conv-unit-framing'] || '',
+        judge: snapshot['end-result-prompt'] || '',
+      });
+    };
+    return () => {
+      delete window.__setEditedServerPrompts;
+      delete window.__setClientPrompts;
+    };
+  }, [setPrompts]);
+
 
   const fields=[['base','Base prompt (shared)'],['profileA0','Profile · A0'],['profileA1','Profile · A1/A2'],['profileB1','Profile · B1+'],
     [model==='unit'?'convUnit':'convSkill', model==='unit'?'Conversation framing · UNITS (theme-led)':'Conversation framing · MICRO-SKILL (list-led)'],
@@ -2615,8 +2666,23 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
     {activeSource === 'client' ? (
       <>
         <div className="warn">Edit any prompt, run a chat, see the effect. Conversation framing differs by model; judge & base are shared. {'{{TARGETS}}'}, {'{{UNITNAME}}'}, {'{{UNITFOCUS}}'} are filled in automatically.</div>
-        {fields.map(([k,lab])=>(<div key={k} style={{marginBottom:14}}><div className="lbl">{lab}</div>
-          <textarea value={prompts[k]} onChange={e=>setPrompts(p=>({...p,[k]:e.target.value}))}/></div>))}
+        {fields.map(([k,lab])=>{
+          let pk = k;
+          if (k === 'profileA0') pk = 'profile-A0';
+          else if (k === 'profileA1') pk = 'profile-A1';
+          else if (k === 'profileB1') pk = 'profile-B1';
+          else if (k === 'convUnit' || k === 'convSkill') pk = 'conv-unit-framing';
+          return (
+            <div key={k} style={{marginBottom:14}}>
+              <div className="lbl">{lab}</div>
+              <textarea 
+                data-promptkey={pk}
+                value={prompts[k]} 
+                onChange={e=>setPrompts(p=>({...p,[k]:e.target.value}))}
+              />
+            </div>
+          );
+        })}
         <button className="ghost" onClick={()=>setPrompts(DEFAULT_PROMPTS)}>↺ Reset prompts</button>
       </>
     ) : (
@@ -2654,9 +2720,16 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
               <div className="lbl" style={{fontSize:9}}>placement-check-prompt.md</div>
               <textarea 
                 data-promptkey="placement"
-                defaultValue={serverPrompts.placement} 
+                value={(editedServerPrompts && editedServerPrompts.placement) || ''} 
                 readOnly={false}
-                onChange={e=>{if(!window.__editedPrompts)window.__editedPrompts='';const ta=document.querySelectorAll('textarea');window.__editedPrompts=Array.from(ta).filter(t=>t.value&&t.value.trim()).map(t=>t.value.trim()).join('\n\n---\n\n');}}
+                onChange={e=>{
+                  const val = e.target.value;
+                  setEditedServerPrompts(prev => {
+                    const up = {...prev, placement: val};
+                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                    return up;
+                  });
+                }}
                 style={{ background: sessionType === 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'text', height: 220 }}
               />
             </div>
@@ -2666,9 +2739,16 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
               {sessionType !== 'placement' && <div style={{fontSize:10, fontWeight:700, color:'#2e7d32', padding:'2px 4px'}}>🟢 ACTIVE NOW</div>}
               <textarea 
                 data-promptkey="base"
-                defaultValue={serverPrompts.base} 
+                value={(editedServerPrompts && editedServerPrompts.base) || ''} 
                 readOnly={false}
-                onChange={e=>{const ta=document.querySelectorAll('textarea');window.__editedPrompts=Array.from(ta).filter(t=>t.value&&t.value.trim()).map(t=>t.value.trim()).join('\n\n---\n\n');}}
+                onChange={e=>{
+                  const val = e.target.value;
+                  setEditedServerPrompts(prev => {
+                    const up = {...prev, base: val};
+                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                    return up;
+                  });
+                }}
                 style={{ background: sessionType !== 'placement' ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 150 }}
               />
             </div>
@@ -2676,15 +2756,24 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
             <div className="lbl">Conversation — Level Profiles</div>
             {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => {
               const isActive = sessionType !== 'placement' && lvl === level;
+              const pkey = `profile-${lvl}`;
               return (
               <div key={lvl} style={{ marginBottom: 6, border: isActive ? '2px solid #2e7d32' : '2px solid transparent', borderRadius: 8, padding: isActive ? 4 : 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 10, color: isActive ? '#2e7d32' : 'var(--purple)', marginBottom: 2 }}>
                   {isActive ? '🟢 ACTIVE — ' : ''}Profile · {lvl}
                 </div>
                 <textarea 
-                  data-promptkey={`profile-${lvl}`}
-                  defaultValue={txt} 
+                  data-promptkey={pkey}
+                  value={(editedServerPrompts && editedServerPrompts[pkey]) || ''} 
                   readOnly={false} 
+                  onChange={e=>{
+                    const val = e.target.value;
+                    setEditedServerPrompts(prev => {
+                      const up = {...prev, [pkey]: val};
+                      window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                      return up;
+                    });
+                  }}
                   style={{ background: isActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: isActive ? 120 : 50, fontSize: 11 }}
                 />
               </div>
@@ -2694,8 +2783,17 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
             <div className="lbl" style={{marginTop:16}}>Conversation — Unit Framing</div>
             <div style={{ marginBottom: 14 }}>
               <textarea 
-                defaultValue={serverPrompts.conv_unit_framing} 
+                data-promptkey="conv-unit-framing"
+                value={(editedServerPrompts && editedServerPrompts['conv-unit-framing']) || ''} 
                 readOnly={false} 
+                onChange={e=>{
+                  const val = e.target.value;
+                  setEditedServerPrompts(prev => {
+                    const up = {...prev, 'conv-unit-framing': val};
+                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                    return up;
+                  });
+                }}
                 style={{ background: '#f4f1ea', cursor: 'default', height: 140 }}
               />
             </div>
@@ -2704,8 +2802,17 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
             <div style={{ marginBottom: 14 }}>
               <div className="lbl" style={{fontSize:9}}>end-result-prompt.md</div>
               <textarea 
-                defaultValue={serverPrompts.judge} 
+                data-promptkey="judge"
+                value={(editedServerPrompts && editedServerPrompts['judge']) || ''} 
                 readOnly={false} 
+                onChange={e=>{
+                  const val = e.target.value;
+                  setEditedServerPrompts(prev => {
+                    const up = {...prev, judge: val};
+                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                    return up;
+                  });
+                }}
                 style={{ background: '#f4f1ea', cursor: 'default', height: 200 }}
               />
             </div>
@@ -2713,8 +2820,17 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
             <div className="lbl">Correction Extraction (separate call)</div>
             <div style={{ marginBottom: 14 }}>
               <textarea 
-                defaultValue={serverPrompts.correction_extraction} 
+                data-promptkey="correction-extraction"
+                value={(editedServerPrompts && editedServerPrompts['correction-extraction']) || ''} 
                 readOnly={false} 
+                onChange={e=>{
+                  const val = e.target.value;
+                  setEditedServerPrompts(prev => {
+                    const up = {...prev, 'correction-extraction': val};
+                    window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                    return up;
+                  });
+                }}
                 style={{ background: '#f4f1ea', cursor: 'default', height: 120 }}
               />
             </div>
@@ -2737,14 +2853,20 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
                     alert('Please sign in with Google first (top-left corner).'); return;
                   }
                   const author = window.__ellaUser.name + ' (' + window.__ellaUser.email + ')';
-                  const textareas = document.querySelectorAll('textarea');
-                  const taArr = Array.from(textareas).filter(ta => ta.offsetParent !== null && ta.value.trim());
-                  const fileNames = ['placement-check-prompt','base-prompt','profile-A0','profile-A1','profile-A2','profile-B1','profile-B2','profile-C1','conv-unit-framing','end-result-prompt','correction-extraction-prompt'];
-                  const snapshot = {};
-                  for(let i=0; i<Math.min(taArr.length, fileNames.length); i++){
-                    snapshot[fileNames[i]] = taArr[i].value;
-                  }
-                  const fileCount = Object.keys(snapshot).length;
+                  const snapshot = {
+                    'placement-check-prompt': editedServerPrompts['placement'],
+                    'base-prompt': editedServerPrompts['base'],
+                    'profile-A0': editedServerPrompts['profile-A0'],
+                    'profile-A1': editedServerPrompts['profile-A1'],
+                    'profile-A2': editedServerPrompts['profile-A2'],
+                    'profile-B1': editedServerPrompts['profile-B1'],
+                    'profile-B2': editedServerPrompts['profile-B2'],
+                    'profile-C1': editedServerPrompts['profile-C1'],
+                    'conv-unit-framing': editedServerPrompts['conv-unit-framing'],
+                    'end-result-prompt': editedServerPrompts['judge'],
+                    'correction-extraction-prompt': editedServerPrompts['correction-extraction']
+                  };
+                  const fileCount = Object.keys(snapshot).filter(k => snapshot[k]).length;
                   if(!fileCount){alert('No prompt content found to deploy.'); return;}
                   if(!confirm('Deploy to production as '+author+'?\nThis affects all users immediately.')) return;
                   try{
@@ -2752,11 +2874,78 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
                     const d = await r.json();
                     if(d.version){
                       var msg = 'Deployed ' + d.version; if(window.__restoredFrom){msg += ' (rolled back to '+window.__restoredFrom+')';} msg += '\nby '+d.author; alert(msg); window.__restoredFrom = null;
+                      window.dispatchEvent(new Event('prompt-deployed'));
                     } else {
                       alert('Error: '+(d.detail||JSON.stringify(d)));
                     }
                   }catch(e){alert('Error: '+e);}
                 }} style={{padding:'8px 18px', background:'white', color:'#c0392b', border:'2px solid #c0392b', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Deploy</button>
+
+                <button onClick={async()=>{
+                  const snapshot = {
+                    'placement-check-prompt': editedServerPrompts['placement'],
+                    'base-prompt': editedServerPrompts['base'],
+                    'profile-A0': editedServerPrompts['profile-A0'],
+                    'profile-A1': editedServerPrompts['profile-A1'],
+                    'profile-A2': editedServerPrompts['profile-A2'],
+                    'profile-B1': editedServerPrompts['profile-B1'],
+                    'profile-B2': editedServerPrompts['profile-B2'],
+                    'profile-C1': editedServerPrompts['profile-C1'],
+                    'conv-unit-framing': editedServerPrompts['conv-unit-framing'],
+                    'end-result-prompt': editedServerPrompts['judge'],
+                    'correction-extraction-prompt': editedServerPrompts['correction-extraction']
+                  };
+                  try{
+                    const r = await fetch(LLM_CONFIG.ellaApiUrl+'/admin/prompts/sandbox', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('ella_access_token')
+                      },
+                      body: JSON.stringify({ snapshot })
+                    });
+                    const d = await r.json();
+                    alert(d.message || 'Saved to sandbox!');
+                  } catch(e) {
+                    alert('Error: ' + e);
+                  }
+                }} style={{padding:'8px 18px', background:'white', color:'#2e7d32', border:'2px solid #2e7d32', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Save to Sandbox</button>
+
+                <button onClick={async()=>{
+                  if(!confirm('Clear all your sandbox overrides and revert to production prompts?')) return;
+                  try{
+                    const r = await fetch(LLM_CONFIG.ellaApiUrl+'/admin/prompts/sandbox', {
+                      method: 'DELETE',
+                      headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('ella_access_token')
+                      }
+                    });
+                    const d = await r.json();
+                    alert(d.message || 'Sandbox cleared!');
+                    setServerPrompts(null);
+                    setLoading(true);
+                    callEllaAPI('/admin/prompts')
+                      .then(data => { 
+                        setServerPrompts(data); 
+                        const initialEdits = {
+                          placement: data.placement || '',
+                          base: data.base || '',
+                          'conv-unit-framing': data.conv_unit_framing || '',
+                          judge: data.judge || '',
+                          'correction-extraction': data.correction_extraction || '',
+                        };
+                        if (data.level_profiles) {
+                          Object.entries(data.level_profiles).forEach(([lvl, txt]) => {
+                            initialEdits[`profile-${lvl}`] = txt || '';
+                          });
+                        }
+                        setEditedServerPrompts(initialEdits);
+                        setLoading(false);
+                      });
+                  } catch(e) {
+                    alert('Error: ' + e);
+                  }
+                }} style={{padding:'8px 18px', background:'white', color:'#e67e22', border:'2px solid #e67e22', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Clear Sandbox</button>
                 <button onClick={()=>{
                   if(!confirm('Reload all prompts from server? Your edits will be lost.')) return;
                   setServerPrompts(null);
@@ -2802,6 +2991,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level}){
                     const d = await r.json();
                     if(d.version){
                       alert('New version created: ' + d.version + '\nFuture deploys will update this version.');
+                      window.dispatchEvent(new Event('prompt-deployed'));
                     } else {
                       alert('Error: '+(d.detail||JSON.stringify(d)));
                     }
@@ -2860,13 +3050,17 @@ function VersionBadge() {
   React.useEffect(() => {
     fetchVer();
     const interval = setInterval(fetchVer, 10000);
-    return () => clearInterval(interval);
+    window.addEventListener('prompt-deployed', fetchVer);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('prompt-deployed', fetchVer);
+    };
   }, []);
   if (!ver) return null;
   const date = new Date(ver.created_at).toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true});
   return (
     <div style={{fontSize:11, color:'#555', padding:'4px 10px', background:'#f5f3ee', borderRadius:6, marginBottom:10, display:'inline-block'}}>
-      Current version: <b>{ver.version}</b> by {ver.author} &middot; {date}
+      Current version: <b>{ver.version}</b> {ver.notes ? <span>({ver.notes}) </span> : null}by {ver.author} &middot; {date}
     </div>
   );
 }

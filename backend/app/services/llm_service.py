@@ -13,6 +13,46 @@ _DOCKER_PROMPTS = Path("/app/assets/prompts")
 _LOCAL_PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 PROMPTS_DIR = _DOCKER_PROMPTS if _DOCKER_PROMPTS.exists() else _LOCAL_PROMPTS
 
+def resolve_prompt(
+    filename: str,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
+) -> str:
+    """
+    Resolves prompt content based on priority:
+    1. custom_prompts dict passed in the request (simulator one-off runs)
+    2. personal developer sandbox files on disk
+    3. production prompts on disk
+    """
+    if custom_prompts:
+        key_mappings = {
+            "placement-check-prompt.md": "placement",
+            "base-prompt.md": "base",
+            "conv-unit-framing.md": "conv-unit-framing",
+            "end-result-prompt.md": "judge",
+            "correction-extraction-prompt.md": "correction-extraction",
+            "conversation-prompt.md": "conversation",
+        }
+        if filename.startswith("profile-"):
+            profile_lvl = filename.replace(".md", "")
+            if profile_lvl in custom_prompts:
+                return custom_prompts[profile_lvl]
+        
+        # Fallback maps
+        if filename == "correction-extraction-prompt.md" and "correction_extraction" in custom_prompts:
+            return custom_prompts["correction_extraction"]
+
+        key = key_mappings.get(filename)
+        if key and key in custom_prompts:
+            return custom_prompts[key]
+
+    if user_id:
+        sandbox_path = PROMPTS_DIR / "sandboxes" / user_id / filename
+        if sandbox_path.exists():
+            return sandbox_path.read_text().strip()
+
+    return (PROMPTS_DIR / filename).read_text().strip()
+
 # ── Shared HTTP helper ────────────────────────────────────────────────────────
 
 async def _chat_completion(
@@ -51,6 +91,8 @@ async def _chat_completion(
 async def extract_correction_highlight(
     messages: list[dict],
     level: str | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict | None:
     """
     Separate LLM call that finds the single best grammar/vocab error in the
@@ -66,7 +108,7 @@ async def extract_correction_highlight(
         if m.get("role") in ("user", "learner")
     ]
 
-    template = (PROMPTS_DIR / "correction-extraction-prompt.md").read_text()
+    template = resolve_prompt("correction-extraction-prompt.md", custom_prompts, user_id)
     prompt = (
         template
         .replace("{{LEVEL}}", (level or "unknown").upper())
@@ -109,6 +151,7 @@ async def generate_conversation_starter(
     skills_progress: dict | None = None,
     persona_memory: dict | None = None,
     custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -118,13 +161,8 @@ async def generate_conversation_starter(
     level_upper = str(level or "A1").upper()
     if level_upper not in _LEVEL_BLOCKS:
         level_upper = "A1"
-    # Use custom level profile if provided
-    if custom_prompts and custom_prompts.get(f"profile-{level_upper}"):
-        level_block = custom_prompts[f"profile-{level_upper}"]
-    elif custom_prompts and custom_prompts.get("level_profile"):
-        level_block = custom_prompts["level_profile"]
-    else:
-        level_block = _LEVEL_BLOCKS.get(level_upper, "")
+    
+    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
 
     # Format persona memory
     memory_str = "None"
@@ -218,7 +256,7 @@ async def generate_conversation_starter(
     # Build elicitation plan (using plan_text(target_ids))
     elicitation_str = plan_text(target_ids, level_upper)
 
-    unit_template = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
     unit_block = (
         unit_template
         .replace("{{UNITNAME}}", str(unit_name))
@@ -230,13 +268,11 @@ async def generate_conversation_starter(
         .strip()
     )
 
-    base_block = custom_prompts.get("base", "") if custom_prompts else ""
-    if not base_block:
-        base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
+    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
 
+    starter_template = resolve_prompt("starter-prompt.md", custom_prompts, user_id)
     system_prompt = (
-        (PROMPTS_DIR / "starter-prompt.md")
-        .read_text()
+        starter_template
         .replace("{base_block}", base_block)
         .replace("{level_block}", level_block)
         .replace("{unit_block}", unit_block)
@@ -318,6 +354,7 @@ async def send_conversation_turn(
     due_next: dict | None = None,
     skills_progress: dict | None = None,
     custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -423,21 +460,11 @@ async def send_conversation_turn(
     # Build elicitation plan (using plan_text(target_ids))
     elicitation_str = plan_text(target_ids, level_upper)
 
-    # Get level block — use custom if provided
-    if custom_prompts and custom_prompts.get(f"profile-{level_upper}"):
-        level_block = custom_prompts[f"profile-{level_upper}"]
-    elif custom_prompts and custom_prompts.get("level_profile"):
-        level_block = custom_prompts["level_profile"]
-    else:
-        level_block = _LEVEL_BLOCKS.get(level_upper, _LEVEL_BLOCKS["A1"])
+    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
 
-    base_block = custom_prompts.get("base", "") if custom_prompts else ""
-    if not base_block:
-        base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
+    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
 
-    unit_template = custom_prompts.get("conv-unit-framing", "") if custom_prompts else ""
-    if not unit_template:
-        unit_template = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
 
     unit_block = (
         unit_template
@@ -450,9 +477,7 @@ async def send_conversation_turn(
         .strip()
     )
 
-    prompt_template = custom_prompts.get("conversation", "") if custom_prompts else ""
-    if not prompt_template:
-        prompt_template = (PROMPTS_DIR / "conversation-prompt.md").read_text()
+    prompt_template = resolve_prompt("conversation-prompt.md", custom_prompts, user_id)
 
     system_prompt = (
         prompt_template
@@ -467,7 +492,12 @@ async def send_conversation_turn(
     response = await _chat_completion(api_messages, max_tokens=280, temperature=0.75)
 
     # Check for conversation_complete signal
-    complete = current_turn >= 6
+    max_turns = 6
+    max_turn_match = re.search(r"CURRENT TURN:\s*\{\{CURRENT_TURN\}\}\s*of\s*(\d+)", unit_template, re.IGNORECASE)
+    if max_turn_match:
+        max_turns = int(max_turn_match.group(1))
+
+    complete = current_turn >= max_turns
     reply_text = response
     json_match = re.search(r'\{[^}]*"conversation_complete"\s*:\s*true[^}]*\}', response)
     if json_match:
@@ -476,7 +506,7 @@ async def send_conversation_turn(
 
     # Parse reply (no REPLY: prefix needed with new prompt)
     reply = reply_text.strip()
-    if current_turn >= 6:
+    if current_turn >= max_turns:
         reply = _closing_without_question(reply)
     correction = None
 
@@ -505,14 +535,10 @@ async def send_placement_turn(
     name: str | None = None,
     age: int | None = None,
     custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
-    # Use custom prompts if provided (from simulator), else read from .md files
-    if custom_prompts and custom_prompts.get("placement"):
-        raw_prompt = custom_prompts["placement"]
-        base_block = custom_prompts.get("base", (PROMPTS_DIR / "base-prompt.md").read_text().strip())
-    else:
-        raw_prompt = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
-        base_block = (PROMPTS_DIR / "base-prompt.md").read_text().strip()
+    raw_prompt = resolve_prompt("placement-check-prompt.md", custom_prompts, user_id)
+    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
     
     # Extract first name to use in prompts so Zoe doesn't use the full name
     first_name = name.split()[0].strip() if name else "there"
@@ -716,11 +742,13 @@ async def analyze_and_grade_session(
     level: str = "A2",
     unit_label: str = "Finding My Voice",
     target_skill_ids: list[str] | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import get_skill_text
     target_skill_ids = target_skill_ids or []
 
-    template = (PROMPTS_DIR / "end-result-prompt.md").read_text()
+    template = resolve_prompt("end-result-prompt.md", custom_prompts, user_id)
     transcript = "\n".join(
         f"{'STUDENT' if m['role'] == 'user' else 'ZOE'}: {m['content']}"
         for m in messages

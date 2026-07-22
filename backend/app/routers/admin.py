@@ -489,6 +489,65 @@ async def get_admin_prompts():
         )
 
 
+from ..core.auth import get_current_user
+
+class PromptSandboxDeployRequest(BaseModel):
+    snapshot: dict[str, str]
+
+@router.post("/prompts/sandbox")
+async def deploy_sandbox_prompts(
+    body: PromptSandboxDeployRequest,
+    user: User = Depends(get_current_user),
+):
+    """
+    Saves developer's custom prompts to their personal sandbox folder on disk.
+    These prompts will be used for all their chats in the simulator and app,
+    without affecting any other user.
+    """
+    from ..services.llm_service import PROMPTS_DIR
+    import os
+    
+    valid_names = [
+        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "end-result-prompt", "placement-check-prompt",
+        "correction-extraction-prompt",
+        "profile-A0", "profile-A1", "profile-A2",
+        "profile-B1", "profile-B2", "profile-C1",
+    ]
+    
+    # Validate keys
+    for name in body.snapshot:
+        clean_name = name.replace(".md", "")
+        if clean_name not in valid_names:
+            raise HTTPException(status_code=400, detail=f"Invalid prompt name: {name}")
+            
+    # Create sandbox folder for this user
+    sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
+    os.makedirs(sandbox_dir, exist_ok=True)
+    
+    # Save the files
+    for name, content in body.snapshot.items():
+        filename = name if name.endswith(".md") else f"{name}.md"
+        target = sandbox_dir / filename
+        target.write_text(content)
+        
+    return {"status": "success", "message": f"Saved {len(body.snapshot)} prompts to your sandbox"}
+
+
+@router.delete("/prompts/sandbox")
+async def clear_sandbox_prompts(
+    user: User = Depends(get_current_user),
+):
+    """Clears the developer's sandbox prompts folder."""
+    from ..services.llm_service import PROMPTS_DIR
+    import shutil
+    
+    sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
+    if sandbox_dir.exists():
+        shutil.rmtree(sandbox_dir)
+    return {"status": "success", "message": "Cleared sandbox prompts"}
+
+
 class PromptTestRequest(BaseModel):
     system_prompt: str
     messages: list[dict] = []  # [{"role": "user", "content": "..."}, ...]

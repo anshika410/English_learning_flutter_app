@@ -114,6 +114,7 @@ class SessionAnalysisRequest(BaseModel):
     progression_model: str = "unit"
     session_type: str | None = None
     turns_total: int | None = Field(default=None, description="Total turns taken in the session")
+    custom_prompts: dict | None = None
 
     model_config = {
         "json_schema_extra": {
