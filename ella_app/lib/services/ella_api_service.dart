@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:chucker_flutter/chucker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'analytics_service.dart';
+import 'chucker_notifier.dart';
 import '../models/child_memory.dart';
 import '../models/garden.dart';
 import '../models/home_topic.dart';
@@ -81,7 +84,13 @@ class EllaApiService {
           baseUrl ??
           (dotenv.isInitialized ? dotenv.env['ELLA_API_BASE_URL'] : null) ??
           'https://ella.navgurukul.org/api',
-      _client = client ?? http.Client();
+      // Debug builds route through Chucker's in-app HTTP inspector (tap the
+      // floating bubble to browse requests/responses). Release gets a plain
+      // client — zero overhead, nothing shown. Tests inject their own `client`,
+      // bypassing this entirely.
+      _client =
+          client ??
+          (kDebugMode ? ChuckerHttpClient(http.Client()) : http.Client());
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -579,6 +588,19 @@ class EllaApiService {
     }
 
     _log('RESPONSE $method $path  HTTP ${response.statusCode}', response.body);
+
+    // Debug builds: raise/refresh the Chucker system notification so the call
+    // is inspectable from the shade. No-op in release/tests (notifier is never
+    // initialized there). Fire-and-forget — never blocks the response.
+    if (kDebugMode) {
+      unawaited(
+        ChuckerNotifier.instance.notify(
+          method: method,
+          path: path,
+          statusCode: response.statusCode,
+        ),
+      );
+    }
 
     if (response.statusCode == 401 && auth) {
       await _clearToken();

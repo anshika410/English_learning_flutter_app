@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Debug-only: lets the Chucker API inspector post its system notification
+         (Android 13+ requires this at runtime). Not present in release builds. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 </manifest>
