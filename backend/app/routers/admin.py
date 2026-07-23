@@ -526,17 +526,20 @@ async def deploy_sandbox_prompts(
         if clean_name not in valid_names:
             raise HTTPException(status_code=400, detail=f"Invalid prompt name: {name}")
             
-    # Create sandbox folder for this user
-    sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
-    os.makedirs(sandbox_dir, exist_ok=True)
-    
-    # Save the files
-    for name, content in body.snapshot.items():
-        filename = name if name.endswith(".md") else f"{name}.md"
-        target = sandbox_dir / filename
-        target.write_text(content)
+    try:
+        # Create sandbox folder for this user
+        sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
+        os.makedirs(sandbox_dir, exist_ok=True)
         
-    return {"status": "success", "message": f"Saved {len(body.snapshot)} prompts to your sandbox"}
+        # Save the files
+        for name, content in body.snapshot.items():
+            filename = name if name.endswith(".md") else f"{name}.md"
+            target = sandbox_dir / filename
+            target.write_text(content)
+            
+        return {"status": "success", "message": f"Saved {len(body.snapshot)} prompts to your sandbox"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Filesystem error: {str(e)} (Check write permissions for {PROMPTS_DIR})")
 
 
 @router.delete("/prompts/sandbox")
@@ -548,9 +551,12 @@ async def clear_sandbox_prompts(
     import shutil
     
     sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
-    if sandbox_dir.exists():
-        shutil.rmtree(sandbox_dir)
-    return {"status": "success", "message": "Cleared sandbox prompts"}
+    try:
+        if sandbox_dir.exists():
+            shutil.rmtree(sandbox_dir)
+        return {"status": "success", "message": "Cleared sandbox prompts"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Filesystem error: {str(e)}")
 
 
 class PromptTestRequest(BaseModel):
@@ -610,6 +616,7 @@ async def deploy_prompt(
     db: AsyncSession = Depends(get_db),
 ):
     """Deploy a prompt to production — overwrites the .md file. USE WITH CAUTION."""
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
     from ..services.llm_service import PROMPTS_DIR
 
     # Validate prompt name
@@ -697,6 +704,7 @@ async def deploy_all_prompts(
     writes them to .md files, and saves the entire set as one version.
     Version auto-increments: v0.0.1, v0.0.2, v0.0.3...
     """
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
     from ..services.llm_service import PROMPTS_DIR
     from datetime import timezone
     import json
@@ -771,6 +779,7 @@ async def deploy_snapshot(
     Does NOT auto-bump version. Multiple people can deploy iteratively on the same version.
     Contributors are accumulated. Use POST /prompts/version-bump to intentionally create a new version.
     """
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
     from ..services.llm_service import PROMPTS_DIR
     from datetime import timezone
 
@@ -862,6 +871,7 @@ async def bump_prompt_version(
     Intentionally bump to a new version — takes a snapshot of current production files
     and locks the current state as the next version number. Use when iteration is done.
     """
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
     from ..services.llm_service import PROMPTS_DIR
     from datetime import timezone
 
