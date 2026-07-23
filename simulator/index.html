@@ -2917,7 +2917,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                       alert('Error: '+(d.detail||JSON.stringify(d)));
                     }
                   }catch(e){alert('Error: '+e);}
-                }} style={{padding:'8px 18px', background:'white', color:'#c0392b', border:'2px solid #c0392b', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Deploy</button>
+                }} disabled title="This feature is currently disabled." style={{padding:'8px 18px', background:'#f0f0f0', color:'#a0a0a0', border:'2px solid #d0d0d0', borderRadius:20, fontSize:13, fontWeight:600, cursor:'not-allowed'}}>Deploy</button>
 
                 <button onClick={async()=>{
                   const snapshot = {
@@ -3041,7 +3041,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                       alert('Error: '+(d.detail||JSON.stringify(d)));
                     }
                   }catch(e){alert('Error: '+e);}
-                }} style={{padding:'8px 18px', background:'white', color:'#6b21a8', border:'2px solid #6b21a8', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>New Version</button>
+                }} disabled title="This feature is currently disabled." style={{padding:'8px 18px', background:'#f0f0f0', color:'#a0a0a0', border:'2px solid #d0d0d0', borderRadius:20, fontSize:13, fontWeight:600, cursor:'not-allowed'}}>New Version</button>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
                 <span style={{fontSize:11, color:'#999'}}>Test = try prompt with LLM · Deploy = push to production (same version) · Save to Sandbox = save private draft (survives refreshes) · Clear Sandbox = discard sandbox · Reset = reload server · History = restore past version | New Version = lock current & start fresh</span></div>
