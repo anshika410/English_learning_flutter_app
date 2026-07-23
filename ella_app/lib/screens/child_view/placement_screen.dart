@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
@@ -70,6 +71,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   @override
   void initState() {
     super.initState();
+    // Keep the display awake for the whole placement conversation (voice-first,
+    // no touch input) so the OS idle timer can't dim/lock it. Released in
+    // dispose().
+    WakelockPlus.enable();
     AnalyticsService.logScreenView('Placement');
     _tts = ref.read(ttsProvider);
     _placementNotifier = ref.read(placementProvider.notifier);
@@ -96,6 +101,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
     try {
