@@ -104,7 +104,9 @@ async def create_conversation(
             level=level,
             due_next=user.due_next,
             skills_progress=user.skills_progress,
-            persona_memory=user.persona_memory
+            persona_memory=user.persona_memory,
+            custom_prompts=body.custom_prompts,
+            user_id=user.id,
         )
         starter_text = starter_data["starter"]
     except Exception:
@@ -424,6 +426,8 @@ async def conversation_turn(
             persona_memory=user.persona_memory,
             due_next=due_next,
             skills_progress=user.skills_progress or {},
+            custom_prompts=body.custom_prompts,
+            user_id=user.id,
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM service error: {e}")

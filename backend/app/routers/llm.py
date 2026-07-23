@@ -51,7 +51,7 @@ async def conversation_starter(
     Acts as a proxy call to the LLM (DeepSeek) using prompt rendering configured server-side.
     """
     try:
-        result = await llm_service.generate_conversation_starter(body.unit, level=user.level or "A1")
+        result = await llm_service.generate_conversation_starter(body.unit, level=user.level or "A1", user_id=user.id)
         return StarterResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
@@ -92,6 +92,7 @@ async def conversation_turn(
             persona_memory=user.persona_memory,
             due_next=user.due_next,
             skills_progress=user.skills_progress or {},
+            user_id=user.id,
         )
         return ConversationTurnResponse(**result)
     except Exception as e:
@@ -138,6 +139,8 @@ async def placement_turn(
             messages=messages,
             name=body.name or user.name,
             age=body.age or (int(user.age) if user.age and user.age.isdigit() else None),
+            custom_prompts=body.custom_prompts,
+            user_id=user.id,
         )
         
         if result.get("is_complete"):
@@ -228,6 +231,7 @@ async def session_analysis(
         user=user,
         db=db,
         turns_total=body.turns_total,
+        custom_prompts=body.custom_prompts,
     )
     
     return SessionAnalysisResponse(**analysis_out)

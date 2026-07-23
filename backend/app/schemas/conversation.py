@@ -5,6 +5,7 @@ from datetime import datetime
 class CreateConversationRequest(BaseModel):
     unit: str | None = None
     topic: str | None = None
+    custom_prompts: dict | None = None  # {base, level_profile, conv_unit_framing} — for simulator prompt testing
 
     model_config = {
         "json_schema_extra": {
@@ -101,6 +102,7 @@ class SessionLogResponse(BaseModel):
 class ConversationTurnRequest(BaseModel):
     content: str
     input_mode: str | None = None  # "voice" or "text", optional
+    custom_prompts: dict | None = None  # for simulator prompt testing
 
     model_config = {
         "json_schema_extra": {

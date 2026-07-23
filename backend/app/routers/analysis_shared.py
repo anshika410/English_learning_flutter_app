@@ -23,6 +23,7 @@ async def run_and_save_session_analysis(
     user: User,
     db: AsyncSession,
     turns_total: int | None = None,
+    custom_prompts: dict | None = None,
 ) -> dict:
     level = (level or user.level or "A0").upper()
 
@@ -78,6 +79,8 @@ async def run_and_save_session_analysis(
             level=level,
             unit_label=unit_label,
             target_skill_ids=primary_ids,
+            custom_prompts=custom_prompts,
+            user_id=user.id,
         )
         scores = analysis.get("scores", [])
     except Exception as e:
@@ -188,7 +191,12 @@ async def run_and_save_session_analysis(
     
     # Extract correction_highlight via separate focused LLM call
     try:
-        correction_hl = await llm_service.extract_correction_highlight(messages, level=level)
+        correction_hl = await llm_service.extract_correction_highlight(
+            messages,
+            level=level,
+            custom_prompts=custom_prompts,
+            user_id=user.id,
+        )
         sa.correction_highlight = correction_hl
     except Exception:
         sa.correction_highlight = None
