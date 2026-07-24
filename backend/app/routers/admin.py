@@ -1038,12 +1038,23 @@ async def reset_user(
     if not user:
         raise HTTPException(status_code=404, detail=f"User with device_id '{device_id}' not found")
 
-    # Delete placements
-    await db.execute(
-        select(Placement).where(Placement.user_id == user.id)
-    )
     from sqlalchemy import delete
+    from ..models.session_analysis import SessionAnalysis
+    from ..models.message import Message
+    from ..models.conversation import Conversation
+
+    # Delete placements
     await db.execute(delete(Placement).where(Placement.user_id == user.id))
+
+    # Delete conversations and related records
+    conv_res = await db.execute(select(Conversation.id).where(Conversation.user_id == user.id))
+    conv_ids = conv_res.scalars().all()
+
+    if conv_ids:
+        await db.execute(delete(SessionAnalysis).where(SessionAnalysis.conversation_id.in_(conv_ids)))
+        await db.execute(delete(Message).where(Message.conversation_id.in_(conv_ids)))
+        await db.execute(delete(Conversation).where(Conversation.id.in_(conv_ids)))
+
 
     # Reset user fields
     user.level = None
