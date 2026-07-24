@@ -35,6 +35,9 @@ dependencies:
   flutter_riverpod: ^2.6.1
   supabase_flutter: ^2.8.0
   speech_to_text: ^7.0.0
+  # Keeps the screen awake during a voice conversation (no touch input while
+  # Zoe/child speak, so the OS would otherwise dim + lock the display).
+  wakelock_plus: ^1.2.5
   flutter_tts: ^4.2.0
   flutter_dotenv: ^5.2.1
   http: ^1.4.0
