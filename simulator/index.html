@@ -801,6 +801,11 @@ function App(){
   const [placementAssessment, setPlacementAssessment] = useState(null);
   const [lastSystemPrompt, setLastSystemPrompt] = useState(null); // last real prompt sent to backend
   const [todayRecap, setTodayRecap] = useState(null);
+  // Lifted from EditView so they persist across tabs
+  const [activeSource, setActiveSource] = useState('server');
+  const [serverPrompts, setServerPrompts] = useState(null);
+  const [editedServerPrompts, setEditedServerPrompts] = useState(null);
+  const [isSandbox, setIsSandbox] = useState(false);
 
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs]);
 
@@ -1640,13 +1645,10 @@ function App(){
     setSessionType('standard');
     setPlacementAssessment(null);
     if (LLM_CONFIG.mode === 'api') {
-      localStorage.removeItem('ella_access_token');
-      localStorage.removeItem('ella_device_id');
       initSession(level, model);
     } else {
-      const nm=freshMemory(level); nm.due_next=targetsListFor(nm); setMem(nm);
       setJudgeOut(null);setJudgeDebug(null);setDualJudge(null);setChanges([]);setHistory([]);setSessions([]);setSnapshots([]);setChatNum(1);setTurnCount(0);autoStep.current=0;
-      setTimeout(()=>zoeOpens(1,model,nm),60);
+      setTimeout(()=>zoeOpens(1,model,mem),60);
     }
   }
   function changeLevel(l){
@@ -2006,7 +2008,7 @@ function App(){
         {tab==='session'&&<SessionView sessions={sessions}/>}
         {tab==='due'&&<DueView model={model} mem={mem} level={level} isApiMode={LLM_CONFIG.mode==='api'} showClientSide={LLM_CONFIG.showClientSide}/>}
  {tab==='prompt'&&<PromptView text={buildConvPrompt(msgs)} level={level} tabActive={tab==='prompt'} sessionType={sessionType} mem={mem} prompts={prompts} lastSystemPrompt={lastSystemPrompt}/>}
-        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI} sessionType={sessionType} level={level} isChatEnded={!!judgeOut || !!placementAssessment}/>}
+        {tab==='edit'&&<EditView prompts={prompts} setPrompts={setPrompts} model={model} callEllaAPI={callEllaAPI} sessionType={sessionType} level={level} isChatEnded={!!judgeOut || !!placementAssessment} activeSource={activeSource} setActiveSource={setActiveSource} serverPrompts={serverPrompts} setServerPrompts={setServerPrompts} editedServerPrompts={editedServerPrompts} setEditedServerPrompts={setEditedServerPrompts} isSandbox={isSandbox} setIsSandbox={setIsSandbox}/>}
         {tab==='skills'&&<SkillsView mem={mem} skills={byLevel(level)}/>}
         {tab==='units'&&<UnitsView mem={mem}/>}
         {tab==='hist'&&<HistView history={history}/>}
@@ -2572,11 +2574,7 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
     <small className="note">Each colored section shows which building block produced that part of the final prompt. Base (green) | Profile (blue) | Framing (amber) | Placement (purple).</small>
   </div>);
 }
-function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChatEnded}){
-  const [activeSource, setActiveSource] = React.useState('server'); // 'client' | 'server'
-  const [serverPrompts, setServerPrompts] = React.useState(null);
-  const [editedServerPrompts, setEditedServerPrompts] = React.useState(null);
-  const [isSandbox, setIsSandbox] = React.useState(false);
+function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChatEnded,activeSource,setActiveSource,serverPrompts,setServerPrompts,editedServerPrompts,setEditedServerPrompts,isSandbox,setIsSandbox}){
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
 
