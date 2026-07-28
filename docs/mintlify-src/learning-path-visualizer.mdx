@@ -100,3 +100,32 @@ def unit_complete(progress, unit, level):
 4. The garden shows the GRA skill as a growing plant (not yet bloomed) even in a "completed" unit
 
 This ensures students feel progress and momentum while grammar catches up naturally through continued conversation.
+
+---
+
+## Session & Skill Selection Flowchart
+
+The following flowchart describes the decision logic used by the backend progression engine at the end of each session to grade the student and determine the target skills for the next conversation:
+
+```mermaid
+flowchart TD
+    A[Start: Session ended] --> B{Are all VOC and FLU skills in the current unit 'owned' <br>AND all GRA skills at least 'emerging'?}
+    B -- Yes --> C[Move to the next Unit step / Level Up]
+    B -- No --> D[Stay in the current Unit]
+    
+    C --> E[Load skills of the new Unit]
+    D --> F[Find all skills in this Unit that are not yet 'owned']
+    E --> F
+    
+    F --> G[Sort them by their order in curriculum_data.py]
+    G --> H[Primary Target = First un-owned skill in the list]
+    G --> I[Watch-Only = All other un-owned skills in the list]
+    
+    H & I --> J[Start next conversation]
+    
+    J --> K{Did student demonstrate the Primary Target? <br>LLM Grade >= 0.70}
+    K -- Yes --> L[Increment sightings. <br>If sightings >= 3, mark as 'owned']
+    K -- No --> M[Skill remains 'locked' or 'emerging']
+    
+    L & M --> A
+```
