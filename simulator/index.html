@@ -2895,17 +2895,6 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
             <div style={{marginTop:12, paddingTop:16, borderTop:'1px solid #e5e5e5'}}>
               <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
                 <button onClick={async()=>{
-                  const textareas = document.querySelectorAll('textarea');
-                  const taArr = Array.from(textareas).filter(ta => ta.offsetParent !== null && ta.value.trim());
-                  const val = taArr.map(ta => ta.value.trim()).join('\n\n---\n\n');
-                  if(!val){alert('No prompt content found.'); return;}
-                  try{
-                    const r = await fetch(LLM_CONFIG.ellaApiUrl+'/admin/prompts/test?key=ella-admin-2026-xK9m', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({system_prompt:val, messages:[{role:'user',content:'Hello, what should we talk about?'}]})});
-                    const d = await r.json();
-                    alert('LLM Reply:\n\n' + (d.reply||d.detail||'No response') + '\n\nTokens: '+(d.usage?d.usage.total_tokens:'?') + '\n\n--- Prompt Sent (first 500 chars) ---\n'+(d.prompt_sent||'').substring(0,500));
-                  }catch(e){alert('Error: '+e);}
-                }} style={{padding:'8px 18px', background:'white', color:'#333', border:'2px solid #333', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Test</button>
-                <button onClick={async()=>{
                   if(!window.__ellaUser || !window.__ellaUser.email){
                     alert('Please sign in with Google first (top-left corner).'); return;
                   }
@@ -3064,7 +3053,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                 }} disabled title="This feature is currently disabled." style={{padding:'8px 18px', background:'#f0f0f0', color:'#a0a0a0', border:'2px solid #d0d0d0', borderRadius:20, fontSize:13, fontWeight:600, cursor:'not-allowed'}}>New Version</button>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
-                <span style={{fontSize:11, color:'#999'}}>Test = try prompt with LLM · Deploy = push to production (same version) · Save to Sandbox = save private draft (survives refreshes) · Clear Sandbox = discard sandbox · Reset = reload server · History = restore past version | New Version = lock current & start fresh</span></div>
+                <span style={{fontSize:11, color:'#999'}}>Deploy = push to production (same version) · Save to Sandbox = save private draft (survives refreshes) · Clear Sandbox = discard sandbox · Reset = reload server · History = restore past version | New Version = lock current & start fresh</span></div>
 
             </div>
           </>
