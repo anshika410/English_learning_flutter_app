@@ -2582,6 +2582,7 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
 function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChatEnded,activeSource,setActiveSource,serverPrompts,setServerPrompts,editedServerPrompts,setEditedServerPrompts,isSandbox,setIsSandbox}){
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const isLoggedIn = !!localStorage.getItem('ella_google_email');
 
   React.useEffect(() => {
     if (activeSource === 'server' && !serverPrompts && !loading) {
@@ -2953,7 +2954,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   } catch(e) {
                     alert('Error: ' + e);
                   }
-                }} style={{padding:'8px 18px', background:'white', color:'#2e7d32', border:'2px solid #2e7d32', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Save to Sandbox</button>
+                }} disabled={!isLoggedIn} title={!isLoggedIn ? "Please sign in with Google (top-left corner) to save prompts to your personal sandbox." : "Save your edits as a private sandbox draft"} style={{padding:'8px 18px', borderRadius:20, fontSize:13, fontWeight:600, ...(isLoggedIn ? {background:'white', color:'#2e7d32', border:'2px solid #2e7d32', cursor:'pointer'} : {background:'#f5f5f5', color:'#a0a0a0', border:'2px solid #dcdcdc', cursor:'not-allowed'})}}>Save to Sandbox</button>
 
                 <button onClick={async()=>{
                   if(!confirm('Clear all your sandbox overrides and revert to production prompts?')) return;
@@ -2990,7 +2991,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   } catch(e) {
                     alert('Error: ' + e);
                   }
-                }} style={{padding:'8px 18px', background:'white', color:'#e67e22', border:'2px solid #e67e22', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Clear Sandbox</button>
+                }} disabled={!isLoggedIn} title={!isLoggedIn ? "Please sign in with Google (top-left corner) to clear your personal sandbox." : "Discard your sandbox draft and revert to production"} style={{padding:'8px 18px', borderRadius:20, fontSize:13, fontWeight:600, ...(isLoggedIn ? {background:'white', color:'#e67e22', border:'2px solid #e67e22', cursor:'pointer'} : {background:'#f5f5f5', color:'#a0a0a0', border:'2px solid #dcdcdc', cursor:'not-allowed'})}}>Clear Sandbox</button>
                 <button onClick={()=>{
                   if(!confirm('Reload all prompts from server? Your edits will be lost.')) return;
                   setServerPrompts(null);
