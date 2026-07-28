@@ -87,6 +87,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
     }
 
     final token = parsedUri.queryParameters['access_token'] ?? parsedUri.queryParameters['token'];
+    final refreshToken = parsedUri.queryParameters['refresh_token'];
     String? userId = parsedUri.queryParameters['user_id'];
     
     // If backend didn't return user_id, extract it from the JWT's 'sub' claim
@@ -103,7 +104,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
     
     if (token != null && userId != null) {
       final api = EllaApiService();
-      await api.saveTokens(token, userId);
+      await api.saveTokens(token, userId, refreshToken: refreshToken);
       if (mounted) {
         // Clear the auth screens so Back can't return to login/email.
         _navigatorKey.currentState?.pushNamedAndRemoveUntil(

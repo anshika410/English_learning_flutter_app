@@ -481,7 +481,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         );
     ref.read(selectedGardenLevelProvider.notifier).state = null;
 
-    state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
+    state = AsyncValue.data(
+      cur.copyWith(
+        status: ChatStatus.zoeThinking,
+        sessionEnded: true,
+      ),
+    );
 
     String? syncError;
     List<SkillScore> primaryScores = const [];
@@ -933,12 +938,15 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           } catch (_) {}
           if (state.hasValue) {
             state = AsyncValue.data(
-              state.requireValue.copyWith(status: ChatStatus.idle),
+              state.requireValue.copyWith(
+                status: ChatStatus.idle,
+                clearCurrentlySpeaking: true,
+              ),
             );
           }
           // Auto-end chat if conversation is complete
           if (turn.conversationComplete) {
-            await endChat();
+            unawaited(endChat());
           }
           return;
         }
