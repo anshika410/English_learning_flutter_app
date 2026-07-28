@@ -110,24 +110,3 @@ flowchart TD
     
     L & M --> A
 ```
-
----
-
-## Proposed Sequencing & Stuck-Skill Rotation Logic (Concept)
-
-To optimize the learning experience and prevent students from getting stuck, the following sequencing and rotation logic is proposed:
-
-### 1. Strand Prioritization Rule
-Instead of flat linear order, skills within a unit are prioritized for primary targeting in a structured sequence:
-1. **Vocabulary (VOC)** (First priority) — Lays the thematic vocabulary foundation.
-2. **Fluency (FLU)** (Second priority) — Builds conversational flow and turn-taking.
-3. **Grammar (GRA)** (Third priority) — Refines syntactic and structural accuracy.
-
-*If multiple skills belong to the same strand (e.g., two grammar skills), they are targeted in their defined list order.*
-
-### 2. Stuck-Skill Target Rotation
-If a conversation targeting a **Primary Target** yields **no sightings** (i.e., the student did not demonstrate the skill or the grading threshold was not met):
-* **Retrial Limit:** The system allows a maximum of **2 consecutive attempts** on the same primary target.
-* **Rotation Trigger:** If after 2 consecutive sessions the target is still not sighted, the selector flags it as "stuck".
-* **Rotated Target:** The primary target is rotated to the next unowned skill in the priority list (e.g., from `VOC-01` to `FLU-01`).
-* **Recycling:** The stuck skill is moved to the bottom of the queue and will be targeted again once all other skills in the unit have been attempted.
