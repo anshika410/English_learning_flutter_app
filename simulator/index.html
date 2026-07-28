@@ -2583,6 +2583,16 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
   const isLoggedIn = !!localStorage.getItem('ella_google_email');
+  const adjustHeightRef = (isActive) => (el) => {
+    if (el) {
+      if (isActive) {
+        el.style.height = 'auto';
+        el.style.height = (el.scrollHeight + 12) + 'px';
+      } else {
+        el.style.height = '';
+      }
+    }
+  };
 
   React.useEffect(() => {
     if (activeSource === 'server' && !serverPrompts && !loading) {
@@ -2739,6 +2749,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                 data-promptkey="placement"
                 value={(editedServerPrompts && editedServerPrompts.placement) || ''} 
                 readOnly={!isLoggedIn}
+                ref={adjustHeightRef(sessionType === 'placement' && !isChatEnded)}
                 onChange={e=>{
                   const val = e.target.value;
                   setEditedServerPrompts(prev => {
@@ -2747,7 +2758,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     return up;
                   });
                 }}
-                style={{ background: (sessionType === 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: 220 }}
+                style={{ background: (sessionType === 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: (sessionType === 'placement' && !isChatEnded) ? 'auto' : 220 }}
               />
             </div>
 
@@ -2758,6 +2769,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                 data-promptkey="base"
                 value={(editedServerPrompts && editedServerPrompts.base) || ''} 
                 readOnly={!isLoggedIn}
+                ref={adjustHeightRef(sessionType !== 'placement' && !isChatEnded)}
                 onChange={e=>{
                   const val = e.target.value;
                   setEditedServerPrompts(prev => {
@@ -2766,7 +2778,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     return up;
                   });
                 }}
-                style={{ background: (sessionType !== 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: 150 }}
+                style={{ background: (sessionType !== 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: (sessionType !== 'placement' && !isChatEnded) ? 'auto' : 150 }}
               />
             </div>
 
@@ -2783,6 +2795,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   data-promptkey={pkey}
                   value={(editedServerPrompts && editedServerPrompts[pkey]) || ''} 
                   readOnly={!isLoggedIn} 
+                  ref={adjustHeightRef(isActive)}
                   onChange={e=>{
                     const val = e.target.value;
                     setEditedServerPrompts(prev => {
@@ -2791,7 +2804,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                       return up;
                     });
                   }}
-                  style={{ background: isActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isActive ? 120 : 50, fontSize: 11 }}
+                  style={{ background: isActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isActive ? 'auto' : 50, fontSize: 11 }}
                 />
               </div>
               );
@@ -2809,6 +2822,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     data-promptkey="conv-unit-framing"
                     value={(editedServerPrompts && editedServerPrompts['conv-unit-framing']) || ''} 
                     readOnly={!isLoggedIn} 
+                    ref={adjustHeightRef(isUnitFramingActive)}
                     onChange={e=>{
                       const val = e.target.value;
                       setEditedServerPrompts(prev => {
@@ -2817,7 +2831,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                         return up;
                       });
                     }}
-                    style={{ background: isUnitFramingActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: 140 }}
+                    style={{ background: isUnitFramingActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isUnitFramingActive ? 'auto' : 140 }}
                   />
                 </div>
               );
@@ -2836,6 +2850,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     data-promptkey="judge"
                     value={(editedServerPrompts && editedServerPrompts['judge']) || ''} 
                     readOnly={!isLoggedIn} 
+                    ref={adjustHeightRef(isJudgeActive)}
                     onChange={e=>{
                       const val = e.target.value;
                       setEditedServerPrompts(prev => {
@@ -2844,7 +2859,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                         return up;
                       });
                     }}
-                    style={{ background: isJudgeActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: 200 }}
+                    style={{ background: isJudgeActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isJudgeActive ? 'auto' : 200 }}
                   />
                 </div>
               );
@@ -2862,6 +2877,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     data-promptkey="correction-extraction"
                     value={(editedServerPrompts && editedServerPrompts['correction-extraction']) || ''} 
                     readOnly={!isLoggedIn} 
+                    ref={adjustHeightRef(isCorrectionActive)}
                     onChange={e=>{
                       const val = e.target.value;
                       setEditedServerPrompts(prev => {
@@ -2870,7 +2886,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                         return up;
                       });
                     }}
-                    style={{ background: isCorrectionActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 120 }}
+                    style={{ background: isCorrectionActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isCorrectionActive ? 'auto' : 120 }}
                   />
                 </div>
               );
