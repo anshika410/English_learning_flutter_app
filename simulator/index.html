@@ -3065,6 +3065,24 @@ function GoogleSignIn() {
     return () => clearInterval(check);
   }, [user]);
 
+  React.useEffect(() => {
+    if (user) return;
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.renderButton(
+          document.getElementById("gsi-signin-btn-header"),
+          { theme: "outline", size: "medium", shape: "pill" }
+        );
+        clearInterval(interval);
+      } else if (attempts > 30) {
+        clearInterval(interval);
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, [user]);
+
   if (user) {
     return (
       <div style={{display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', background:'#f5f3ee', borderRadius:16, fontSize:12, marginRight:8}}>
@@ -3075,15 +3093,7 @@ function GoogleSignIn() {
     );
   }
   return (
-    <div style={{display:'inline-block', marginRight:8}}>
-      <button id="gsi-signin-btn" onClick={()=>{
-        if(typeof google !== 'undefined' && google.accounts) {
-          google.accounts.id.prompt();
-        } else {
-          alert('Google Sign-In not loaded. Please refresh the page.');
-        }
-      }} style={{padding:'5px 12px', background:'white', border:'1.5px solid #4285f4', borderRadius:16, fontSize:12, fontWeight:600, color:'#4285f4', cursor:'pointer'}}>Sign in with Google</button>
-    </div>
+    <div id="gsi-signin-btn-header" style={{display:'inline-block', marginRight:8, verticalAlign:'middle'}}></div>
   );
 }
 
