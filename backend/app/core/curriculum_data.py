@@ -300,7 +300,23 @@ def targets_list_for(progress: dict, model: str, level: str) -> list[str]:
         picks = due_unit(progress, level)["picks"]
     else:
         picks = due_skill(progress, level)
-    return [p["id"] for p in picks]
+    skill_ids = [p["id"] for p in picks]
+
+    # Stuck rotation logic:
+    # Rotate skills with >= 2 consecutive failed attempts to the end of the list.
+    failed_attempts = progress.get("failed_attempts", {})
+    stuck = []
+    unstuck = []
+    for sid in skill_ids:
+        storage_key = progress_key_for(sid, level)
+        attempts = failed_attempts.get(storage_key, 0) if storage_key else 0
+        if attempts >= 2:
+            stuck.append(sid)
+        else:
+            unstuck.append(sid)
+    if unstuck:
+        return unstuck + stuck
+    return skill_ids
 
 def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = None, created_at: str = None) -> tuple[dict, list[dict]]:
     # Clone progression dict to avoid side-effects
@@ -380,5 +396,16 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
                     p["emerging"].remove(storage_key)
                 if storage_key not in p["owned"]:
                     p["owned"].append(storage_key)
-                    
+
+        # Track failed attempts to support stuck rotation logic
+        if "failed_attempts" not in p:
+            p["failed_attempts"] = {}
+        if storage_key not in p["owned"]:
+            if qualifies:
+                p["failed_attempts"][storage_key] = 0
+            else:
+                p["failed_attempts"][storage_key] = p["failed_attempts"].get(storage_key, 0) + 1
+        elif storage_key in p["failed_attempts"]:
+            del p["failed_attempts"][storage_key]
+            
     return p, changes

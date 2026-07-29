@@ -81,7 +81,17 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     # Always show all topics — fresh ones first, recently used ones at the end.
     # This way the user never sees fewer than the full topic list.
     import random
-    random.shuffle(fresh)
+    import hashlib
+    from datetime import datetime, timezone
+
+    # Deterministic daily seed: "user_uuid-YYYY-MM-DD"
+    current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    seed_str = f"{user.id}-{current_date}"
+    seed_int = int(hashlib.md5(seed_str.encode()).hexdigest(), 16)
+
+    # Use a localized Random instance to avoid mutating global random state
+    local_random = random.Random(seed_int)
+    local_random.shuffle(fresh)
     ordered_topics = fresh + stale
 
     def _make_label(name):

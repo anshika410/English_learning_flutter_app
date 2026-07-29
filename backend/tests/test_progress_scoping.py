@@ -9,6 +9,7 @@ from backend.app.core.curriculum_data import (
     public_progress_for_level,
     unit_progress_key,
     validate_due_next,
+    targets_list_for,
 )
 
 
@@ -78,6 +79,36 @@ class ProgressScopingTests(unittest.TestCase):
         }
         self.assertIsNone(active_step(progress, "A0"))
         self.assertEqual(active_step(progress, "A1")["step"], "1")
+
+    def test_failed_attempts_incremented_on_failure(self):
+        progress, _ = apply_merge(
+            {},
+            [{"id": "U1-VOC-01", "confidence": 0.3, "prompted": False, "evidence": ""}],
+            "A0",
+        )
+        self.assertEqual(progress.get("failed_attempts", {}).get("A0:U1-VOC-01"), 1)
+
+        progress2, _ = apply_merge(
+            progress,
+            [{"id": "U1-VOC-01", "confidence": 0.2, "prompted": False, "evidence": ""}],
+            "A0",
+        )
+        self.assertEqual(progress2.get("failed_attempts", {}).get("A0:U1-VOC-01"), 2)
+
+    def test_failed_attempts_reset_on_success(self):
+        initial = {"failed_attempts": {"A0:U1-VOC-01": 2}}
+        progress, _ = apply_merge(
+            initial,
+            [{"id": "U1-VOC-01", "confidence": 0.9, "prompted": False, "evidence": "red"}],
+            "A0",
+        )
+        self.assertEqual(progress.get("failed_attempts", {}).get("A0:U1-VOC-01", 0), 0)
+
+    def test_stuck_target_is_rotated(self):
+        progress = {"failed_attempts": {"A0:U1-VOC-01": 2}}
+        targets = targets_list_for(progress, "unit", "A0")
+        self.assertNotEqual(targets[0], "U1-VOC-01")
+        self.assertEqual(targets[-1], "U1-VOC-01")
 
 
 if __name__ == "__main__":
