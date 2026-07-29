@@ -4241,11 +4241,7 @@ function ApiCallsView({logs, onClear}){
                       <span style={{background:'#fff3e0',color:'#e65100',padding:'2px 8px',borderRadius:4,fontSize:11}}>Turn: {log.responseBody.prompt_debug.current_turn}</span>
                       <span style={{background:'#f3e5f5',color:'#6a1b9a',padding:'2px 8px',borderRadius:4,fontSize:11}}>Targets: {(log.responseBody.prompt_debug.target_ids||[]).join(', ') || 'none'}</span>
                     </div>
-                    {log.responseBody.prompt_debug.student_memory && log.responseBody.prompt_debug.student_memory !== 'None' && (
-                      <div style={{marginBottom:6,padding:'6px 10px',background:'#f9f3ff',border:'1px solid #ce93d8',borderRadius:6,fontSize:11}}>
-                        <b>🧠 Student Memory:</b> {log.responseBody.prompt_debug.student_memory}
-                      </div>
-                    )}
+
                     <pre style={{
                       background: '#1a1a2e',
                       color: '#a8d8a8',
