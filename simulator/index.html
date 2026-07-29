@@ -2597,7 +2597,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
   React.useEffect(() => {
     if (activeSource === 'server' && !serverPrompts && !loading) {
       setLoading(true);
-      callEllaAPI('/admin/prompts')
+      callEllaAPI('/admin/prompts?t=' + Date.now())
         .then(data => {
           setServerPrompts(data);
           setIsSandbox(!!data.is_sandbox);
@@ -2974,7 +2974,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                      alert(d.message || 'Sandbox cleared!');
                      setServerPrompts(null);
                      setLoading(true);
-                     callEllaAPI('/admin/prompts')
+                     callEllaAPI('/admin/prompts?t=' + Date.now())
                        .then(data => { 
                          setServerPrompts(data); 
                          setIsSandbox(!!data.is_sandbox);
@@ -3001,7 +3001,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   if(!confirm('Reload all prompts from server? Your edits will be lost.')) return;
                   setServerPrompts(null);
                   setLoading(true);
-                  callEllaAPI('/admin/prompts')
+                  callEllaAPI('/admin/prompts?t=' + Date.now())
                     .then(data => { setServerPrompts(data); setLoading(false);
                       setIsSandbox(!!data.is_sandbox);
                       window.__restoredFrom = null;
