@@ -18,12 +18,11 @@ class PromptContractTests(unittest.TestCase):
                 backend_path.name,
             )
 
-    def test_a0_profile_prohibits_forced_imitation(self):
+    def test_a0_profile_rules(self):
         profile = (BACKEND_PROMPTS / "profile-A0.md").read_text()
-        self.assertIn('Never use an imperative "Say..." or "Repeat..."', profile)
-        self.assertIn("patterns, not scripts", profile)
-        self.assertIn("When one word fully answers", profile)
-        self.assertIn("Build a truthful first sentence", profile)
+        self.assertIn("keep most sentences to eight words or fewer", profile)
+        self.assertIn("Do not require a complete sentence.", profile)
+        self.assertIn("Treat a relevant word or fragment as meaningful communication.", profile)
 
     def test_conversation_shell_contains_all_three_layers(self):
         shell = (BACKEND_PROMPTS / "conversation-prompt.md").read_text()
