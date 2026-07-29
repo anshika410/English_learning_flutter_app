@@ -111,3 +111,31 @@ flowchart TD
     
     L & M --> A
 ```
+
+---
+
+### Step-by-Step Selection Logic Breakdown
+
+#### 1. The Gateway Check (Unit Completion)
+Right after a conversation session completes:
+* **The check:** The engine asks: *"Are all Vocabulary (VOC) and Fluency (FLU) skills in this unit `owned` (sightings $\ge 3$) AND all Grammar (GRA) skills in this unit at least `emerging` (sightings $\ge 1$)?"*
+* **Decision:**
+  * **Yes:** You advance to the next Unit step (e.g. Unit 1 ➡️ Unit 2). The engine loads the skills of the new unit.
+  * **No:** You stay in the current Unit.
+
+#### 2. Picking Targets for the Next Chat
+Once the active unit is confirmed:
+1. **Find Un-owned Skills:** It takes all the skills in that unit that are not yet `owned` (sightings $< 3$).
+2. **Curriculum Sorting:** It sorts them in the default curriculum order (e.g., `VOC-01` ➡️ `VOC-02` ➡️ `GRA-01` ➡️ `FLU-01`).
+3. **Primary Target Assignment:** The **first** un-owned skill in that sorted list is designated as the **Primary Target** (Zoe's invisible elicitation playbook will actively steer the session to elicit this).
+4. **Watch-Only Targets Assignment:** All **other** un-owned skills in the active unit are set as **Watch-Only** (Zoe won't force them, but she will grade them if you naturally use them).
+
+#### 3. Having the Next Chat
+You start the next conversation session. Zoe initiates the chat using the primary target's specific prompt framework.
+
+#### 4. Post-Chat Grading & Sighting updates
+At the end of the chat, the LLM Grader runs:
+* **Did you demonstrate the Primary Target?** (LLM Grade $\ge 0.70$)
+  * **Yes:** You receive +1 sighting. (If total sightings reach $\ge 3$, the skill is marked as `owned`).
+  * **No:** The skill sightings remain unchanged.
+* The loop starts over at **Step 1** for the next session.
