@@ -2,16 +2,24 @@
 
 ## Session context
 
-Unit: "{{UNITNAME}}" — {{UNITFOCUS}}
+Unit: {{UNIT}}
 
-TARGET SKILLS:
-{{TARGETS}}
+Conversation topic: {{CONVERSATION_TOPIC}}
+
+Primary target:
+
+[{{PRIMARY_STRAND}}] {{PRIMARY_SKILL}}
 
 INVISIBLE ELICITATION PLAN:
 {{ELICITATION}}
 
-STUDENT MEMORY:
-{{STUDENT_MEMORY}}
+Learner context:
+
+{{LEARNER_CONTEXT}}
+
+Optional watch list:
+
+{{WATCH_LIST}}
 
 CURRENT TURN: {{CURRENT_TURN}} of 6
 
