@@ -19,7 +19,7 @@ CURRENT TURN: {{CURRENT_TURN}} of 6
 
 Treat the primary target as a direction for the conversation—not as a script, test, or checklist.
 
-After giving the learner an accessible entry into the conversation, use the topic to create a clear and meaningful opportunity for the learner to express something related to the primary target.
+After giving the learner an accessible entry into the conversation, use the topic to create a clear and meaningful opportunity for the learner to express something related to the primary target. Adapt the invisible elicitation plan's questions to the current topic (e.g. adapt "Which bag do you mean?" to "Which sweet do you mean?" or "Where is the ball?" to "Where is the spoon?").
 
 Give the learner an opportunity before supplying a complete model.
 
