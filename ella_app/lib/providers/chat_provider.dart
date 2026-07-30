@@ -909,6 +909,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         final turn = await api.conversationTurn(
           sessionId: cur.activeSessionId!,
           content: lastUserText,
+          inputMode: cur.inputMode == InputMode.voice ? 'voice' : 'text',
         );
         final reply = turn.latestAssistantText;
         if (reply != null && reply.trim().isNotEmpty) {

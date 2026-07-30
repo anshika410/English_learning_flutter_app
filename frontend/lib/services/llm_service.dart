@@ -83,6 +83,10 @@ class LlmService {
   final LlmProviderConfig _config;
   String? _cachedPlacementPrompt;
   String? _cachedConversationPrompt;
+  String? _cachedStarterPrompt;
+  String? _cachedBasePrompt;
+  String? _cachedUnitPrompt;
+  final Map<String, String> _cachedLevelPrompts = {};
 
   /// Set to true to use mock responses instead of calling the API.
   static bool useMockData = false;
@@ -106,34 +110,13 @@ class LlmService {
         name: 'DeepSeek',
         apiKey: dotenv.env['DEEPSEEK_API_KEY'] ?? '',
         baseUrl:
-            dotenv.env['DEEPSEEK_BASE_URL'] ??
-            'https://api.deepseek.com/v1',
+            dotenv.env['DEEPSEEK_BASE_URL'] ?? 'https://api.deepseek.com/v1',
         model: dotenv.env['DEEPSEEK_MODEL'] ?? 'deepseek-chat',
       );
 
   void setProvider(LlmProvider provider) {
     // DeepSeek is the only provider.
   }
-
-  static const _conversationSystemPrompt = '''
-You are Zoe, a warm and practical English-speaking coach for Indian learners.
-Keep the conversation organic and helpful, not robotic.
-
-Behavior:
-- Reply in 1-3 natural sentences.
-- Ask a follow-up question when it helps keep the flow.
-- Give correction only when needed, briefly and kindly.
-- Avoid repeating the same coaching line every turn.
-
-Output format:
-REPLY: <natural conversational reply>
-CORRECTION: <short correction or empty>
-''';
-
-  static const _starterPrompt = '''
-You are Zoe. Write a short first message (1-2 sentences) that starts a friendly
-English conversation. Keep it natural, encouraging, and age-appropriate.
-''';
 
   static const _placementTurnPrompt = '''
 You are running a CEFR placement conversation.
@@ -149,7 +132,9 @@ Return ONLY valid JSON:
 Rules:
 - Ask one question at a time.
 - Keep questions clear and conversational.
-- Target enough evidence for CEFR in ~5-8 user responses.
+- Follow the learner's latest meaning instead of switching to a checklist.
+- Use the least support needed and never require sentence imitation.
+- Target enough evidence in 5-9 user responses.
 - If there is enough evidence and user_responses >= min_turns, set continue_placement=false.
 - If user_responses < min_turns, continue_placement must be true.
 - If user_responses >= max_turns, continue_placement must be false.
@@ -160,7 +145,7 @@ Rules:
 You are evaluating spoken-English proficiency for CEFR placement.
 Given the transcript, output ONLY valid JSON with this schema:
 {
-  "cefr_level": "A1|A2|B1|B2|C1",
+  "cefr_level": "A0|A1|A2|B1|B2|C1",
   "level_label": "short learner-facing label",
   "highlight": "one concise positive highlight sentence",
   "confidence": 0.0
@@ -175,24 +160,34 @@ Rules:
   /// Returns both the opening starter message and a short header title.
   Future<({String starter, String headerTitle})> generateConversationStarter({
     String? topic,
+    String level = 'A1',
   }) async {
     if (useMockData) {
       await Future.delayed(const Duration(milliseconds: 800));
       final t = topic ?? 'Free Talk';
       return (
-        starter: "Hi! I'm Zoe. Let's talk about $t. What's your first thought on it?",
+        starter:
+            "Hi! I'm Zoe. Let's talk about $t. What's your first thought on it?",
         headerTitle: t,
       );
     }
+    final normalizedLevel = _normalizeLevel(level);
+    _cachedStarterPrompt ??= await rootBundle.loadString(
+      'assets/prompts/starter-prompt.md',
+    );
+    _cachedBasePrompt ??= await rootBundle.loadString(
+      'assets/prompts/base-prompt.md',
+    );
+    final levelPrompt = _cachedLevelPrompts[normalizedLevel] ??=
+        await rootBundle.loadString(
+          'assets/prompts/profile-$normalizedLevel.md',
+        );
     final topicLine = topic == null || topic.trim().isEmpty
         ? 'Topic: free conversation.'
         : 'Topic: $topic. Start specifically with this topic.';
-    final prompt = '''
-$_starterPrompt
-
-After the starter, on a new line output:
-TITLE: <3-4 word header for this conversation, no punctuation>
-''';
+    final prompt = _cachedStarterPrompt!
+        .replaceAll('{base_block}', _cachedBasePrompt!)
+        .replaceAll('{level_block}', levelPrompt);
     try {
       final text = await _sendChatCompletion(
         messages: [
@@ -212,11 +207,12 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       final starter = text
           .replaceAll(RegExp(r'TITLE:.*', caseSensitive: false), '')
           .trim();
-      return (starter: starter.isEmpty ? text.trim() : starter, headerTitle: headerTitle);
+      return (
+        starter: starter.isEmpty ? text.trim() : starter,
+        headerTitle: headerTitle,
+      );
     } catch (_) {
-      final fallbackStarter = topic == null || topic.trim().isEmpty
-          ? "Hi! I'm Zoe. What would you like to talk about today?"
-          : "Hi! I'm Zoe. Let's talk about $topic. What's your first thought on it?";
+      final fallbackStarter = _starterFallback(normalizedLevel, topic: topic);
       return (starter: fallbackStarter, headerTitle: topic ?? 'Free Talk');
     }
   }
@@ -231,21 +227,19 @@ TITLE: <3-4 word header for this conversation, no punctuation>
   }) async {
     if (useMockData) {
       await Future.delayed(const Duration(milliseconds: 1200));
-      final reply = _mockConversationReplies[_mockReplyIndex % _mockConversationReplies.length];
+      final reply =
+          _mockConversationReplies[_mockReplyIndex %
+              _mockConversationReplies.length];
       _mockReplyIndex++;
       final complete = _mockReplyIndex >= 6;
       return ConversationTurnResult(
-        message: ChatMessage(
-          role: MessageRole.assistant,
-          content: reply,
-        ),
+        message: ChatMessage(role: MessageRole.assistant, content: reply),
         conversationComplete: complete,
       );
     }
     final systemPrompt = await _loadConversationPrompt(
       topic: topic ?? 'Free conversation',
       level: level ?? 'A2',
-      levelLabel: levelLabel ?? 'Finding My Voice',
       currentTurn: currentTurn,
     );
 
@@ -253,10 +247,12 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       {'role': 'system', 'content': systemPrompt},
       ...history
           .where((m) => m.role != MessageRole.system)
-          .map((m) => {
-                'role': m.role == MessageRole.user ? 'user' : 'assistant',
-                'content': m.content,
-              }),
+          .map(
+            (m) => {
+              'role': m.role == MessageRole.user ? 'user' : 'assistant',
+              'content': m.content,
+            },
+          ),
     ];
 
     final response = await _sendChatCompletion(
@@ -266,7 +262,7 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     );
 
     // Check for conversation_complete JSON signal
-    bool complete = false;
+    bool complete = currentTurn >= 6;
     String replyText = response;
     final jsonMatch = RegExp(
       r'\{[^}]*"conversation_complete"\s*:\s*true[^}]*\}',
@@ -276,43 +272,85 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       replyText = response.substring(0, jsonMatch.start).trim();
     }
 
-    final message = _parseTutorResponse(replyText.isEmpty ? response : replyText);
-    return ConversationTurnResult(message: message, conversationComplete: complete);
+    var message = _parseTutorResponse(replyText.isEmpty ? response : replyText);
+    if (complete) {
+      message = ChatMessage(
+        role: message.role,
+        content: _closingWithoutQuestion(message.content),
+        correction: message.correction,
+      );
+    }
+    return ConversationTurnResult(
+      message: message,
+      conversationComplete: complete,
+    );
   }
 
   Future<String> _loadConversationPrompt({
     required String topic,
     required String level,
-    required String levelLabel,
     required int currentTurn,
   }) async {
     _cachedConversationPrompt ??= await rootBundle.loadString(
       'assets/prompts/conversation-prompt.md',
     );
-    final levelInstructions = _levelInstructions(level);
+    _cachedBasePrompt ??= await rootBundle.loadString(
+      'assets/prompts/base-prompt.md',
+    );
+    _cachedUnitPrompt ??= await rootBundle.loadString(
+      'assets/prompts/conv-unit-framing.md',
+    );
+    final normalizedLevel = _normalizeLevel(level);
+    final levelPrompt = _cachedLevelPrompts[normalizedLevel] ??=
+        await rootBundle.loadString(
+          'assets/prompts/profile-$normalizedLevel.md',
+        );
+    final unitBlock = _cachedUnitPrompt!
+        .replaceAll('{{UNITNAME}}', topic)
+        .replaceAll('{{UNITFOCUS}}', 'General conversation practice')
+        .replaceAll('{{TARGETS}}', '- General conversation practice')
+        .replaceAll(
+          '{{ELICITATION}}',
+          'No specific target. Follow the learner\'s meaning and keep one coherent exchange going.',
+        )
+        .replaceAll('{{STUDENT_MEMORY}}', 'None')
+        .replaceAll('{{CURRENT_TURN}}', '$currentTurn');
     return _cachedConversationPrompt!
-        .replaceAll('{{TOPIC}}', topic)
-        .replaceAll('{{LEVEL}}', level)
-        .replaceAll('{{LEVEL_LABEL}}', levelLabel)
-        .replaceAll('{{CURRENT_TURN}}', '$currentTurn')
-        .replaceAll('{{LEVEL_INSTRUCTIONS}}', levelInstructions);
+        .replaceAll('{{BASE_BLOCK}}', _cachedBasePrompt!)
+        .replaceAll('{{LEVEL_BLOCK}}', levelPrompt)
+        .replaceAll('{{UNIT_BLOCK}}', unitBlock);
   }
 
-  String _levelInstructions(String level) {
-    switch (level.toUpperCase()) {
-      case 'A1':
-        return 'Accept any attempt as a valid turn. Never require full sentences. Celebrate every response.\nAsk only personal, familiar questions (family, food, daily routine, things they like).\nSpeak at 40–60 wpm pace equivalent. Use only present simple and common vocabulary.';
-      case 'A2':
-        return 'Use salient recasts — model the correct form naturally in your reply.\nAsk about past events and simple opinions. Introduce "Have you ever…?" questions.\nShow filler words awareness only in post-session (not during conversation).';
-      case 'B1':
-        return 'Use metalinguistic nudges — name the error category and wait before correcting.\nExample: "Almost — which tense would we use for something finished in the past?"\nPush for 60-second responses by asking follow-up "tell me more" questions.\nOffer vocabulary alternatives mid-conversation (maximum 2 per session).';
-      case 'B2':
-        return 'Apply explicit correction when grammar_setting permits. State error, correct form, brief reason.\nPush for 4-part argument: claim → reason → evidence → concession.\nFlag register mismatches. Offer 2–3 precision vocabulary alternatives.';
-      case 'C1':
-        return 'Operate in peer mode. Suggestions, not corrections.\nIntroduce stylistic options: "You could also say \'pivotal\' here — it implies a turning point."\nExpect idiomatic expression and fluent reformulation.';
-      default:
-        return 'Use salient recasts — model the correct form naturally in your reply.';
+  String _normalizeLevel(String? level) {
+    const validLevels = {'A0', 'A1', 'A2', 'B1', 'B2', 'C1'};
+    final requestedLevel = (level ?? '').toUpperCase();
+    return validLevels.contains(requestedLevel) ? requestedLevel : 'A1';
+  }
+
+  String _starterFallback(String level, {String? topic}) {
+    if (level == 'A0') {
+      return 'Rice or noodles?';
     }
+    if (topic != null && topic.trim().isNotEmpty) {
+      return "Let's talk about $topic. What do you think?";
+    }
+    return 'What would you like to talk about today?';
+  }
+
+  String _closingWithoutQuestion(String reply) {
+    if (!reply.contains('?')) {
+      final trimmed = reply.trim();
+      return trimmed.isEmpty ? 'Thanks for talking with me today.' : trimmed;
+    }
+
+    final pieces = RegExp(r'[^.!?]+[.!?]?')
+        .allMatches(reply)
+        .map((match) => match.group(0)?.trim() ?? '')
+        .where((part) => part.isNotEmpty && !part.contains('?'))
+        .toList();
+    return pieces.isEmpty
+        ? 'Thanks for talking with me today.'
+        : pieces.join(' ');
   }
 
   Future<EndResultAnalysis?> analyzeConversation({
@@ -325,12 +363,15 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       await Future.delayed(const Duration(milliseconds: 800));
       return EndResultAnalysis(
         overall: 'great',
-        bestMomentQuote: 'I really enjoy spending time with my friends on weekends.',
+        bestMomentQuote:
+            'I really enjoy spending time with my friends on weekends.',
         bestMomentNote: 'Natural expression with good sentence structure!',
         courageOrMotivationType: 'motivation',
-        courageOrMotivationContent: 'You spoke confidently and kept the conversation going. That takes real courage!',
+        courageOrMotivationContent:
+            'You spoke confidently and kept the conversation going. That takes real courage!',
         tryNextTimeSkill: 'Past tense usage',
-        tryNextTimeExample: 'Try saying "I went to the park" instead of "I go to the park yesterday".',
+        tryNextTimeExample:
+            'Try saying "I went to the park" instead of "I go to the park yesterday".',
         transcriptNotes: [],
       );
     }
@@ -339,20 +380,27 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     );
     final transcript = messages
         .where((m) => m.role != MessageRole.system)
-        .map((m) => '${m.role == MessageRole.user ? "STUDENT" : "ZOE"}: ${m.content}')
+        .map(
+          (m) =>
+              '${m.role == MessageRole.user ? "STUDENT" : "ZOE"}: ${m.content}',
+        )
         .join('\n');
 
     final systemPrompt = template
         .replaceAll('{{LEVEL}}', level)
-        .replaceAll('{{LEVEL_LABEL}}', levelLabel)
+        .replaceAll('{{UNIT_LABEL}}', levelLabel)
         .replaceAll('{{TOPIC}}', topic)
+        .replaceAll('{{TARGET_SKILLS}}', 'None')
         .replaceAll('{{FULL_TRANSCRIPT}}', transcript);
 
     try {
       final raw = await _sendChatCompletion(
         messages: [
           {'role': 'system', 'content': systemPrompt},
-          {'role': 'user', 'content': 'Analyze the transcript and return the JSON report.'},
+          {
+            'role': 'user',
+            'content': 'Analyze the transcript and return the JSON report.',
+          },
         ],
         maxTokens: 1200,
         temperature: 0.4,
@@ -361,23 +409,41 @@ TITLE: <3-4 word header for this conversation, no punctuation>
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       final bestMoment = data['best_moment'] as Map<String, dynamic>? ?? {};
-      final courage = data['courage_or_motivation'] as Map<String, dynamic>? ?? {};
+      final courage =
+          data['courage_or_motivation'] as Map<String, dynamic>? ?? {};
       final tryNext = data['try_next_time'] as Map<String, dynamic>? ?? {};
       final notesRaw = data['transcript_notes'] as List<dynamic>? ?? [];
-
-      final notes = notesRaw.map((n) {
-        final m = n as Map<String, dynamic>;
+      final learnerUtterances = messages
+          .where((m) => m.role == MessageRole.user)
+          .map((m) => m.content)
+          .toList();
+      final returnedNotes = notesRaw.whereType<Map<String, dynamic>>().toList();
+      final notes = learnerUtterances.map((utterance) {
+        final matchIndex = returnedNotes.indexWhere(
+          (note) => note['text'] == utterance,
+        );
+        final matchedNote = matchIndex >= 0
+            ? returnedNotes.removeAt(matchIndex)
+            : null;
         return EndResultTranscriptNote(
-          speaker: m['speaker'] as String? ?? 'zoe',
-          text: m['text'] as String? ?? '',
-          note: m['note'] as String?,
+          speaker: 'student',
+          text: utterance,
+          note: matchedNote?['note'] as String?,
         );
       }).toList();
+      final returnedBestQuote = bestMoment['quote'] as String? ?? '';
+      final bestQuoteIsExact =
+          returnedBestQuote.isNotEmpty &&
+          learnerUtterances.any(
+            (utterance) => utterance.contains(returnedBestQuote),
+          );
 
       return EndResultAnalysis(
         overall: data['overall'] as String? ?? 'okay',
-        bestMomentQuote: bestMoment['quote'] as String? ?? '',
-        bestMomentNote: bestMoment['note'] as String? ?? '',
+        bestMomentQuote: bestQuoteIsExact ? returnedBestQuote : '',
+        bestMomentNote: bestQuoteIsExact
+            ? (bestMoment['note'] as String? ?? '')
+            : '',
         courageOrMotivationType: courage['type'] as String? ?? 'motivation',
         courageOrMotivationContent: courage['content'] as String? ?? '',
         tryNextTimeSkill: tryNext['skill'] as String? ?? '',
@@ -393,7 +459,7 @@ TITLE: <3-4 word header for this conversation, no punctuation>
     required List<ChatMessage> history,
     required int userResponses,
     int minTurns = 5,
-    int maxTurns = 8,
+    int maxTurns = 9,
   }) async {
     if (userResponses >= maxTurns) {
       return const PlacementTurnDecision(
@@ -489,11 +555,12 @@ $transcript
 
     final level = (data['cefr_level'] as String? ?? 'A2').toUpperCase();
     final labels = <String, String>{
-      'A1': 'Starting Out',
-      'A2': 'Finding My Voice',
-      'B1': 'Speaking with Confidence',
-      'B2': 'Expressing with Clarity',
-      'C1': 'Near-Native Flow',
+      'A0': 'First Words',
+      'A1': 'Finding My Voice',
+      'A2': 'Building Confidence',
+      'B1': 'Expressing Myself',
+      'B2': 'Speaking Fluently',
+      'C1': 'Mastering the Language',
     };
 
     final parsedConfidence = data['confidence'];
@@ -510,11 +577,17 @@ $transcript
     );
   }
 
-  Future<String> _loadPlacementPrompt() async {
+  Future<String> _loadPlacementPrompt({String? name, int? age}) async {
     _cachedPlacementPrompt ??= await rootBundle.loadString(
       'assets/prompts/placement-check-prompt.md',
     );
-    return _cachedPlacementPrompt!;
+    _cachedBasePrompt ??= await rootBundle.loadString(
+      'assets/prompts/base-prompt.md',
+    );
+    return _cachedPlacementPrompt!
+        .replaceAll('{{BASE_BLOCK}}', _cachedBasePrompt!)
+        .replaceAll('{{NAME}}', name ?? '')
+        .replaceAll('{{AGE}}', age?.toString() ?? 'null');
   }
 
   /// Sends the placement conversation history to the LLM using the
@@ -523,8 +596,10 @@ $transcript
   /// [messages] is a list of {role: 'user'|'model', content: '...'} maps
   /// representing the conversation so far (excluding the system prompt).
   Future<PlacementMessageResult> sendPlacementMessage(
-    List<Map<String, String>> messages,
-  ) async {
+    List<Map<String, String>> messages, {
+    String? name,
+    int? age,
+  }) async {
     if (useMockData) {
       await Future.delayed(const Duration(milliseconds: 1000));
       final userCount = messages.where((m) => m['role'] == 'user').length;
@@ -547,19 +622,26 @@ $transcript
         mockReplies[userCount].replaceFirst('REPLY: ', ''),
       );
     }
-    final systemPrompt = await _loadPlacementPrompt();
+    final userCount = messages.where((m) => m['role'] == 'user').length;
+    var systemPrompt = await _loadPlacementPrompt(name: name, age: age);
+    if (userCount >= 9) {
+      systemPrompt +=
+          '\n\nMANDATORY: Nine learner turns are complete. Return the final JSON assessment now. Do not ask another question.';
+    }
 
     final apiMessages = [
       {'role': 'system', 'content': systemPrompt},
-      ...messages.map((m) => {
-            'role': m['role'] == 'user' ? 'user' : 'assistant',
-            'content': m['content'] ?? '',
-          }),
+      ...messages.map(
+        (m) => {
+          'role': m['role'] == 'user' ? 'user' : 'assistant',
+          'content': m['content'] ?? '',
+        },
+      ),
     ];
 
     final text = await _sendChatCompletion(
       messages: apiMessages,
-      maxTokens: 200,
+      maxTokens: 600,
       temperature: 0.7,
     );
 
@@ -569,7 +651,7 @@ $transcript
       caseSensitive: false,
       dotAll: true,
     ).firstMatch(text);
-    if (replyMatch != null) {
+    if (replyMatch != null && userCount < 9) {
       final reply = (replyMatch.group(1) ?? '').trim();
       return PlacementMessageResult.reply(reply.isNotEmpty ? reply : text);
     }
@@ -578,22 +660,62 @@ $transcript
     try {
       final jsonStr = _extractJsonObject(text);
       final json = jsonDecode(jsonStr) as Map<String, dynamic>;
-      if (json.containsKey('assessed_level')) {
+      if (json.containsKey('level') || json.containsKey('assessed_level')) {
+        final candidateLevel =
+            (json['level'] ?? json['assessed_level']) as String?;
+        final confidence = json['confidence']?.toString().toLowerCase();
+        final completionAllowed =
+            userCount >= 9 ||
+            (userCount == 8 &&
+                (confidence == 'high' || confidence == 'medium')) ||
+            (userCount >= 5 && userCount <= 7 && confidence == 'high');
+        if (!completionAllowed) {
+          return PlacementMessageResult.reply(
+            _placementFallback(candidateLevel),
+          );
+        }
         return PlacementMessageResult.complete(
           name: json['name'] as String?,
-          age: json['age'] as String?,
-          location: json['location'] as String?,
-          assessedLevel: json['assessed_level'] as String?,
-          confidence: json['confidence'] as String?,
-          notes: json['notes'] as String?,
+          age: json['age']?.toString(),
+          location: null,
+          assessedLevel: candidateLevel,
+          confidence: json['confidence']?.toString(),
+          notes:
+              json['evidence_summary'] as String? ?? json['notes'] as String?,
         );
       }
     } catch (_) {
       // Not valid JSON — fall through and treat as a plain reply
     }
 
+    if (userCount >= 9) {
+      return const PlacementMessageResult.complete(
+        assessedLevel: 'A0',
+        confidence: 'low',
+        notes: 'Not enough reliable evidence; begin conservatively.',
+      );
+    }
+
     // Fallback: treat entire response as a reply
     return PlacementMessageResult.reply(text);
+  }
+
+  String _placementFallback(String? candidateLevel) {
+    switch ((candidateLevel ?? '').toUpperCase()) {
+      case 'A0':
+        return 'Rice or noodles?';
+      case 'A1':
+        return 'What food do you like?';
+      case 'A2':
+        return 'What did you do yesterday?';
+      case 'B1':
+        return 'What is one reason?';
+      case 'B2':
+      case 'C1':
+        return 'What is the strongest counterpoint?';
+      default:
+        return 'What is one more detail?';
+    }
   }
 
   /// Generic OpenAI-compatible chat completion (works with DeepSeek).
@@ -617,9 +739,7 @@ $transcript
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-        'LLM API error: ${response.statusCode} ${response.body}',
-      );
+      throw Exception('LLM API error: ${response.statusCode} ${response.body}');
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;

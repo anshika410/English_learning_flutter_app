@@ -5,6 +5,7 @@ from datetime import datetime
 class CreateConversationRequest(BaseModel):
     unit: str | None = None
     topic: str | None = None
+    custom_prompts: dict | None = None  # {base, level_profile, conv_unit_framing} — for simulator prompt testing
 
     model_config = {
         "json_schema_extra": {
@@ -34,6 +35,7 @@ class MessageOut(BaseModel):
     role: str
     content: str
     turn_number: int = 0
+    input_mode: str | None = None
     created_at: datetime
 
 
@@ -41,13 +43,15 @@ class StoreMessageRequest(BaseModel):
     role: str
     content: str
     turn_number: int = 0
+    input_mode: str | None = None  # "voice" or "text", optional for backward compat
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "role": "user",
                 "content": "Hello Zoe! I want to talk about dogs today.",
-                "turn_number": 1
+                "turn_number": 1,
+                "input_mode": "voice"
             }
         }
     }
@@ -63,6 +67,7 @@ class SessionLogGradedSkill(BaseModel):
     name: str
     confidence: float
     prompted: bool
+    support_level: str | None = None
     evidence: str
     reason: str
 
@@ -96,6 +101,8 @@ class SessionLogResponse(BaseModel):
 
 class ConversationTurnRequest(BaseModel):
     content: str
+    input_mode: str | None = None  # "voice" or "text", optional
+    custom_prompts: dict | None = None  # for simulator prompt testing
 
     model_config = {
         "json_schema_extra": {
@@ -110,4 +117,3 @@ class ConversationTurnResponse(BaseModel):
     transcript: list[SessionLogTranscriptMessage]
     conversation_complete: bool = False
     prompt_debug: dict | None = None
-

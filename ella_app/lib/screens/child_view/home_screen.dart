@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 
+import '../../core/app_toast.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
@@ -186,6 +187,21 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     });
   }
 
+  // The garden needs live data (it fetches from the API), so opening it offline
+  // would only land on the error view. Block navigation and surface a snackbar
+  // instead so the offline state stays on the calmer Home screen.
+  void _handleOpenGarden() {
+    final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
+    if (!isOnline) {
+      showEllaErrorToast(
+        context,
+        "You're offline. Connect to the internet to visit your garden",
+      );
+      return;
+    }
+    widget.onOpenGarden?.call();
+  }
+
   // Replays the "Last time" recap aloud. Speaks the same fallback line that the
   // card shows when the server hasn't sent a recap yet. A no-op while TTS is
   // already speaking (placement-flow behavior), so taps can't stack utterances.
@@ -204,7 +220,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     }
     final text = _recap.trim().isNotEmpty
         ? _recap.trim()
-        : "This is our first chat together — I can't wait!";
+        : 'Ready for your first chat?';
     setState(() {
       _speaking = true;
       _highlightStart = -1;
@@ -300,7 +316,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
             children: [
               _HeaderRow(
                 onOpenProfile: widget.onOpenProfile,
-                onOpenGarden: widget.onOpenGarden,
+                onOpenGarden: _handleOpenGarden,
               ),
               // Upper group (mascot + recap bubble + topic carousel), centred in
               // the space above the CTA; scrolls on short screens. The
@@ -407,7 +423,7 @@ class _TalkAboutCtaLabel extends StatelessWidget {
 
   const _TalkAboutCtaLabel({required this.topicLabel});
 
-  static const String _prefix = "Let's Talk About";
+  static const String _prefix = 'Talk about';
 
   TextStyle _style() {
     return EllaTextStyles.button.copyWith(
@@ -432,7 +448,7 @@ class _TalkAboutCtaLabel extends StatelessWidget {
     final topic = topicLabel.trim();
     if (topic.isEmpty) {
       return Text(
-        "Let's Talk",
+        'Start Talking',
         textAlign: TextAlign.center,
         maxLines: 1,
         style: style,
@@ -608,7 +624,7 @@ class _LastTimeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final body = recap.trim().isNotEmpty
         ? recap.trim()
-        : "This is our first chat together — I can't wait!";
+        : 'Ready for your first chat?';
 
     final card = Container(
       key: const ValueKey('home-last-time-bubble'),

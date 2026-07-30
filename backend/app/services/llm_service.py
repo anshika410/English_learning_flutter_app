@@ -13,54 +13,47 @@ _DOCKER_PROMPTS = Path("/app/assets/prompts")
 _LOCAL_PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 PROMPTS_DIR = _DOCKER_PROMPTS if _DOCKER_PROMPTS.exists() else _LOCAL_PROMPTS
 
-# ── Level instructions (mirrors Flutter client) ──────────────────────────────
+def resolve_prompt(
+    filename: str,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
+) -> str:
+    """
+    Resolves prompt content based on priority:
+    1. custom_prompts dict passed in the request (simulator one-off runs)
+    2. personal developer sandbox files on disk
+    3. production prompts on disk
+    """
+    if custom_prompts:
+        key_mappings = {
+            "placement-check-prompt.md": "placement",
+            "base-prompt.md": "base",
+            "conv-unit-framing.md": "conv-unit-framing",
+            "end-result-prompt.md": "judge",
+            "correction-extraction-prompt.md": "correction-extraction",
+            "conversation-prompt.md": "conversation",
+        }
+        if filename.startswith("profile-"):
+            profile_lvl = filename.replace(".md", "")
+            if profile_lvl in custom_prompts:
+                return custom_prompts[profile_lvl]
+        
+        # Fallback maps
+        if filename == "correction-extraction-prompt.md" and "correction_extraction" in custom_prompts:
+            return custom_prompts["correction_extraction"]
+        if filename == "conv-unit-framing.md" and "conv_unit_framing" in custom_prompts:
+            return custom_prompts["conv_unit_framing"]
 
-_LEVEL_INSTRUCTIONS = {
-    "A0": (
-        "Accept any attempt as a valid turn. Never require full sentences. "
-        "Celebrate every response.\nAsk only personal, familiar questions "
-        "(family, food, daily routine, things they like).\n"
-        "Speak at 40–60 wpm pace equivalent. Use only present simple and common vocabulary."
-    ),
-    "A1": (
-        "Use salient recasts — model the correct form naturally in your reply.\n"
-        "Ask about past events and simple opinions. Introduce 'Have you ever…?' questions.\n"
-        "Show filler words awareness only in post-session (not during conversation)."
-    ),
-    "A2": (
-        "Use metalinguistic nudges — name the error category and wait before correcting.\n"
-        'Example: "Almost — which tense would we use for something finished in the past?"\n'
-        "Push for 60-second responses by asking follow-up 'tell me more' questions.\n"
-        "Offer vocabulary alternatives mid-conversation (maximum 2 per session)."
-    ),
-    "B1": (
-        "Apply explicit correction when grammar_setting permits. State error, correct form, brief reason.\n"
-        "Push for 4-part argument: claim → reason → evidence → concession.\n"
-        "Flag register mismatches. Offer 2–3 precision vocabulary alternatives."
-    ),
-    "B2": (
-        "Operate in peer mode. Suggestions, not corrections.\n"
-        'Introduce stylistic options: "You could also say \'pivotal\' here — it implies a turning point."\n'
-        "Expect idiomatic expression and fluent reformulation."
-    ),
-    "C1": (
-        "Operate in advanced peer mode. Encourage stylistic variation, complex idioms, "
-        "and sophisticated debate registers. Address registry slips and prompt for higher refinement."
-    ),
-}
+        key = key_mappings.get(filename)
+        if key and key in custom_prompts:
+            return custom_prompts[key]
 
+    if user_id:
+        sandbox_path = PROMPTS_DIR / "sandboxes" / user_id / filename
+        if sandbox_path.exists():
+            return sandbox_path.read_text().strip()
 
-_STARTER_PROMPT = """\
-You are Zoe. Write a short first message (1-2 sentences) that starts a friendly
-English conversation on the given topic. Keep it natural, encouraging, and age-appropriate.
-
-CRITICAL — follow the level profile below exactly for your opening line:
-{level_block}
-
-After the starter, on a new line output:
-TITLE: <3-4 word header for this conversation, no punctuation>
-"""
-
+    return (PROMPTS_DIR / filename).read_text().strip()
 
 # ── Shared HTTP helper ────────────────────────────────────────────────────────
 
@@ -97,7 +90,12 @@ async def _chat_completion(
 
 # ── Correction Highlight Extraction (separate focused call) ───────────────────
 
-async def extract_correction_highlight(messages: list[dict]) -> dict | None:
+async def extract_correction_highlight(
+    messages: list[dict],
+    level: str | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
+) -> dict | None:
     """
     Separate LLM call that finds the single best grammar/vocab error in the
     student's speech and returns a before/after correction pair.
@@ -106,28 +104,18 @@ async def extract_correction_highlight(messages: list[dict]) -> dict | None:
         f"{'STUDENT' if m['role'] == 'user' else 'ZOE'}: {m['content']}"
         for m in messages
     )
+    student_utterances = [
+        str(m.get("content", ""))
+        for m in messages
+        if m.get("role") in ("user", "learner")
+    ]
 
-    prompt = f"""Look at this conversation transcript between a student and their English tutor Zoe.
-
-TRANSCRIPT:
-{transcript}
-
-Find ONE grammar or vocabulary error the student made. Return ONLY valid JSON:
-
-{{
-  "student_said": "<COPY the student's exact words that contain the error — must be from the transcript above>",
-  "corrected": "<the corrected version>",
-  "highlight_word": "<the 1-2 key words that changed>"
-}}
-
-RULES:
-- student_said MUST be copied exactly from the STUDENT lines above. Example: "my mother make daal chawal"
-- student_said must NOT be a description or tip. WRONG: "using past tense". RIGHT: "I no play good"
-- corrected is the fixed version. Example: "my mother makes daal chawal"
-- highlight_word is what changed. Example: "makes"
-- If the student made no errors at all, return: null
-
-Return ONLY the JSON object or null. No explanation."""
+    template = resolve_prompt("correction-extraction-prompt.md", custom_prompts, user_id)
+    prompt = (
+        template
+        .replace("{{LEVEL}}", (level or "unknown").upper())
+        .replace("{{TRANSCRIPT}}", transcript)
+    )
 
     try:
         raw = await _chat_completion(
@@ -141,7 +129,10 @@ Return ONLY the JSON object or null. No explanation."""
         data = json.loads(json_str)
         # Validate it's a real quote, not a tip
         if data and data.get("student_said"):
-            said = data["student_said"].lower()
+            exact_said = str(data["student_said"])
+            if not any(exact_said in utterance for utterance in student_utterances):
+                return None
+            said = exact_said.lower()
             # Reject if it looks like a tip instead of a quote
             tip_words = ["using", "adding", "try to", "practice", "remember to"]
             if any(said.startswith(w) for w in tip_words):
@@ -155,10 +146,139 @@ Return ONLY the JSON object or null. No explanation."""
 # ── Conversation Starter ──────────────────────────────────────────────────────
 
 async def generate_conversation_starter(
-    topic: str | None = None, starters: list[str] | None = None, level: str = "A1"
+    topic: str | None = None,
+    starters: list[str] | None = None,
+    level: str = "A1",
+    due_next: dict | None = None,
+    skills_progress: dict | None = None,
+    persona_memory: dict | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
-    level_block = _LEVEL_BLOCKS.get(level.upper(), _LEVEL_BLOCKS.get("A1", ""))
-    system_prompt = _STARTER_PROMPT.format(level_block=level_block)
+    from ..core.curriculum_data import (
+        UNITS, active_step, targets_list_for, validate_due_next,
+    )
+    from ..core.elicitation import plan_text, resolve_skill_text
+
+    level_upper = str(level or "A1").upper()
+    if level_upper not in _LEVEL_BLOCKS:
+        level_upper = "A1"
+    
+    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
+
+    # Format persona memory
+    memory_str = "None"
+    if persona_memory:
+        facts = persona_memory.get("facts", [])
+        if not isinstance(facts, list):
+            facts = [facts] if facts else []
+        if not facts and isinstance(persona_memory, dict):
+            for k, v in persona_memory.items():
+                if isinstance(v, list):
+                    facts.extend([str(item) for item in v])
+                elif isinstance(v, str):
+                    facts.append(f"{k}: {v}")
+        
+        # Sanitize facts to only use first name
+        sanitized_facts = []
+        for fact in facts:
+            fact_str = str(fact)
+            if fact_str.lower().startswith("name:"):
+                name_val = fact_str.split(":", 1)[1].strip()
+                first_name = name_val.split()[0].strip() if name_val else ""
+                sanitized_facts.append(f"Name: {first_name}")
+            else:
+                sanitized_facts.append(fact_str)
+                
+        if sanitized_facts:
+            memory_str = "\n".join(f"- {fact}" for fact in sanitized_facts)
+
+    # Get aimed IDs
+    valid_due_next = validate_due_next(due_next, level_upper)
+    primary_id = valid_due_next.get("primary")
+    watching_ids = valid_due_next.get("watching", [])
+    
+    candidate_ids = []
+    if primary_id:
+        candidate_ids.append(primary_id)
+    if watching_ids:
+        for wid in watching_ids:
+            if wid not in candidate_ids:
+                candidate_ids.append(wid)
+                
+    if not candidate_ids:
+        # Fallback to computing targets on the fly
+        candidate_ids = targets_list_for(skills_progress or {}, "unit", level_upper)
+
+    target_ids = [
+        sid for sid in candidate_ids
+        if resolve_skill_text(sid, level_upper) is not None
+    ]
+    if not target_ids:
+        fallback_ids = targets_list_for(
+            skills_progress or {}, "unit", level_upper
+        )
+        target_ids = [
+            sid for sid in fallback_ids
+            if resolve_skill_text(sid, level_upper) is not None
+        ]
+
+    # Get active unit name & focus
+    active_unit = None
+    if target_ids:
+        primary_target = target_ids[0]
+        active_unit = next(
+            (
+                unit
+                for unit in UNITS.get(level_upper, [])
+                if primary_target in {
+                    skill.get("id") for skill in unit.get("skills", [])
+                }
+            ),
+            None,
+        )
+    if active_unit is None:
+        active_unit = active_step(skills_progress or {}, level_upper)
+    if active_unit:
+        unit_name = active_unit.get("name", topic) or topic
+        unit_focus = active_unit.get("focus", "General conversation practice")
+    else:
+        unit_name = topic
+        unit_focus = "General conversation practice"
+
+    # Build targets list text showing IDs and descriptions
+    if target_ids:
+        targets_str = "\n".join(
+            f"- [{sid}] {resolve_skill_text(sid, level_upper)}"
+            for sid in target_ids
+        )
+    else:
+        targets_str = "- General conversation practice"
+
+    # Build elicitation plan (using plan_text(target_ids))
+    elicitation_str = plan_text(target_ids, level_upper)
+
+    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
+    unit_block = (
+        unit_template
+        .replace("{{UNITNAME}}", str(unit_name))
+        .replace("{{UNITFOCUS}}", str(unit_focus))
+        .replace("{{TARGETS}}", targets_str)
+        .replace("{{ELICITATION}}", elicitation_str)
+        .replace("{{STUDENT_MEMORY}}", memory_str)
+        .replace("{{CURRENT_TURN}}", "1")
+        .strip()
+    )
+
+    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
+
+    starter_template = resolve_prompt("starter-prompt.md", custom_prompts, user_id)
+    system_prompt = (
+        starter_template
+        .replace("{base_block}", base_block)
+        .replace("{level_block}", level_block)
+        .replace("{unit_block}", unit_block)
+    )
     topic_line = (
         "Topic: free conversation."
         if not topic or not topic.strip()
@@ -194,6 +314,7 @@ def _load_level_blocks() -> dict[str, str]:
         "B1": "profile-B1.md",
         "B2": "profile-B2.md",
         "C1": "profile-C1.md",
+        "C2": "profile-C2.md",
     }
     blocks = {}
     for level, filename in mapping.items():
@@ -213,6 +334,19 @@ _LEVEL_BLOCKS = _load_level_blocks()
 
 # ── Conversation Turn ─────────────────────────────────────────────────────────
 
+def _closing_without_question(reply: str) -> str:
+    """Remove any new question from a deterministically final conversation turn."""
+    if "?" not in reply:
+        return reply.strip() or "Thanks for talking with me today."
+
+    statements = [
+        part.strip()
+        for part in re.split(r"(?<=[.!?])\s+", reply)
+        if part.strip() and "?" not in part
+    ]
+    return " ".join(statements) or "Thanks for talking with me today."
+
+
 async def send_conversation_turn(
     messages: list[dict],
     topic: str = "Free conversation",
@@ -222,10 +356,13 @@ async def send_conversation_turn(
     persona_memory: dict | None = None,
     due_next: dict | None = None,
     skills_progress: dict | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
-        UNITS, UNIT_SKILLS, LEVEL_TOPICS, get_skill_text, plan_text, active_step, targets_list_for
+        UNITS, active_step, targets_list_for, validate_due_next,
     )
+    from ..core.elicitation import plan_text, resolve_skill_text
 
     # Format persona memory
     memory_str = "None"
@@ -256,25 +393,57 @@ async def send_conversation_turn(
             memory_str = "\n".join(f"- {fact}" for fact in sanitized_facts)
 
     level_upper = level.upper() if level else "A1"
+    if level_upper not in _LEVEL_BLOCKS:
+        level_upper = "A1"
 
     # Get aimed IDs
-    primary_id = due_next.get("primary") if due_next else None
-    watching_ids = due_next.get("watching", []) if due_next else []
+    valid_due_next = validate_due_next(due_next, level_upper)
+    primary_id = valid_due_next.get("primary")
+    watching_ids = valid_due_next.get("watching", [])
     
-    target_ids = []
+    candidate_ids = []
     if primary_id:
-        target_ids.append(primary_id)
+        candidate_ids.append(primary_id)
     if watching_ids:
         for wid in watching_ids:
-            if wid not in target_ids:
-                target_ids.append(wid)
+            if wid not in candidate_ids:
+                candidate_ids.append(wid)
                 
-    if not target_ids:
+    if not candidate_ids:
         # Fallback to computing targets on the fly
-        target_ids = targets_list_for(skills_progress or {}, "unit", level_upper)
+        candidate_ids = targets_list_for(skills_progress or {}, "unit", level_upper)
+
+    # Unit IDs repeat across levels. Discard stale or mismatched targets rather
+    # than leaking a raw ID or another level's skill into Zoe's prompt.
+    target_ids = [
+        sid for sid in candidate_ids
+        if resolve_skill_text(sid, level_upper) is not None
+    ]
+    if not target_ids:
+        fallback_ids = targets_list_for(
+            skills_progress or {}, "unit", level_upper
+        )
+        target_ids = [
+            sid for sid in fallback_ids
+            if resolve_skill_text(sid, level_upper) is not None
+        ]
 
     # Get active unit name & focus
-    active_unit = active_step(skills_progress or {}, level_upper)
+    active_unit = None
+    if target_ids:
+        primary_target = target_ids[0]
+        active_unit = next(
+            (
+                unit
+                for unit in UNITS.get(level_upper, [])
+                if primary_target in {
+                    skill.get("id") for skill in unit.get("skills", [])
+                }
+            ),
+            None,
+        )
+    if active_unit is None:
+        active_unit = active_step(skills_progress or {}, level_upper)
     if active_unit:
         unit_name = active_unit.get("name", topic) or topic
         unit_focus = active_unit.get("focus", "General conversation practice")
@@ -284,26 +453,62 @@ async def send_conversation_turn(
 
     # Build targets list text showing IDs and descriptions
     if target_ids:
-        targets_str = "\n".join(f"- [{sid}] {get_skill_text(sid, level_upper)}" for sid in target_ids)
+        targets_str = "\n".join(
+            f"- [{sid}] {resolve_skill_text(sid, level_upper)}"
+            for sid in target_ids
+        )
     else:
         targets_str = "- General conversation practice"
 
     # Build elicitation plan (using plan_text(target_ids))
     elicitation_str = plan_text(target_ids, level_upper)
 
-    # Get level block
-    level_block = _LEVEL_BLOCKS.get(level_upper, _LEVEL_BLOCKS["A2"])
+    # Support new style variables for pk_1.1
+    primary_id = target_ids[0] if target_ids else None
+    primary_strand = "VOC"
+    if primary_id:
+        from ..core.curriculum_data import get_skill_strand
+        primary_strand = get_skill_strand(primary_id)
+    primary_skill_text = resolve_skill_text(primary_id, level_upper) if primary_id else "General conversation practice"
+    
+    watching_ids = target_ids[1:] if len(target_ids) > 1 else []
+    watch_list_str = "\n".join(
+        f"- [{wid}] {resolve_skill_text(wid, level_upper)}"
+        for wid in watching_ids
+        if resolve_skill_text(wid, level_upper)
+    ) if watching_ids else "None"
 
-    prompt_template = (PROMPTS_DIR / "conversation-prompt.md").read_text()
-    system_prompt = (
-        prompt_template
-        .replace("{{LEVEL_BLOCK}}", level_block)
+    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
+
+    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
+
+    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
+
+    unit_block = (
+        unit_template
         .replace("{{UNITNAME}}", unit_name)
         .replace("{{UNITFOCUS}}", unit_focus)
         .replace("{{TARGETS}}", targets_str)
         .replace("{{ELICITATION}}", elicitation_str)
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", str(current_turn))
+        # Support new pk_1.1 placeholders
+        .replace("{{UNIT}}", unit_name)
+        .replace("{{CONVERSATION_TOPIC}}", topic)
+        .replace("{{PRIMARY_STRAND}}", primary_strand)
+        .replace("{{PRIMARY_SKILL}}", primary_skill_text)
+        .replace("{{LEARNER_CONTEXT}}", memory_str)
+        .replace("{{WATCH_LIST}}", watch_list_str)
+        .strip()
+    )
+
+    prompt_template = resolve_prompt("conversation-prompt.md", custom_prompts, user_id)
+
+    system_prompt = (
+        prompt_template
+        .replace("{{BASE_BLOCK}}", base_block)
+        .replace("{{LEVEL_BLOCK}}", level_block)
+        .replace("{{UNIT_BLOCK}}", unit_block)
     )
 
     api_messages = [{"role": "system", "content": system_prompt}] + [
@@ -312,7 +517,12 @@ async def send_conversation_turn(
     response = await _chat_completion(api_messages, max_tokens=280, temperature=0.75)
 
     # Check for conversation_complete signal
-    complete = False
+    max_turns = 6
+    max_turn_match = re.search(r"CURRENT[_\s]+TURN:\s*\{\{CURRENT_TURN\}\}\s*(?:of|/)\s*(\d+)", unit_template, re.IGNORECASE)
+    if max_turn_match:
+        max_turns = int(max_turn_match.group(1))
+
+    complete = current_turn >= max_turns
     reply_text = response
     json_match = re.search(r'\{[^}]*"conversation_complete"\s*:\s*true[^}]*\}', response)
     if json_match:
@@ -321,6 +531,8 @@ async def send_conversation_turn(
 
     # Parse reply (no REPLY: prefix needed with new prompt)
     reply = reply_text.strip()
+    if current_turn >= max_turns:
+        reply = _closing_without_question(reply)
     correction = None
 
     return {
@@ -347,27 +559,30 @@ async def send_placement_turn(
     messages: list[dict],
     name: str | None = None,
     age: int | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
-    raw_prompt = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+    raw_prompt = resolve_prompt("placement-check-prompt.md", custom_prompts, user_id)
+    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
     
     # Extract first name to use in prompts so Zoe doesn't use the full name
     first_name = name.split()[0].strip() if name else "there"
-    
     # Inject student name and age into the prompt
     system_prompt = (
         raw_prompt
-        .replace("{{NAME}}", name or "there")
+        .replace("{{BASE_BLOCK}}", base_block)
+        .replace("{{NAME}}", first_name)
         .replace("{{AGE}}", str(age) if age is not None else '"unknown"')
     )
 
     # Count student turns (messages with role "user")
     student_turns = len([m for m in messages if m.get("role") == "user"])
 
-    # ── TURN 12+: FORCE COMPLETE ──────────────────────────────────────────────
-    # Hard cap — after 12 student turns, force the LLM to assess NOW
-    if student_turns >= 12:
+    # ── TURN 9+: FORCE COMPLETE ───────────────────────────────────────────────
+    # Hard cap — after 9 student turns, force the LLM to assess now.
+    if student_turns >= 9:
         force_prompt = system_prompt + (
-            "\n\n⚠️ MANDATORY: You have heard 12 student turns. "
+            "\n\nMANDATORY: You have heard 9 student turns. "
             "You MUST output the final JSON assessment NOW. "
             "Do NOT ask another question. Do NOT output REPLY:. "
             "Assess based on everything you have heard so far."
@@ -385,14 +600,15 @@ async def send_placement_turn(
                 return _build_placement_result(data)
         except Exception:
             pass
-        # Absolute fallback if LLM still refuses: assign A0 with low confidence
+        # Absolute fallback if the LLM still refuses: start conservatively
+        # and explicitly mark that the learner may be higher.
         return {
             "reply": None, "is_complete": True,
             "name": name, "age": age, "age_group": None,
             "level": "A0", "unit_name": "First Words",
             "level_description": "We'll start at the beginning and find your pace.",
             "confidence": "low", "possible_higher": True,
-            "evidence_summary": "Assessment forced after 12 turns — insufficient LLM response.",
+            "evidence_summary": "Assessment forced after 9 turns — insufficient LLM response.",
             "probe_targets_covered": [], "turns_taken": student_turns,
             "code_switch_observed": False, "interests": [],
             "notes_for_first_session": "Consider retaking placement for a more accurate level.",
@@ -422,25 +638,29 @@ async def send_placement_turn(
             # Turn 1-4: NEVER complete — too early, anxiety hides real level
             if student_turns < 5:
                 # Reject — ask a follow-up instead
-                return {"reply": _fallback_reply(student_turns), "is_complete": False}
+                return await _continue_placement(
+                    system_prompt, messages, student_turns, data.get("level")
+                )
 
-            # Turn 5-8: Only accept HIGH confidence
-            elif student_turns <= 8:
+            # Turn 5-7: accept only high confidence.
+            elif student_turns <= 7:
                 if confidence == "high":
                     return _build_placement_result(data)
                 else:
-                    # Reject — need more evidence
-                    return {"reply": _fallback_reply(student_turns), "is_complete": False}
+                    return await _continue_placement(
+                        system_prompt, messages, student_turns, data.get("level")
+                    )
 
-            # Turn 9-11: Accept HIGH or MEDIUM confidence
-            elif student_turns <= 11:
+            # Turn 8: accept high or medium confidence.
+            elif student_turns == 8:
                 if confidence in ("high", "medium"):
                     return _build_placement_result(data)
                 else:
-                    # Low confidence — push toward turn 12
-                    return {"reply": _fallback_reply(student_turns), "is_complete": False}
+                    return await _continue_placement(
+                        system_prompt, messages, student_turns, data.get("level")
+                    )
 
-            # Turn 12+: Accept anything (handled above but as safety)
+            # Turn 9+: handled by the forced-completion branch above.
             else:
                 return _build_placement_result(data)
 
@@ -455,14 +675,24 @@ def _build_placement_result(data: dict) -> dict:
     """Build the standardized placement result from LLM JSON output."""
     import logging
     logging.info(f"Placement JSON interests: {data.get('interests')}")
+    level_names = {
+        "A0": "First Words",
+        "A1": "Finding My Voice",
+        "A2": "Building Confidence",
+        "B1": "Expressing Myself",
+        "B2": "Speaking Fluently",
+        "C1": "Mastering the Language",
+    }
+    raw_level = str(data.get("level") or data.get("level_code") or "A0").upper()
+    level = raw_level if raw_level in level_names else "A0"
     return {
         "reply": data.get("reply"),
         "is_complete": True,
         "name": data.get("name"),
         "age": data.get("age"),
         "age_group": data.get("age_group"),
-        "level": data.get("level") or data.get("level_code"),
-        "unit_name": data.get("unit_name") or data.get("level_name"),
+        "level": level,
+        "unit_name": level_names[level],
         "level_description": data.get("level_description"),
         "confidence": data.get("confidence"),
         "possible_higher": data.get("possible_higher"),
@@ -476,16 +706,57 @@ def _build_placement_result(data: dict) -> dict:
     }
 
 
-def _fallback_reply(student_turns: int) -> str:
-    """Generate a contextual follow-up when rejecting an early completion attempt."""
+async def _continue_placement(
+    system_prompt: str,
+    messages: list[dict],
+    student_turns: int,
+    candidate_level: str | None,
+) -> dict:
+    """Ask the model for one contextual discriminating probe instead of a generic fallback."""
+    continuation_prompt = system_prompt + (
+        "\n\nCONTINUE, DO NOT ASSESS YET. "
+        f"The tentative level is {candidate_level or 'uncertain'}, but more evidence is required. "
+        "Based on the learner's latest meaning and the existing topic, ask exactly one natural "
+        "question that helps distinguish this level from an adjacent level. "
+        "Use the least support needed. Output only REPLY: followed by the question."
+    )
+    api_messages = [{"role": "system", "content": continuation_prompt}] + [
+        {
+            "role": "user" if m.get("role") == "user" else "assistant",
+            "content": m.get("content", ""),
+        }
+        for m in messages
+    ]
+    try:
+        text = await _chat_completion(api_messages, max_tokens=140, temperature=0.6)
+        reply_match = re.search(r"REPLY:\s*(.*)", text, re.IGNORECASE | re.DOTALL)
+        reply = (reply_match.group(1) if reply_match else text).strip()
+        if reply:
+            return {"reply": reply, "is_complete": False}
+    except Exception:
+        pass
+    return {
+        "reply": _fallback_reply(student_turns, candidate_level),
+        "is_complete": False,
+    }
+
+
+def _fallback_reply(student_turns: int, candidate_level: str | None = None) -> str:
+    """Last-resort level-aware placement probe."""
+    level = (candidate_level or "").upper()
+    if level == "A0":
+        return "Rice or noodles?"
+    if level == "A1":
+        return "What food do you like?"
+    if level == "A2":
+        return "What did you do yesterday?"
+    if level == "B1":
+        return "What is one reason?"
+    if level in ("B2", "C1"):
+        return "What is the strongest counterpoint?"
     if student_turns < 3:
-        return "Tell me a little more — what else do you like to do?"
-    elif student_turns < 6:
-        return "That's interesting! Can you tell me what happened next?"
-    elif student_turns < 9:
-        return "I'd love to hear one more thing — what do you think about that?"
-    else:
-        return "Almost done! Tell me one last thing — why do you think that?"
+        return "What food do you like?"
+    return "What is one more detail?"
 
 
 # ── Session Analysis ──────────────────────────────────────────────────────────
@@ -495,11 +766,14 @@ async def analyze_and_grade_session(
     topic: str = "Free Talk",
     level: str = "A2",
     unit_label: str = "Finding My Voice",
-    target_skill_ids: list[str] = [],
+    target_skill_ids: list[str] | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import get_skill_text
+    target_skill_ids = target_skill_ids or []
 
-    template = (PROMPTS_DIR / "end-result-prompt.md").read_text()
+    template = resolve_prompt("end-result-prompt.md", custom_prompts, user_id)
     transcript = "\n".join(
         f"{'STUDENT' if m['role'] == 'user' else 'ZOE'}: {m['content']}"
         for m in messages
@@ -533,6 +807,44 @@ async def analyze_and_grade_session(
         data = json.loads(json_str)
         if "scores" not in data:
             data["scores"] = []
+
+        student_utterances = [
+            str(m.get("content", ""))
+            for m in messages
+            if m.get("role") in ("user", "learner")
+        ]
+
+        # Exact-quote safety: never store a fabricated best-moment quote.
+        best_moment = data.get("best_moment")
+        if isinstance(best_moment, dict):
+            quote = str(best_moment.get("quote") or "")
+            if quote and not any(quote in utterance for utterance in student_utterances):
+                best_moment["quote"] = ""
+                best_moment["note"] = ""
+
+        # Preserve the exact learner transcript and only attach notes whose
+        # utterance matches. This also guarantees one note per learner turn.
+        returned_notes = data.get("transcript_notes", [])
+        if not isinstance(returned_notes, list):
+            returned_notes = []
+        unused_notes = [n for n in returned_notes if isinstance(n, dict)]
+        normalized_notes = []
+        for utterance in student_utterances:
+            match_index = next(
+                (
+                    index
+                    for index, note in enumerate(unused_notes)
+                    if note.get("text") == utterance
+                ),
+                None,
+            )
+            note_text = None
+            if match_index is not None:
+                note_text = unused_notes.pop(match_index).get("note")
+            normalized_notes.append(
+                {"speaker": "student", "text": utterance, "note": note_text}
+            )
+        data["transcript_notes"] = normalized_notes
         
         # Safety net: discard any score whose ID the LLM hallucinated.
         # The LLM must only return IDs from target_skill_ids. If it invents
@@ -542,6 +854,24 @@ async def analyze_and_grade_session(
             valid_ids = set(target_skill_ids)
             original_scores = data["scores"]
             data["scores"] = [s for s in original_scores if s.get("id") in valid_ids]
+            valid_support = {
+                "spontaneous",
+                "open_question",
+                "choice",
+                "frame",
+                "model",
+            }
+            for score in data["scores"]:
+                support = score.get("support_level")
+                if support not in valid_support:
+                    support = "open_question" if score.get("prompted") else "spontaneous"
+                score["support_level"] = support
+                score["prompted"] = support != "spontaneous"
+                evidence = str(score.get("evidence") or "")
+                if evidence and not any(
+                    evidence in utterance for utterance in student_utterances
+                ):
+                    score["evidence"] = ""
             # If LLM dropped a targeted skill entirely, add a zero-confidence entry
             # so apply_merge always sees every aimed skill (just with no evidence).
             returned_ids = {s.get("id") for s in data["scores"]}
@@ -551,8 +881,11 @@ async def analyze_and_grade_session(
                         "id": sid,
                         "confidence": 0.0,
                         "prompted": False,
+                        "support_level": "spontaneous",
                         "evidence": "",
                     })
+        else:
+            data["scores"] = []
         
         return data
     except Exception as e:
@@ -570,6 +903,7 @@ async def analyze_and_grade_session(
                     "id": sid,
                     "confidence": 0.0,
                     "prompted": False,
+                    "support_level": "spontaneous",
                     "evidence": "",
                 }
                 for sid in target_skill_ids

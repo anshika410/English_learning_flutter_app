@@ -60,6 +60,10 @@ class EllaApiService {
   static const _tokenKey = 'ella_api_access_token';
   static const _userIdKey = 'ella_api_user_id';
   static const _deviceIdKey = 'ella_api_device_id';
+  // The signed-in user's email, cached from /users/me so Profile can display it
+  // offline (the API call fails with no connectivity, but the field should
+  // still show the last known email instead of blank).
+  static const _userEmailKey = 'ella_user_email';
 
   // First-run onboarding (name/age) cache. `_onboardingDoneKey` gates the
   // onboarding flow so it runs once; name/age are cached for the greeting and
@@ -106,6 +110,7 @@ class EllaApiService {
     await prefs.remove(_childAgeKey);
     await prefs.remove(_onboardingDoneKey);
     await prefs.remove(_placementDoneKey);
+    await prefs.remove(_userEmailKey);
   }
 
   Future<bool> loginWithGoogle(String idToken) async {
@@ -262,6 +267,19 @@ class EllaApiService {
     return _request('GET', '/users/me');
   }
 
+  /// Caches the signed-in user's email locally so Profile can show it while
+  /// offline. Called after a successful /users/me fetch.
+  Future<void> cacheUserEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userEmailKey, email);
+  }
+
+  /// The last known email, or null if none was ever cached.
+  Future<String?> getCachedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_userEmailKey);
+  }
+
   Future<void> resetUserMemory() async {
     await _request('DELETE', '/users/me/memory');
     // Also clear the profile name/age on the backend so the child goes through onboarding again.
@@ -373,11 +391,15 @@ class EllaApiService {
   Future<ConversationTurnApiResponse> conversationTurn({
     required String sessionId,
     required String content,
+    String? inputMode,
   }) async {
     final data = await _request(
       'POST',
       '/session/$sessionId/turn',
-      body: {'content': content},
+      body: {
+        'content': content,
+        if (inputMode != null) 'input_mode': inputMode,
+      },
     );
     return ConversationTurnApiResponse(
       transcript: [

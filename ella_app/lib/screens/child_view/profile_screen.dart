@@ -59,25 +59,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     final cache = await EllaApiService().getOnboardingState();
+    final cachedEmail = await EllaApiService().getCachedEmail();
     final providerName = ref.read(onboardingProvider).valueOrNull?.name;
     final fallbackName = providerName ?? cache.name ?? '';
     final fallbackAge = cache.age ?? 0;
 
     try {
       final profile = await EllaApiService().getUserProfile();
+      final profMap = profile['profile'] as Map<String, dynamic>? ?? {};
+      debugPrint('FULL PROFILE RESPONSE: $profile');
+      final apiEmail =
+          (profile['email'] as String?) ?? (profMap['email'] as String?);
+      // Remember a freshly fetched email so Profile can show it while offline.
+      if (apiEmail != null && apiEmail.trim().isNotEmpty) {
+        await EllaApiService().cacheUserEmail(apiEmail.trim());
+      }
       if (mounted) {
         setState(() {
-          final profMap = profile['profile'] as Map<String, dynamic>? ?? {};
-          debugPrint('FULL PROFILE RESPONSE: $profile');
-
           _name = profMap['name'] as String? ?? fallbackName;
           if (_name.isEmpty) _name = fallbackName;
           if (_name.isEmpty) _name = 'Student';
 
-          _email =
-              (profile['email'] as String?) ??
-              (profMap['email'] as String?) ??
-              'No email found';
+          _email = (apiEmail != null && apiEmail.trim().isNotEmpty)
+              ? apiEmail.trim()
+              : (cachedEmail ?? 'No email found');
 
           final ageVal = profMap['age'];
           if (ageVal is num) {
@@ -98,6 +103,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         setState(() {
           _name = fallbackName.isEmpty ? 'Student' : fallbackName;
           _age = fallbackAge;
+          // Offline / API failure: fall back to the last cached email so the
+          // field isn't blank.
+          _email = cachedEmail ?? 'No email found';
           _isLoading = false;
         });
       }
@@ -152,14 +160,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account?'),
+        title: const Text('Delete zoSpeak Account?'),
         content: const Text(
-          'Are you sure you want to permanently delete your account? This will erase all your data and cannot be undone.',
+          "This permanently deletes your profile, learning progress, conversations, and garden. This can't be undone",
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Keep Account'),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -189,7 +197,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account deleted successfully.')),
+          const SnackBar(content: Text('Account deleted.')),
         );
 
         Navigator.of(
@@ -197,17 +205,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           rootNavigator: true,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
       } catch (e) {
+        debugPrint('Account deletion failed: $e');
         if (mounted) {
           setState(() => _isLoading = false);
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('API Error'),
-              content: SingleChildScrollView(child: Text('$e')),
+              title: const Text("Couldn't delete account"),
+              content: const Text('Try again'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
+                  child: const Text('Close'),
                 ),
               ],
             ),
@@ -508,7 +517,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    'Sound effects',
+                                                    'Sounds',
                                                     style: EllaFonts.body(
                                                       const TextStyle(
                                                         fontSize: 16,
@@ -522,7 +531,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                   ),
                                                   const SizedBox(height: 2),
                                                   Text(
-                                                    'Music and tap sounds',
+                                                    'Music and sound effects',
                                                     style: EllaFonts.body(
                                                       const TextStyle(
                                                         fontSize: 13,

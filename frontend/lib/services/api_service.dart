@@ -39,7 +39,7 @@ class ApiService {
   Future<String?> getToken() async {
     return _secureStorage.read(key: _keyToken);
   }
-  
+
   Future<String?> getRefreshToken() async {
     return _secureStorage.read(key: _keyRefreshToken);
   }
@@ -94,7 +94,10 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        await _saveTokens(data['access_token'] as String, data['refresh_token'] as String?);
+        await _saveTokens(
+          data['access_token'] as String,
+          data['refresh_token'] as String?,
+        );
         final prefs = await _sharedPrefs;
         await prefs.setString(_keyUserId, data['user_id'] as String);
         return true;
@@ -121,7 +124,7 @@ class ApiService {
             Uri.parse('$_baseUrl/auth/magic-link/request'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'email': email, 
+              'email': email,
               'device_id': deviceId,
               'redirect_url': redirectUrl,
             }),
@@ -135,7 +138,10 @@ class ApiService {
     }
   }
 
-  Future<void> saveTokensFromMagicLink(String token, String? refreshToken) async {
+  Future<void> saveTokensFromMagicLink(
+    String token,
+    String? refreshToken,
+  ) async {
     await _saveTokens(token, refreshToken);
     final profile = await getMyProfile();
     if (profile != null) {
@@ -159,7 +165,10 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        await _saveTokens(data['access_token'] as String, data['refresh_token'] as String?);
+        await _saveTokens(
+          data['access_token'] as String,
+          data['refresh_token'] as String?,
+        );
         return true;
       }
       return false;
@@ -198,13 +207,13 @@ class ApiService {
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
-  
+
   /// Helper to handle 401 Unauthorized by refreshing token and retrying
   Future<http.Response> _executeWithRetry(
     Future<http.Response> Function() requestFn,
   ) async {
     http.Response response = await requestFn();
-    
+
     // If unauthorized, try to refresh and retry ONCE
     if (response.statusCode == 401) {
       final success = await _refreshSession();
@@ -220,31 +229,37 @@ class ApiService {
 
   Future<http.Response> _get(String path) async {
     return _executeWithRetry(() async {
-      return http.get(
-        Uri.parse('$_baseUrl$path'),
-        headers: await _authHeaders(),
-      ).timeout(const Duration(seconds: 10));
+      return http
+          .get(Uri.parse('$_baseUrl$path'), headers: await _authHeaders())
+          .timeout(const Duration(seconds: 10));
     });
   }
 
-  Future<http.Response> _post(String path, Map<String, dynamic> body,
-      {Duration timeout = const Duration(seconds: 30)}) async {
+  Future<http.Response> _post(
+    String path,
+    Map<String, dynamic> body, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     return _executeWithRetry(() async {
-      return http.post(
-        Uri.parse('$_baseUrl$path'),
-        headers: await _authHeaders(),
-        body: jsonEncode(body),
-      ).timeout(timeout);
+      return http
+          .post(
+            Uri.parse('$_baseUrl$path'),
+            headers: await _authHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(timeout);
     });
   }
 
   Future<http.Response> _put(String path, Map<String, dynamic> body) async {
     return _executeWithRetry(() async {
-      return http.put(
-        Uri.parse('$_baseUrl$path'),
-        headers: await _authHeaders(),
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 10));
+      return http
+          .put(
+            Uri.parse('$_baseUrl$path'),
+            headers: await _authHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
     });
   }
 
@@ -317,8 +332,13 @@ class ApiService {
 
   // ── Conversations ───────────────────────────────────────────────────────
 
-  /// Create a new conversation session. Returns conversation id or null.
-  Future<String?> createConversation({String? topic}) async {
+  /// Create a new conversation session.
+  ///
+  /// The backend creates and stores the opening message as part of this call,
+  /// so return that same starter to keep the visible chat and stored transcript
+  /// in sync.
+  Future<({String id, String? starter, String? headerTitle})?>
+  createConversation({String? topic}) async {
     try {
       debugPrint('📡 Creating conversation on backend...');
       final response = await _post('/conversations', {
@@ -327,7 +347,13 @@ class ApiService {
       debugPrint('📡 Create conversation response: ${response.statusCode}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['id'] as String?;
+        final id = (data['session_id'] ?? data['id']) as String?;
+        if (id == null || id.isEmpty) return null;
+        return (
+          id: id,
+          starter: data['starter'] as String?,
+          headerTitle: data['topic'] as String?,
+        );
       }
       debugPrint('❌ Create conversation failed: ${response.body}');
       return null;
@@ -338,8 +364,11 @@ class ApiService {
   }
 
   /// Mark a conversation as complete.
-  Future<bool> completeConversation(String conversationId,
-      {int? durationSeconds, String? sessionType}) async {
+  Future<bool> completeConversation(
+    String conversationId, {
+    int? durationSeconds,
+    String? sessionType,
+  }) async {
     try {
       final response = await _put('/conversations/$conversationId/complete', {
         if (durationSeconds != null) 'duration_seconds': durationSeconds,
@@ -363,18 +392,15 @@ class ApiService {
     int? turnNumber,
   }) async {
     try {
-      final response = await _post(
-        '/conversations/$conversationId/messages',
-        {
-          'role': role,
-          'content': content,
-          if (correction != null) 'correction': correction,
-          if (sttDurationMs != null) 'stt_duration_ms': sttDurationMs,
-          if (llmDurationMs != null) 'llm_duration_ms': llmDurationMs,
-          if (ttsDurationMs != null) 'tts_duration_ms': ttsDurationMs,
-          if (turnNumber != null) 'turn_number': turnNumber,
-        },
-      );
+      final response = await _post('/conversations/$conversationId/messages', {
+        'role': role,
+        'content': content,
+        if (correction != null) 'correction': correction,
+        if (sttDurationMs != null) 'stt_duration_ms': sttDurationMs,
+        if (llmDurationMs != null) 'llm_duration_ms': llmDurationMs,
+        if (ttsDurationMs != null) 'tts_duration_ms': ttsDurationMs,
+        if (turnNumber != null) 'turn_number': turnNumber,
+      });
       return response.statusCode == 200;
     } catch (_) {
       return false;
@@ -417,11 +443,9 @@ class ApiService {
   /// Get a conversation starter from the backend (keeps API key server-side).
   Future<Map<String, dynamic>?> getConversationStarter({String? topic}) async {
     try {
-      final response = await _post(
-        '/llm/conversation-starter',
-        {if (topic != null) 'unit': topic},
-        timeout: const Duration(seconds: 30),
-      );
+      final response = await _post('/llm/conversation-starter', {
+        if (topic != null) 'unit': topic,
+      }, timeout: const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -441,18 +465,14 @@ class ApiService {
     int currentTurn = 1,
   }) async {
     try {
-      final response = await _post(
-        '/llm/conversation-turn',
-        {
-          'conversation_id': conversationId,
-          'messages': messages,
-          if (topic != null) 'unit': topic,
-          'level': level,
-          'level_label': levelLabel,
-          'current_turn': currentTurn,
-        },
-        timeout: const Duration(seconds: 30),
-      );
+      final response = await _post('/llm/conversation-turn', {
+        'session_id': conversationId,
+        'messages': messages,
+        if (topic != null) 'unit': topic,
+        'level': level,
+        'unit_label': levelLabel,
+        'current_turn': currentTurn,
+      }, timeout: const Duration(seconds: 30));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -500,17 +520,13 @@ class ApiService {
     String levelLabel = 'Finding My Voice',
   }) async {
     try {
-      final response = await _post(
-        '/llm/session-analysis',
-        {
-          'conversation_id': conversationId,
-          'messages': messages,
-          'unit': topic,
-          'level': level,
-          'level_label': levelLabel,
-        },
-        timeout: const Duration(seconds: 45),
-      );
+      final response = await _post('/llm/session-analysis', {
+        'session_id': conversationId,
+        'messages': messages,
+        'unit': topic,
+        'level': level,
+        'unit_label': levelLabel,
+      }, timeout: const Duration(seconds: 45));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }

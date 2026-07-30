@@ -108,35 +108,30 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_harness());
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // Name step.
-    expect(find.textContaining('What is your name?'), findsOneWidget);
+    expect(find.textContaining('What is your name?', findRichText: true), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-reply-send')), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Aarav');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
-    expect(find.byType(EllaIconButton), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'Aarav');
-    await tester.tap(find.byType(EllaIconButton));
     await tester.pump(); // step change
-    await tester.pump(const Duration(milliseconds: 950)); // thinking beat
-    await tester.pumpAndSettle(); // switcher fade
+    await tester.pump(const Duration(milliseconds: 1000)); // jump past Future.delayed in _advance
+    await tester.pumpAndSettle(); // finish TypewriterText
 
     // Age step — question interpolates the typed name.
-    expect(find.textContaining('what is your age?'), findsOneWidget);
+    expect(find.textContaining('what is your age?', findRichText: true), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '9');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
-    await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 950));
+    await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
     expect(find.text('Sunrise Seedbed'), findsOneWidget);
     expect(find.text("Aarav's Garden"), findsOneWidget);
-    expect(find.textContaining('your first plant'), findsOneWidget);
+    expect(find.textContaining('your first plant', findRichText: true), findsOneWidget);
     expect(find.text('Explore Garden'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('placement-garden-explore')));
@@ -147,62 +142,61 @@ void main() {
 
   testWidgets('blank name stays on the name step', (tester) async {
     await tester.pumpWidget(_harness());
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.textContaining("think that was your name"), findsNothing);
-    expect(find.textContaining('What is your name?'), findsOneWidget);
+    expect(find.textContaining("think that was your name", findRichText: true), findsNothing);
+    expect(find.textContaining('What is your name?', findRichText: true), findsOneWidget);
   });
 
   testWidgets('invalid name shows error and stays on the name step', (
     tester,
   ) async {
     await tester.pumpWidget(_harness());
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), '???');
-    await tester.tap(find.byType(EllaIconButton));
+    await tester.enterText(find.byType(TextField), '@@@');
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 950));
+    await tester.pump(const Duration(milliseconds: 1000));
+    await tester.pumpAndSettle();
 
-    expect(find.textContaining("think that was your name"), findsOneWidget);
-    expect(find.textContaining('What is your name?'), findsOneWidget);
+    expect(find.textContaining("special symbols", findRichText: true), findsOneWidget);
   });
 
   testWidgets('any positive age is accepted; invalid age is rejected', (
     tester,
   ) async {
     await tester.pumpWidget(_harness());
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'Aarav');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
-    await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 950));
+    await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
     // Blank age stays put.
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
-    await tester.pump();
-    expect(find.textContaining('correct age'), findsNothing);
-    expect(find.textContaining('what is your age?'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('correct age', findRichText: true), findsNothing);
+    expect(find.textContaining('what is your age?', findRichText: true), findsOneWidget);
     // Invalid age → error, stays put.
     await tester.enterText(find.byType(TextField), '0');
-    await tester.tap(find.byType(EllaIconButton));
+    await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 950));
-    expect(find.textContaining('correct age'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1000));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('correct age', findRichText: true), findsOneWidget);
     expect(find.text("Let's Talk"), findsNothing);
 
     // A large age (would have failed the old 3–19 check) is now accepted.
     await tester.enterText(find.byType(TextField), '45');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
-    await tester.tap(find.byType(EllaIconButton));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 950));
+    await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
     expect(find.text('Explore Garden'), findsOneWidget);

@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ella 3D Curve Fitting Learning Trajectory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090D16;
+      --bg-card: rgba(17, 24, 39, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #E2E8F0;
+      --text-sub: #94A3B8;
+      
+      --color-fluency: #EC4899;    /* Pink */
+      --color-grammar: #A855F7;    /* Purple */
+      --color-vocabulary: #F59E0B; /* Amber */
+      
+      --state-locked: #475569;
+      --state-emerging: #38BDF8;
+      --state-owned: #22C55E;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+
+    /* Container Layout */
+    .app-container {
+      display: flex;
+      flex: 1;
+      gap: 20px;
+      height: calc(100vh - 32px);
+    }
+
+    /* Left Control & Simulation Panel */
+    .control-panel {
+      width: 350px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      backdrop-filter: blur(16px);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+      z-index: 10;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    /* Right Canvas Panel */
+    .graph-panel {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* Interactive Overlay Instructions */
+    .view-instructions {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--text-sub);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* Typography */
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    p {
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    /* Live Solver Status Badge */
+    .solver-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      color: #22C55E;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .solver-dot {
+      width: 6px;
+      height: 6px;
+      background: #22C55E;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.6; }
+    }
+
+    /* Scenario List */
+    .scenario-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+    }
+
+    .scenario-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .scenario-card:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .scenario-card.active {
+      background: rgba(168, 85, 247, 0.05);
+      border-color: var(--color-grammar);
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.15);
+    }
+
+    .scenario-card .speech-quote {
+      font-family: 'Outfit', sans-serif;
+      font-style: italic;
+      font-size: 13.5px;
+      color: #FFF;
+      line-height: 1.4;
+    }
+
+    .scenario-card .matched-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .chip {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    
+    .chip.voc { background: rgba(245, 158, 11, 0.15); color: var(--color-vocabulary); }
+    .chip.gra { background: rgba(168, 85, 247, 0.15); color: var(--color-grammar); }
+    .chip.flu { background: rgba(236, 72, 153, 0.15); color: var(--color-fluency); }
+
+    /* Trigger Button */
+    .btn-trigger {
+      width: 100%;
+      background: linear-gradient(135deg, #A855F7 0%, #7E22CE 100%);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(168, 85, 247, 0.3);
+    }
+
+    .btn-trigger:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    /* Simulation Output Console */
+    .console-wrapper {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
+
+    .console-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .console-header {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .console-log {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #A855F7;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 16px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Details Panel overlay */
+    .details-tooltip {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 20;
+    }
+
+    .details-tooltip.show {
+      opacity: 1;
+    }
+
+    .tooltip-header {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFF;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .tooltip-desc {
+      font-size: 12px;
+      color: var(--text-sub);
+      line-height: 1.45;
+    }
+
+    .tooltip-evidence {
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 11px;
+      font-style: italic;
+      color: #22C55E;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Left panel: Scenario triggers & logs -->
+    <div class="control-panel">
+      <div>
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+          3D Trajectory Fit
+        </h2>
+        <p style="margin-top: 8px;">Visualizes progress as a dynamic 3D Curve. Spline bends automatically to fit assessments in real-time.</p>
+      </div>
+
+      <div class="scenarios-wrapper">
+        <div class="scenario-title">Select Student Spoken Input</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          
+          <div class="scenario-card active" onclick="selectScenario(0, this)">
+            <div class="speech-quote">"I see a red butterfly on the green flower."</div>
+            <div class="matched-chips">
+              <span class="chip voc">U1-VOC-02 (Objects)</span>
+              <span class="chip gra">U1-GRA-03 (Adjectives)</span>
+            </div>
+          </div>
+
+          <div class="scenario-card" onclick="selectScenario(1, this)">
+            <div class="speech-quote">"Yesterday I walked to school because the bus was late."</div>
+            <div class="matched-chips">
+              <span class="chip gra">U2-GRA-01 (Past Verbs)</span>
+              <span class="chip voc">U2-VOC-04 (Transport)</span>
+              <span class="chip flu">U1-FLU-02 (Conjunctions)</span>
+            </div>
+          </div>
+
+          <div class="scenario-card" onclick="selectScenario(2, this)">
+            <div class="speech-quote">"I will buy a new phone next week."</div>
+            <div class="matched-chips">
+              <span class="chip gra">U4-GRA-02 (Future Will)</span>
+              <span class="chip voc">U4-VOC-01 (Electronics)</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <button class="btn-trigger" onclick="runSimulation()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Fit Learning Curve
+      </button>
+
+      <div class="console-wrapper">
+        <div class="console-header-row">
+          <div class="console-header">3D Spline Solver Log</div>
+          <div class="solver-badge">
+            <span class="solver-dot"></span>
+            ACTIVE
+          </div>
+        </div>
+        <div class="console-log" id="console-output">> Select a speech input above and click "Fit Learning Curve" to update coordinates and refit the 3D spline.</div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--state-locked);"></div>
+          <span>Locked Skill (Y = 0)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--state-emerging);"></div>
+          <span>Emerging Skill (Y = 2)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--state-owned);"></div>
+          <span>Mastered Skill (Y = 4)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: Interactive Three.js WebGL canvas -->
+    <div class="graph-panel">
+      <div id="canvas-container"></div>
+      
+      <div class="view-instructions">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v8M8 12h8"/>
+        </svg>
+        Drag to rotate | Scroll to zoom
+      </div>
+
+      <!-- Details Overlay Tooltip -->
+      <div class="details-tooltip" id="tooltip">
+        <div class="tooltip-header">
+          <span id="tooltip-title">Node Title</span>
+          <span id="tooltip-strand" class="badge">VOC</span>
+        </div>
+        <p id="tooltip-desc">Description of the node goes here.</p>
+        <p style="font-size:11px; margin-top:2px;">Status: <strong id="tooltip-status">Locked</strong> | Assessed Y-Value: <strong id="tooltip-yval">0.0</strong></p>
+        <div id="tooltip-evidence-box" class="tooltip-evidence" style="display:none;">
+          "Verbatim evidence quote..."
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Load Three.js and OrbitControls locally -->
+  <script src="three.min.js"></script>
+  <script src="OrbitControls.js"></script>
+  <script>
+    // State of the skills
+    const skills = [
+      { id: 'u1-s1', name: 'Everyday Objects', strand: 'VOC', desc: 'Can name familiar everyday objects at school and home.', sightings: 0, status: 'locked', x: -4, y: 0.1, z: -2, hexColor: 0xF59E0B },
+      { id: 'u1-s2', name: 'Adjectives Positioning', strand: 'GRA', desc: 'Uses common descriptive adjectives placed directly before nouns.', sightings: 0, status: 'locked', x: -3, y: 0.1, z: 1.5, hexColor: 0xA855F7 },
+      { id: 'u2-s1', name: 'Transport & Travel', strand: 'VOC', desc: 'Recognizes and speaks basic transportation vocabulary.', sightings: 0, status: 'locked', x: -1, y: 0.1, z: -1.5, hexColor: 0xF59E0B },
+      { id: 'u2-s2', name: 'Simple Past Regular', strand: 'GRA', desc: 'Formulates basic sentences using regular -ed past tense verbs.', sightings: 0, status: 'locked', x: 1, y: 0.1, z: 2, hexColor: 0xA855F7 },
+      { id: 'u3-s1', name: 'Conjunctions & Connectors', strand: 'FLU', desc: 'Connects clauses with basic coordinators like "because" and "and".', sightings: 0, status: 'locked', x: 2, y: 0.1, z: -1.8, hexColor: 0xEC4899 },
+      { id: 'u3-s2', name: 'Town & Places', strand: 'VOC', desc: 'Names common locations around the neighborhood and town.', sightings: 0, status: 'locked', x: 3, y: 0.1, z: 1, hexColor: 0xF59E0B },
+      { id: 'u4-s1', name: 'Simple Future Will', strand: 'GRA', desc: 'Uses "will" + infinitive verb to state future choices or plans.', sightings: 0, status: 'locked', x: 4, y: 0.1, z: -1, hexColor: 0xA855F7 },
+      { id: 'u4-s2', name: 'Shopping & Clothes', strand: 'VOC', desc: 'Uses vocabulary related to buying items, money, and shopping.', sightings: 0, status: 'locked', x: 5, y: 0.1, z: 2, hexColor: 0xF59E0B }
+    ];
+
+    let selectedScenarioIndex = 0;
+    let scene, camera, renderer, controls;
+    let nodeMeshes = [];
+    let trajectoryLine = null;
+    let particleSystem = null;
+    let particlePositions = [];
+    let particleSpeeds = [];
+
+    // Initialize 3D Scene
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+      
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x090D16);
+      
+      // Add Exp2 Fog for depth fading
+      scene.fog = new THREE.FogExp2(0x090D16, 0.06);
+      
+      camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+      camera.position.set(0, 9, 13);
+      
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+      
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.05; 
+      controls.minDistance = 5;
+      controls.maxDistance = 25;
+      
+      // Ambient Light
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+      scene.add(ambientLight);
+      
+      // Directional Lights
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      dirLight.position.set(5, 15, 5);
+      scene.add(dirLight);
+      
+      // Subtle Blue point light for central environment glow
+      const centralLight = new THREE.PointLight(0x8B5CF6, 1.5, 15);
+      centralLight.position.set(0, 2, 0);
+      scene.add(centralLight);
+      
+      // Grid Helper
+      const gridHelper = new THREE.GridHelper(16, 16, 0x1E293B, 0x111827);
+      gridHelper.position.y = 0;
+      scene.add(gridHelper);
+      
+      // Draw Node Spheres
+      skills.forEach(skill => {
+        const group = new THREE.Group();
+        group.position.set(skill.x, skill.y, skill.z);
+        
+        const geo = new THREE.SphereGeometry(0.35, 32, 32);
+        const mat = new THREE.MeshPhongMaterial({
+          color: 0x475569, 
+          emissive: 0x111827,
+          shininess: 30
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        group.add(mesh);
+        
+        // Mini Indicator Ring at bottom
+        const ringGeo = new THREE.RingGeometry(0.45, 0.5, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: skill.hexColor, side: THREE.DoubleSide, opacity: 0.4, transparent: true });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = -0.3;
+        group.add(ring);
+
+        mesh.userData = { skill: skill };
+        scene.add(group);
+        nodeMeshes.push({ group: group, mesh: mesh, ring: ring, skill: skill });
+      });
+
+      // Render the trajectory line
+      updateTrajectorySpline();
+
+      // Setup active glowing particle system along path
+      initParticleSystem();
+
+      window.addEventListener('resize', onWindowResize);
+      
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      
+      renderer.domElement.addEventListener('click', (event) => {
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(nodeMeshes.map(n => n.mesh));
+        
+        if (intersects.length > 0) {
+          const clickedMesh = intersects[0].object;
+          showTooltipForNode(clickedMesh.userData.skill);
+        }
+      });
+      
+      animate();
+    }
+
+    // Initialize glowing particles that flow along the curve path
+    function initParticleSystem() {
+      const particleCount = 24;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+      const colors = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount; i++) {
+        // Distribute particle progress starting positions along the curve [0..1]
+        particlePositions.push(i / particleCount);
+        particleSpeeds.push(0.002 + Math.random() * 0.002);
+        
+        positions[i*3] = 0;
+        positions[i*3+1] = 0;
+        positions[i*3+2] = 0;
+
+        // Soft lavender color for glowing flow particles
+        colors[i*3] = 0.66;
+        colors[i*3+1] = 0.33;
+        colors[i*3+2] = 0.97;
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      // Load soft circle particle texture
+      const canvas = document.createElement('canvas');
+      canvas.width = 16;
+      canvas.height = 16;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 16, 16);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      
+      const material = new THREE.PointsMaterial({
+        size: 0.45,
+        map: texture,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
+        vertexColors: true
+      });
+
+      particleSystem = new THREE.Points(geometry, material);
+      scene.add(particleSystem);
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('canvas-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    // Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      
+      const time = Date.now() * 0.002;
+      
+      // Float active nodes
+      nodeMeshes.forEach(node => {
+        if (node.skill.status !== 'locked') {
+          node.group.position.y = node.skill.y + Math.sin(time + node.skill.x) * 0.1;
+        }
+      });
+
+      // Update particle positions along spline curve
+      if (particleSystem && trajectoryLine) {
+        const positions = particleSystem.geometry.attributes.position.array;
+        
+        // Recreate the curve path for interpolation
+        const points = skills.map(s => new THREE.Vector3(s.x, s.y, s.z));
+        const curve = new THREE.CatmullRomCurve3(points);
+
+        for (let i = 0; i < particlePositions.length; i++) {
+          // Increment progress
+          particlePositions[i] += particleSpeeds[i];
+          if (particlePositions[i] > 1) {
+            particlePositions[i] = 0; // wrap around
+          }
+
+          // Interpolate coordinate
+          const pt = curve.getPointAt(particlePositions[i]);
+          
+          positions[i*3] = pt.x;
+          positions[i*3+1] = pt.y + 0.05; // Slightly float above spline
+          positions[i*3+2] = pt.z;
+        }
+        particleSystem.geometry.attributes.position.needsUpdate = true;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Update Spline based on skill Y-Values
+    function updateTrajectorySpline() {
+      if (trajectoryLine) scene.remove(trajectoryLine);
+      
+      const points = skills.map(s => new THREE.Vector3(s.x, s.y, s.z));
+      const curve = new THREE.CatmullRomCurve3(points);
+      const curvePoints = curve.getPoints(50);
+      
+      const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+      const material = new THREE.LineBasicMaterial({
+        color: 0x9333EA, // Deep Indigo line
+        linewidth: 4
+      });
+      
+      trajectoryLine = new THREE.Line(geometry, material);
+      scene.add(trajectoryLine);
+    }
+
+    function selectScenario(index, element) {
+      document.querySelectorAll('.scenario-card').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+      selectedScenarioIndex = index;
+    }
+
+    function triggerNodeAnimation(nodeRef) {
+      const targetY = nodeRef.skill.status === 'owned' ? 3.0 : 1.5;
+      let currentY = nodeRef.skill.y;
+      const step = (targetY - currentY) / 30;
+      
+      function performStep() {
+        if (Math.abs(nodeRef.skill.y - targetY) > 0.05) {
+          nodeRef.skill.y += step;
+          nodeRef.group.position.y = nodeRef.skill.y;
+          updateTrajectorySpline();
+          requestAnimationFrame(performStep);
+        } else {
+          nodeRef.skill.y = targetY;
+          nodeRef.group.position.y = targetY;
+          updateTrajectorySpline();
+        }
+      }
+      
+      let stateColor = 0x475569;
+      if (nodeRef.skill.status === 'emerging') stateColor = 0x38BDF8;
+      if (nodeRef.skill.status === 'owned') stateColor = 0x22C55E;
+      
+      nodeRef.mesh.material.color.setHex(stateColor);
+      nodeRef.mesh.material.emissive.setHex(stateColor);
+      nodeRef.mesh.material.emissiveIntensity = 0.5;
+      
+      performStep();
+    }
+
+    function runSimulation() {
+      const consoleLog = document.getElementById('console-output');
+      let targetSkillIds = [];
+      let inputSentence = "";
+
+      if (selectedScenarioIndex === 0) {
+        targetSkillIds = ['u1-s1', 'u1-s2'];
+        inputSentence = "I see a red butterfly on the green flower.";
+      } else if (selectedScenarioIndex === 1) {
+        targetSkillIds = ['u2-s1', 'u2-s2', 'u3-s1'];
+        inputSentence = "Yesterday I walked to school because the bus was late.";
+      } else if (selectedScenarioIndex === 2) {
+        targetSkillIds = ['u4-s1', 'u4-s2'];
+        inputSentence = "I will buy a new phone next week.";
+      }
+
+      consoleLog.innerHTML = `> Fitting 3D spline model for input:\n"${inputSentence}"\n\n`;
+      
+      targetSkillIds.forEach(id => {
+        const nodeRef = nodeMeshes.find(n => n.skill.id === id);
+        const s = nodeRef.skill;
+        s.sightings += 1;
+        
+        let stateChangeMsg = '';
+        if (s.sightings === 1) {
+          s.status = 'emerging';
+          stateChangeMsg = 'UNLOCKED -> Emerging';
+        } else if (s.sightings >= 3) {
+          s.status = 'owned';
+          stateChangeMsg = 'PROMOTED -> Owned';
+        } else {
+          stateChangeMsg = `Emerging (Sightings: ${s.sightings}/3)`;
+        }
+
+        consoleLog.innerHTML += `Matched: [${id}] (Confidence: 0.94)\n  Y-axis shifted: ${s.y.toFixed(1)} ➔ ${s.status === 'owned' ? '3.0' : '1.5'}\n  └─ State: ${stateChangeMsg}\n`;
+        
+        triggerNodeAnimation(nodeRef);
+      });
+
+      consoleLog.innerHTML += `\n>> Spline refitted! Flow particle velocities recalculated dynamically.`;
+    }
+
+    function showTooltipForNode(skill) {
+      const tooltip = document.getElementById('tooltip');
+      const title = document.getElementById('tooltip-title');
+      const strand = document.getElementById('tooltip-strand');
+      const desc = document.getElementById('tooltip-desc');
+      const status = document.getElementById('tooltip-status');
+      const yval = document.getElementById('tooltip-yval');
+      const evidenceBox = document.getElementById('tooltip-evidence-box');
+
+      title.innerText = skill.name;
+      strand.innerText = skill.strand;
+      
+      strand.className = 'badge';
+      if (skill.strand === 'VOC') strand.style.background = 'rgba(245, 158, 11, 0.2)';
+      if (skill.strand === 'GRA') strand.style.background = 'rgba(168, 85, 247, 0.2)';
+      if (skill.strand === 'FLU') strand.style.background = 'rgba(236, 72, 153, 0.2)';
+
+      desc.innerText = skill.desc;
+      status.innerText = skill.status.toUpperCase();
+      yval.innerText = skill.y.toFixed(1);
+
+      if (skill.sightings > 0) {
+        evidenceBox.style.display = 'block';
+        if (skill.id === 'u1-s1') evidenceBox.innerText = `Evidence: "I see a red butterfly..."`;
+        else if (skill.id === 'u1-s2') evidenceBox.innerText = `Evidence: "red butterfly... green flower."`;
+        else if (skill.id === 'u2-s1') evidenceBox.innerText = `Evidence: "...because the bus was late."`;
+        else if (skill.id === 'u2-s2') evidenceBox.innerText = `Evidence: "I walked to school..."`;
+        else if (skill.id === 'u3-s1') evidenceBox.innerText = `Evidence: "...because..."`;
+        else if (skill.id === 'u4-s1') evidenceBox.innerText = `Evidence: "I will buy..."`;
+        else if (skill.id === 'u4-s2') evidenceBox.innerText = `Evidence: "...new phone..."`;
+        else evidenceBox.style.display = 'none';
+      } else {
+        evidenceBox.style.display = 'none';
+      }
+
+      tooltip.classList.add('show');
+      
+      setTimeout(() => {
+        tooltip.classList.remove('show');
+      }, 5000);
+    }
+
+    // Start
+    try {
+      if (typeof THREE !== 'undefined') {
+        init3D();
+      } else {
+        showOfflineFallback();
+      }
+    } catch (e) {
+      console.error(e);
+      showOfflineFallback();
+    }
+
+    function showOfflineFallback() {
+      const container = document.getElementById('canvas-container');
+      if (container) {
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.justifyContent = 'center';
+        container.style.flexDirection = 'column';
+        container.style.padding = '20px';
+        container.style.textAlign = 'center';
+        container.innerHTML = `
+          <div style="color: #EF4444; font-size: 24px; margin-bottom: 12px; font-weight: 600;">⚠️ 3D Visualizer Offline</div>
+          <div style="color: var(--text-sub); font-size: 14px; max-width: 400px; line-height: 1.6;">
+            Unable to load 3D graphics libraries. Please verify your internet connection and reload the page.
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey
+from sqlalchemy import String, Integer, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.database import Base
 
@@ -22,6 +22,7 @@ class Conversation(Base):
     session_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     quality: Mapped[str | None] = mapped_column(String(20), nullable=True)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    prompt_used: Mapped[str | None] = mapped_column(Text, nullable=True)  # The system prompt used in this session
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

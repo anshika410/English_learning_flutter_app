@@ -507,7 +507,7 @@ class _PrepareCard extends StatelessWidget {
           const _RotatingHourglass(),
           const SizedBox(height: 12),
           Text(
-            'Getting things ready...',
+            'Getting ready…',
             textAlign: TextAlign.center,
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.ink,
@@ -541,7 +541,7 @@ class _VoiceDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = switch (micState) {
       MicState.listening => 'Listening…',
-      MicState.busy => 'Zoe is talking…',
+      MicState.busy => 'Zoe is speaking…',
       MicState.idle => 'Tap to Speak',
     };
 

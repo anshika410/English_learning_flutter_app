@@ -43,7 +43,7 @@ async def create_placement(
     # Auto-own all skills from levels below the placed level.
     # If a student is placed at B2, they have demonstrated proficiency at A0-B1
     # already, so all those lower-level skills should show as owned in the garden.
-    from ..core.curriculum_data import UNITS
+    from ..core.curriculum_data import UNITS, unit_progress_key
     from sqlalchemy.orm.attributes import flag_modified
 
     LEVEL_ORDER = ["A0", "A1", "A2", "B1", "B2", "C1"]
@@ -74,7 +74,9 @@ async def create_placement(
         for lvl in levels_to_backfill:
             for unit in UNITS.get(lvl, []):
                 for skill in unit.get("skills", []):
-                    sid = skill["id"]
+                    sid = unit_progress_key(lvl, skill["id"])
+                    if not sid:
+                        continue
                     if sid not in progress["owned"]:
                         progress["owned"].append(sid)
                     # Remove from emerging if it was there
@@ -88,6 +90,11 @@ async def create_placement(
 
         user.skills_progress = progress
         flag_modified(user, "skills_progress")
+
+    # Placement can change the learner's level. Never carry a target selected
+    # for the previous level into the first conversation after placement.
+    user.due_next = {}
+    flag_modified(user, "due_next")
     
     # Mark first_session_done so next_topics start showing immediately after placement
     if not user.first_session_done:

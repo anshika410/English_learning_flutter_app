@@ -1,17 +1,44 @@
 """Read-only admin stats endpoint — protected by a secret key in the query string."""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, Table, Column, String, Text, DateTime, MetaData, Integer
+from sqlalchemy.dialects.postgresql import JSONB
 from ..core.database import get_db
 from ..core.config import get_settings
+from ..core.deps import get_current_user
 from ..models.user import User
 from ..models.conversation import Conversation
 from ..models.message import Message
 from ..models.placement import Placement
 from pydantic import BaseModel
 from datetime import datetime
+from ..core.database import Base
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# Prompt version history table (lightweight, no ORM model needed)
+metadata = MetaData()
+prompt_history_table = Table(
+    "prompt_history", Base.metadata,
+    Column("id", String(36), primary_key=True, default=lambda: __import__('uuid').uuid4().hex),
+    Column("prompt_name", String(100)),
+    Column("content", Text),
+    Column("author", String(100)),
+    Column("created_at", DateTime(timezone=True)),
+    extend_existing=True,
+)
+
+# Simple versioning table — one row per deploy, covers ALL files as a snapshot
+prompt_versions_table = Table(
+    "prompt_versions", Base.metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("version", String(20)),      # e.g. "v0.0.1"
+    Column("author", String(100)),
+    Column("notes", Text, default=""),
+    Column("snapshot", JSONB),           # {"base-prompt": "...", "profile-A0": "...", ...}
+    Column("created_at", DateTime(timezone=True)),
+    extend_existing=True,
+)
 
 
 def _check_key(key: str = Query(..., alias="key")):
@@ -188,6 +215,8 @@ async def get_conversation_analysis(
     from ..models.session_analysis import SessionAnalysis
     from ..models.message import Message
     from ..core.curriculum_data import get_skill_text, FLOOR
+    from ..core.config import get_settings
+    settings = get_settings()
 
     conv_result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
     conv = conv_result.scalar_one_or_none()
@@ -203,7 +232,7 @@ async def get_conversation_analysis(
         .order_by(Message.turn_number, Message.created_at)
     )
     transcript = [
-        {"role": "zoe" if m.role in ("zoe", "assistant") else "me", "content": m.content}
+        {"role": "zoe" if m.role in ("zoe", "assistant") else "me", "content": m.content, "input_mode": m.input_mode}
         for m in msg_result.scalars().all()
     ]
 
@@ -221,7 +250,7 @@ async def get_conversation_analysis(
             "topic": conv.header_title or conv.topic,
             "turns_total": len([m for m in transcript if m["role"] == "me"]),
             "transcript": transcript,
-            "message": "Analysis not available — conversation may still be in progress or analysis did not run.",
+            "message": "Judge response is not available — conversation may still be in progress or judge did not run.",
         }
 
     def miss_reason(confidence: float) -> str:
@@ -240,6 +269,7 @@ async def get_conversation_analysis(
             "skill_text": get_skill_text(sc.get("id", ""), level),
             "confidence_pct": round(conf * 100),
             "prompted": sc.get("prompted", False),
+            "support_level": sc.get("support_level"),
             "evidence": sc.get("evidence", ""),
             "passed": conf >= FLOOR,
             "miss_reason": miss_reason(conf),
@@ -261,8 +291,8 @@ async def get_conversation_analysis(
     try:
         from pathlib import Path
         import json
-        PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
-        template = (PROMPTS_DIR / "end-result-prompt.md").read_text()
+        from ..services.llm_service import resolve_prompt
+        template = resolve_prompt("end-result-prompt.md", user_id=conv.user_id)
         
         # Format transcript
         formatted_transcript = "\n".join(
@@ -331,8 +361,11 @@ async def get_conversation_analysis(
         "correction_highlight": sa.correction_highlight,
         "floor_pct": round(FLOOR * 100),
         "transcript": transcript,
+        "prompt_used": conv.prompt_used,
         "judge_prompt": judge_prompt,
         "judge_response": judge_response,
+        "judge_endpoint": f"{settings.deepseek_base_url}/chat/completions",
+        "judge_model": settings.deepseek_model,
     }
 
 
@@ -355,6 +388,7 @@ async def get_transcript(
             "content": m.content,
             "correction": m.correction,
             "turn_number": m.turn_number,
+            "input_mode": m.input_mode,
             "stt_ms": m.stt_duration_ms,
             "llm_ms": m.llm_duration_ms,
             "tts_ms": m.tts_duration_ms,
@@ -415,35 +449,36 @@ class AdminPromptsResponse(BaseModel):
     base: str
     level_profiles: dict[str, str]
     conv_unit_framing: str
+    is_sandbox: bool = False
 
 
 @router.get("/prompts", response_model=AdminPromptsResponse)
-async def get_admin_prompts():
+async def get_admin_prompts(
+    user: User = Depends(get_current_user),
+):
     """Get active LLM prompt templates — modular building blocks matching client structure."""
-    from ..services.llm_service import PROMPTS_DIR, extract_correction_highlight
-    import inspect, re
+    from ..services.llm_service import PROMPTS_DIR, resolve_prompt
     try:
-        conv = (PROMPTS_DIR / "conversation-prompt.md").read_text()
-        judge = (PROMPTS_DIR / "end-result-prompt.md").read_text()
-        placement = (PROMPTS_DIR / "placement-check-prompt.md").read_text()
+        user_id = user.id if user else None
         
-        # Read modular prompt files
-        base = (PROMPTS_DIR / "base-prompt.md").read_text()
-        conv_unit_framing = (PROMPTS_DIR / "conv-unit-framing.md").read_text()
+        # Check if sandbox exists for this user
+        is_sandbox = False
+        if user_id:
+            sandbox_dir = PROMPTS_DIR / "sandboxes" / user_id
+            if sandbox_dir.exists() and any(sandbox_dir.iterdir()):
+                is_sandbox = True
+
+        conv = resolve_prompt("conversation-prompt.md", user_id=user_id)
+        judge = resolve_prompt("end-result-prompt.md", user_id=user_id)
+        placement = resolve_prompt("placement-check-prompt.md", user_id=user_id)
+        base = resolve_prompt("base-prompt.md", user_id=user_id)
+        conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=user_id)
+        correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=user_id)
         
         # Read level profiles
         level_profiles = {}
         for lvl in ["A0", "A1", "A2", "B1", "B2", "C1"]:
-            profile_path = PROMPTS_DIR / f"profile-{lvl}.md"
-            if profile_path.exists():
-                level_profiles[lvl] = profile_path.read_text()
-            else:
-                level_profiles[lvl] = f"(No profile file for {lvl})"
-
-        # Extract correction prompt from function source
-        correction_src = inspect.getsource(extract_correction_highlight)
-        prompt_match = re.search(r'prompt = f"""(.+?)"""', correction_src, re.DOTALL)
-        correction_prompt = prompt_match.group(1).strip() if prompt_match else "See llm_service.py → extract_correction_highlight()"
+            level_profiles[lvl] = resolve_prompt(f"profile-{lvl}.md", user_id=user_id)
 
         return AdminPromptsResponse(
             conversation=conv,
@@ -453,11 +488,489 @@ async def get_admin_prompts():
             base=base,
             level_profiles=level_profiles,
             conv_unit_framing=conv_unit_framing,
+            is_sandbox=is_sandbox,
         )
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to read prompt templates: {e}"
         )
+
+
+class PromptSandboxDeployRequest(BaseModel):
+    snapshot: dict[str, str]
+
+@router.post("/prompts/sandbox")
+async def deploy_sandbox_prompts(
+    body: PromptSandboxDeployRequest,
+    user: User = Depends(get_current_user),
+):
+    """
+    Saves developer's custom prompts to their personal sandbox folder on disk.
+    These prompts will be used for all their chats in the simulator and app,
+    without affecting any other user.
+    """
+    from ..services.llm_service import PROMPTS_DIR
+    import os
+    
+    valid_names = [
+        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "end-result-prompt", "placement-check-prompt",
+        "correction-extraction-prompt",
+        "profile-A0", "profile-A1", "profile-A2",
+        "profile-B1", "profile-B2", "profile-C1",
+    ]
+    
+    # Validate keys
+    for name in body.snapshot:
+        clean_name = name.replace(".md", "")
+        if clean_name not in valid_names:
+            raise HTTPException(status_code=400, detail=f"Invalid prompt name: {name}")
+            
+    try:
+        # Create sandbox folder for this user
+        sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
+        os.makedirs(sandbox_dir, exist_ok=True)
+        
+        # Save the files
+        for name, content in body.snapshot.items():
+            filename = name if name.endswith(".md") else f"{name}.md"
+            target = sandbox_dir / filename
+            target.write_text(content)
+            
+        return {"status": "success", "message": f"Saved {len(body.snapshot)} prompts to your sandbox"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Filesystem error: {str(e)} (Check write permissions for {PROMPTS_DIR})")
+
+
+@router.delete("/prompts/sandbox")
+async def clear_sandbox_prompts(
+    user: User = Depends(get_current_user),
+):
+    """Clears the developer's sandbox prompts folder."""
+    from ..services.llm_service import PROMPTS_DIR
+    import shutil
+    
+    sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
+    try:
+        if sandbox_dir.exists():
+            shutil.rmtree(sandbox_dir)
+        return {"status": "success", "message": "Cleared sandbox prompts"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Filesystem error: {str(e)}")
+
+
+class PromptTestRequest(BaseModel):
+    system_prompt: str
+    messages: list[dict] = []  # [{"role": "user", "content": "..."}, ...]
+    max_tokens: int = 300
+    temperature: float = 0.75
+
+
+@router.post("/prompts/test")
+async def test_prompt(
+    body: PromptTestRequest,
+    _: None = Depends(_check_key),
+):
+    """Test a prompt with the LLM — isolated, never touches production or any user."""
+    from ..core.config import get_settings
+    import httpx
+
+    settings = get_settings()
+    api_messages = [{"role": "system", "content": body.system_prompt}] + body.messages
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{settings.deepseek_base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {settings.deepseek_api_key}"},
+                json={
+                    "model": settings.deepseek_model,
+                    "messages": api_messages,
+                    "max_tokens": body.max_tokens,
+                    "temperature": body.temperature,
+                },
+            )
+            data = resp.json()
+            reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            usage = data.get("usage", {})
+            return {
+                "reply": reply,
+                "usage": usage,
+                "model": data.get("model"),
+                "prompt_sent": body.system_prompt,
+            }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
+
+
+class PromptDeployRequest(BaseModel):
+    prompt_name: str  # e.g. "base-prompt", "profile-A0", "end-result-prompt"
+    content: str
+    author: str = "unknown"  # who deployed this
+
+
+@router.put("/prompts/deploy")
+async def deploy_prompt(
+    body: PromptDeployRequest,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Deploy a prompt to production — overwrites the .md file. USE WITH CAUTION."""
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
+    from ..services.llm_service import PROMPTS_DIR
+
+    # Validate prompt name
+    valid_names = [
+        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "end-result-prompt", "placement-check-prompt",
+        "correction-extraction-prompt", "starter-prompt",
+        "profile-A0", "profile-A1", "profile-A2",
+        "profile-B1", "profile-B2", "profile-C1",
+    ]
+    if body.prompt_name not in valid_names:
+        raise HTTPException(status_code=400, detail=f"Invalid prompt name. Valid: {valid_names}")
+
+    target = PROMPTS_DIR / f"{body.prompt_name}.md"
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"Prompt file not found: {body.prompt_name}.md")
+
+    # Save current version to history before overwriting
+    old_content = target.read_text()
+    from datetime import datetime, timezone
+    await db.execute(
+        prompt_history_table.insert().values(
+            prompt_name=body.prompt_name,
+            content=old_content,
+            author=body.author,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await db.commit()
+
+    # Backup current version as .bak file too
+    backup = PROMPTS_DIR / f"{body.prompt_name}.md.bak"
+    backup.write_text(old_content)
+
+    # Write new content
+    target.write_text(body.content)
+
+    return {
+        "status": "deployed",
+        "prompt_name": body.prompt_name,
+        "chars": len(body.content),
+        "backup": f"{body.prompt_name}.md.bak",
+    }
+
+
+@router.get("/prompts/history")
+async def get_prompt_history(
+    prompt_name: str = Query(None),
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get version history for prompts. Optionally filter by prompt_name."""
+    query = select(prompt_history_table).order_by(desc(prompt_history_table.c.created_at)).limit(50)
+    if prompt_name:
+        query = query.where(prompt_history_table.c.prompt_name == prompt_name)
+    result = await db.execute(query)
+    rows = result.fetchall()
+    return [
+        {
+            "id": row.id,
+            "prompt_name": row.prompt_name,
+            "content": row.content,
+            "author": row.author,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
+# ── Simple Prompt Versioning (v0.0.1 style) ──────────────────────────────────
+
+class PromptDeployAllRequest(BaseModel):
+    author: str
+    notes: str = ""  # optional release notes
+
+
+@router.post("/prompts/deploy-all")
+async def deploy_all_prompts(
+    body: PromptDeployAllRequest,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Atomic deploy — takes ALL visible textareas from the simulator (sent as snapshot),
+    writes them to .md files, and saves the entire set as one version.
+    Version auto-increments: v0.0.1, v0.0.2, v0.0.3...
+    """
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
+    from ..services.llm_service import PROMPTS_DIR
+    from datetime import timezone
+    import json
+
+    # Read ALL current prompt files into a snapshot
+    prompt_files = [
+        "base-prompt", "profile-A0", "profile-A1", "profile-A2",
+        "profile-B1", "profile-B2", "profile-C1",
+        "conv-unit-framing", "conversation-prompt",
+        "end-result-prompt", "placement-check-prompt",
+        "correction-extraction-prompt",
+    ]
+    snapshot = {}
+    for name in prompt_files:
+        path = PROMPTS_DIR / f"{name}.md"
+        if path.exists():
+            snapshot[name] = path.read_text()
+
+    # Determine next version number
+    last_version_result = await db.execute(
+        select(prompt_versions_table.c.version)
+        .order_by(desc(prompt_versions_table.c.id))
+        .limit(1)
+    )
+    last_row = last_version_result.fetchone()
+    if last_row and last_row.version:
+        # Parse v0.0.X and increment
+        parts = last_row.version.lstrip("v").split(".")
+        try:
+            parts[-1] = str(int(parts[-1]) + 1)
+            next_version = "v" + ".".join(parts)
+        except ValueError:
+            next_version = "v0.0.1"
+    else:
+        next_version = "v0.0.1"
+
+    # Save to DB
+    await db.execute(
+        prompt_versions_table.insert().values(
+            version=next_version,
+            author=body.author,
+            notes=body.notes,
+            snapshot=snapshot,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await db.commit()
+
+    return {
+        "status": "deployed",
+        "version": next_version,
+        "author": body.author,
+        "files_count": len(snapshot),
+        "files": list(snapshot.keys()),
+    }
+
+
+class PromptDeploySnapshotRequest(BaseModel):
+    author: str
+    notes: str = ""
+    snapshot: dict  # {"base-prompt": "content...", "profile-A0": "content...", ...}
+
+
+@router.post("/prompts/deploy-snapshot")
+async def deploy_snapshot(
+    body: PromptDeploySnapshotRequest,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Deploy a snapshot to production — writes files and updates the CURRENT version.
+    Does NOT auto-bump version. Multiple people can deploy iteratively on the same version.
+    Contributors are accumulated. Use POST /prompts/version-bump to intentionally create a new version.
+    """
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
+    from ..services.llm_service import PROMPTS_DIR
+    from datetime import timezone
+
+    valid_names = [
+        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "end-result-prompt", "placement-check-prompt",
+        "correction-extraction-prompt",
+        "profile-A0", "profile-A1", "profile-A2",
+        "profile-B1", "profile-B2", "profile-C1",
+    ]
+
+    # Validate all keys
+    for name in body.snapshot:
+        if name not in valid_names:
+            raise HTTPException(status_code=400, detail=f"Invalid prompt name: {name}. Valid: {valid_names}")
+
+    # Get current (latest) version
+    last_version_result = await db.execute(
+        select(prompt_versions_table)
+        .order_by(desc(prompt_versions_table.c.id))
+        .limit(1)
+    )
+    last_row = last_version_result.fetchone()
+
+    # Write files to disk
+    for name, file_content in body.snapshot.items():
+        target = PROMPTS_DIR / f"{name}.md"
+        if target.exists():
+            backup = PROMPTS_DIR / f"{name}.md.bak"
+            backup.write_text(target.read_text())
+        target.write_text(file_content)
+
+    if last_row:
+        # Update existing version — add contributor if new
+        existing_authors = last_row.author or ""
+        author_list = [a.strip() for a in existing_authors.split(",")]
+        if body.author.strip() not in author_list:
+            author_list.append(body.author.strip())
+        new_authors = ", ".join(author_list)
+
+        await db.execute(
+            prompt_versions_table.update()
+            .where(prompt_versions_table.c.id == last_row.id)
+            .values(
+                author=new_authors,
+                snapshot=body.snapshot,
+                notes=body.notes,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        await db.commit()
+
+        return {
+            "status": "deployed",
+            "version": last_row.version,
+            "author": new_authors,
+            "files_written": list(body.snapshot.keys()),
+            "files_count": len(body.snapshot),
+        }
+    else:
+        # No version exists yet — create v0.0.1
+        await db.execute(
+            prompt_versions_table.insert().values(
+                version="v0.0.1",
+                author=body.author,
+                notes="",
+                snapshot=body.snapshot,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        await db.commit()
+
+        return {
+            "status": "deployed",
+            "version": "v0.0.1",
+            "author": body.author,
+            "files_written": list(body.snapshot.keys()),
+            "files_count": len(body.snapshot),
+        }
+
+
+@router.post("/prompts/version-bump")
+async def bump_prompt_version(
+    body: dict = None,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Intentionally bump to a new version — takes a snapshot of current production files
+    and locks the current state as the next version number. Use when iteration is done.
+    """
+    raise HTTPException(status_code=403, detail="Deploy feature is currently disabled.")
+    from ..services.llm_service import PROMPTS_DIR
+    from datetime import timezone
+
+    author = (body or {}).get("author", "(unknown)")
+
+    # Read current prompt files
+    prompt_files = [
+        "base-prompt", "profile-A0", "profile-A1", "profile-A2",
+        "profile-B1", "profile-B2", "profile-C1",
+        "conv-unit-framing", "conversation-prompt",
+        "end-result-prompt", "placement-check-prompt",
+        "correction-extraction-prompt",
+    ]
+    snapshot = {}
+    for name in prompt_files:
+        path = PROMPTS_DIR / f"{name}.md"
+        if path.exists():
+            snapshot[name] = path.read_text()
+
+    # Determine next version
+    last_version_result = await db.execute(
+        select(prompt_versions_table.c.version)
+        .order_by(desc(prompt_versions_table.c.id))
+        .limit(1)
+    )
+    last_row = last_version_result.fetchone()
+    if last_row and last_row.version:
+        parts = last_row.version.lstrip("v").split(".")
+        try:
+            parts[-1] = str(int(parts[-1]) + 1)
+            next_version = "v" + ".".join(parts)
+        except ValueError:
+            next_version = "v0.0.1"
+    else:
+        next_version = "v0.0.1"
+
+    # Create new version row
+    await db.execute(
+        prompt_versions_table.insert().values(
+            version=next_version,
+            author=author,
+            notes="",
+            snapshot=snapshot,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await db.commit()
+
+    return {
+        "status": "bumped",
+        "version": next_version,
+        "files_count": len(snapshot),
+    }
+
+
+@router.get("/prompts/versions")
+async def get_prompt_versions(
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all prompt versions — simple list with version, author, timestamp."""
+    result = await db.execute(
+        select(prompt_versions_table).order_by(desc(prompt_versions_table.c.id)).limit(50)
+    )
+    rows = result.fetchall()
+    return [
+        {
+            "id": row.id,
+            "version": row.version,
+            "author": row.author,
+            "notes": row.notes,
+            "files_count": len(row.snapshot) if row.snapshot else 0,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
+@router.get("/prompts/versions/{version_id}")
+async def get_prompt_version_detail(
+    version_id: int,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get full snapshot for a specific version — used to restore."""
+    result = await db.execute(
+        select(prompt_versions_table).where(prompt_versions_table.c.id == version_id)
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return {
+        "id": row.id,
+        "version": row.version,
+        "author": row.author,
+        "notes": row.notes,
+        "snapshot": row.snapshot,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
 
 
 class JumpRequest(BaseModel):
@@ -492,13 +1005,14 @@ async def jump_user_to_level(
         raise HTTPException(status_code=404, detail=f"No user found with email '{body.email}'")
 
     user.level = body.level.upper()
+    # Targets are level-specific even when the public unit ID repeats.
+    user.due_next = {}
 
     if body.reset_progress:
         user.skills_progress = {
             "owned": [], "emerging": [], "sightings": {},
             "strength": {}, "last_seen": {}, "effort": {"times_spoken_total": 0}
         }
-        user.due_next = {}
 
     db.add(user)
     await db.flush()
@@ -524,12 +1038,23 @@ async def reset_user(
     if not user:
         raise HTTPException(status_code=404, detail=f"User with device_id '{device_id}' not found")
 
-    # Delete placements
-    await db.execute(
-        select(Placement).where(Placement.user_id == user.id)
-    )
     from sqlalchemy import delete
+    from ..models.session_analysis import SessionAnalysis
+    from ..models.message import Message
+    from ..models.conversation import Conversation
+
+    # Delete placements
     await db.execute(delete(Placement).where(Placement.user_id == user.id))
+
+    # Delete conversations and related records
+    conv_res = await db.execute(select(Conversation.id).where(Conversation.user_id == user.id))
+    conv_ids = conv_res.scalars().all()
+
+    if conv_ids:
+        await db.execute(delete(SessionAnalysis).where(SessionAnalysis.conversation_id.in_(conv_ids)))
+        await db.execute(delete(Message).where(Message.conversation_id.in_(conv_ids)))
+        await db.execute(delete(Conversation).where(Conversation.id.in_(conv_ids)))
+
 
     # Reset user fields
     user.level = None
@@ -557,4 +1082,3 @@ async def get_admin_curriculum(
     """Get dynamic curriculum structure representing levels, steps, and flat skills."""
     from ..core.curriculum_data import UNITS
     return UNITS
-

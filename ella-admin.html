@@ -363,6 +363,7 @@
   </div>
 </div>
 
+
 <!-- Transcript modal -->
 <div class="modal" id="transcript-modal">
   <div class="modal-box">
@@ -396,6 +397,45 @@
   let CURRICULUM = null;
 
   const LEVEL_COLORS = { A1: '#f59e0b', A2: '#3b82f6', B1: '#10b981', B2: '#8b5cf6', C1: '#ec4899' };
+
+  function syntaxHighlightJSON(json) {
+    if (typeof json !== 'string') {
+      json = JSON.stringify(json, undefined, 2);
+    }
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, function (match) {
+      var cls = 'number';
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = 'key';
+        } else {
+          cls = 'string';
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'boolean';
+      } else if (/null/.test(match)) {
+        cls = 'null';
+      }
+      
+      let color = '#d4d4d4';
+      if (cls === 'key') color = '#9cdcfe';
+      else if (cls === 'string') color = '#ce9178';
+      else if (cls === 'number') color = '#b5cea8';
+      else if (cls === 'boolean') color = '#569cd6';
+      else if (cls === 'null') color = '#569cd6';
+      
+      return '<span style="color:' + color + ';">' + match + '</span>';
+    });
+  }
+
+  function syntaxHighlightPrompt(text) {
+    if (!text) return 'Prompt not available';
+    let escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    escaped = escaped.replace(/^(#+\s+.*)$/gm, '<span style="color:#ffd700; font-weight:bold;">$1</span>');
+    escaped = escaped.replace(/(TARGET SKILLS:|TRANSCRIPT:|CRITICAL INSTRUCTIONS:|SYSTEM INSTRUCTIONS:|RULES:|SCAFFOLDING LADDER:)/gi, '<span style="color:#569cd6; font-weight:bold;">$1</span>');
+    escaped = escaped.replace(/(\{\{[A-Z_]+\}\})/g, '<span style="color:#ce9178; font-weight:bold;">$1</span>');
+    return escaped;
+  }
 
   function formatDate(isoString) {
     if (!isoString) return '—';
@@ -492,9 +532,10 @@
     
     const ownedList = (u.skills_progress && u.skills_progress.owned) || [];
     let ownedCount = 0;
+    const lvl = u.level.toUpperCase();
     steps.forEach(step => {
       step.skills.forEach(s => {
-        if (ownedList.includes(s.id)) ownedCount++;
+        if (ownedList.includes(s.id) || ownedList.includes(`${lvl}:${s.id}`)) ownedCount++;
       });
     });
     
@@ -847,8 +888,8 @@
     let emergingCount = 0;
     steps.forEach(step => {
       step.skills.forEach(s => {
-        if (ownedList.includes(s.id)) ownedCount++;
-        else if (emergingList.includes(s.id)) emergingCount++;
+        if (ownedList.includes(s.id) || ownedList.includes(`${currentLevel}:${s.id}`)) ownedCount++;
+        else if (emergingList.includes(s.id) || emergingList.includes(`${currentLevel}:${s.id}`)) emergingCount++;
       });
     });
 
@@ -909,17 +950,17 @@
         step.skills.forEach(s => {
           let status = 'locked';
           let statusText = 'Locked';
-          if (ownedList.includes(s.id)) {
+          if (ownedList.includes(s.id) || ownedList.includes(`${currentLevel}:${s.id}`)) {
             status = 'owned';
             statusText = 'Mastered';
-          } else if (emergingList.includes(s.id)) {
+          } else if (emergingList.includes(s.id) || emergingList.includes(`${currentLevel}:${s.id}`)) {
             status = 'emerging';
             statusText = 'Emerging';
           }
 
           // Build evidence logs
           let evidenceHtml = '';
-          const rawEvidence = (progress.evidence && progress.evidence[s.id]) || [];
+          const rawEvidence = (progress.evidence && (progress.evidence[s.id] || progress.evidence[`${currentLevel}:${s.id}`])) || [];
           if (rawEvidence.length > 0) {
             evidenceHtml = `<div class="evidence-box">`;
             rawEvidence.forEach(ev => {
@@ -1019,11 +1060,11 @@
       if (!d.available) {
         document.getElementById('modal-content').innerHTML = `
           <div style="color:#888;padding:16px;background:#f9f9f9;border-radius:8px;font-size:13px;">
-            ⚠️ ${d.message || 'Analysis not available for this session.'}
+            ⚠️ ${d.message || 'Judge response is not available for this session.'}
           </div>
           ${d.transcript && d.transcript.length ? `
             <div style="margin-top:16px;font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript</div>
-            ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+            ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? (m.input_mode === 'text' ? '⌨️ Student (typed)' : '🎤 Student') : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
           ` : ''}
         `;
         return;
@@ -1059,21 +1100,84 @@
       // Skills aimed this session
       if (d.scores && d.scores.length > 0) {
         html += `<div style="margin-bottom:16px;">
-          <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Skills aimed this session (threshold: ${d.floor_pct}%)</div>`;
+          <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Skills aimed this session</div>`;
         d.scores.forEach(sc => {
-          const bg = sc.passed ? '#f0fdf4' : sc.confidence_pct >= 30 ? '#fffbeb' : '#fef2f2';
-          const border = sc.passed ? '#86efac' : sc.confidence_pct >= 30 ? '#fcd34d' : '#fca5a5';
-          const icon = sc.passed ? '✅' : sc.confidence_pct >= 30 ? '⚠️' : '❌';
-          const promptedTag = sc.prompted ? `<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:6px;">prompted</span>` : `<span style="background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:6px;">organic</span>`;
-          html += `<div style="background:${bg};border:1px solid ${border};padding:10px 12px;border-radius:8px;margin-bottom:8px;font-size:13px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
-              <strong>${icon} ${sc.skill_text || sc.id}</strong>
-              <span style="font-size:12px;font-weight:700;color:${sc.passed ? '#15803d' : '#b45309'};">${sc.confidence_pct}% confidence${promptedTag}</span>
+          const confidenceFloat = (sc.confidence_pct / 100).toFixed(2);
+          const isPassed = sc.passed;
+          const progressColor = isPassed ? '#22c55e' : '#ef4444';
+          const promptedText = sc.prompted ? 'prompted' : 'organic';
+          
+          // Determine strand from skill ID
+          const getStrand = (id) => {
+            const m = id.match(/-(VOC|GRA|FLU)-/i);
+            return m ? m[1].toUpperCase() : 'VOC';
+          };
+          const strand = getStrand(sc.id);
+          
+          // Determine Reason
+          let reasonText = '';
+          if (isPassed) {
+            reasonText = 'Strong evidence; counts as a qualifying sighting.';
+          } else if (sc.confidence_pct >= 30) {
+            reasonText = 'Evidence too weak for this target; Zoe should elicit a clearer answer.';
+          } else {
+            reasonText = 'No evidence found. Likely Zoe did not create a chance, learner stayed off-target, or the chat was too short.';
+          }
+          
+          // Determine Next Zoe Move
+          let nextMoveText = '';
+          if (strand === 'GRA') {
+            nextMoveText = 'If stuck, offer a frame: He is ___. They are ___.';
+          } else {
+            nextMoveText = 'If they give one word, ask: Good. Say one more thing. What colour/size is it? Where is it?';
+          }
+          
+          html += `
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:8px; padding:16px; margin-bottom:12px; font-family:inherit; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+              <!-- Card Header -->
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-size:13px; font-weight:700; color:#1f2937;">
+                  ${sc.id} <span style="font-weight:400; color:#6b7280; margin:0 4px;">·</span> <span style="font-weight:400; color:#6b7280; font-size:12px;">${promptedText}</span>
+                </div>
+                <div style="font-size:14px; font-weight:800; color:${progressColor}; margin-left:auto;">
+                  ${confidenceFloat}
+                </div>
+              </div>
+              
+              <!-- Skill description -->
+              <div style="font-size:13px; color:#374151; margin-bottom:10px; line-height:1.4;">
+                ${sc.skill_text || sc.id}
+              </div>
+              
+              <!-- Progress Bar -->
+              <div style="width:100%; background-color:#f3f4f6; height:6px; border-radius:3px; margin-bottom:12px; overflow:hidden;">
+                <div style="background-color:${progressColor}; height:100%; width:${sc.confidence_pct}%;"></div>
+              </div>
+              
+              <!-- Evidence Quote (if present) -->
+              ${sc.evidence ? `
+                <div style="font-size:13px; color:#4b5563; font-style:italic; margin-bottom:10px; padding-left:8px; border-left:2px solid #d1d5db;">
+                  "${sc.evidence}"
+                </div>
+              ` : ''}
+              
+              <!-- Reason -->
+              <div style="font-size:12.5px; color:#4b5563; margin-bottom:6px;">
+                <strong>Reason:</strong> ${reasonText}
+              </div>
+              
+              <!-- Next Zoe Move -->
+              <div style="font-size:12.5px; color:#1d4ed8; font-weight:600;">
+                Next Zoe move: <span style="font-weight:400; color:#2563eb;">${nextMoveText}</span>
+              </div>
             </div>
-            ${sc.evidence ? `<div style="color:#4b5563;font-size:12px;margin-top:4px;font-style:italic;">"${sc.evidence}"</div>` : ''}
-            ${sc.miss_reason ? `<div style="color:#b45309;font-size:11px;margin-top:4px;">💡 ${sc.miss_reason}</div>` : ''}
-          </div>`;
+          `;
         });
+        
+        // Add footer legend
+        html += `<div style="font-size:11.1px; color:#6b7280; margin-top:-4px; margin-bottom:16px;">
+          ≥0.70 qualifying evidence · &lt;0.70 ignored. Reasons show whether Zoe needs a better elicitation follow-up.
+        </div>`;
         html += `</div>`;
       }
 
@@ -1125,51 +1229,137 @@
       if (d.transcript && d.transcript.length > 0) {
         html += `<div style="margin-top:8px;">
           <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Transcript (${d.transcript.length} turns)</div>
-          ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? '🎤 Student' : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
+          ${d.transcript.map(m => `<div class="turn ${m.role === 'me' ? 'user' : 'assistant'}"><div class="role">${m.role === 'me' ? (m.input_mode === 'text' ? '⌨️ Student (typed)' : '🎤 Student') : '🤖 Zoe'}</div><div class="content">${m.content}</div></div>`).join('')}
         </div>`;
       }
 
-      // Developer Debug Section (Glass Box)
-      if (d.judge_prompt || d.judge_response) {
-        html += `
-          <div style="margin-top:24px;border-top:1.5px solid #F0E4CC;padding-top:16px;">
-            <button class="transcript-btn" style="border-color:#b45309;color:#b45309;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleDebugPanel()">
-              <span style="font-weight:600;">🔍 Developer Glass Box (Show Judge Prompt & Response)</span>
-              <span id="debug-arrow">▼</span>
-            </button>
-            <div id="debug-panel" style="display:none;margin-top:12px;background:#fdf6e2;padding:14px;border-radius:10px;border:1px solid #F0E4CC;">
-              
-              <div style="margin-bottom:12px;">
-                <div style="font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;margin-bottom:4px;">1. System Prompt Sent to LLM Judge</div>
-                <pre style="white-space:pre-wrap;font-family:monospace;font-size:12px;background:#fff;padding:10px;border:1px solid #f5e6d3;border-radius:6px;max-height:250px;overflow-y:auto;color:#333;margin:0;">${d.judge_prompt || 'No prompt payload available'}</pre>
-              </div>
-
-              <div>
-                <div style="font-size:11px;font-weight:700;color:#78350f;text-transform:uppercase;margin-bottom:4px;">2. Raw JSON Response Returned by LLM Judge</div>
-                <pre style="white-space:pre-wrap;font-family:monospace;font-size:12px;background:#fff;padding:10px;border:1px solid #f5e6d3;border-radius:6px;max-height:250px;overflow-y:auto;color:#1e293b;margin:0;">${JSON.stringify(d.judge_response || {}, null, 2)}</pre>
-              </div>
-
-            </div>
-          </div>
-        `;
+      // Conversation prompt used
+      if (d.prompt_used) {
+        html += `<div style="margin-top:16px;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📋 Conversation Prompt Used (what Zoe saw)</div>
+          <details>
+            <summary style="cursor:pointer;font-size:12px;color:#6B5740;padding:6px 0;">Click to expand full system prompt</summary>
+            <pre style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;margin-top:8px;">${d.prompt_used.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+          </details>
+        </div>`;
       }
+
+      // Developer Debug Section
+      // Reconstruct Android Client's Request Body (SessionAnalysisRequest)
+      const androidRequestBody = {
+        session_id: convId,
+        messages: d.transcript.map(m => ({
+          role: m.role === 'me' ? 'user' : 'assistant',
+          content: m.content
+        })),
+        unit: d.topic,
+        level: d.level,
+        unit_label: d.topic || "First words",
+        progression_model: "unit",
+        turns_total: d.turns_total
+      };
+
+      // Reconstruct Android Client's Response Body (SessionAnalysisResponse)
+      const androidResponseBody = {
+        session_id: convId,
+        overall: d.overall,
+        best_moment: d.best_moment,
+        courage: d.courage,
+        try_next: d.try_next,
+        zoe_recap: d.zoe_recap,
+        scores: d.scores.map(sc => ({
+          id: sc.id,
+          name: sc.skill_text,
+          confidence: Number((sc.confidence_pct / 100).toFixed(2)),
+          prompted: sc.prompted,
+          support_level: sc.support_level || null,
+          evidence: sc.evidence,
+          reason: sc.passed ? "Strong evidence; counts as a qualifying sighting." : sc.miss_reason
+        })),
+        state_changes: d.state_changes,
+        correction_highlight: d.correction_highlight
+      };
+
+      const adminRequestUrl = `${BASE_URL}/admin/conversations/${convId}/analysis`;
+      const judgeRequestUrl = `${BASE_URL}/llm/judge`;
+
+      html += `
+        <div style="margin-top:28px; border-top:1px solid #e5e7eb; padding-top:20px; margin-bottom:16px;">
+          <div style="font-size:12px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">🛠️ Developer Debug Logs</div>
+          
+          <div style="font-size:12.5px; font-weight:700; color:#4b5563; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span>📱 MOBILE APP API LOGS (Android app -> Backend)</span>
+          </div>
+
+          <!-- Mobile App -> Backend API Log -->
+          <div style="background:#1e1e1e; border:1px solid #333333; border-radius:6px; padding:10px 14px; margin-bottom:8px; font-family:Consolas, 'Courier New', monospace; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <span style="color:#569cd6; font-weight:700;">POST</span> 
+              <span style="color:#9cdcfe; word-break:break-all;">${judgeRequestUrl}</span>
+            </div>
+            <div style="background:#4ec9b0; color:#1e1e1e; font-size:10px; font-weight:800; padding:2px 6px; border-radius:3px; text-transform:uppercase;">200 OK</div>
+          </div>
+
+          <details style="margin-bottom:8px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#b5cea8; margin-right:6px;">⚡</span> Mobile App Request Body (what Android sends)
+            </summary>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre; overflow-x:auto;">
+              ${syntaxHighlightJSON(androidRequestBody)}
+            </div>
+          </details>
+          
+          <details style="margin-bottom:20px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#ce9178; margin-right:6px;">📥</span> Mobile App Response Body (what Android receives)
+            </summary>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre; overflow-x:auto;">
+              ${syntaxHighlightJSON(androidResponseBody)}
+            </div>
+          </details>
+
+          <div style="font-size:12.5px; font-weight:700; color:#4b5563; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span>🤖 BACKEND ➔ LLM JUDGE COMPLETIONS</span>
+          </div>
+
+          <!-- Backend -> LLM completions endpoint -->
+          <div style="background:#1e1e1e; border:1px solid #333333; border-radius:6px; padding:10px 14px; margin-bottom:8px; font-family:Consolas, 'Courier New', monospace; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <span style="color:#569cd6; font-weight:700;">POST</span> 
+              <span style="color:#9cdcfe; word-break:break-all;">${d.judge_endpoint || 'https://api.deepseek.com/v1/chat/completions'}</span>
+              ${d.judge_model ? `<span style="color:#6b7280; font-size:11px; margin-left:6px;">(${d.judge_model})</span>` : '<span style="color:#6b7280; font-size:11px; margin-left:6px;">(deepseek-chat)</span>'}
+            </div>
+            <div style="background:#4ec9b0; color:#1e1e1e; font-size:10px; font-weight:800; padding:2px 6px; border-radius:3px; text-transform:uppercase;">200 OK</div>
+          </div>
+
+          <details style="margin-bottom:8px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#b5cea8; margin-right:6px;">⚡</span> LLM Prompt Payload (what backend sends to LLM)
+            </summary>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre-wrap; word-break:break-word;">
+              ${syntaxHighlightPrompt(d.judge_prompt)}
+            </div>
+          </details>
+          
+          <details style="margin-bottom:20px; border:1px solid #333333; border-radius:6px; background:#1e1e1e; overflow:hidden;">
+            <summary style="font-family:Consolas, 'Courier New', monospace; font-size:12.5px; font-weight:600; color:#d4d4d4; padding:12px; cursor:pointer; user-select:none; background:#252526; border-bottom:1px solid #333333;">
+              <span style="color:#ce9178; margin-right:6px;">📥</span> LLM Raw JSON Response (what backend receives from LLM)
+            </summary>
+            <div style="padding:14px; background:#1e1e1e; max-height:350px; overflow:auto; font-family:Consolas, 'Courier New', monospace; font-size:12px; line-height:1.5; color:#d4d4d4; white-space:pre; overflow-x:auto;">
+              ${d.judge_response ? syntaxHighlightJSON(d.judge_response) : '<span style="color:#6a9955;">No response body available</span>'}
+            </div>
+          </details>
+
+          <!-- Admin dashboard API route -->
+          <div style="font-size:11px; color:#6b7280; text-align:right;">
+            Dashboard API: <a href="${adminRequestUrl}?key=${encodeURIComponent(ADMIN_KEY)}" target="_blank" style="color:#1a73e8; text-decoration:none;">GET /analysis</a>
+          </div>
+        </div>
+      `;
 
       document.getElementById('modal-content').innerHTML = html;
     } catch(e) {
       document.getElementById('modal-content').innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
-    }
-  }
-
-  window.toggleDebugPanel = function() {
-    const panel = document.getElementById('debug-panel');
-    const arrow = document.getElementById('debug-arrow');
-    if (!panel) return;
-    if (panel.style.display === 'none') {
-      panel.style.display = 'block';
-      if (arrow) arrow.textContent = '▲';
-    } else {
-      panel.style.display = 'none';
-      if (arrow) arrow.textContent = '▼';
     }
   }
 
@@ -1206,6 +1396,20 @@
     const pill = (text, bg, fg) =>
       `<span style="display:inline-block;background:${bg};color:${fg};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:3px 3px 3px 0;">${text}</span>`;
 
+    const getStrandColors = (id) => {
+      const m = id.match(/-(VOC|GRA|FLU)-/i);
+      const strand = m ? m[1].toUpperCase() : 'VOC';
+      if (strand === 'VOC') return { bg: '#fff3e0', border: '#ffd180', text: '#d84315' }; // Orange
+      if (strand === 'GRA') return { bg: '#f3e5f5', border: '#ea80fc', text: '#6a1b9a' }; // Purple
+      if (strand === 'FLU') return { bg: '#e8f5e9', border: '#b9f6ca', text: '#2e7d32' }; // Green
+      return { bg: '#f3f4f6', border: '#d1d5db', text: '#374151' }; // Gray
+    };
+
+    const skillBadge = (id) => {
+      const c = getStrandColors(id);
+      return `<span style="display:inline-block; background:${c.bg}; color:${c.text}; border:1px solid ${c.border}; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; margin:2px 4px 2px 0;" title="${id}">${id}</span>`;
+    };
+
     let html = '';
 
     // Profile
@@ -1216,6 +1420,9 @@
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Level:</strong> ${u.level || '—'}</div>
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Unit:</strong> ${u.unit_label || '—'}</div>
         <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>First session done:</strong> ${u.first_session_done ? 'Yes' : 'No'}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Total sessions:</strong> ${u.total_sessions || 0}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Completed:</strong> ${u.completed_sessions || 0}</div>
+        <div style="background:#FFF7EC;padding:6px 12px;border-radius:8px;border:1px solid #F0E4CC;"><strong>Turns spoken:</strong> ${effort.times_spoken_total || 0}</div>
       </div>
     `);
 
@@ -1255,9 +1462,9 @@
     const watching = dueNext.watching || [];
     html += section('Next Skill Targets', '#1A6CC8',
       (primary || watching.length > 0)
-        ? `<div style="font-size:13px;">
-            ${primary ? `<div style="margin-bottom:6px;">${pill('Primary', '#E8F4FF', '#1A6CC8')} <strong>${primary}</strong></div>` : ''}
-            ${watching.length > 0 ? `<div>${pill('Watching', '#F0F4FF', '#6B5AB0')} ${watching.join(', ')}</div>` : ''}
+        ? `<div style="font-size:13px; display:flex; flex-direction:column; gap:6px;">
+            ${primary ? `<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">${pill('Primary', '#E8F4FF', '#1A6CC8')} ${skillBadge(primary)}</div>` : ''}
+            ${watching.length > 0 ? `<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">${pill('Watching', '#F0F4FF', '#6B5AB0')} <div style="display:inline-flex; flex-wrap:wrap; gap:2px;">${watching.map(skillBadge).join('')}</div></div>` : ''}
           </div>`
         : '<span style="color:#aaa;font-size:13px;">No targets set yet</span>'
     );
@@ -1269,8 +1476,22 @@
         <div style="background:#FFFBEB;padding:6px 12px;border-radius:8px;border:1px solid #fcd34d;"><strong style="color:#D97706;">${emerging.length}</strong> Emerging</div>
         <div style="background:#F3F4F6;padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;"><strong style="color:#374151;">${effort.times_spoken_total || 0}</strong> Total speaking turns</div>
       </div>
-      ${owned.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">${owned.map(id => pill(id, '#E6FDF4', '#059669')).join('')}</div>` : ''}
-      ${emerging.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">${emerging.map(id => pill(id, '#FFFBEB', '#D97706')).join('')}</div>` : ''}
+      ${owned.length > 0 ? `<div style="margin-top:4px;font-size:12px;color:#6B5740;">Owned: ${owned.map(id => pill(id, '#E6FDF4', '#059669')).join('')}</div>` : ''}
+      ${emerging.length > 0 ? `<div style="margin-top:8px;font-size:12px;color:#6B5740;">Emerging:</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+          ${emerging.map(id => {
+            const s = sightings[id] || 0;
+            const pct = Math.round((s / 3) * 100);
+            const barColor = s >= 3 ? '#059669' : s >= 2 ? '#f59e0b' : '#3b82f6';
+            return `<div style="display:flex;align-items:center;gap:8px;">
+              ${pill(id, '#FFFBEB', '#D97706')}
+              <div style="flex:1;max-width:120px;height:8px;background:#eee;border-radius:4px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${barColor};border-radius:4px;"></div>
+              </div>
+              <span style="font-size:11px;font-weight:700;color:${barColor};">${s}/3</span>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
     `);
 
     // Evidence
@@ -1280,7 +1501,7 @@
       let evHtml = '';
       evidenceEntries.forEach(([skillId, entries]) => {
         evHtml += `<div style="margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:#6B5740;margin-bottom:4px;">${skillId}</div>`;
+          <div style="margin-bottom:4px;">${skillBadge(skillId)}</div>`;
         (Array.isArray(entries) ? entries : [entries]).forEach(e => {
           const text = typeof e === 'string' ? e : e.evidence || '';
           const topic = typeof e === 'string' ? '' : e.topic || '';
@@ -1305,6 +1526,7 @@
   function closeMemoryModal() {
     document.getElementById('memory-modal').classList.remove('open');
   }
+
 </script>
 </body>
 </html>

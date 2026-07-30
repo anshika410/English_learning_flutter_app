@@ -25,7 +25,9 @@ async def create_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     from ..services import llm_service
-    from ..core.curriculum_data import UNITS, LEVEL_TOPICS
+    from ..core.curriculum_data import (
+        UNITS, LEVEL_TOPICS, targets_list_for, validate_due_next,
+    )
 
     # Determine aimed_at skills based on active unit step
     aimed_skills = []
@@ -40,7 +42,10 @@ async def create_conversation(
                 break
 
     if not active_unit_obj:
-        due = user.due_next or {}
+        due = validate_due_next(user.due_next, level)
+        if not due:
+            aimed = targets_list_for(user.skills_progress or {}, "unit", level)
+            due = {"primary": aimed[0] if aimed else None}
         primary_skill_id = due.get("primary")
         if primary_skill_id:
             for u in units:
@@ -93,11 +98,24 @@ async def create_conversation(
 
     # Generate starter using LLM
     try:
-        starter_data = await llm_service.generate_conversation_starter(topic=topic_name, starters=starters, level=user.level or "A1")
+        starter_data = await llm_service.generate_conversation_starter(
+            topic=topic_name,
+            starters=starters,
+            level=level,
+            due_next=user.due_next,
+            skills_progress=user.skills_progress,
+            persona_memory=user.persona_memory,
+            custom_prompts=body.custom_prompts,
+            user_id=user.id,
+        )
         starter_text = starter_data["starter"]
-    except Exception as e:
-        # Fallback starter if LLM fails
-        starter_text = "Hi! I’m Zoe. Let's talk!"
+    except Exception:
+        # Keep the fallback compatible with the active level profile.
+        starter_text = (
+            "Rice or noodles?"
+            if level == "A0"
+            else "What would you like to talk about today?"
+        )
 
     conv = Conversation(user_id=user.id, topic=unit_name, header_title=topic_name)
     db.add(conv)
@@ -161,6 +179,7 @@ async def store_message(
         role=body.role,
         content=body.content,
         turn_number=body.turn_number,
+        input_mode=body.input_mode,
     )
     db.add(msg)
     await db.flush()
@@ -294,6 +313,7 @@ async def get_session_log(
             "name": get_skill_text(s.get("id"), user.level),
             "confidence": conf,
             "prompted": s.get("prompted", False),
+            "support_level": s.get("support_level"),
             "evidence": s.get("evidence") or "",
             "reason": get_miss_reason(conf),
         })
@@ -358,6 +378,7 @@ async def conversation_turn(
         role="user",
         content=body.content,
         turn_number=user_turn_number,
+        input_mode=body.input_mode,
     )
     db.add(user_msg)
     await db.flush()
@@ -382,17 +403,16 @@ async def conversation_turn(
     unit_label = level_label_map.get(level_code.upper(), "Finding My Voice")
 
     # Resolve target skills
-    due_next = user.due_next or {}
+    from ..core.curriculum_data import (
+        make_due_next, targets_list_for, validate_due_next,
+    )
+    due_next = validate_due_next(user.due_next, level_code)
     if not due_next or not due_next.get("primary"):
-        from ..core.curriculum_data import targets_list_for
         session_type = conv.session_type or "unit"
         if session_type not in ("unit", "skill"):
             session_type = "unit"
         aimed = targets_list_for(user.skills_progress or {}, session_type, level_code)
-        due_next = {
-            "primary": aimed[0] if aimed else None,
-            "watching": aimed[1:] if len(aimed) > 1 else []
-        }
+        due_next = make_due_next(aimed, level_code)
 
     # 6. Call LLM service to get Zoe's response
     start_time = time.time()
@@ -406,6 +426,8 @@ async def conversation_turn(
             persona_memory=user.persona_memory,
             due_next=due_next,
             skills_progress=user.skills_progress or {},
+            custom_prompts=body.custom_prompts,
+            user_id=user.id,
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM service error: {e}")
@@ -427,6 +449,11 @@ async def conversation_turn(
     if llm_result.get("conversation_complete"):
         conv.completed = True
         conv.completed_at = datetime.now(timezone.utc)
+
+    # Store the prompt used for this session (first turn only, to avoid overwriting)
+    if not conv.prompt_used and llm_result.get("prompt_debug"):
+        debug = llm_result["prompt_debug"]
+        conv.prompt_used = debug.get("system_prompt", "") if isinstance(debug, dict) else str(debug)
         
     await db.commit()
     
@@ -482,5 +509,6 @@ def _msg_out(m: Message) -> MessageOut:
         role=m.role,
         content=m.content,
         turn_number=m.turn_number,
+        input_mode=m.input_mode,
         created_at=m.created_at,
     )

@@ -77,12 +77,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // ── Zoe's script (Figma copy) ───────────────────────────────────────────────
 
   static const String _introText =
-      "Hi, I'm Zoe 👋\nI'll help your English grow and want to know you "
-      'better. What is your name?';
+      "Hi, I'm Zoe 👋\nI'll help you practise speaking English. "
+      'What should I call you?';
   String get _ageText =>
-      'Great, $_name. Next, I wanted to know what is your age?';
+      'Nice to meet you, $_name! How old are you? This helps me choose practice that fits you';
   String get _congratsText =>
-      "Alright $_name. Your garden is ready! Let's plant something";
+      "Great, $_name! Your garden is ready. Let's grow your first plant";
 
   String get _zoeText =>
       _zoeOverride ??
@@ -273,6 +273,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       }
     }
 
+    // Extract just the first name
+    t = t.split(RegExp(r'\s+')).first;
     return (t[0].toUpperCase() + t.substring(1), null);
   }
 
@@ -330,7 +332,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       if (age == null) {
         await _reask(
           typed,
-          "I couldn't get your correct age. Can you please share your age again?",
+          'Enter your age as a number, like 10.',
         );
         return;
       }

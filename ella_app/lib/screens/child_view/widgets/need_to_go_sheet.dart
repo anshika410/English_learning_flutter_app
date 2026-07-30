@@ -2,8 +2,8 @@
 //
 // Replaces the old generic "Leave this chat?" dialog. Slides up over a dimmed
 // backdrop (Zoe rests in her paused/sway pose behind it) and offers two CTAs:
-// a prominent "Keep talking" (return to the chat) and a secondary "Bye for
-// now, Zoe" (end the session → garden). Presentation only: it pops with a
+// a prominent "Keep Talking" (return to the chat) and a secondary "Finish
+// Conversation" (end the session → garden). Presentation only: it pops with a
 // [NeedToGoResult] and the caller performs the actions.
 
 import 'package:flutter/material.dart';
@@ -12,7 +12,7 @@ import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import 'ella_primary_button.dart';
 
-/// The choice the child made on the "Need to go?" sheet.
+/// The choice the child made on the "Finish for now?" sheet.
 enum NeedToGoResult { keepTalking, leave }
 
 /// Shows the sheet and resolves to the chosen [NeedToGoResult], or `null` if
@@ -61,20 +61,20 @@ class _NeedToGoSheet extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Need to go?',
+              'Finish for now?',
               textAlign: TextAlign.center,
               style: EllaTextStyles.titleMedium,
             ),
             const SizedBox(height: 20),
             EllaPrimaryButton(
-              label: 'Keep talking',
+              label: 'Keep Talking',
               height: 56,
               onTap: () =>
                   Navigator.of(context).pop(NeedToGoResult.keepTalking),
             ),
             const SizedBox(height: 12),
             EllaPrimaryButton(
-              label: 'Bye for now, Zoe',
+              label: 'Finish Conversation',
               height: 56,
               variant: EllaButtonVariant.outline,
               onTap: () => Navigator.of(context).pop(NeedToGoResult.leave),

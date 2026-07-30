@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import '../services/api_service.dart';
-import '../services/continuous_stt_service.dart';
 import '../services/native_stt_service.dart';
 import '../services/backend_llm_service.dart';
 import '../services/tts_manager.dart';
@@ -36,7 +35,7 @@ class PlacementScreen extends StatefulWidget {
 
 class _PlacementScreenState extends State<PlacementScreen> {
   static const String _openingLine =
-      'Hey, I am Zoe and I love a good conversation. What name should I call you with?';
+      "Hi, I'm Zoe. What should I call you?";
 
   final NativeSttService _stt = NativeSttService();
   final TtsManager _tts = TtsManager();
@@ -134,10 +133,9 @@ class _PlacementScreenState extends State<PlacementScreen> {
     // Add opening line to API history as a model message
     _apiMessages.add({'role': 'model', 'content': _openingLine});
 
-    await _tts.speak(_openingLine).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () {},
-    );
+    await _tts
+        .speak(_openingLine)
+        .timeout(const Duration(seconds: 10), onTimeout: () {});
     if (!mounted) return;
 
     setState(() {
@@ -209,10 +207,9 @@ class _PlacementScreenState extends State<PlacementScreen> {
       });
       _scrollToBottom();
 
-      await _tts.speak(reply).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {},
-      );
+      await _tts
+          .speak(reply)
+          .timeout(const Duration(seconds: 10), onTimeout: () {});
       if (!mounted) return;
 
       setState(() {
@@ -225,9 +222,7 @@ class _PlacementScreenState extends State<PlacementScreen> {
       const fallback = 'Sorry, could you say that again?';
       _apiMessages.add({'role': 'model', 'content': fallback});
       setState(() {
-        _history.add(
-          const _PlacementBubbleEntry(text: fallback, isElla: true),
-        );
+        _history.add(const _PlacementBubbleEntry(text: fallback, isElla: true));
         _mascotState = _MascotState.listening;
         _isZoeSpeaking = false;
         _isLlmThinking = false;
@@ -247,15 +242,18 @@ class _PlacementScreenState extends State<PlacementScreen> {
     _isCompleting = true;
 
     const fallbackLabels = <String, String>{
-      'A1': 'First Words',
-      'A2': 'Finding My Voice',
-      'B1': 'Speaking Freely',
-      'B2': 'Almost Fluent',
-      'C1': 'Fluent',
+      'A0': 'First Words',
+      'A1': 'Finding My Voice',
+      'A2': 'Building Confidence',
+      'B1': 'Expressing Myself',
+      'B2': 'Speaking Fluently',
+      'C1': 'Mastering the Language',
     };
     final level = levelCode.toUpperCase();
-    final resolvedLevelLabel = levelName ?? fallbackLabels[level] ?? 'Finding My Voice';
-    final highlight = levelDescription ??
+    final resolvedLevelLabel =
+        levelName ?? fallbackLabels[level] ?? 'Finding My Voice';
+    final highlight =
+        levelDescription ??
         'You expressed yourself clearly and stayed engaged throughout the check.';
 
     if (!mounted) return;
@@ -373,139 +371,144 @@ class _PlacementScreenState extends State<PlacementScreen> {
           Expanded(
             child: SafeArea(
               top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final fullHeight = constraints.maxHeight;
-            // Shrink mascot whenever keyboard is visible (reactive to MediaQuery)
-            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-            final shrinkMascot = bottomInset > 0 || _isKeyboardMode;
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final fullHeight = constraints.maxHeight;
+                  // Shrink mascot whenever keyboard is visible (reactive to MediaQuery)
+                  final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+                  final shrinkMascot = bottomInset > 0 || _isKeyboardMode;
 
-            return AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              padding: EdgeInsets.only(bottom: bottomInset),
-              child: Stack(
-                children: [
-                  // Layer 1: Dashed grid background
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: CustomPaint(painter: _DashedGridPainter()),
-                    ),
-                  ),
-
-                  // Layer 2: Main content
-                  Column(
-                    children: [
-                      // ── Subtitle header (replaces "Placement Test") ──
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: Text(
-                          "Zoe wants to understand what's your current English level",
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.inconsolata(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: EllaColors.neutralSecondary,
-                            height: 1.4,
+                  return AnimatedPadding(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.only(bottom: bottomInset),
+                    child: Stack(
+                      children: [
+                        // Layer 1: Dashed grid background
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(painter: _DashedGridPainter()),
                           ),
                         ),
-                      ),
 
-                      // ── Mascot zone: 40% normally, 25% when keyboard open ──
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        height: shrinkMascot
-                            ? fullHeight * 0.25
-                            : fullHeight * 0.40,
-                        child: Center(
-                          child: _PlacementMascot(
-                            mascotState: _mascotState,
-                            shrink: shrinkMascot,
-                          ),
-                        ),
-                      ),
-
-                      // ── Chat list with fade edges ──
-                      Expanded(
-                        child: ShaderMask(
-                          blendMode: BlendMode.dstIn,
-                          shaderCallback: (Rect bounds) {
-                            return const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.white,
-                                Colors.white,
-                                Colors.transparent,
-                              ],
-                              stops: [0.0, 0.06, 0.88, 1.0],
-                            ).createShader(bounds);
-                          },
-                          child: RepaintBoundary(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              child: ListView.separated(
-                                controller: _scrollCtrl,
-                                padding: const EdgeInsets.only(
-                                  top: 8,
-                                  bottom: 16,
+                        // Layer 2: Main content
+                        Column(
+                          children: [
+                            // ── Subtitle header (replaces "Placement Test") ──
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                              child: Text(
+                                "Zoe wants to understand what's your current English level",
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inconsolata(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: EllaColors.neutralSecondary,
+                                  height: 1.4,
                                 ),
-                                itemCount: _history.length,
-                                separatorBuilder: (_, index) =>
-                                    const SizedBox(height: 10),
-                                itemBuilder: (context, index) {
-                                  final entry = _history[index];
-                                  return _PlacementCaption(
-                                    text: entry.text,
-                                    isElla: entry.isElla,
-                                  );
-                                },
                               ),
                             ),
-                          ),
-                        ),
-                      ),
 
-                      // ── Live transcript preview while listening ──
-                      if (_isListening && _currentTranscript.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                          child: _PlacementCaption(
-                            text: _currentTranscript,
-                            isElla: false,
-                          ),
-                        ),
-
-                      // ── LLM thinking indicator ──
-                      if (_isLlmThinking)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            'Zoe is thinking…',
-                            style: GoogleFonts.inconsolata(
-                              fontSize: 12,
-                              color: EllaColors.neutralMuted,
+                            // ── Mascot zone: 40% normally, 25% when keyboard open ──
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                              height: shrinkMascot
+                                  ? fullHeight * 0.25
+                                  : fullHeight * 0.40,
+                              child: Center(
+                                child: _PlacementMascot(
+                                  mascotState: _mascotState,
+                                  shrink: shrinkMascot,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
 
-                      // ── Bottom input bar ──
-                      _buildInputBar(),
-                    ],
-                  ),
-                ],
+                            // ── Chat list with fade edges ──
+                            Expanded(
+                              child: ShaderMask(
+                                blendMode: BlendMode.dstIn,
+                                shaderCallback: (Rect bounds) {
+                                  return const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.white,
+                                      Colors.white,
+                                      Colors.transparent,
+                                    ],
+                                    stops: [0.0, 0.06, 0.88, 1.0],
+                                  ).createShader(bounds);
+                                },
+                                child: RepaintBoundary(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                    ),
+                                    child: ListView.separated(
+                                      controller: _scrollCtrl,
+                                      padding: const EdgeInsets.only(
+                                        top: 8,
+                                        bottom: 16,
+                                      ),
+                                      itemCount: _history.length,
+                                      separatorBuilder: (_, index) =>
+                                          const SizedBox(height: 10),
+                                      itemBuilder: (context, index) {
+                                        final entry = _history[index];
+                                        return _PlacementCaption(
+                                          text: entry.text,
+                                          isElla: entry.isElla,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // ── Live transcript preview while listening ──
+                            if (_isListening && _currentTranscript.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  0,
+                                  24,
+                                  8,
+                                ),
+                                child: _PlacementCaption(
+                                  text: _currentTranscript,
+                                  isElla: false,
+                                ),
+                              ),
+
+                            // ── LLM thinking indicator ──
+                            if (_isLlmThinking)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  'Zoe is thinking…',
+                                  style: GoogleFonts.inconsolata(
+                                    fontSize: 12,
+                                    color: EllaColors.neutralMuted,
+                                  ),
+                                ),
+                              ),
+
+                            // ── Bottom input bar ──
+                            _buildInputBar(),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
-      ),    // SafeArea
+            ), // SafeArea
           ), // Expanded
         ],
-      ),    // Column
+      ), // Column
     );
   }
 
@@ -535,100 +538,100 @@ class _PlacementScreenState extends State<PlacementScreen> {
         ),
         const SizedBox(height: 8),
         SizedBox(
-      height: 64,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: GestureDetector(
-              onTap: blocked
-                  ? null
-                  : () {
-                      setState(() => _isKeyboardMode = true);
-                      Future.delayed(const Duration(milliseconds: 50), () {
-                        if (mounted) _textFocusNode.requestFocus();
-                      });
-                    },
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: EllaColors.neutralSurface,
-                  border: Border.all(
-                    color: EllaColors.neutralBorder,
-                    width: 1.5,
+          height: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: blocked
+                      ? null
+                      : () {
+                          setState(() => _isKeyboardMode = true);
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            if (mounted) _textFocusNode.requestFocus();
+                          });
+                        },
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: EllaColors.neutralSurface,
+                      border: Border.all(
+                        color: EllaColors.neutralBorder,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.keyboard_alt_outlined,
+                      size: 22,
+                      color: EllaColors.neutralSecondary,
+                    ),
                   ),
                 ),
-                child: const Icon(
-                  Icons.keyboard_alt_outlined,
-                  size: 22,
-                  color: EllaColors.neutralSecondary,
-                ),
               ),
-            ),
-          ),
-          Center(
-            child: GestureDetector(
-              onTap: blocked ? null : _toggleMicListening,
-              child: SizedBox(
-                width: 100,
-                height: 100,
-                child: Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      if (_isListening && _isRecognizing)
-                        const _MicPulseRing(color: EllaColors.mangoMain),
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: blocked
-                              ? EllaColors.neutralBorder
-                              : (_isListening && _isRecognizing
-                                    ? EllaColors.mangoDark
-                                    : EllaColors.mangoMain),
-                          border: Border.all(
-                            color: blocked
-                                ? EllaColors.neutralSecondary
-                                : EllaColors.mangoDark,
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
+              Center(
+                child: GestureDetector(
+                  onTap: blocked ? null : _toggleMicListening,
+                  child: SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          if (_isListening && _isRecognizing)
+                            const _MicPulseRing(color: EllaColors.mangoMain),
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
                               color: blocked
-                                  ? EllaColors.neutralSecondary
-                                  : EllaColors.mangoDark,
-                              offset: _isListening && _isRecognizing
-                                  ? const Offset(0, 1)
-                                  : const Offset(0, 5),
-                              blurRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: _isListening && _isRecognizing
-                            ? const WaveformIcon()
-                            : Icon(
-                                Icons.mic_rounded,
-                                size: 28,
+                                  ? EllaColors.neutralBorder
+                                  : (_isListening && _isRecognizing
+                                        ? EllaColors.mangoDark
+                                        : EllaColors.mangoMain),
+                              border: Border.all(
                                 color: blocked
                                     ? EllaColors.neutralSecondary
-                                    : EllaColors.neutralPrimary,
+                                    : EllaColors.mangoDark,
+                                width: 2.5,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: blocked
+                                      ? EllaColors.neutralSecondary
+                                      : EllaColors.mangoDark,
+                                  offset: _isListening && _isRecognizing
+                                      ? const Offset(0, 1)
+                                      : const Offset(0, 5),
+                                  blurRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: _isListening && _isRecognizing
+                                ? const WaveformIcon()
+                                : Icon(
+                                    Icons.mic_rounded,
+                                    size: 28,
+                                    color: blocked
+                                        ? EllaColors.neutralSecondary
+                                        : EllaColors.neutralPrimary,
+                                  ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-    ),
+        ),
       ],
     );
   }
@@ -748,8 +751,7 @@ class _PlacementMascot extends StatelessWidget {
   String get _assetPath => switch (mascotState) {
     _MascotState.speaking => 'assets/mascot-animations/speaking.webp',
     _MascotState.listening => 'assets/mascot-animations/listening.webp',
-    _MascotState.thinking =>
-      'assets/mascot-animations/regular-thinking.webp',
+    _MascotState.thinking => 'assets/mascot-animations/regular-thinking.webp',
   };
 
   @override
@@ -788,7 +790,8 @@ class _PlacementMascot extends StatelessWidget {
             _assetPath,
             key: ValueKey<_MascotState>(mascotState),
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+            errorBuilder: (context, error, stackTrace) =>
+                const SizedBox.shrink(),
             alignment: Alignment.center,
           ),
         ),

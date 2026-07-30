@@ -60,6 +60,7 @@ class PlacementTurnRequest(BaseModel):
     name: str | None = None
     age: int | None = None
     cancel: bool = False
+    custom_prompts: dict | None = None  # for simulator prompt testing
 
     model_config = {
         "json_schema_extra": {
@@ -113,6 +114,7 @@ class SessionAnalysisRequest(BaseModel):
     progression_model: str = "unit"
     session_type: str | None = None
     turns_total: int | None = Field(default=None, description="Total turns taken in the session")
+    custom_prompts: dict | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -151,6 +153,7 @@ class GradedSkillScore(BaseModel):
     id: str
     confidence: float
     prompted: bool
+    support_level: str | None = None
     evidence: str | None = None
 
 

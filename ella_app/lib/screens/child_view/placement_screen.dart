@@ -167,7 +167,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   String _closingLine() {
     final name =
         ref.read(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
-    return 'It was really nice talking with you, $name! Let\'s talk again soon.';
+    return 'Thanks for talking with me, $name. You can continue anytime';
   }
 
   // End the placement screening (hard end — no farewell turn is posted): the

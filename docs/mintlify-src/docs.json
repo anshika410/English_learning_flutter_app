@@ -24,6 +24,7 @@
         "group": "Getting Started",
         "pages": [
           "readme",
+          "curriculum",
           "hosting-routes",
           "system-architecture",
           "conversation-flow-simulator"
@@ -50,7 +51,8 @@
         "group": "Gamification",
         "pages": [
           "placement-garden",
-          "garden-progress-system"
+          "garden-progress-system",
+          "learning-path-visualizer"
         ]
       },
       {
@@ -90,7 +92,8 @@
       {
         "group": "API: Authentication",
         "pages": [
-          "api/auth/anonymous-auth"
+          "api/auth/anonymous-auth",
+          "api/auth/google-auth"
         ]
       },
       {
@@ -149,7 +152,8 @@
   },
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "/docs/readme"
   },
   "navbar": {
     "links": [

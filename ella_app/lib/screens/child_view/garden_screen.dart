@@ -22,6 +22,7 @@ import '../../route_observer.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/garden.dart';
+import '../../providers/connectivity_provider.dart';
 import '../../providers/garden_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
@@ -381,8 +382,8 @@ String _gardenDisplayName(GardenData data, _GardenLevelVisualSpec spec) {
 
 // First-time welcome copy (Figma "Shift to new garden and nudge to start
 // talking") — shown under a spotlight when arriving from placement.
-const String _kWelcomeTitle = 'Look, your first plant';
-const String _kWelcomeBody = 'Every conversation grows something new here';
+const String _kWelcomeTitle = "Here's your first plant";
+const String _kWelcomeBody = 'Every conversation helps your garden grow.';
 const String _kWelcomeText = '$_kWelcomeTitle. $_kWelcomeBody';
 const String _kGardenButtonPlantIcon = 'assets/homescreen/new/Plant.svg';
 
@@ -658,6 +659,18 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
       final data = next.value;
       _registerGardenForReveal(data);
     });
+    // Treat losing connectivity like pausing the app: stop the ambient garden
+    // loop so the offline state feels paused. Resume on reconnect only if this
+    // is still the visible garden and sound is on. Tap SFX are unaffected.
+    ref.listen<AsyncValue<bool>>(connectivityProvider, (prev, next) {
+      final online = next.valueOrNull ?? true;
+      if (!online) {
+        _stopMusic();
+      } else if (mounted && _soundOn) {
+        final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+        if (isCurrent) _startMusic();
+      }
+    });
     final gardenAsync = ref.watch(gardenProvider);
     final postConversation = ref.watch(postConversationGardenRevealProvider);
     final reducedMotion = MediaQuery.of(context).disableAnimations;
@@ -745,7 +758,7 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
                     ),
                     child: _GardenIntroButton(
                       key: const ValueKey('garden-first-explore'),
-                      label: 'Explore Garden',
+                      label: 'See My Garden',
                       width: math.min(
                         202.0,
                         MediaQuery.of(context).size.width - 96,
@@ -832,7 +845,7 @@ class _WelcomeBubble extends StatelessWidget {
 }
 
 const String _kCompletedPreviousGardenMessage =
-    'Look at this! These are things you already know. Your garden was already grown';
+    'Look! Your earlier conversations have already grown this garden';
 
 class _CompletedPreviousGardenIntroLayer extends StatelessWidget {
   final String levelLabel;
@@ -898,7 +911,7 @@ class _CompletedPreviousGardenIntroLayer extends StatelessWidget {
               padding: EdgeInsets.only(bottom: media.padding.bottom + 22),
               child: _GardenIntroButton(
                 key: const ValueKey('garden-completed-previous-explore'),
-                label: 'Explore Garden',
+                label: 'See My Garden',
                 width: math.min(202.0, media.size.width - 96),
                 onTap: onExplore,
               ),
@@ -2381,7 +2394,6 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
           bubble: _bubbleGardenName == null
               ? null
               : _ZoeGardenBubble(
-                  currentGardenName: _bubbleGardenName!,
                   controller: _bubbleController,
                   maxWidth: media.size.width - 48,
                 ),
@@ -2869,14 +2881,12 @@ class _FogOverlayState extends State<_FogOverlay>
   }
 }
 
-// Zoe's nudge bubble — "Keep growing X. The next garden will open soon!"
+// Zoe's nudge bubble — "Keep practising to unlock the next garden."
 class _ZoeGardenBubble extends StatelessWidget {
-  final String currentGardenName;
   final AnimationController controller;
   final double maxWidth;
 
   const _ZoeGardenBubble({
-    required this.currentGardenName,
     required this.controller,
     required this.maxWidth,
   });
@@ -2909,15 +2919,8 @@ class _ZoeGardenBubble extends StatelessWidget {
             border: Border.all(color: _bubbleBorder, width: 2),
           ),
           child: Text.rich(
-            TextSpan(
-              children: [
-                const TextSpan(text: 'Keep growing '),
-                TextSpan(
-                  text: currentGardenName,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const TextSpan(text: '. The next garden will open soon!'),
-              ],
+            const TextSpan(
+              text: 'Keep practising to unlock the next garden.',
             ),
             textAlign: TextAlign.center,
             style: EllaFonts.body(
@@ -4768,7 +4771,7 @@ class _GardenScoringWaitCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Just a little more watering…',
+                    'Zoe is checking what grew…',
                     maxLines: 2,
                     style: EllaFonts.body(
                       const TextStyle(
@@ -4850,7 +4853,7 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
                 ),
               ),
               measureQuickHelloLine(
-                "We can talk more whenever you're ready",
+                "We can talk more whenever you're ready.",
                 EllaFonts.body(
                   const TextStyle(
                     fontSize: 14,
@@ -4965,7 +4968,7 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
                         ),
                         child: _GardenIntroButton(
                           key: const ValueKey('garden-growth-reveal-cta'),
-                          label: hasNext ? 'See Next Plant' : 'Explore Garden',
+                          label: hasNext ? 'See Next Plant' : 'See My Garden',
                           width: hasNext ? 197 : 202,
                           onTap: onCta,
                         ),
@@ -5133,7 +5136,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
               const SizedBox(height: 12),
               if (quote != null && quote.isNotEmpty) ...[
                 Text(
-                  'A line to remember',
+                  'A sentence you used',
                   style: EllaFonts.body(
                     const TextStyle(
                       fontSize: 14,
@@ -5221,7 +5224,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
               const _GrowthRevealDivider(),
               const SizedBox(height: 12),
               Text(
-                'What You Said',
+                'You Said',
                 style: EllaFonts.body(
                   const TextStyle(
                     fontSize: 14,
@@ -5301,7 +5304,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
         children: [
           Text(
             key: const ValueKey('garden-growth-reveal-title'),
-            'You watered your garden today',
+            'You practised today, and your garden got some water.',
             style: EllaFonts.body(
               const TextStyle(
                 fontSize: 16,
@@ -5326,7 +5329,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
           if (quote != null && quote.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text(
-              'A line to remember',
+              'A sentence you used',
               style: EllaFonts.body(
                 const TextStyle(
                   fontSize: 14,
@@ -5421,7 +5424,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             key: const ValueKey('garden-quick-hello-note'),
-            "We can talk more whenever you're ready",
+            "We can talk more whenever you're ready.",
             style: EllaFonts.body(
               const TextStyle(
                 fontSize: 14,
@@ -5577,7 +5580,7 @@ String _growthRevealTitle(GardenGrowthRevealItem item) {
     return 'That was a quick hello 👋';
   }
   if (item.wateringOnly) {
-    return 'You watered your garden today';
+    return 'You practised today, and your garden got some water.';
   }
   if (item.toStage == GardenGrowthStage.bloomed) {
     return 'This skill is in full bloom!';
@@ -5651,7 +5654,7 @@ class _LetsTalkBar extends StatelessWidget {
                   GestureDetector(
                     onTap: withTapClick(onTalk),
                     child: Container(
-                      width: 154,
+                      width: 170,
                       height: 48,
                       decoration: ellaSmoothDecoration(
                         color: EllaColors.berryMain,
@@ -5681,7 +5684,7 @@ class _LetsTalkBar extends StatelessWidget {
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                "Let's Talk",
+                                'Start Talking',
                                 maxLines: 1,
                                 style: EllaFonts.body(
                                   const TextStyle(

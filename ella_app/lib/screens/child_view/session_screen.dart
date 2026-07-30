@@ -22,7 +22,7 @@ import 'widgets/mascot_loading_screen.dart';
 import 'widgets/need_to_go_sheet.dart';
 import 'widgets/network_error_view.dart';
 
-const String _kGoodbye = 'It was great talking to you. See you again later!';
+const String _kGoodbye = 'Great talking with you. See you next time!';
 
 class SessionScreen extends ConsumerStatefulWidget {
   final String? introText;
@@ -216,6 +216,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final notifier = ref.read(chatProvider.notifier);
     if (s.status == ChatStatus.userSpeaking) {
       notifier.stopListening();
+    } else if (s.status == ChatStatus.zoeSpeaking && !s.sessionEnded) {
+      // Interrupt Zoe — stop her speech, then start listening
+      _tts.stop();
+      notifier.markStarterSpoken(); // reset status to idle
+      notifier.startListening().catchError(_snack);
     } else if (s.status == ChatStatus.idle && !s.sessionEnded) {
       notifier.startListening().catchError(_snack);
     }
@@ -419,7 +424,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
-      ChatStatus.zoeThinking || ChatStatus.zoeSpeaking => MicState.busy,
+      ChatStatus.zoeThinking => MicState.busy,
+      ChatStatus.zoeSpeaking => MicState.idle,  // Allow interrupt — user can tap to cut in
       ChatStatus.idle || ChatStatus.offline => MicState.idle,
     };
 
