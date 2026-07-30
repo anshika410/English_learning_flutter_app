@@ -31,7 +31,6 @@ def resolve_prompt(
             "conv-unit-framing.md": "conv-unit-framing",
             "end-result-prompt.md": "judge",
             "correction-extraction-prompt.md": "correction-extraction",
-            "conversation-prompt.md": "conversation",
         }
         if filename.startswith("profile-"):
             profile_lvl = filename.replace(".md", "")
@@ -505,14 +504,7 @@ async def send_conversation_turn(
         .strip()
     )
 
-    prompt_template = resolve_prompt("conversation-prompt.md", custom_prompts, user_id)
-
-    system_prompt = (
-        prompt_template
-        .replace("{{BASE_BLOCK}}", base_block)
-        .replace("{{LEVEL_BLOCK}}", level_block)
-        .replace("{{UNIT_BLOCK}}", unit_block)
-    )
+    system_prompt = f"{base_block}\n\n---\n\n{level_block}\n\n---\n\n{unit_block}"
 
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": m["role"], "content": m["content"]} for m in messages

@@ -24,11 +24,7 @@ class PromptContractTests(unittest.TestCase):
         self.assertIn("Do not require a complete sentence.", profile)
         self.assertIn("Treat a relevant word or fragment as meaningful communication.", profile)
 
-    def test_conversation_shell_contains_all_three_layers(self):
-        shell = (BACKEND_PROMPTS / "conversation-prompt.md").read_text()
-        self.assertIn("{{BASE_BLOCK}}", shell)
-        self.assertIn("{{LEVEL_BLOCK}}", shell)
-        self.assertIn("{{UNIT_BLOCK}}", shell)
+
 
     def test_placement_inherits_base_rules(self):
         placement = (BACKEND_PROMPTS / "placement-check-prompt.md").read_text()

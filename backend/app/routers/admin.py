@@ -468,7 +468,6 @@ async def get_admin_prompts(
             if sandbox_dir.exists() and any(sandbox_dir.iterdir()):
                 is_sandbox = True
 
-        conv = resolve_prompt("conversation-prompt.md", user_id=user_id)
         judge = resolve_prompt("end-result-prompt.md", user_id=user_id)
         placement = resolve_prompt("placement-check-prompt.md", user_id=user_id)
         base = resolve_prompt("base-prompt.md", user_id=user_id)
@@ -481,7 +480,7 @@ async def get_admin_prompts(
             level_profiles[lvl] = resolve_prompt(f"profile-{lvl}.md", user_id=user_id)
 
         return AdminPromptsResponse(
-            conversation=conv,
+            conversation="",
             judge=judge,
             placement=placement,
             correction_extraction=correction_prompt,
@@ -513,7 +512,7 @@ async def deploy_sandbox_prompts(
     import os
     
     valid_names = [
-        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "base-prompt", "conv-unit-framing",
         "end-result-prompt", "placement-check-prompt",
         "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
@@ -621,7 +620,7 @@ async def deploy_prompt(
 
     # Validate prompt name
     valid_names = [
-        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "base-prompt", "conv-unit-framing",
         "end-result-prompt", "placement-check-prompt",
         "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
@@ -713,7 +712,7 @@ async def deploy_all_prompts(
     prompt_files = [
         "base-prompt", "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
-        "conv-unit-framing", "conversation-prompt",
+        "conv-unit-framing",
         "end-result-prompt", "placement-check-prompt",
         "correction-extraction-prompt",
     ]
@@ -784,7 +783,7 @@ async def deploy_snapshot(
     from datetime import timezone
 
     valid_names = [
-        "base-prompt", "conversation-prompt", "conv-unit-framing",
+        "base-prompt", "conv-unit-framing",
         "end-result-prompt", "placement-check-prompt",
         "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
@@ -881,7 +880,7 @@ async def bump_prompt_version(
     prompt_files = [
         "base-prompt", "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
-        "conv-unit-framing", "conversation-prompt",
+        "conv-unit-framing",
         "end-result-prompt", "placement-check-prompt",
         "correction-extraction-prompt",
     ]
