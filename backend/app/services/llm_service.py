@@ -512,12 +512,7 @@ async def send_conversation_turn(
     response = await _chat_completion(api_messages, max_tokens=280, temperature=0.75)
 
     # Check for conversation_complete signal
-    max_turns = 6
-    max_turn_match = re.search(r"CURRENT[_\s]+TURN:\s*\{\{CURRENT_TURN\}\}\s*(?:of|/)\s*(\d+)", unit_template, re.IGNORECASE)
-    if max_turn_match:
-        max_turns = int(max_turn_match.group(1))
-
-    complete = current_turn >= max_turns
+    complete = False
     reply_text = response
     json_match = re.search(r'\{[^}]*"conversation_complete"\s*:\s*true[^}]*\}', response)
     if json_match:
@@ -526,7 +521,7 @@ async def send_conversation_turn(
 
     # Parse reply (no REPLY: prefix needed with new prompt)
     reply = reply_text.strip()
-    if current_turn >= max_turns:
+    if complete:
         reply = _closing_without_question(reply)
     correction = None
 

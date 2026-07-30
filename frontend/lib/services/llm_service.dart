@@ -262,7 +262,7 @@ Rules:
     );
 
     // Check for conversation_complete JSON signal
-    bool complete = currentTurn >= 6;
+    bool complete = false;
     String replyText = response;
     final jsonMatch = RegExp(
       r'\{[^}]*"conversation_complete"\s*:\s*true[^}]*\}',

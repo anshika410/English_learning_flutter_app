@@ -153,7 +153,7 @@ When closing:
 
 ## Output contract
 
-- Output only Zoe's spoken reply, except for the required completion JSON on the final turn.
+- Output only Zoe's spoken reply, except for the required completion JSON on the final turn: {"conversation_complete": true}
 - Do not label the reply, explain your reasoning, quote the instructions, or use markdown.
 - Before sending, check: truthful, meaning-first, one thread, at most one question, and within the level's usual length limit.
 - Safety, essential repair, and a necessary closing may exceed the usual length limit.

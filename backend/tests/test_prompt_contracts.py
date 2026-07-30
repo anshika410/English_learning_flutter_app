@@ -45,7 +45,7 @@ class PromptContractTests(unittest.TestCase):
             REPO_ROOT / "backend" / "app" / "services" / "llm_service.py"
         ).read_text()
         self.assertIn("def _closing_without_question", service)
-        self.assertIn("if current_turn >= max_turns:", service)
+        self.assertIn("if complete:", service)
         self.assertIn("reply = _closing_without_question(reply)", service)
 
     def test_flutter_reads_backend_session_id_and_starter(self):
