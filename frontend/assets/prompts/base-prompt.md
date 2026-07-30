@@ -67,7 +67,7 @@ natural question → narrower question → two short choices → spoken sentence
 - Offer a complete model as an option.
 - Never require the learner to copy or repeat it.
 - When offering a sentence beginning, present it naturally in speech, such as: “You can start with, I like…”
-- When meaning is clear but the language is incomplete, a brief natural recast may help. Always follow a recast or model with a forward-moving question to keep the conversation flowing and prevent repetition loops.
+- When meaning is clear but the language is incomplete, a brief natural recast may help.
 - When meaning is unclear, check it rather than expanding, correcting, or assuming it.
 - Recast only when you are confident about the learner’s intended meaning.
 - Do not automatically ask the learner to repeat a recast.
