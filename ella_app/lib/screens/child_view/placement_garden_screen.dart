@@ -22,6 +22,7 @@ import 'garden_screen.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'widgets/garden_sound_button.dart';
 import 'widgets/placement_garden_header.dart';
+import 'widgets/placement_garden_scene_background.dart';
 import 'widgets/spotlight_callout_bubble.dart';
 import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
@@ -31,7 +32,6 @@ const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
 const String _kBubblePlantIcon = 'assets/homescreen/new/Plant.svg';
 const String _kExplorePlantIcon = 'assets/gardent-view/plc_plant.svg';
 const String _kFenceIcon = 'assets/garden/plants/fence-segment 8.svg';
-const String _kWildflowers = 'assets/garden/plants/wildflowers 2.svg';
 const String _kTilledTile = 'assets/garden/tiles/tile-tilled.svg';
 const String _kTurfTile = 'assets/garden/tiles/tile-turf.svg';
 const String _kPlotShadow = 'assets/gardent-view/Ellipse.svg';
@@ -490,8 +490,18 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
             key: const ValueKey('placement-garden-screen'),
             fit: StackFit.expand,
             children: [
-              const RepaintBoundary(child: _PlacementGardenBackdrop()),
-              RepaintBoundary(child: _PlacementDecorations(metrics: metrics)),
+              const RepaintBoundary(
+                child: PlacementGardenBackdrop(
+                  key: ValueKey('placement-garden-backdrop'),
+                ),
+              ),
+              RepaintBoundary(
+                child: PlacementGardenWildflowers(
+                  scale: metrics.scale,
+                  rightTop: metrics.plotTop - 82 * metrics.scale,
+                  leftTop: metrics.fenceTop + 78 * metrics.scale,
+                ),
+              ),
               Positioned(
                 left: metrics.headerPadding,
                 right: metrics.headerPadding,
@@ -810,114 +820,6 @@ class _PlacementGardenMetrics {
       exploreWidth: math.min(204, width - 96),
       spotlightCenter: spotlightCenter,
       spotlightRadius: spotlightRadius,
-    );
-  }
-}
-
-class _PlacementGardenBackdrop extends StatelessWidget {
-  const _PlacementGardenBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(painter: _PlacementGardenBackdropPainter());
-  }
-}
-
-class _PlacementGardenBackdropPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Sky + hills matched to Figma "Morning Meadow" (same values as
-    // garden_screen._morningSky / _morningHill): sky #EAFDFF→#D9FAFF→#F1FFF8,
-    // hills #D7F2C4→#8DD67C→#4E9A45, stops [0, 0.55, 1].
-    final skyRect = Offset.zero & size;
-    canvas.drawRect(
-      skyRect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFEAFDFF), Color(0xFFD9FAFF), Color(0xFFF1FFF8)],
-          stops: [0, 0.55, 1],
-        ).createShader(skyRect),
-    );
-
-    final sunCenter = Offset(size.width * 0.87, size.height * 0.202);
-    final sunRadius = (size.width * 0.085).clamp(28.0, 36.0);
-    canvas.drawCircle(
-      sunCenter,
-      sunRadius,
-      Paint()
-        ..shader = const RadialGradient(
-          colors: [
-            Color(0xFFFFF1C5),
-            Color(0xFFFFD77A),
-            Color(0x66FFD77A),
-            Color(0x00FFD77A),
-          ],
-          stops: [0, 0.36, 0.72, 1],
-        ).createShader(Rect.fromCircle(center: sunCenter, radius: sunRadius)),
-    );
-
-    // One rounded green hill mass over the sky (Figma has a single hill
-    // gradient from the crest to the bottom). Crest fractions are pushed down
-    // ~20% from the Figma values so the sky band reads taller; the hill keeps its
-    // shape and simply starts lower.
-    final hill = Path()
-      ..moveTo(0, size.height * 0.269)
-      ..cubicTo(
-        size.width * 0.22,
-        size.height * 0.186,
-        size.width * 0.63,
-        size.height * 0.204,
-        size.width,
-        size.height * 0.270,
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(
-      hill,
-      Paint()
-        ..shader =
-            const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFD7F2C4), Color(0xFF8DD67C), Color(0xFF4E9A45)],
-              stops: [0, 0.55, 1],
-            ).createShader(
-              Rect.fromLTWH(
-                0,
-                size.height * 0.192,
-                size.width,
-                size.height * 0.808,
-              ),
-            ),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _PlacementDecorations extends StatelessWidget {
-  final _PlacementGardenMetrics metrics;
-  const _PlacementDecorations({required this.metrics});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          right: 34 * metrics.scale,
-          top: metrics.plotTop - 82 * metrics.scale,
-          child: SvgPicture.asset(_kWildflowers, width: 36 * metrics.scale),
-        ),
-        Positioned(
-          left: 32 * metrics.scale,
-          top: metrics.fenceTop + 78 * metrics.scale,
-          child: SvgPicture.asset(_kWildflowers, width: 36 * metrics.scale),
-        ),
-      ],
     );
   }
 }

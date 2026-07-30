@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <clipPath id="npClip"><circle cx="24" cy="24" r="23"></circle></clipPath>
+    <linearGradient id="npSkin" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#FBDCC0"></stop><stop offset="100%" stop-color="#F2C39C"></stop>
+    </linearGradient>
+    <linearGradient id="npShirt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A88BE0"></stop><stop offset="100%" stop-color="#7B5FBE"></stop>
+    </linearGradient>
+    <linearGradient id="npBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EFEAFB"></stop><stop offset="100%" stop-color="#E3F2FA"></stop>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#npClip)">
+    <rect x="0" y="0" width="48" height="48" fill="url(#npBg)"></rect>
+    <path d="M24 30 C33.4 30 41 36.6 41 45 V49 H7 V45 C7 36.6 14.6 30 24 30 Z" fill="url(#npShirt)"></path>
+    <path d="M19.6 30.6 Q24 35.4 28.4 30.6 Q31 31.2 32.4 32.4 Q28.4 37.6 24 37.6 Q19.6 37.6 15.6 32.4 Q17 31.2 19.6 30.6 Z" fill="#FFFDF4"></path>
+    <path d="M15.4 20.5 Q13.4 21 13.6 23.6 Q13.8 26.2 16.2 26.2" fill="#F2C39C"></path>
+    <path d="M32.6 20.5 Q34.6 21 34.4 23.6 Q34.2 26.2 31.8 26.2" fill="#F2C39C"></path>
+    <path d="M14.8 21.5 C14.8 12.9 19 8.4 24 8.4 C29 8.4 33.2 12.9 33.2 21.5 C33.2 28.3 29.2 32.6 24 32.6 C18.8 32.6 14.8 28.3 14.8 21.5 Z" fill="url(#npSkin)"></path>
+    <path d="M24 6.6 C31.4 6.6 34.6 11.6 34.2 17.4 C33.9 21.2 32.6 21.4 32.6 21.4 C32.9 18.4 32 16.4 30.8 15.4 C28.6 16.6 20 17.4 16.6 15.2 C15.4 16.4 14.9 18.6 15.2 21.4 C15.2 21.4 13.8 20.9 13.6 17.2 C13.3 11.4 16.6 6.6 24 6.6 Z" fill="#26365C"></path>
+    <circle cx="16.6" cy="13.4" r="3.4" fill="#26365C"></circle>
+    <circle cx="22" cy="9.6" r="4" fill="#26365C"></circle>
+    <circle cx="28.6" cy="10.6" r="3.8" fill="#26365C"></circle>
+    <circle cx="33" cy="15" r="3.2" fill="#26365C"></circle>
+    <ellipse cx="20.2" cy="21.6" rx="1.7" ry="2" fill="#26365C"></ellipse>
+    <ellipse cx="27.8" cy="21.6" rx="1.7" ry="2" fill="#26365C"></ellipse>
+    <circle cx="20.8" cy="20.9" r="0.6" fill="#FFFDF4"></circle>
+    <circle cx="28.4" cy="20.9" r="0.6" fill="#FFFDF4"></circle>
+    <circle cx="16.6" cy="24.8" r="2" fill="#F5A2AE" opacity="0.5"></circle>
+    <circle cx="31.4" cy="24.8" r="2" fill="#F5A2AE" opacity="0.5"></circle>
+    <path d="M21.4 26.4 Q24 28.8 26.6 26.4" fill="none" stroke="#B4664A" stroke-width="1.7" stroke-linecap="round"></path>
+    <path d="M18.6 17.4 Q20.2 16.4 22 17" fill="none" stroke="#26365C" stroke-width="1.4" stroke-linecap="round"></path>
+    <path d="M26 17 Q27.8 16.4 29.4 17.4" fill="none" stroke="#26365C" stroke-width="1.4" stroke-linecap="round"></path>
+  </g>
+</svg>

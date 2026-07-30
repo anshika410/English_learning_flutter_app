@@ -1,10 +1,11 @@
 // Home / Talk screen — Figma "Learning Flow — Homescreen".
-// An outdoor garden scene: sky + sun + rolling hills (GardenSkyBackground), the
-// sprout mascot "Zoe", a greeting header with profile/garden shortcuts, a
-// "Last time" recall card, the selected-topic CTA ("Let's Talk About …"), and
-// pick-your-own topic chips. Recap + topics come live from the memory API's
-// next_topics. The child selects a topic (chip / See More) — only the CTA starts
-// a session, sending the topic name to POST /session.
+// A botanical garden scene (HomeSceneBackground): sky→green gradient with hills,
+// bush, daisies and grass. Garden / Profile shortcuts sit in the top corners,
+// the sprout mascot "Zoe" and her "Last time" recall bubble sit centre, a
+// swipeable topic carousel (TopicCarousel) lets the child pick a topic, and the
+// selected-topic CTA ("Let's Talk About …") anchors the bottom. Recap + topics
+// come live from the memory API's next_topics; the carousel only SELECTS a topic
+// — only the CTA starts a session, sending the topic name to POST /session.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,17 +22,15 @@ import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/analytics_service.dart';
-import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
-import 'all_topics_screen.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/circle_icon_button.dart';
 import 'widgets/ella_primary_button.dart';
-import 'widgets/garden_sky_background.dart';
+import 'widgets/home_scene_background.dart';
 import 'widgets/shake.dart';
 import 'widgets/speaker_dot_button.dart';
-import 'widgets/topic_icon.dart';
+import 'widgets/topic_carousel.dart';
 import 'widgets/zoe_mascot.dart';
 import 'chat_bubble.dart';
 import 'widgets/network_error_view.dart';
@@ -41,9 +40,10 @@ import 'widgets/network_error_view.dart';
 // real profile name is wired through.
 const String kHomeChildName = 'Maya';
 
-// Design-exported glyphs (Figma). Profile / see-more still use Material
-// stand-ins until those are exported too.
-const String _kPlantIcon = 'assets/homescreen/new/Plant.svg'; // garden shortcut
+// Design-exported nav glyphs (glass-dome garden + child avatar) and the CTA
+// voice icon.
+const String _kNavGarden = 'assets/homescreen/new/nav-garden.svg';
+const String _kNavProfile = 'assets/homescreen/new/nav-profile.svg';
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg'; // CTA
 
 // Mascot footprint from the Figma frame (150.55-wide in a 430-wide artboard).
@@ -105,7 +105,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // Tapping an alternative chip or picking one in See More sets this; it never
   // starts a session — only the CTA does.
   TopicChoice? _selectedTopic;
-  bool _promoteSelectedTopic = true;
   bool _isStarting =
       false; // guard against double-tap creating duplicate sessions
 
@@ -172,7 +171,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   String get _recap {
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
     if (!isOnline) {
-      final name = ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
+      final name =
+          ref.watch(onboardingProvider).valueOrNull?.firstName ??
+          kHomeChildName;
       return "Hey $name, I'm having trouble connecting to the internet right now!";
     }
     return _memory?.lastTimeRecap ?? '';
@@ -182,7 +183,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     ref.read(audioProvider).playSfx(Sounds.topic);
     setState(() {
       _selectedTopic = topic;
-      _promoteSelectedTopic = false;
     });
   }
 
@@ -223,26 +223,21 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     }
   }
 
-  Future<void> _openSeeMore() async {
-    final homescreenTopics = getHomescreenTopics(
-      recommended: _recommended,
-      alternatives: _alternatives,
-      selected: _selected,
-      promoteSelected: _promoteSelectedTopic,
-    );
-    final excludeNames = homescreenTopics.map((t) => t.name).toList();
-
-    final picked = await Navigator.of(context).push<TopicChoice>(
-      MaterialPageRoute(
-        builder: (_) => AllTopicsScreen(excludeTopicNames: excludeNames),
-      ),
-    );
-    if (picked != null && mounted) {
-      setState(() {
-        _selectedTopic = picked;
-        _promoteSelectedTopic = true;
-      });
+  // Topics the carousel cycles through: the server's recommended first, then the
+  // alternatives, de-duplicated by name. The carousel loops over this list.
+  List<TopicChoice> get _carouselTopics {
+    final ordered = <TopicChoice>[];
+    final seen = <String>{};
+    void add(TopicChoice? t) {
+      if (t == null || t.name.isEmpty || !seen.add(t.name)) return;
+      ordered.add(t);
     }
+
+    add(_recommended);
+    for (final t in _alternatives) {
+      add(t);
+    }
+    return ordered;
   }
 
   Future<void> _startSelected() async {
@@ -290,26 +285,25 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     final ctaLabel = selectedLabel.isNotEmpty
         ? "Let's Talk About $selectedLabel"
         : "Let's Talk";
-    const pickPrompt = 'Not this topic. Pick your own.';
+
+    final topics = _carouselTopics;
 
     final mascotW = (MediaQuery.of(context).size.width * _kMascotWidthFactor)
         .clamp(128.0, 168.0);
 
-    return GardenSkyBackground(
+    return HomeSceneBackground(
       child: SafeArea(
+        // 24px side gutters and a 24px bottom margin under the CTA.
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
           child: Column(
             children: [
               _HeaderRow(
-                name:
-                    ref.watch(onboardingProvider).valueOrNull?.firstName ??
-                        kHomeChildName,
                 onOpenProfile: widget.onOpenProfile,
                 onOpenGarden: widget.onOpenGarden,
               ),
-              // Upper group (mascot + Last-time + Next-Session + CTA), centred in
-              // the space above the chips; scrolls on short screens. The
+              // Upper group (mascot + recap bubble + topic carousel), centred in
+              // the space above the CTA; scrolls on short screens. The
               // ConstrainedBox + centred Column genuinely centres the content
               // (a plain Center around a SingleChildScrollView would top-align it).
               Expanded(
@@ -319,88 +313,84 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                       constraints: BoxConstraints(
                         minHeight: constraints.maxHeight,
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ZoeMascot(
-                            mode: !isOnline
-                                ? ZoeMascotMode.sleep
-                                : ZoeMascotMode.listening,
-                            size: mascotW,
-                            reducedMotion: MediaQuery.of(
-                              context,
-                            ).disableAnimations,
-                          ),
-                          const SizedBox(height: 20),
-                          _LastTimeCard(
-                            recap: _recap,
-                            onSpeak: _speakRecap,
-                            highlightStart: _highlightStart,
-                            highlightEnd: _highlightEnd,
-                            speaking: _speaking,
-                          ),
-                          const SizedBox(height: 16),
-                          const _SectionDivider(label: 'Next Session'),
-                          const SizedBox(height: 12),
-                          // Short wobble whenever the selected topic changes.
-                          ShakeOnChange(
-                            trigger: selected?.name ?? '',
-                            child: EllaPrimaryButton(
-                              label: ctaLabel,
-                              labelChild: _TalkAboutCtaLabel(
-                                topicLabel: selectedLabel,
-                              ),
-                              leading: SvgPicture.asset(
-                                _kVoiceIcon,
-                                width: 22,
-                                height: 22,
-                                colorFilter: const ColorFilter.mode(
-                                  EllaColors.onPrimary,
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                              height: 60,
-                              playTapClickSound: false,
-                              backgroundColor: isOnline
-                                  ? null
-                                  : Colors.grey[400],
-                              edgeColor: isOnline ? null : Colors.grey[600],
-                              onTap: isOnline
-                                  ? _startSelected
-                                  : () {
-                                      ref
-                                          .read(audioProvider)
-                                          .playSfx(Sounds.error);
-                                      OfflineAlertPopup.show(context);
-                                    },
+                      child: Transform.translate(
+                        offset: const Offset(0, -20),
+                        child: Column(
+                          key: const ValueKey('home-upper-content'),
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ZoeMascot(
+                              key: const ValueKey('home-zoe-mascot'),
+                              mode: !isOnline
+                                  ? ZoeMascotMode.sleep
+                                  : ZoeMascotMode.listening,
+                              size: mascotW,
+                              reducedMotion: MediaQuery.of(
+                                context,
+                              ).disableAnimations,
                             ),
-                          ),
-                        ],
+                            // The recap bubble itself starts 14px below the
+                            // speaker-dot stack, leaving a visible 24px gap
+                            // from Zoe to the bubble border.
+                            const SizedBox(height: 10),
+                            _LastTimeCard(
+                              recap: _recap,
+                              onSpeak: _speakRecap,
+                              highlightStart: _highlightStart,
+                              highlightEnd: _highlightEnd,
+                              speaking: _speaking,
+                            ),
+                            // Keep one clear rhythm from Zoe's recap to the
+                            // "Zoe's pick" label.
+                            const SizedBox(height: 32),
+                            if (topics.isNotEmpty)
+                              TopicCarousel(
+                                // A fresh controller (and initial centre) whenever
+                                // the available topic set changes.
+                                key: ValueKey(
+                                  topics.map((t) => t.name).join('|'),
+                                ),
+                                topics: topics,
+                                selected: _selected,
+                                onSelect: _selectTopic,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-              // Bottom group — pick-your-own prompt + topic chips.
-              const SizedBox(height: 8),
-              Text(
-                pickPrompt,
-                style: EllaTextStyles.caption.copyWith(
-                  color: EllaColors.greenDeep,
+              // Bottom group — the selected-topic CTA.
+              const SizedBox(height: 16),
+              // Short wobble whenever the selected topic changes.
+              ShakeOnChange(
+                trigger: selected?.name ?? '',
+                child: EllaPrimaryButton(
+                  key: const ValueKey('home-talk-cta'),
+                  label: ctaLabel,
+                  labelChild: _TalkAboutCtaLabel(topicLabel: selectedLabel),
+                  leading: SvgPicture.asset(
+                    _kVoiceIcon,
+                    width: 22,
+                    height: 22,
+                    colorFilter: const ColorFilter.mode(
+                      EllaColors.onPrimary,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  height: 60,
+                  playTapClickSound: false,
+                  backgroundColor: isOnline ? null : Colors.grey[400],
+                  edgeColor: isOnline ? null : Colors.grey[600],
+                  onTap: isOnline
+                      ? _startSelected
+                      : () {
+                          ref.read(audioProvider).playSfx(Sounds.error);
+                          OfflineAlertPopup.show(context);
+                        },
                 ),
-              ),
-              const SizedBox(height: 10),
-              _TopicChipsRow(
-                // Pass the EFFECTIVE selection (explicit pick, else the
-                // server's recommended) so the topic on the "Let's Talk About…"
-                // CTA is the first, highlighted chip in the row below.
-                recommended: _recommended,
-                alternatives: _alternatives,
-                selected: _selected,
-                promoteSelected: _promoteSelectedTopic,
-                onSelect: _selectTopic,
-                onSeeMore: _openSeeMore,
               ),
             ],
           ),
@@ -490,66 +480,104 @@ class _TalkAboutCtaLabel extends StatelessWidget {
 }
 
 class _HeaderRow extends StatelessWidget {
-  final String name;
   final VoidCallback? onOpenProfile;
   final VoidCallback? onOpenGarden;
 
-  const _HeaderRow({
-    required this.name,
-    required this.onOpenProfile,
-    required this.onOpenGarden,
-  });
+  const _HeaderRow({required this.onOpenProfile, required this.onOpenGarden});
 
   @override
   Widget build(BuildContext context) {
-    // Profile sits above the garden shortcut on the right (Figma stacks them
-    // vertically), with the greeting filling the left.
+    // Garden shortcut in the top-left corner, Profile in the top-right — each a
+    // full-circle nav glyph (glass-dome garden / child avatar) over the botanical
+    // scene, with its caption below.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hi, $name!',
-                  style: EllaTextStyles.headline,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+        EllaCircleIconButton(
+          glyph: _SwayingGlyph(
+            child: SvgPicture.asset(_kNavGarden, width: 56, height: 56),
           ),
+          diameter: 72,
+          fill: EllaColors.greenLight,
+          ring: EllaColors.greenDark,
+          label: 'Garden',
+          labelColor: EllaColors.greenDeep,
+          labelStyle: EllaTextStyles.buttonSmall,
+          labelAsChip: true,
+          chipFill: EllaColors.greenLight,
+          chipBorder: EllaColors.greenDark,
+          onTap: onOpenGarden,
         ),
-        Column(
-          children: [
-            EllaCircleIconButton(
-              // TODO: swap for the exported profile glyph when available.
-              glyph: const Icon(
-                Icons.person_rounded,
-                size: 30,
-                color: EllaColors.infoDark,
-              ),
-              fill: EllaColors.surfaceVariant,
-              ring: EllaColors.info,
-              label: 'Profile',
-              labelColor: EllaColors.infoDark,
-              onTap: onOpenProfile,
-            ),
-            const SizedBox(height: 12),
-            EllaCircleIconButton(
-              glyph: SvgPicture.asset(_kPlantIcon, width: 32, height: 32),
-              fill: EllaColors.greenLight,
-              ring: EllaColors.greenDark,
-              label: 'Garden',
-              labelColor: EllaColors.greenDeep,
-              onTap: onOpenGarden,
-            ),
-          ],
+        EllaCircleIconButton(
+          glyph: SvgPicture.asset(_kNavProfile, width: 56, height: 56),
+          diameter: 72,
+          fill: EllaColors.surfaceVariant,
+          ring: EllaColors.info,
+          label: 'Profile',
+          labelColor: EllaColors.infoDark,
+          labelStyle: EllaTextStyles.buttonSmall,
+          labelAsChip: true,
+          chipFill: EllaColors.surfaceVariant,
+          chipBorder: EllaColors.info,
+          onTap: onOpenProfile,
         ),
       ],
+    );
+  }
+}
+
+// A slow left↔right breeze on a small glyph — the garden shortcut's leaf sways
+// from its base the way the plot plants do (see placement_garden_screen), just
+// tighter and a touch quicker so it still reads at 32px.
+class _SwayingGlyph extends StatefulWidget {
+  final Widget child;
+
+  const _SwayingGlyph({required this.child});
+
+  @override
+  State<_SwayingGlyph> createState() => _SwayingGlyphState();
+}
+
+class _SwayingGlyphState extends State<_SwayingGlyph>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _sway = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  );
+  late final Animation<double> _angle = Tween<double>(
+    begin: -0.06,
+    end: 0.06,
+  ).animate(CurvedAnimation(parent: _sway, curve: Curves.easeInOut));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _sway.stop();
+      _sway.value = 0.5; // upright
+    } else if (!_sway.isAnimating) {
+      _sway.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _sway.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return AnimatedBuilder(
+      animation: _angle,
+      builder: (context, child) => Transform.rotate(
+        angle: _angle.value,
+        alignment: Alignment.bottomCenter,
+        child: child,
+      ),
+      child: widget.child,
     );
   }
 }
@@ -583,6 +611,7 @@ class _LastTimeCard extends StatelessWidget {
         : "This is our first chat together — I can't wait!";
 
     final card = Container(
+      key: const ValueKey('home-last-time-bubble'),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: ellaSmoothDecoration(
@@ -603,6 +632,7 @@ class _LastTimeCard extends StatelessWidget {
     // chat bubble. Top padding keeps the overhanging dot inside the Stack's
     // bounds so it stays tappable.
     return Stack(
+      key: const ValueKey('home-last-time-card'),
       clipBehavior: Clip.none,
       children: [
         Padding(padding: const EdgeInsets.only(top: 14), child: card),
@@ -614,390 +644,4 @@ class _LastTimeCard extends StatelessWidget {
       ],
     );
   }
-}
-
-// ── Labelled section divider ("Next Session", …) ────────────────────────────
-
-class _SectionDivider extends StatelessWidget {
-  final String label;
-  const _SectionDivider({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    const line = Expanded(
-      child: Divider(color: EllaColors.greenDeep, height: 2, thickness: 1.5),
-    );
-    return Row(
-      children: [
-        line,
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text(
-            label,
-            style: EllaTextStyles.caption.copyWith(color: EllaColors.greenDeep),
-          ),
-        ),
-        line,
-      ],
-    );
-  }
-}
-
-// ── Pick-your-own topic chips (select, don't start) ─────────────────────────
-
-// The next_topics alternatives as chips + a "See More" chip. Tapping a topic
-// chip SELECTS it (highlight + reorder to front + CTA relabel) — it does not
-// start a session; only the CTA does. The effective selection (explicit pick,
-// else the server's recommended — i.e. whatever the CTA points at) is moved to
-// the front and highlighted, so the CTA's topic is always the first chip. Empty
-// slots stay as neutral placeholders so the row's layout doesn't jump before
-// the topics load.
-class _TopicChipsRow extends StatelessWidget {
-  final TopicChoice? recommended;
-  final List<TopicChoice> alternatives;
-  final TopicChoice?
-  selected; // effective selection (CTA topic), highlighted first
-  final bool promoteSelected;
-  final ValueChanged<TopicChoice> onSelect;
-  final VoidCallback onSeeMore;
-
-  const _TopicChipsRow({
-    required this.recommended,
-    required this.alternatives,
-    required this.selected,
-    required this.promoteSelected,
-    required this.onSelect,
-    required this.onSeeMore,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final shown = getHomescreenTopics(
-      recommended: recommended,
-      alternatives: alternatives,
-      selected: selected,
-      promoteSelected: promoteSelected,
-    );
-    final sel = selected;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const horizontalGap = 8.0;
-        final cardWidth = (constraints.maxWidth - horizontalGap * 2) / 3;
-        final horizontalPadding = responsiveTopicHorizontalPadding(
-          context,
-          labels: [...shown.map((topic) => topic.display), 'See More!'],
-          cardWidth: cardWidth,
-          singleLineLabels: const ['See More!'],
-        );
-        final labelWidth = cardWidth - horizontalPadding * 2;
-        final topicLayouts = [
-          for (final topic in shown)
-            measureTopicLabel(
-              context,
-              text: topic.display,
-              maxWidth: labelWidth,
-            ),
-        ];
-        final seeMoreLayout = measureTopicLabel(
-          context,
-          text: 'See More!',
-          maxWidth: labelWidth,
-          allowWrap: false,
-        );
-        var rowLabelHeight = seeMoreLayout.height;
-        for (final layout in topicLayouts) {
-          if (layout.height > rowLabelHeight) rowLabelHeight = layout.height;
-        }
-        final rowHeight =
-            kTopicCardVerticalPadding * 2 +
-            kTopicIconSize +
-            kTopicIconLabelGap +
-            rowLabelHeight;
-
-        final slots = <Widget>[];
-        for (var i = 0; i < shown.length; i++) {
-          final topic = shown[i];
-          slots.add(
-            Expanded(
-              child: _TopicChip(
-                label: topic.display,
-                icon: topic.icon,
-                labelLayout: topicLayouts[i],
-                labelSlotHeight: rowLabelHeight,
-                height: rowHeight,
-                horizontalPadding: horizontalPadding,
-                selected: sel != null && topic.name == sel.name,
-                onTap: () => onSelect(topic),
-              ),
-            ),
-          );
-        }
-        // Keep three equal columns even before the topics arrive.
-        for (var i = shown.length; i < 2; i++) {
-          slots.add(
-            Expanded(
-              child: _ChipPlaceholder(
-                height: rowHeight,
-                horizontalPadding: horizontalPadding,
-              ),
-            ),
-          );
-        }
-        slots.add(
-          Expanded(
-            child: _SeeMoreChip(
-              height: rowHeight,
-              labelLayout: seeMoreLayout,
-              labelSlotHeight: rowLabelHeight,
-              horizontalPadding: horizontalPadding,
-              onTap: onSeeMore,
-            ),
-          ),
-        );
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < slots.length; i++) ...[
-              if (i > 0) const SizedBox(width: horizontalGap),
-              slots[i],
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _ChipShell extends StatelessWidget {
-  final double height;
-  final Color fill;
-  final Color outline;
-  final double outlineWidth;
-  final double horizontalPadding;
-  final Widget child;
-  final VoidCallback? onTap;
-  final bool playTapClickSound;
-
-  const _ChipShell({
-    super.key,
-    required this.height,
-    required this.fill,
-    required this.outline,
-    required this.horizontalPadding,
-    required this.child,
-    this.outlineWidth = 1.5,
-    this.onTap,
-    this.playTapClickSound = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tap = onTap;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      // Leaf gesture for every chip — play the tap click here so callers pass
-      // plain callbacks (no double click).
-      onTap: tap == null
-          ? null
-          : () {
-              if (playTapClickSound) {
-                playTapClick();
-              }
-              tap();
-            },
-      child: Container(
-        height: height,
-        // BoxDecoration contributes its border to the content inset. Offset
-        // it here so every chip keeps the same 12px padding and icon position,
-        // including the selected chip's thicker outline.
-        padding: EdgeInsets.fromLTRB(
-          horizontalPadding - outlineWidth,
-          kTopicCardVerticalPadding - outlineWidth,
-          horizontalPadding - outlineWidth,
-          kTopicCardVerticalPadding - outlineWidth,
-        ),
-        alignment: Alignment.topCenter,
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: outline, width: outlineWidth),
-        ),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _TopicChip extends StatelessWidget {
-  final String label;
-  final String icon;
-  final TopicLabelLayout labelLayout;
-  final double labelSlotHeight;
-  final double height;
-  final double horizontalPadding;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TopicChip({
-    required this.label,
-    required this.icon,
-    required this.labelLayout,
-    required this.labelSlotHeight,
-    required this.height,
-    required this.horizontalPadding,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Selected chips render their label in the highlight colour so the active
-    // choice reads clearly; unselected stay ink. The per-topic icon (from the
-    // memory API's `icon` id) shows when known, else a generic chat glyph.
-    final content = selected ? EllaColors.berryDark : EllaColors.ink;
-    return _ChipShell(
-      key: ValueKey('home-topic-chip-$label'),
-      height: height,
-      fill: selected ? EllaColors.berryLight : EllaColors.surface,
-      outline: selected
-          ? EllaColors.berryDark
-          : EllaColors.ink.withValues(alpha: 0.2),
-      outlineWidth: selected ? 2.5 : 1.5,
-      horizontalPadding: horizontalPadding,
-      onTap: onTap,
-      playTapClickSound: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TopicIcon(
-            key: ValueKey('home-topic-icon-$label'),
-            icon: icon,
-            size: kTopicIconSize,
-            fallbackColor: content,
-          ),
-          const SizedBox(height: kTopicIconLabelGap),
-          TopicCardLabel(
-            key: ValueKey('home-topic-label-$label'),
-            text: label,
-            color: content,
-            layout: labelLayout,
-            slotHeight: labelSlotHeight,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SeeMoreChip extends StatelessWidget {
-  final double height;
-  final TopicLabelLayout labelLayout;
-  final double labelSlotHeight;
-  final double horizontalPadding;
-  final VoidCallback onTap;
-
-  const _SeeMoreChip({
-    required this.height,
-    required this.labelLayout,
-    required this.labelSlotHeight,
-    required this.horizontalPadding,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _ChipShell(
-      key: const ValueKey('home-see-more-chip'),
-      height: height,
-      fill: EllaColors.surface,
-      outline: EllaColors.ink.withValues(alpha: 0.35),
-      horizontalPadding: horizontalPadding,
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(
-            'assets/homescreen/new/BoundingBox.svg',
-            key: const ValueKey('home-see-more-icon'),
-            width: kTopicIconSize,
-            height: kTopicIconSize,
-            fit: BoxFit.contain,
-            alignment: Alignment.center,
-            colorFilter: const ColorFilter.mode(
-              EllaColors.berryDark,
-              BlendMode.srcIn,
-            ),
-          ),
-          const SizedBox(height: kTopicIconLabelGap),
-          TopicCardLabel(
-            key: const ValueKey('home-see-more-label'),
-            text: 'See More!',
-            color: EllaColors.ink,
-            layout: labelLayout,
-            slotHeight: labelSlotHeight,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChipPlaceholder extends StatelessWidget {
-  final double height;
-  final double horizontalPadding;
-
-  const _ChipPlaceholder({
-    required this.height,
-    required this.horizontalPadding,
-  });
-
-  @override
-  Widget build(BuildContext context) => _ChipShell(
-    height: height,
-    fill: EllaColors.surface.withValues(alpha: 0.5),
-    outline: EllaColors.ink.withValues(alpha: 0.12),
-    horizontalPadding: horizontalPadding,
-    child: const SizedBox.shrink(),
-  );
-}
-
-List<TopicChoice> getHomescreenTopics({
-  required TopicChoice? recommended,
-  required List<TopicChoice> alternatives,
-  required TopicChoice? selected,
-  required bool promoteSelected,
-}) {
-  final ordered = <TopicChoice>[];
-  final seen = <String>{};
-  void addTopic(TopicChoice? topic) {
-    if (topic == null || topic.name.isEmpty || !seen.add(topic.name)) return;
-    ordered.add(topic);
-  }
-
-  if (promoteSelected) {
-    addTopic(selected);
-    for (final topic in alternatives) {
-      addTopic(topic);
-    }
-  } else {
-    addTopic(recommended);
-    for (final topic in alternatives) {
-      addTopic(topic);
-    }
-  }
-  if (selected != null && selected.name.isNotEmpty) {
-    final isAlreadyInAlternatives = alternatives.any(
-      (t) => t.name == selected.name,
-    );
-    if (!isAlreadyInAlternatives) {
-      if (ordered.isNotEmpty) {
-        ordered[0] = selected;
-      } else {
-        ordered.add(selected);
-      }
-    }
-  }
-  return ordered.take(2).toList();
 }

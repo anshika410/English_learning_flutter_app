@@ -12,6 +12,8 @@ import 'package:ella_app/providers/garden_provider.dart';
 import 'package:ella_app/providers/onboarding_provider.dart';
 import 'package:ella_app/providers/service_providers.dart';
 import 'package:ella_app/screens/child_view/garden_screen.dart';
+import 'package:ella_app/screens/child_view/widgets/home_scene_background.dart';
+import 'package:ella_app/screens/child_view/widgets/placement_garden_scene_background.dart';
 import 'package:ella_app/screens/child_view/widgets/spotlight_overlay.dart';
 import 'package:ella_app/services/audio_service.dart';
 import 'package:ella_app/services/ella_api_service.dart';
@@ -156,6 +158,8 @@ Widget _harness(
   StateProvider<GardenData>? gardenDataProvider,
   String childName = 'Narendra',
   bool previousGardenFails = false,
+  Future<GardenData> Function(String level)? previousGardenLoader,
+  Future<GardenData> Function()? gardenLoader,
   PostConversationGardenReveal? postConversationReveal,
   Size mediaSize = const Size(430, 932),
   TextScaler textScaler = TextScaler.noScaling,
@@ -168,18 +172,25 @@ Widget _harness(
     ttsProvider.overrideWithValue(tts ?? _ImmediateTtsService()),
     chatProvider.overrideWith(() => _FakeChatNotifier(data.level)),
     onboardingProvider.overrideWith(() => _FakeOnboardingNotifier(childName)),
-    previousGardenProvider.overrideWith(
-      (ref, level) async => previousGardenFails
-          ? throw const EllaApiException('previous_garden_unavailable')
-          : _apiPreviousGarden(level),
-    ),
+    previousGardenProvider.overrideWith((ref, level) async {
+      if (previousGardenLoader != null) {
+        return previousGardenLoader(level);
+      }
+      if (previousGardenFails) {
+        throw const EllaApiException('previous_garden_unavailable');
+      }
+      return _apiPreviousGarden(level);
+    }),
     if (postConversationReveal != null)
       postConversationGardenRevealProvider.overrideWith(
         (ref) =>
             _SeededPostConversationRevealController(postConversationReveal),
       ),
     ...extraOverrides,
-    gardenProvider.overrideWith((ref) async => ref.watch(sourceProvider)),
+    gardenProvider.overrideWith(
+      (ref) async =>
+          gardenLoader == null ? ref.watch(sourceProvider) : gardenLoader(),
+    ),
   ];
 
   return ProviderScope(
@@ -433,6 +444,53 @@ Future<void> _pumpUntilPrefsContain(
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({'ella_api_user_id': _testUserId});
+  });
+
+  testWidgets('initial loading keeps the placement-garden scenery', (
+    tester,
+  ) async {
+    final pending = Completer<GardenData>();
+    await tester.pumpWidget(
+      _harness(
+        _gardenData(level: 'A1'),
+        gardenLoader: () => pending.future,
+        mediaSize: const Size(390, 844),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Preparing your garden...'), findsOneWidget);
+    expect(find.byType(PlacementGardenBackdrop), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('placement-garden-status-background')),
+      findsOneWidget,
+    );
+    expect(find.byType(HomeSceneBackground), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    pending.complete(_gardenData(level: 'A1'));
+  });
+
+  testWidgets('initial errors keep the placement-garden scenery', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _harness(
+        _gardenData(level: 'A1'),
+        gardenLoader: () =>
+            Future.error(const EllaApiException('garden_unavailable')),
+        mediaSize: const Size(320, 700),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('No Internet Connection'), findsOneWidget);
+    expect(find.text('Refresh'), findsOneWidget);
+    expect(find.byType(PlacementGardenBackdrop), findsOneWidget);
+    expect(find.byType(HomeSceneBackground), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('known levels render their Figma garden labels', (tester) async {
@@ -1992,6 +2050,33 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
+
+  testWidgets('completed-level loading keeps the selected level backdrop', (
+    tester,
+  ) async {
+    final pending = Completer<GardenData>();
+    await tester.pumpWidget(
+      _harness(
+        _gardenData(level: 'C1'),
+        previousGardenLoader: (_) => pending.future,
+        mediaSize: const Size(390, 844),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    await openSwitcher(tester);
+
+    await tester.tap(find.byKey(const ValueKey('garden-switcher-card-A1')));
+    await tester.pump();
+
+    expect(find.text('Preparing your garden...'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-backdrop-A1')), findsOneWidget);
+    expect(find.byType(HomeSceneBackground), findsNothing);
+    expect(find.byType(PlacementGardenBackdrop), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    pending.complete(_apiPreviousGarden('A1'));
+  });
 
   testWidgets('tapping pill opens the garden switcher sheet', (tester) async {
     await _pumpGarden(tester, _gardenData(level: 'A2'));

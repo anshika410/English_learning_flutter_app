@@ -464,15 +464,21 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,
-      onMic: isOnline ? () => _onMic(s) : () {
-        OfflineAlertPopup.show(context);
-      },
-      onToggleKeyboard: isOnline ? _toggleKeyboard : () {
-        OfflineAlertPopup.show(context);
-      },
-      onSend: isOnline ? _sendTyped : () {
-        OfflineAlertPopup.show(context);
-      },
+      onMic: isOnline
+          ? () => _onMic(s)
+          : () {
+              OfflineAlertPopup.show(context);
+            },
+      onToggleKeyboard: isOnline
+          ? _toggleKeyboard
+          : () {
+              OfflineAlertPopup.show(context);
+            },
+      onSend: isOnline
+          ? _sendTyped
+          : () {
+              OfflineAlertPopup.show(context);
+            },
       onEnd: _endConversation,
       // Speaker dot on Zoe's bubble: replays the line when idle. While she's
       // already talking the tap is a no-op (never stops or restarts her). Only

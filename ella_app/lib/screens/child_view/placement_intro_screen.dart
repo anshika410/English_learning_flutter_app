@@ -1,7 +1,7 @@
 // Placement intro — the first-run "Homescreen" (Figma "Placement Flow").
-// Shown by RootGate before a student has been levelled: the garden sky, Zoe, a
-// warm "tell me about yourself" greeting, and a single "Let's Talk" CTA that
-// starts the voice placement screening. Mirrors HomeScreen's header (labelled
+// Shown by RootGate before a student has been levelled: the botanical scene,
+// Zoe, a warm "tell me about yourself" greeting, and a single "Let's Talk" CTA
+// that starts the voice placement screening. Mirrors HomeScreen's header (labelled
 // Profile/Garden shortcuts) but stays simpler — no topic chips or Last-time
 // card, since there's no history or level yet.
 
@@ -28,7 +28,7 @@ import 'placement_screen.dart';
 import 'profile_screen.dart';
 import 'widgets/circle_icon_button.dart';
 import 'widgets/ella_primary_button.dart';
-import 'widgets/garden_sky_background.dart';
+import 'widgets/home_scene_background.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/zoe_mascot.dart';
 import 'dart:async';
@@ -185,10 +185,10 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
 
     final childName =
         ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
-        
+
     final greetingText = _kGreeting;
 
-    return GardenSkyBackground(
+    return HomeSceneBackground(
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
@@ -210,8 +210,8 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                         mode: !isOnline
                             ? ZoeMascotMode.sleep
                             : _speaking
-                                ? ZoeMascotMode.speaking
-                                : ZoeMascotMode.listening,
+                            ? ZoeMascotMode.speaking
+                            : ZoeMascotMode.listening,
                         size: mascotW,
                         reducedMotion: MediaQuery.of(context).disableAnimations,
                       ),

@@ -1,7 +1,7 @@
 // Radial vignette: transparent over the highlighted element, easing to a
 // translucent dark-green scrim at the edges. Shared by the onboarding first
 // sprout, the placement bloom, and the garden's first-time welcome. Modelled on
-// the sun RadialGradient in garden_sky_background.dart.
+// the soft radial lighting used throughout the botanical scene.
 
 import 'dart:ui';
 
