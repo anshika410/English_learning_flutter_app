@@ -318,7 +318,6 @@ def _load_level_blocks() -> dict[str, str]:
         "B1": "profile-B1.md",
         "B2": "profile-B2.md",
         "C1": "profile-C1.md",
-        "C2": "profile-C2.md",
     }
     blocks = {}
     for level, filename in mapping.items():
