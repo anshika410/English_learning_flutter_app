@@ -314,6 +314,7 @@ def _load_level_blocks() -> dict[str, str]:
         "B1": "profile-B1.md",
         "B2": "profile-B2.md",
         "C1": "profile-C1.md",
+        "C2": "profile-C2.md",
     }
     blocks = {}
     for level, filename in mapping.items():
@@ -462,6 +463,21 @@ async def send_conversation_turn(
     # Build elicitation plan (using plan_text(target_ids))
     elicitation_str = plan_text(target_ids, level_upper)
 
+    # Support new style variables for pk_1.1
+    primary_id = target_ids[0] if target_ids else None
+    primary_strand = "VOC"
+    if primary_id:
+        from ..core.curriculum_data import skill_strand
+        primary_strand = skill_strand(primary_id)
+    primary_skill_text = resolve_skill_text(primary_id, level_upper) if primary_id else "General conversation practice"
+    
+    watching_ids = target_ids[1:] if len(target_ids) > 1 else []
+    watch_list_str = "\n".join(
+        f"- [{wid}] {resolve_skill_text(wid, level_upper)}"
+        for wid in watching_ids
+        if resolve_skill_text(wid, level_upper)
+    ) if watching_ids else "None"
+
     level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
 
     base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
@@ -476,6 +492,13 @@ async def send_conversation_turn(
         .replace("{{ELICITATION}}", elicitation_str)
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", str(current_turn))
+        # Support new pk_1.1 placeholders
+        .replace("{{UNIT}}", unit_name)
+        .replace("{{CONVERSATION_TOPIC}}", topic)
+        .replace("{{PRIMARY_STRAND}}", primary_strand)
+        .replace("{{PRIMARY_SKILL}}", primary_skill_text)
+        .replace("{{LEARNER_CONTEXT}}", memory_str)
+        .replace("{{WATCH_LIST}}", watch_list_str)
         .strip()
     )
 

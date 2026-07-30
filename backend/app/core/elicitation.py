@@ -428,7 +428,7 @@ def plan_text(ids: list[str], level: str | None = None) -> str:
             f"{role} {plan['id']} ({plan['fn']})\n"
             f"- Skill: {plan['skill']}\n"
             f"- Natural move: {plan['move']}\n"
-            f"- Prompt options: choose exactly ONE; never combine them: {plan['question']}\n"
+            f"- Prompt options: choose exactly ONE and adapt it to the conversation topic if needed (do not combine them): {plan['question']}\n"
             f"- If support is needed: {plan['fallback']}\n"
             f"- Learner evidence: {plan['evidence']}"
         )

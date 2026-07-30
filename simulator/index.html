@@ -245,7 +245,12 @@ window.__ellaSignOut = function() {
   window.__ellaUser = null;
   localStorage.removeItem('ella_gsi_user');
   localStorage.removeItem('ella_prompt_author');
-  // React component will pick up null via polling
+  localStorage.removeItem('ella_access_token');
+  localStorage.removeItem('ella_google_email');
+  localStorage.removeItem('ella_device_id');
+  if (typeof google !== 'undefined' && google.accounts) {
+    google.accounts.id.disableAutoSelect();
+  }
 };
 
 window.addEventListener('load', function() {
@@ -2577,11 +2582,22 @@ function PromptView({text, level, tabActive, sessionType, mem, prompts, lastSyst
 function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChatEnded,activeSource,setActiveSource,serverPrompts,setServerPrompts,editedServerPrompts,setEditedServerPrompts,isSandbox,setIsSandbox}){
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const isLoggedIn = !!localStorage.getItem('ella_google_email');
+  const adjustHeightRef = (isActive) => (el) => {
+    if (el) {
+      if (isActive) {
+        el.style.height = 'auto';
+        el.style.height = (el.scrollHeight + 12) + 'px';
+      } else {
+        el.style.height = '';
+      }
+    }
+  };
 
   React.useEffect(() => {
     if (activeSource === 'server' && !serverPrompts && !loading) {
       setLoading(true);
-      callEllaAPI('/admin/prompts')
+      callEllaAPI('/admin/prompts?t=' + Date.now())
         .then(data => {
           setServerPrompts(data);
           setIsSandbox(!!data.is_sandbox);
@@ -2732,7 +2748,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
               <textarea 
                 data-promptkey="placement"
                 value={(editedServerPrompts && editedServerPrompts.placement) || ''} 
-                readOnly={false}
+                readOnly={!isLoggedIn}
+                ref={adjustHeightRef(sessionType === 'placement' && !isChatEnded)}
                 onChange={e=>{
                   const val = e.target.value;
                   setEditedServerPrompts(prev => {
@@ -2741,7 +2758,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     return up;
                   });
                 }}
-                style={{ background: (sessionType === 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: 'text', height: 220 }}
+                style={{ background: (sessionType === 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: (sessionType === 'placement' && !isChatEnded) ? 'auto' : 220 }}
               />
             </div>
 
@@ -2751,7 +2768,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
               <textarea 
                 data-promptkey="base"
                 value={(editedServerPrompts && editedServerPrompts.base) || ''} 
-                readOnly={false}
+                readOnly={!isLoggedIn}
+                ref={adjustHeightRef(sessionType !== 'placement' && !isChatEnded)}
                 onChange={e=>{
                   const val = e.target.value;
                   setEditedServerPrompts(prev => {
@@ -2760,7 +2778,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                     return up;
                   });
                 }}
-                style={{ background: (sessionType !== 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 150 }}
+                style={{ background: (sessionType !== 'placement' && !isChatEnded) ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: (sessionType !== 'placement' && !isChatEnded) ? 'auto' : 150 }}
               />
             </div>
 
@@ -2776,7 +2794,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                 <textarea 
                   data-promptkey={pkey}
                   value={(editedServerPrompts && editedServerPrompts[pkey]) || ''} 
-                  readOnly={false} 
+                  readOnly={!isLoggedIn} 
+                  ref={adjustHeightRef(isActive)}
                   onChange={e=>{
                     const val = e.target.value;
                     setEditedServerPrompts(prev => {
@@ -2785,7 +2804,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                       return up;
                     });
                   }}
-                  style={{ background: isActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: isActive ? 120 : 50, fontSize: 11 }}
+                  style={{ background: isActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isActive ? 'auto' : 50, fontSize: 11 }}
                 />
               </div>
               );
@@ -2802,7 +2821,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   <textarea 
                     data-promptkey="conv-unit-framing"
                     value={(editedServerPrompts && editedServerPrompts['conv-unit-framing']) || ''} 
-                    readOnly={false} 
+                    readOnly={!isLoggedIn} 
+                    ref={adjustHeightRef(isUnitFramingActive)}
                     onChange={e=>{
                       const val = e.target.value;
                       setEditedServerPrompts(prev => {
@@ -2811,7 +2831,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                         return up;
                       });
                     }}
-                    style={{ background: isUnitFramingActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 140 }}
+                    style={{ background: isUnitFramingActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isUnitFramingActive ? 'auto' : 140 }}
                   />
                 </div>
               );
@@ -2829,7 +2849,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   <textarea 
                     data-promptkey="judge"
                     value={(editedServerPrompts && editedServerPrompts['judge']) || ''} 
-                    readOnly={false} 
+                    readOnly={!isLoggedIn} 
+                    ref={adjustHeightRef(isJudgeActive)}
                     onChange={e=>{
                       const val = e.target.value;
                       setEditedServerPrompts(prev => {
@@ -2838,7 +2859,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                         return up;
                       });
                     }}
-                    style={{ background: isJudgeActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 200 }}
+                    style={{ background: isJudgeActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isJudgeActive ? 'auto' : 200 }}
                   />
                 </div>
               );
@@ -2855,7 +2876,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   <textarea 
                     data-promptkey="correction-extraction"
                     value={(editedServerPrompts && editedServerPrompts['correction-extraction']) || ''} 
-                    readOnly={false} 
+                    readOnly={!isLoggedIn} 
+                    ref={adjustHeightRef(isCorrectionActive)}
                     onChange={e=>{
                       const val = e.target.value;
                       setEditedServerPrompts(prev => {
@@ -2864,7 +2886,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                         return up;
                       });
                     }}
-                    style={{ background: isCorrectionActive ? '#f0fdf4' : '#f4f1ea', cursor: 'default', height: 120 }}
+                    style={{ background: isCorrectionActive ? '#f0fdf4' : '#f4f1ea', cursor: isLoggedIn ? 'text' : 'not-allowed', height: isCorrectionActive ? 'auto' : 120 }}
                   />
                 </div>
               );
@@ -2872,17 +2894,6 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
             <div id="version-history-anchor" style={{marginTop:16}}></div>
             <div style={{marginTop:12, paddingTop:16, borderTop:'1px solid #e5e5e5'}}>
               <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
-                <button onClick={async()=>{
-                  const textareas = document.querySelectorAll('textarea');
-                  const taArr = Array.from(textareas).filter(ta => ta.offsetParent !== null && ta.value.trim());
-                  const val = taArr.map(ta => ta.value.trim()).join('\n\n---\n\n');
-                  if(!val){alert('No prompt content found.'); return;}
-                  try{
-                    const r = await fetch(LLM_CONFIG.ellaApiUrl+'/admin/prompts/test?key=ella-admin-2026-xK9m', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({system_prompt:val, messages:[{role:'user',content:'Hello, what should we talk about?'}]})});
-                    const d = await r.json();
-                    alert('LLM Reply:\n\n' + (d.reply||d.detail||'No response') + '\n\nTokens: '+(d.usage?d.usage.total_tokens:'?') + '\n\n--- Prompt Sent (first 500 chars) ---\n'+(d.prompt_sent||'').substring(0,500));
-                  }catch(e){alert('Error: '+e);}
-                }} style={{padding:'8px 18px', background:'white', color:'#333', border:'2px solid #333', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Test</button>
                 <button onClick={async()=>{
                   if(!window.__ellaUser || !window.__ellaUser.email){
                     alert('Please sign in with Google first (top-left corner).'); return;
@@ -2948,7 +2959,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   } catch(e) {
                     alert('Error: ' + e);
                   }
-                }} style={{padding:'8px 18px', background:'white', color:'#2e7d32', border:'2px solid #2e7d32', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Save to Sandbox</button>
+                }} disabled={!isLoggedIn} title={!isLoggedIn ? "Please sign in with Google (top-left corner) to save prompts to your personal sandbox." : "Save your edits as a private sandbox draft"} style={{padding:'8px 18px', borderRadius:20, fontSize:13, fontWeight:600, ...(isLoggedIn ? {background:'white', color:'#2e7d32', border:'2px solid #2e7d32', cursor:'pointer'} : {background:'#f5f5f5', color:'#a0a0a0', border:'2px solid #dcdcdc', cursor:'not-allowed'})}}>Save to Sandbox</button>
 
                 <button onClick={async()=>{
                   if(!confirm('Clear all your sandbox overrides and revert to production prompts?')) return;
@@ -2963,7 +2974,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                      alert(d.message || 'Sandbox cleared!');
                      setServerPrompts(null);
                      setLoading(true);
-                     callEllaAPI('/admin/prompts')
+                     callEllaAPI('/admin/prompts?t=' + Date.now())
                        .then(data => { 
                          setServerPrompts(data); 
                          setIsSandbox(!!data.is_sandbox);
@@ -2985,12 +2996,12 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   } catch(e) {
                     alert('Error: ' + e);
                   }
-                }} style={{padding:'8px 18px', background:'white', color:'#e67e22', border:'2px solid #e67e22', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Clear Sandbox</button>
+                }} disabled={!isLoggedIn} title={!isLoggedIn ? "Please sign in with Google (top-left corner) to clear your personal sandbox." : "Discard your sandbox draft and revert to production"} style={{padding:'8px 18px', borderRadius:20, fontSize:13, fontWeight:600, ...(isLoggedIn ? {background:'white', color:'#e67e22', border:'2px solid #e67e22', cursor:'pointer'} : {background:'#f5f5f5', color:'#a0a0a0', border:'2px solid #dcdcdc', cursor:'not-allowed'})}}>Clear Sandbox</button>
                 <button onClick={()=>{
                   if(!confirm('Reload all prompts from server? Your edits will be lost.')) return;
                   setServerPrompts(null);
                   setLoading(true);
-                  callEllaAPI('/admin/prompts')
+                  callEllaAPI('/admin/prompts?t=' + Date.now())
                     .then(data => { setServerPrompts(data); setLoading(false);
                       setIsSandbox(!!data.is_sandbox);
                       window.__restoredFrom = null;
@@ -3042,7 +3053,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                 }} disabled title="This feature is currently disabled." style={{padding:'8px 18px', background:'#f0f0f0', color:'#a0a0a0', border:'2px solid #d0d0d0', borderRadius:20, fontSize:13, fontWeight:600, cursor:'not-allowed'}}>New Version</button>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,flexWrap:'wrap'}}>
-                <span style={{fontSize:11, color:'#999'}}>Test = try prompt with LLM · Deploy = push to production (same version) · Save to Sandbox = save private draft (survives refreshes) · Clear Sandbox = discard sandbox · Reset = reload server · History = restore past version | New Version = lock current & start fresh</span></div>
+                <span style={{fontSize:11, color:'#999'}}>Deploy = push to production (same version) · Save to Sandbox = save private draft (survives refreshes) · Clear Sandbox = discard sandbox · Reset = reload server · History = restore past version | New Version = lock current & start fresh</span></div>
 
             </div>
           </>
@@ -3060,25 +3071,35 @@ function GoogleSignIn() {
     return () => clearInterval(check);
   }, [user]);
 
+  React.useEffect(() => {
+    if (user) return;
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.renderButton(
+          document.getElementById("gsi-signin-btn-header"),
+          { theme: "outline", size: "medium", shape: "pill" }
+        );
+        clearInterval(interval);
+      } else if (attempts > 30) {
+        clearInterval(interval);
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, [user]);
+
   if (user) {
     return (
       <div style={{display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', background:'#f5f3ee', borderRadius:16, fontSize:12, marginRight:8}}>
         <img src={user.picture} referrerPolicy='no-referrer' style={{width:22, height:22, borderRadius:'50%', border:'1px solid #ccc'}} />
         <span style={{fontWeight:600}}>{user.name}</span>
-        <span onClick={()=>{window.__ellaSignOut(); setUser(null);}} style={{cursor:'pointer', color:'#888', fontSize:11, marginLeft:4}}>(sign out)</span>
+        <span onClick={()=>{window.__ellaSignOut(); setUser(null); window.location.reload();}} style={{cursor:'pointer', color:'#888', fontSize:11, marginLeft:4}}>(sign out)</span>
       </div>
     );
   }
   return (
-    <div style={{display:'inline-block', marginRight:8}}>
-      <button id="gsi-signin-btn" onClick={()=>{
-        if(typeof google !== 'undefined' && google.accounts) {
-          google.accounts.id.prompt();
-        } else {
-          alert('Google Sign-In not loaded. Please refresh the page.');
-        }
-      }} style={{padding:'5px 12px', background:'white', border:'1.5px solid #4285f4', borderRadius:16, fontSize:12, fontWeight:600, color:'#4285f4', cursor:'pointer'}}>Sign in with Google</button>
-    </div>
+    <div id="gsi-signin-btn-header" style={{display:'inline-block', marginRight:8, verticalAlign:'middle'}}></div>
   );
 }
 
@@ -3787,10 +3808,7 @@ function SettingsView({isApiAuthed,onConfigChange}){
                   ✅ Signed in as {storedEmail}
                 </span>
                 <button className="ghost" style={{fontSize:11,padding:'3px 8px'}} onClick={()=>{
-                  localStorage.removeItem('ella_access_token');
-                  localStorage.removeItem('ella_google_email');
-                  localStorage.removeItem('ella_device_id');
-                  rerender();
+                  window.__ellaSignOut();
                   window.location.reload();
                 }}>Sign out</button>
               </div>
@@ -4223,11 +4241,7 @@ function ApiCallsView({logs, onClear}){
                       <span style={{background:'#fff3e0',color:'#e65100',padding:'2px 8px',borderRadius:4,fontSize:11}}>Turn: {log.responseBody.prompt_debug.current_turn}</span>
                       <span style={{background:'#f3e5f5',color:'#6a1b9a',padding:'2px 8px',borderRadius:4,fontSize:11}}>Targets: {(log.responseBody.prompt_debug.target_ids||[]).join(', ') || 'none'}</span>
                     </div>
-                    {log.responseBody.prompt_debug.student_memory && log.responseBody.prompt_debug.student_memory !== 'None' && (
-                      <div style={{marginBottom:6,padding:'6px 10px',background:'#f9f3ff',border:'1px solid #ce93d8',borderRadius:6,fontSize:11}}>
-                        <b>🧠 Student Memory:</b> {log.responseBody.prompt_debug.student_memory}
-                      </div>
-                    )}
+
                     <pre style={{
                       background: '#1a1a2e',
                       color: '#a8d8a8',
