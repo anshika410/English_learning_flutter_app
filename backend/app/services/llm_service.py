@@ -576,16 +576,23 @@ async def send_placement_turn(
     # ── TURN 9+: FORCE COMPLETE ───────────────────────────────────────────────
     # Hard cap — after 9 student turns, force the LLM to assess now.
     if student_turns >= 9:
-        force_prompt = system_prompt + (
-            "\n\nMANDATORY: You have heard 9 student turns. "
-            "You MUST output the final JSON assessment NOW. "
-            "Do NOT ask another question. Do NOT output REPLY:. "
-            "Assess based on everything you have heard so far."
-        )
-        api_messages = [{"role": "system", "content": force_prompt}] + [
+        api_messages = [{"role": "system", "content": system_prompt}] + [
             {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
             for m in messages
         ]
+        # Append the final force instructions directly to the last user message to prevent the LLM
+        # from ignoring the system instructions in a long conversation context.
+        if api_messages and api_messages[-1]["role"] == "user":
+            api_messages[-1]["content"] += (
+                "\n\n[SYSTEM: The conversation is finished. You must output the final JSON assessment block now. "
+                "Do not reply to the learner's last turn with conversation. Output ONLY the JSON block.]"
+            )
+        else:
+            api_messages.append({
+                "role": "system",
+                "content": "MANDATORY: Output the final JSON assessment block now. Output ONLY valid JSON."
+            })
+
         text = await _chat_completion(api_messages, max_tokens=600, temperature=0.4)
         # Parse the forced assessment
         try:
@@ -593,8 +600,9 @@ async def send_placement_turn(
             data = json.loads(json_str)
             if "level" in data or "level_code" in data:
                 return _build_placement_result(data)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed parsing forced placement assessment: {e}. Raw text: {text}")
         # Absolute fallback if the LLM still refuses: start conservatively
         # and explicitly mark that the learner may be higher.
         return {
