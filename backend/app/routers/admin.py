@@ -623,7 +623,7 @@ async def deploy_prompt(
     valid_names = [
         "base-prompt", "conversation-prompt", "conv-unit-framing",
         "end-result-prompt", "placement-check-prompt",
-        "correction-extraction-prompt", "starter-prompt",
+        "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
     ]

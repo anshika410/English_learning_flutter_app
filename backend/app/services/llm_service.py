@@ -272,12 +272,16 @@ async def generate_conversation_starter(
 
     base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
 
-    starter_template = resolve_prompt("starter-prompt.md", custom_prompts, user_id)
     system_prompt = (
-        starter_template
-        .replace("{base_block}", base_block)
-        .replace("{level_block}", level_block)
-        .replace("{unit_block}", unit_block)
+        f"{base_block}\n\n"
+        f"---\n\n"
+        f"{level_block}\n\n"
+        f"---\n\n"
+        f"{unit_block}\n\n"
+        f"---\n\n"
+        f"The user message supplies the topic and may include sample starters.\n\n"
+        f"After generating Zoe's first spoken turn, output on a new line:\n"
+        f"TITLE: <a natural 2–4 word conversation title, no punctuation>"
     )
     topic_line = (
         "Topic: free conversation."
