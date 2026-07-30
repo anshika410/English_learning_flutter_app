@@ -467,8 +467,8 @@ async def send_conversation_turn(
     primary_id = target_ids[0] if target_ids else None
     primary_strand = "VOC"
     if primary_id:
-        from ..core.curriculum_data import skill_strand
-        primary_strand = skill_strand(primary_id)
+        from ..core.curriculum_data import get_skill_strand
+        primary_strand = get_skill_strand(primary_id)
     primary_skill_text = resolve_skill_text(primary_id, level_upper) if primary_id else "General conversation practice"
     
     watching_ids = target_ids[1:] if len(target_ids) > 1 else []
