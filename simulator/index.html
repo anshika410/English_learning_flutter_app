@@ -1874,7 +1874,7 @@ function App(){
                   <>
                     {visible.map((t, idx) => {
                       const tName = t.name || t.topic || "";
-                      const tIcon = t.icon || "💬";
+                      const tIcon = mapIconToEmoji(t.icon);
                       return (
                         <button
                           key={idx}
@@ -3002,16 +3002,33 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   setServerPrompts(null);
                   setLoading(true);
                   callEllaAPI('/admin/prompts?t=' + Date.now())
-                    .then(data => { setServerPrompts(data); setLoading(false);
+                    .then(data => { 
+                      setServerPrompts(data); 
+                      setLoading(false);
                       setIsSandbox(!!data.is_sandbox);
                       window.__restoredFrom = null;
                       window.dispatchEvent(new Event('prompt-restored'));
-                  // Initialize __editedPrompts with loaded server values
-                  const lvl = level || 'A0';
-                  const parts = [data.placement, data.base];
-                  if(data.level_profiles && data.level_profiles[lvl]) parts.push(data.level_profiles[lvl]);
-                  parts.push(data.conv_unit_framing, data.judge, data.correction_extraction);
-                  window.__editedPrompts = parts.filter(Boolean).join('\n\n---\n\n'); })
+                      
+                      const initialEdits = {
+                        placement: data.placement || '',
+                        base: data.base || '',
+                        'conv-unit-framing': data.conv_unit_framing || '',
+                        judge: data.judge || '',
+                        'correction-extraction': data.correction_extraction || '',
+                      };
+                      if (data.level_profiles) {
+                        Object.entries(data.level_profiles).forEach(([lvl, txt]) => {
+                          initialEdits[`profile-${lvl}`] = txt || '';
+                        });
+                      }
+                      setEditedServerPrompts(initialEdits);
+
+                      const lvl = level || 'A0';
+                      const parts = [data.placement, data.base];
+                      if(data.level_profiles && data.level_profiles[lvl]) parts.push(data.level_profiles[lvl]);
+                      parts.push(data.conv_unit_framing, data.judge, data.correction_extraction);
+                      window.__editedPrompts = parts.filter(Boolean).join('\n\n---\n\n'); 
+                    })
                     .catch(err => { setError(err.message); setLoading(false); });
                 }} style={{padding:'8px 18px', background:'white', color:'#666', border:'2px solid #999', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer'}}>Reset</button>
                 <button onClick={async()=>{
@@ -3174,6 +3191,20 @@ function UnitsView({mem}){
     <small className="note">A level-up = all 5 steps complete. The active step drives due_next. This is the units answer to the "level-up rule" hole.</small>
   </div>);
 }
+const mapIconToEmoji = (iconStr) => {
+  if (!iconStr) return "💬";
+  if (iconStr.includes("technology")) return "💻";
+  if (iconStr.includes("ambitions")) return "💼";
+  if (iconStr.includes("science")) return "🔬";
+  if (iconStr.includes("identity")) return "👤";
+  if (iconStr.includes("health")) return "⏰";
+  if (iconStr.includes("environment")) return "🌍";
+  if (iconStr.includes("sports")) return "🏏";
+  if (iconStr.includes("festivals")) return "🎬";
+  if (iconStr.includes("moral")) return "⚖️";
+  return "💬";
+};
+
 function TopicsView({ mem, onStartTopic, apiTopics }) {
   const isApi = LLM_CONFIG.mode === 'api';
   const topicsList = isApi ? apiTopics : (TOPICS[mem.level] || []);
@@ -3190,7 +3221,7 @@ function TopicsView({ mem, onStartTopic, apiTopics }) {
           
           const theme = t.theme || "General";
           const desc = t.description || "Practice conversing on this topic.";
-          const icon = t.icon || "💬";
+          const icon = mapIconToEmoji(t.icon);
           const bg = t.panel_bg || "linear-gradient(135deg, #F0E6FF, #E0D0FF)";
           
           return (

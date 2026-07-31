@@ -41,6 +41,13 @@ class User(Base):
 
     # Profile — filled in during/after placement
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    
+    @property
+    def first_name(self) -> str | None:
+        if not self.name:
+            return None
+        return self.name.strip().split(" ")[0]
+
     age: Mapped[str | None] = mapped_column(String(10), nullable=True)
     location: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
