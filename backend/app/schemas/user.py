@@ -154,6 +154,7 @@ class TopicResponse(BaseModel):
     vocab_seeds: list[str]
     structure_targets: list[str]
     starters: list[str]
+    isZoesPick: bool | None = False
 
 
 

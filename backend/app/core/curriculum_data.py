@@ -21,7 +21,1165 @@ CAT = [['A0-VOC-01', 'A0', 'VOC', "I can say my name, age, and where I'm from."]
 UNITS = {'A0': [{'step': '1', 'name': 'First words', 'focus': 'Naming the things I can see.', 'skills': [{'id': 'U1-VOC-01', 'strand': 'VOC', 'text': 'I can name colours and say numbers 1–10.'}, {'id': 'U1-VOC-02', 'strand': 'VOC', 'text': 'I can name familiar animals and everyday objects at school and home.'}, {'id': 'U1-GRA-01', 'strand': 'GRA', 'text': "I can use 'a' and 'the' in a simple phrase — a cat, the bag."}, {'id': 'U1-FLU-01', 'strand': 'FLU', 'text': 'I can name things in English when someone points at them.'}]}, {'step': '2', 'name': 'I am and I have got', 'focus': 'Saying who I am and what I have.', 'skills': [{'id': 'U2-VOC-01', 'strand': 'VOC', 'text': 'I can say my name, my age, and the name of my school and family members.'}, {'id': 'U2-GRA-01', 'strand': 'GRA', 'text': "I can say 'I am' and 'I am not' — I am happy. I am not tired."}, {'id': 'U2-GRA-02', 'strand': 'GRA', 'text': "I can use 'I have got' — I have got a dog. I haven't got a sister."}, {'id': 'U2-FLU-01', 'strand': 'FLU', 'text': 'I can introduce myself in English in a few short phrases.'}]}, {'step': '3', 'name': "I like and I don't like", 'focus': "Saying what I enjoy — and what I don't.", 'skills': [{'id': 'U3-VOC-01', 'strand': 'VOC', 'text': 'I can name things I like — food, sports, animals, colours.'}, {'id': 'U3-GRA-01', 'strand': 'GRA', 'text': "I can say 'I like' and 'I don't like' — I like cricket. I don't like eggs."}, {'id': 'U3-GRA-02', 'strand': 'GRA', 'text': "I can use 'and' to join two things — I like cats and dogs."}, {'id': 'U3-FLU-01', 'strand': 'FLU', 'text': "I can answer 'Do you like...?' with a short sentence, not just yes or no."}]}, {'step': '4', 'name': 'I can', 'focus': 'Saying what I am able to do.', 'skills': [{'id': 'U4-VOC-01', 'strand': 'VOC', 'text': 'I can name positions — on, in, under, next to, behind.'}, {'id': 'U4-GRA-01', 'strand': 'GRA', 'text': "I can use 'can' to say what someone is able to do — I can run. She can't fly."}, {'id': 'U4-GRA-02', 'strand': 'GRA', 'text': 'I can say where things are — The bag is on the chair. There is a pen on the table.'}, {'id': 'U4-FLU-01', 'strand': 'FLU', 'text': "I can answer 'What can you do?' with a simple sentence."}]}, {'step': '5', 'name': 'What is happening?', 'focus': 'Using present continuous and putting it all together in a short exchange.', 'skills': [{'id': 'U5-GRA-01', 'strand': 'GRA', 'text': 'I can use present continuous for right now — She is running. They are eating.'}, {'id': 'U5-GRA-02', 'strand': 'GRA', 'text': 'I can answer questions in the present — What are you doing? I am reading.'}, {'id': 'U5-FLU-01', 'strand': 'FLU', 'text': 'I can keep a simple exchange going for 2–3 turns on a familiar topic.'}, {'id': 'U5-FLU-02', 'strand': 'FLU', 'text': 'I can keep going even when I only have a few words.'}]}], 'A1': [{'step': '1', 'name': 'Describing the world', 'focus': 'Moving from naming things to describing them.', 'skills': [{'id': 'U1-VOC-01', 'strand': 'VOC', 'text': 'I can describe what people look like and how they feel using simple adjectives.'}, {'id': 'U1-GRA-01', 'strand': 'GRA', 'text': 'I can use the present continuous to describe what is happening now — She is running.'}, {'id': 'U1-FLU-01', 'strand': 'FLU', 'text': 'I can describe a picture or a place using 3–4 connected sentences.'}]}, {'step': '2', 'name': 'Talking about the past', 'focus': 'Starting to use past tense to share what happened.', 'skills': [{'id': 'U2-VOC-01', 'strand': 'VOC', 'text': 'I can use past time expressions — yesterday, last week, a long time ago.'}, {'id': 'U2-GRA-01', 'strand': 'GRA', 'text': 'I can use past simple with regular verbs — I walked, I watched, I played.'}, {'id': 'U2-GRA-02', 'strand': 'GRA', 'text': 'I can use some irregular past verbs — I went, I saw, I ate, I had.'}, {'id': 'U2-FLU-01', 'strand': 'FLU', 'text': 'I can talk about something I did recently in a few connected sentences.'}]}, {'step': '3', 'name': 'Giving opinions and reasons', 'focus': 'Beginning to say what I think and why.', 'skills': [{'id': 'U3-VOC-01', 'strand': 'VOC', 'text': 'I can use simple opinion words — I think, I feel, I prefer, I love, I hate.'}, {'id': 'U3-GRA-01', 'strand': 'GRA', 'text': "I can use 'because' to give a reason — I like cricket because it's exciting."}, {'id': 'U3-GRA-02', 'strand': 'GRA', 'text': "I can use 'but' to show contrast — I like football but not swimming."}, {'id': 'U3-FLU-01', 'strand': 'FLU', 'text': 'I can share a simple opinion and give at least one reason for it.'}]}, {'step': '4', 'name': 'Talking about plans', 'focus': 'Extending into the future — making and sharing plans.', 'skills': [{'id': 'U4-VOC-01', 'strand': 'VOC', 'text': 'I can use frequency words — always, usually, sometimes, never, often.'}, {'id': 'U4-VOC-02', 'strand': 'VOC', 'text': 'I can use future time expressions — tomorrow, next week, soon, one day.'}, {'id': 'U4-GRA-01', 'strand': 'GRA', 'text': "I can use 'going to' to talk about a plan — I'm going to study tonight."}, {'id': 'U4-FLU-01', 'strand': 'FLU', 'text': 'I can talk about what I am going to do and give a simple reason why.'}]}, {'step': '5', 'name': 'Holding a real conversation', 'focus': 'Using everything together in a real back-and-forth.', 'skills': [{'id': 'U5-VOC-01', 'strand': 'VOC', 'text': 'I can use connecting phrases — first, then, after that, in the end.'}, {'id': 'U5-GRA-01', 'strand': 'GRA', 'text': 'I can use present simple, present continuous, and past simple together in a story.'}, {'id': 'U5-FLU-01', 'strand': 'FLU', 'text': 'I can hold a short back-and-forth conversation on a familiar topic without long pauses.'}, {'id': 'U5-FLU-02', 'strand': 'FLU', 'text': "I can keep going even when I'm not 100% sure of every word."}]}], 'A2': [{'step': '1', 'name': 'Finding better words', 'focus': 'Moving from words that work to words that feel right.', 'skills': [{'id': 'U1-VOC-01', 'strand': 'VOC', 'text': 'I can use a wider range of descriptive words to make my ideas more interesting.'}, {'id': 'U1-VOC-02', 'strand': 'VOC', 'text': 'I can understand and use common idioms I hear regularly.'}, {'id': 'U1-GRA-01', 'strand': 'GRA', 'text': "I can use present perfect to connect past and present — I've lived here for 3 years."}, {'id': 'U1-FLU-01', 'strand': 'FLU', 'text': "I can express an idea in more than one way when I'm not sure of a word."}]}, {'step': '2', 'name': 'Talking about the past with more precision', 'focus': 'Describing not just what happened, but what was happening and what used to be.', 'skills': [{'id': 'U2-VOC-01', 'strand': 'VOC', 'text': 'I can use sequence and contrast words — however, although, even though.'}, {'id': 'U2-GRA-01', 'strand': 'GRA', 'text': 'I can use past continuous with past simple — I was eating when she called.'}, {'id': 'U2-GRA-02', 'strand': 'GRA', 'text': "I can use 'used to' to talk about past habits."}, {'id': 'U2-FLU-01', 'strand': 'FLU', 'text': 'I can tell a story that moves naturally between past and present.'}]}, {'step': '3', 'name': 'Expressing opinions with depth', 'focus': 'Moving from simple opinions to supported arguments.', 'skills': [{'id': 'U3-VOC-01', 'strand': 'VOC', 'text': 'I can use reporting words — I think, I believe, in my opinion, it seems to me.'}, {'id': 'U3-GRA-01', 'strand': 'GRA', 'text': 'I can use first conditional — If I study hard, I will pass.'}, {'id': 'U3-GRA-02', 'strand': 'GRA', 'text': 'I can use modal verbs — might, could, should, must — with reasonable accuracy.'}, {'id': 'U3-FLU-01', 'strand': 'FLU', 'text': 'I can give an opinion, support it with a reason, and add an example.'}]}, {'step': '4', 'name': 'Speaking for longer without losing the thread', 'focus': 'Building up to a full minute of organised, connected speech.', 'skills': [{'id': 'U4-VOC-01', 'strand': 'VOC', 'text': 'I can use linking adverbials — as a result, in addition, on the other hand.'}, {'id': 'U4-GRA-01', 'strand': 'GRA', 'text': 'I can use relative clauses to add detail — the person who, the place where.'}, {'id': 'U4-FLU-01', 'strand': 'FLU', 'text': 'I can speak for about 1 minute on a familiar topic without stopping.'}, {'id': 'U4-FLU-02', 'strand': 'FLU', 'text': 'I can organise what I say so others can follow my thinking easily.'}]}, {'step': '5', 'name': 'Handling unpredictable conversations', 'focus': 'Communicating flexibly in varied situations.', 'skills': [{'id': 'U5-VOC-01', 'strand': 'VOC', 'text': "I can use formal and informal vocabulary depending on who I'm talking to."}, {'id': 'U5-GRA-01', 'strand': 'GRA', 'text': 'I can use a range of tenses together accurately in an extended story or explanation.'}, {'id': 'U5-FLU-01', 'strand': 'FLU', 'text': 'I can switch between topics in a conversation without losing the thread.'}, {'id': 'U5-FLU-02', 'strand': 'FLU', 'text': "I feel comfortable joining a conversation I didn't prepare for."}]}], 'B1': [{'step': '1', 'name': 'Precision in vocabulary', 'focus': 'Choosing more exact and sophisticated words.', 'skills': [{'id': 'U1-VOC-01', 'strand': 'VOC', 'text': 'I can use a wider range of vocabulary including less common and more precise words.'}, {'id': 'U1-VOC-02', 'strand': 'VOC', 'text': 'I can use collocations naturally — make a decision, pay attention, take a risk.'}, {'id': 'U1-GRA-01', 'strand': 'GRA', 'text': 'I can use second conditional fluently — If I had more time, I would travel more.'}, {'id': 'U1-FLU-01', 'strand': 'FLU', 'text': 'I can express a complex idea clearly without simplifying it too much.'}]}, {'step': '2', 'name': 'Using complex grammar naturally', 'focus': 'Using third conditional, reported speech, and hedging language with confidence.', 'skills': [{'id': 'U2-VOC-01', 'strand': 'VOC', 'text': 'I can use hedging language — it could be argued, there is some evidence that.'}, {'id': 'U2-GRA-01', 'strand': 'GRA', 'text': 'I can use third conditional — If I had studied harder, I would have passed.'}, {'id': 'U2-GRA-02', 'strand': 'GRA', 'text': 'I can use reported speech fluidly — She said she would come. He asked if I was okay.'}, {'id': 'U2-FLU-01', 'strand': 'FLU', 'text': 'I can use complex sentences without losing the main point.'}]}, {'step': '3', 'name': 'Speaking at length with coherence', 'focus': 'Building extended, well-organised spoken responses.', 'skills': [{'id': 'U3-VOC-01', 'strand': 'VOC', 'text': 'I can use discourse markers to organise speech — right, so, as I was saying, anyway.'}, {'id': 'U3-GRA-01', 'strand': 'GRA', 'text': 'I can use passive and active voice flexibly depending on what I want to emphasise.'}, {'id': 'U3-FLU-01', 'strand': 'FLU', 'text': 'I can speak for 3–5 minutes on a topic I care about with clear structure.'}, {'id': 'U3-FLU-02', 'strand': 'FLU', 'text': 'I can keep a conversation coherent even when the topic shifts.'}]}, {'step': '4', 'name': 'Arguing and persuading', 'focus': 'Moving from sharing opinions to defending and challenging ideas.', 'skills': [{'id': 'U4-VOC-01', 'strand': 'VOC', 'text': 'I can use vocabulary for argumentation — claim, evidence, argue, counter, support.'}, {'id': 'U4-GRA-01', 'strand': 'GRA', 'text': 'I can use a range of linking devices to build structured arguments.'}, {'id': 'U4-GRA-02', 'strand': 'GRA', 'text': 'I can use cleft sentences for emphasis — What I mean is… It was she who…'}, {'id': 'U4-FLU-01', 'strand': 'FLU', 'text': "I can challenge someone's opinion respectfully and explain my own position clearly."}]}, {'step': '5', 'name': 'Natural, spontaneous fluency', 'focus': 'Speaking without noticeable effort on a wide range of topics.', 'skills': [{'id': 'U5-VOC-01', 'strand': 'VOC', 'text': 'I can use different registers — casual, formal, persuasive — depending on context.'}, {'id': 'U5-GRA-01', 'strand': 'GRA', 'text': 'I can use all B2 grammar structures accurately with very few errors.'}, {'id': 'U5-FLU-01', 'strand': 'FLU', 'text': 'I can speak naturally and spontaneously on almost any familiar topic.'}, {'id': 'U5-FLU-02', 'strand': 'FLU', 'text': 'I feel like English is a tool I can rely on to express who I really am.'}]}], 'B2': [{'step': '1', 'name': 'Choosing words with more precision and feeling', 'focus': 'Moving from a large vocabulary to a sensitive one — words chosen for effect, not just meaning.', 'skills': [{'id': 'U1-VOC-01', 'strand': 'VOC', 'text': 'I can use sophisticated vocabulary across academic and professional contexts.'}, {'id': 'U1-VOC-02', 'strand': 'VOC', 'text': 'I can use abstract vocabulary fluently — paradox, implication, integrity, legacy.'}, {'id': 'U1-GRA-01', 'strand': 'GRA', 'text': 'I can use inversion for emphasis naturally — Rarely have I heard such an argument.'}, {'id': 'U1-FLU-01', 'strand': 'FLU', 'text': 'I can express nuanced ideas, not just basic ones.'}]}, {'step': '2', 'name': 'Complex grammar with ease', 'focus': 'Using advanced grammar without effort or hesitation.', 'skills': [{'id': 'U2-VOC-01', 'strand': 'VOC', 'text': 'I can use nominalisation to compress meaning — the rise in, the failure to act.'}, {'id': 'U2-GRA-01', 'strand': 'GRA', 'text': 'I can use all modal perfects — should have, could have, might have — appropriately.'}, {'id': 'U2-GRA-02', 'strand': 'GRA', 'text': 'I can use complex noun phrases and participle clauses fluently.'}, {'id': 'U2-FLU-01', 'strand': 'FLU', 'text': 'I can produce complex sentences that are still clear and easy to follow.'}]}, {'step': '3', 'name': 'Sustained, coherent discourse', 'focus': 'Holding the floor for extended periods.', 'skills': [{'id': 'U3-VOC-01', 'strand': 'VOC', 'text': 'I can use linking adverbials and discourse markers fluently — consequently, nevertheless.'}, {'id': 'U3-GRA-01', 'strand': 'GRA', 'text': 'I can use reference and substitution to avoid repetition across long stretches of speech.'}, {'id': 'U3-FLU-01', 'strand': 'FLU', 'text': 'I can speak for several minutes on any topic, organising ideas clearly as I go.'}, {'id': 'U3-FLU-02', 'strand': 'FLU', 'text': 'I can hold my own in academic and professional discussions.'}]}, {'step': '4', 'name': 'Register flexibility', 'focus': 'Adapting instantly to any speaking context or audience.', 'skills': [{'id': 'U4-VOC-01', 'strand': 'VOC', 'text': 'I can use figurative, idiomatic, and formal vocabulary naturally in the same conversation.'}, {'id': 'U4-GRA-01', 'strand': 'GRA', 'text': 'I can use a range of emphatic and stylistic structures — clefts, fronting, ellipsis.'}, {'id': 'U4-FLU-01', 'strand': 'FLU', 'text': 'I can shift instantly from casual conversation to formal debate without effort.'}]}, {'step': '5', 'name': 'Speaking with real precision and effect', 'focus': 'Language that creates the exact effect the student intends — in any situation.', 'skills': [{'id': 'U5-VOC-01', 'strand': 'VOC', 'text': 'I can use vocabulary to convey attitude, irony, humour, and subtle meaning.'}, {'id': 'U5-GRA-01', 'strand': 'GRA', 'text': 'My grammar is essentially accurate — errors are rare, minor, and self-corrected.'}, {'id': 'U5-FLU-01', 'strand': 'FLU', 'text': 'I can communicate complex ideas with the precision and confidence of a skilled speaker.'}, {'id': 'U5-FLU-02', 'strand': 'FLU', 'text': 'I feel completely natural when speaking English in any situation.'}]}], 'C1': [{'step': '1', 'name': 'Mastery of vocabulary', 'focus': 'Moving towards native-level vocabulary range and sensitivity.', 'skills': [{'id': 'U1-VOC-01', 'strand': 'VOC', 'text': 'I can use vocabulary with the precision and creativity of a skilled writer.'}, {'id': 'U1-VOC-02', 'strand': 'VOC', 'text': 'I can understand and produce language with perfect register and cultural fit.'}, {'id': 'U1-GRA-01', 'strand': 'GRA', 'text': 'I can use grammatical structures from literary and formal English fluently.'}, {'id': 'U1-FLU-01', 'strand': 'FLU', 'text': 'I can communicate any idea I have in English — complex, emotional, abstract, creative.'}]}, {'step': '2', 'name': 'Grammar as craft', 'focus': 'Using grammar not just accurately but artistically.', 'skills': [{'id': 'U2-VOC-01', 'strand': 'VOC', 'text': 'I can use figurative, symbolic, and poetic language naturally.'}, {'id': 'U2-GRA-01', 'strand': 'GRA', 'text': 'I can use grammar to create stylistic effects — rhythm, emphasis, contrast.'}, {'id': 'U2-GRA-02', 'strand': 'GRA', 'text': 'I can use any grammatical structure found in formal writing or oratory.'}, {'id': 'U2-FLU-01', 'strand': 'FLU', 'text': 'I can produce extended, well-structured discourse without any preparation.'}]}, {'step': '3', 'name': 'Full communicative range', 'focus': 'Handling any conversation, audience, or register effortlessly.', 'skills': [{'id': 'U3-VOC-01', 'strand': 'VOC', 'text': 'I can understand cultural allusions, literary references, and historical vocabulary.'}, {'id': 'U3-GRA-01', 'strand': 'GRA', 'text': 'I can use all forms of reported speech, conditionals, and complex passives naturally.'}, {'id': 'U3-FLU-01', 'strand': 'FLU', 'text': 'I can follow and fully engage with native speakers in any context.'}, {'id': 'U3-FLU-02', 'strand': 'FLU', 'text': 'I can manage multiparty conversations and take the floor with skill.'}]}, {'step': '4', 'name': 'Language as identity', 'focus': 'English feels like yours — not a language you learned, but one you live in.', 'skills': [{'id': 'U4-VOC-01', 'strand': 'VOC', 'text': 'I can use English vocabulary with the same instinct and feeling as in my first language.'}, {'id': 'U4-GRA-01', 'strand': 'GRA', 'text': 'My grammar is fully automatic — I communicate through it, not with it.'}, {'id': 'U4-FLU-01', 'strand': 'FLU', 'text': 'I feel that English is not a foreign language — it is simply a language I speak.'}]}, {'step': '5', 'name': 'Full mastery', 'focus': 'Arriving at the highest level of English proficiency.', 'skills': [{'id': 'U5-VOC-01', 'strand': 'VOC', 'text': 'I have mastery of English vocabulary equal to a highly educated native speaker.'}, {'id': 'U5-GRA-01', 'strand': 'GRA', 'text': 'I have complete command of English grammar in all contexts and styles.'}, {'id': 'U5-FLU-01', 'strand': 'FLU', 'text': 'I can communicate with precision, warmth, authority, and creativity in English.'}, {'id': 'U5-FLU-02', 'strand': 'FLU', 'text': 'Language is no longer a barrier — it is a bridge to everything.'}]}]}
 
 # Level-aligned Conversation Topics
-LEVEL_TOPICS = {'A0': [{'id': 'my_name_and_where_i_m_from', 'name': "My name and where I'm from", 'label': 'About me', 'theme': 'Self', 'description': 'Introducing yourself — name, age, city, family.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['name', 'city', 'conversation', 'practice', 'vocabulary', 'english', 'learning', 'speaking'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['What is your name?', 'How old are you?', 'Where are you from?', 'Do you have brothers or sisters?']}, {'id': 'my_family', 'name': 'My family', 'label': 'Family', 'theme': 'Self', 'description': 'Talking about family members — parents, siblings, grandparents.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['parents', 'siblings', 'grandparents', 'conversation', 'practice', 'vocabulary', 'english', 'learning'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['How many people are in your family?', 'What does your mother/father do?', 'Do you have a pet?']}, {'id': 'my_school', 'name': 'My school', 'label': 'School', 'theme': 'Daily life', 'description': "Naming school subjects, describing the school day, saying what you like and don't like.", 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['school', 'subjects', 'like', 'dont', 'conversation', 'practice', 'vocabulary', 'english'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['What subjects do you study?', 'What is your favourite subject?', 'What time does school start?']}, {'id': 'food_i_like', 'name': 'Food I like', 'label': 'Food', 'theme': 'Daily life', 'description': 'Naming favourite foods, describing meals, saying what you eat at home.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['food', 'like', 'favourite', 'foods', 'meals', 'home', 'conversation', 'practice'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['What is your favourite food?', 'Do you like rice or roti?', 'What do you eat for breakfast?']}, {'id': 'my_daily_routine', 'name': 'My daily routine', 'label': 'Routine', 'theme': 'Daily life', 'description': 'Describing a typical day — wake up, school, eat, sleep.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['daily', 'routine', 'typical', 'wake', 'school', 'sleep', 'conversation', 'practice'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['What time do you wake up?', 'What do you do after school?', 'Do you watch TV in the evening?']}, {'id': 'things_i_like_and_don_t_like', 'name': "Things I like and don't like", 'label': 'Likes', 'theme': 'Self', 'description': 'Expressing simple preferences — sports, animals, colours, food.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['things', 'like', 'dont', 'simple', 'preferences', 'sports', 'animals', 'colours'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['Do you like cricket?', 'What is your favourite colour?', 'Do you like dogs or cats?']}, {'id': 'animals', 'name': 'Animals', 'label': 'Animals', 'theme': 'World around me', 'description': 'Naming animals, describing them simply — colour, size, where they live.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['animals', 'simply', 'colour', 'size', 'live', 'conversation', 'practice', 'vocabulary'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['What is your favourite animal?', 'Is a tiger big or small?', 'Do you have a pet at home?']}, {'id': 'colours_numbers_and_shapes', 'name': 'Colours, numbers, and shapes', 'label': 'Colours', 'theme': 'World around me', 'description': 'Using basic descriptive vocabulary in simple sentences.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['colours', 'numbers', 'shapes', 'basic', 'descriptive', 'vocabulary', 'simple', 'sentences'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['What colour is your bag?', 'How many chairs are in the room?', 'What shape is a cricket ball?']}, {'id': 'my_home', 'name': 'My home', 'label': 'Home', 'theme': 'World around me', 'description': 'Describing rooms, objects at home, and what you do in each room.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['home', 'rooms', 'objects', 'each', 'room', 'conversation', 'practice', 'vocabulary'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['How many rooms are in your house?', 'What is in your bedroom?', 'Where do you eat?']}, {'id': 'sports_and_games', 'name': 'Sports and games', 'label': 'Sports', 'theme': 'World around me', 'description': 'Naming sports, saying what you play, basic descriptions of games.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['sports', 'games', 'play', 'basic', 'descriptions', 'conversation', 'practice', 'vocabulary'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['Do you play cricket?', 'What games do you play with friends?', 'Do you like sports?']}, {'id': 'festivals_i_celebrate', 'name': 'Festivals I celebrate', 'label': 'Festivals', 'theme': 'Festivals and culture', 'description': 'Naming festivals, saying what you do, describing food and family.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['festivals', 'celebrate', 'food', 'conversation', 'practice', 'vocabulary', 'english', 'learning'], 'structure_targets': ['present simple', 'basic adjectives', 'simple sentences'], 'starters': ['What festivals do you celebrate?', 'What do you eat during Diwali/Eid/Christmas?', 'Do you like festivals?']}], 'A1': [{'id': '', 'name': '', 'theme': 'General', 'description': '', 'icon': '💬', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['conversation', 'practice', 'vocabulary', 'english', 'learning', 'speaking'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': []}, {'id': 'my_hobbies_and_free_time', 'name': 'My hobbies and free time', 'label': 'Hobbies', 'theme': 'Self', 'description': 'Talking about what you do in your free time — reading, sport, music, games.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['hobbies', 'free', 'time', 'reading', 'sport', 'music', 'games', 'conversation'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What do you like to do after school?', 'Do you prefer indoor or outdoor activities?', 'How often do you play/read/watch...?']}, {'id': 'my_friends', 'name': 'My friends', 'label': 'Friends', 'theme': 'Self', 'description': 'Describing friends — what they look like, what you do together, how you met.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['friends', 'look', 'like', 'together', 'conversation', 'practice', 'vocabulary', 'english'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['Tell me about your best friend.', 'What do you and your friends do together?', 'Where did you meet your best friend?']}, {'id': 'a_typical_week', 'name': 'A typical week', 'label': 'My week', 'theme': 'Daily life', 'description': 'Describing what happens on different days — school, activities, weekends.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['typical', 'week', 'happens', 'different', 'days', 'school', 'activities', 'weekends'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What do you usually do on weekends?', 'Is Monday your busiest day?', 'What do you do on Sunday mornings?']}, {'id': 'shopping_and_markets', 'name': 'Shopping and markets', 'label': 'Shopping', 'theme': 'Daily life', 'description': 'Talking about buying things, prices, favourite shops, what you need.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['shopping', 'markets', 'buying', 'things', 'prices', 'favourite', 'shops', 'need'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['Where do you go shopping?', 'What did you buy last time?', 'Is shopping online better than going to a market?']}, {'id': 'food_and_restaurants', 'name': 'Food and restaurants', 'label': 'Eating out', 'theme': 'Daily life', 'description': 'Describing meals, comparing foods, talking about eating out.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['food', 'restaurants', 'meals', 'comparing', 'foods', 'eating', 'conversation', 'practice'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What is the best meal you have ever eaten?', 'Do you prefer home food or restaurant food?', 'Have you ever tried food from another country?']}, {'id': 'my_city_or_town', 'name': 'My city or town', 'label': 'My city', 'theme': 'World around me', 'description': 'Describing where you live — places, transport, what you like about it.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['city', 'town', 'live', 'places', 'transport', 'like', 'conversation', 'practice'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What is good about your city?', 'How do you get to school?', 'What would you change about where you live?']}, {'id': 'weather_and_seasons', 'name': 'Weather and seasons', 'label': 'Weather', 'theme': 'World around me', 'description': 'Describing the weather, favourite seasons, what you do in different seasons.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['weather', 'seasons', 'favourite', 'different', 'conversation', 'practice', 'vocabulary', 'english'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What is the weather like today?', 'What is your favourite season?', 'What do you do when it rains?']}, {'id': 'transport_and_travel', 'name': 'Transport and travel', 'label': 'Transport', 'theme': 'World around me', 'description': 'Talking about how you travel — local transport, trips, places visited.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['transport', 'travel', 'local', 'trips', 'places', 'visited', 'conversation', 'practice'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['How do you travel to school?', 'Have you ever been on a train?', 'Where did you go on your last trip?']}, {'id': 'a_trip_or_holiday', 'name': 'A trip or holiday', 'label': 'Holidays', 'theme': 'Experiences', 'description': 'Describing a place you visited — what you did, what you saw, what you liked.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['trip', 'holiday', 'place', 'visited', 'liked', 'conversation', 'practice', 'vocabulary'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['Where did you go on your last holiday?', 'What did you do there?', 'Would you like to go back?']}, {'id': 'films_and_tv_shows', 'name': 'Films and TV shows', 'label': 'Films', 'theme': 'Experiences', 'description': 'Talking about favourite films, TV shows, or YouTube content.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['films', 'shows', 'favourite', 'youtube', 'content', 'conversation', 'practice', 'vocabulary'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What is your favourite film or show?', 'What kind of films do you like?', 'Who is your favourite actor?']}, {'id': 'celebrations_and_special_days', 'name': 'Celebrations and special days', 'label': 'Celebrations', 'theme': 'Experiences', 'description': 'Describing birthdays, festivals, family events — what happened, who was there.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['celebrations', 'special', 'days', 'birthdays', 'festivals', 'events', 'happened', 'there'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What did you do on your last birthday?', 'What is the biggest celebration in your family?', 'Tell me about a festival you enjoyed.']}, {'id': 'school_subjects_likes_and_dislikes', 'name': 'School subjects — likes and dislikes', 'label': 'Subjects', 'theme': 'Opinions', 'description': 'Expressing opinions about different subjects and giving simple reasons.', 'icon': '💬', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['school', 'subjects', 'likes', 'dislikes', 'opinions', 'different', 'giving', 'simple'], 'structure_targets': ['past simple narration', 'comparative adjectives', 'going to future plans'], 'starters': ['What is your favourite subject and why?', 'Is there a subject you find difficult?', 'Do you think English is important?']}], 'A2': [{'id': '', 'name': '', 'theme': 'General', 'description': '', 'icon': '💬', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['conversation', 'practice', 'vocabulary', 'english', 'learning', 'speaking'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': []}, {'id': 'my_ambitions_and_future_plans', 'name': 'My ambitions and future plans', 'label': 'Ambitions', 'theme': 'Self and identity', 'description': 'Talking about what you want to do — career, further study, dreams.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['ambitions', 'future', 'plans', 'want', 'career', 'further', 'study', 'dreams'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['What do you want to do after school?', 'If you could have any job, what would it be?', 'What are you studying to become?']}, {'id': 'my_personality_and_values', 'name': 'My personality and values', 'label': 'Personality', 'theme': 'Self and identity', 'description': 'Describing yourself — strengths, weaknesses, what matters to you.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['personality', 'values', 'strengths', 'weaknesses', 'matters', 'conversation', 'practice', 'vocabulary'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['How would your best friend describe you?', 'What is something you are proud of?', 'What is most important to you in a friend?']}, {'id': 'education_in_india', 'name': 'Education in India', 'label': 'Education', 'theme': 'Society', 'description': 'Discussing the school system, exams, pressure, private vs. government schools.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['education', 'india', 'discussing', 'school', 'system', 'exams', 'pressure', 'private'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['Do you think exams are the best way to test students?', 'Is there too much pressure on students in India?', 'Should school be more practical?']}, {'id': 'social_media_and_technology', 'name': 'Social media and technology', 'label': 'Social media', 'theme': 'Society', 'description': 'Discussing use of phones, Instagram, YouTube, online life vs. real life.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['social', 'media', 'technology', 'discussing', 'phones', 'instagram', 'youtube', 'online'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['How much time do you spend on social media?', 'Do you think social media is good or bad for teenagers?', 'What would you do without your phone for a week?']}, {'id': 'city_life_vs_village_life', 'name': 'City life vs. village life', 'label': 'City vs village', 'theme': 'Society', 'description': 'Comparing urban and rural living — advantages, disadvantages, lifestyle differences.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['city', 'life', 'village', 'comparing', 'urban', 'rural', 'living', 'advantages'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['Would you prefer to live in a city or a village?', 'What are the biggest differences between city and village life?', 'Is it better to grow up in a city?']}, {'id': 'festivals_and_traditions', 'name': 'Festivals and traditions', 'label': 'Traditions', 'theme': 'Culture and society', 'description': 'Discussing the meaning behind festivals, family traditions, changing customs.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['festivals', 'traditions', 'discussing', 'meaning', 'behind', 'changing', 'customs', 'conversation'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['Why do you think festivals are important?', 'Has the way your family celebrates changed over the years?', 'Which festival means most to you and why?']}, {'id': 'the_environment_and_pollution', 'name': 'The environment and pollution', 'label': 'Environment', 'theme': 'Environment', 'description': 'Discussing air and water pollution, climate, what individuals and governments can do.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['environment', 'pollution', 'discussing', 'water', 'climate', 'individuals', 'governments', 'conversation'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['Is pollution a serious problem where you live?', 'What do you do to help the environment?', 'Should the government do more to reduce pollution?']}, {'id': 'health_and_lifestyle', 'name': 'Health and lifestyle', 'label': 'Health', 'theme': 'Health', 'description': 'Talking about food, exercise, sleep, stress, and healthy habits.', 'icon': '⏰', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['health', 'lifestyle', 'food', 'exercise', 'sleep', 'stress', 'healthy', 'habits'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['Do you think you lead a healthy lifestyle?', 'What is the biggest health problem for young people today?', 'Should schools teach more about health?']}, {'id': 'indian_cinema_and_music', 'name': 'Indian cinema and music', 'label': 'Cinema', 'theme': 'Culture', 'description': 'Discussing Bollywood, regional cinema, music genres, favourite artists.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['indian', 'cinema', 'music', 'discussing', 'bollywood', 'regional', 'genres', 'favourite'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['What kind of music do you listen to?', 'Do you prefer Bollywood or Hollywood films?', 'Has Indian cinema changed in recent years?']}, {'id': 'friendship_and_trust', 'name': 'Friendship and trust', 'label': 'Friendship', 'theme': 'Relationships', 'description': 'Discussing what makes a good friend, loyalty, conflict, and social circles.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['friendship', 'trust', 'discussing', 'makes', 'good', 'friend', 'loyalty', 'conflict'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['What makes someone a good friend?', 'Have you ever had an argument with a friend?', 'Is it better to have many friends or a few close ones?']}, {'id': 'news_and_current_events', 'name': 'News and current events', 'label': 'News', 'theme': 'Media', 'description': 'Discussing local or national news stories at a simple level.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['news', 'current', 'events', 'discussing', 'local', 'national', 'stories', 'simple'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['Do you follow the news?', 'What is a news story you remember recently?', 'Do you trust everything you read online?']}, {'id': 'cricket_and_sport_in_india', 'name': 'Cricket and sport in India', 'label': 'Cricket', 'theme': 'Sport', 'description': 'Discussing cricket culture, favourite players, sport as career, physical fitness.', 'icon': '🏏', 'color': '#FFFDE0', 'highlight_color': 'rgba(255,210,63,0.12)', 'panel_bg': 'linear-gradient(135deg,#FFFDE0,#FFF5B0)', 'vocab_seeds': ['cricket', 'sport', 'india', 'discussing', 'culture', 'favourite', 'players', 'career'], 'structure_targets': ['present perfect', 'first conditional', 'expressing opinions with reasons'], 'starters': ['Why is cricket so popular in India?', 'Who is your favourite cricketer and why?', 'Should students be encouraged to pursue sport as a career?']}], 'B1': [{'id': '', 'name': '', 'theme': 'General', 'description': '', 'icon': '💬', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['conversation', 'practice', 'vocabulary', 'english', 'learning', 'speaking'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': []}, {'id': 'culture_and_identity', 'name': 'Culture and identity', 'label': 'Culture', 'theme': 'Identity', 'description': 'Discussing how culture, language, religion, and region shape who we are.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['culture', 'identity', 'discussing', 'language', 'religion', 'region', 'shape', 'conversation'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['How much has your culture shaped who you are?', 'Do you feel more Indian or more of your city/state?', 'Can you belong to two cultures at once?']}, {'id': 'gender_equality_in_india', 'name': 'Gender equality in India', 'label': 'Gender', 'theme': 'Society', 'description': 'Discussing roles, opportunities, stereotypes, and progress in gender equality.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['gender', 'equality', 'india', 'discussing', 'roles', 'opportunities', 'stereotypes', 'progress'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Do you think men and women have equal opportunities in India today?', 'How have gender roles changed in your family across generations?', 'What more needs to happen for true equality?']}, {'id': 'education_and_success', 'name': 'Education and success', 'label': 'Success', 'theme': 'Society', 'description': 'Discussing the meaning of success, whether education guarantees it, alternative paths.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['education', 'success', 'discussing', 'meaning', 'whether', 'guarantees', 'alternative', 'paths'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Is a university degree still the best path to success?', 'Does the Indian education system prepare you for real life?', 'What does success mean to you?']}, {'id': 'artificial_intelligence_and_the_future_of_work', 'name': 'Artificial intelligence and the future of work', 'label': 'AI and work', 'theme': 'Technology', 'description': 'Discussing what AI is changing, jobs at risk, and opportunities it creates.', 'icon': '💻', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['artificial', 'intelligence', 'future', 'work', 'discussing', 'changing', 'jobs', 'risk'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Will AI take away more jobs than it creates?', 'What jobs do you think are safe from AI?', 'Should schools teach students to work with AI?']}, {'id': 'social_media_mental_health_and_young_people', 'name': 'Social media, mental health, and young people', 'label': 'Mental health', 'theme': 'Technology', 'description': 'Discussing the relationship between screen time, comparison culture, and wellbeing.', 'icon': '💻', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['social', 'media', 'mental', 'health', 'young', 'discussing', 'relationship', 'between'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Does social media make young people more anxious?', 'Should there be age limits on social media?', 'Can social media ever be genuinely good for mental health?']}, {'id': 'climate_change_and_india_s_responsibility', 'name': "Climate change and India's responsibility", 'label': 'Climate', 'theme': 'Environment', 'description': "Discussing India's development needs vs. environmental obligations.", 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['climate', 'change', 'indias', 'responsibility', 'discussing', 'development', 'needs', 'environmental'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Should developing countries like India sacrifice growth to protect the climate?', 'What changes have you noticed in the environment in your lifetime?', 'Who is most responsible for climate change?']}, {'id': 'migration_and_opportunity', 'name': 'Migration and opportunity', 'label': 'Migration', 'theme': 'Society', 'description': 'Discussing why people move from villages to cities, or from India to other countries.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['migration', 'opportunity', 'discussing', 'move', 'villages', 'cities', 'india', 'other'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Why do so many young Indians move abroad to study or work?', 'What do people gain and lose when they migrate?', 'Would you ever leave India permanently?']}, {'id': 'tradition_vs_modernity', 'name': 'Tradition vs. modernity', 'label': 'Old vs new', 'theme': 'Values', 'description': 'Discussing how families and society balance old values with new ones.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['tradition', 'modernity', 'discussing', 'families', 'society', 'balance', 'values', 'ones'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Are traditional values a strength or a limitation?', "Have your values changed from your parents' generation?", 'Can a society modernise without losing its culture?']}, {'id': 'fake_news_and_media_literacy', 'name': 'Fake news and media literacy', 'label': 'Fake news', 'theme': 'Media', 'description': 'Discussing how misinformation spreads and how to identify reliable sources.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['fake', 'news', 'media', 'literacy', 'discussing', 'misinformation', 'spreads', 'identify'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['How do you decide whether a news story is true?', 'Why is fake news so easy to spread in India?', 'Who is responsible for stopping misinformation?']}, {'id': 'entrepreneurship_and_startups', 'name': 'Entrepreneurship and startups', 'label': 'Startups', 'theme': 'Work and ambition', 'description': 'Discussing the startup culture, risk-taking, and whether everyone can be an entrepreneur.', 'icon': '💼', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['entrepreneurship', 'startups', 'discussing', 'startup', 'culture', 'risk-taking', 'whether', 'everyone'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Would you rather work for a company or start your own?', 'Why has India become a major startup hub?', 'Is entrepreneurship about luck or skill?']}, {'id': 'indian_literature_and_storytelling', 'name': 'Indian literature and storytelling', 'label': 'Literature', 'theme': 'Arts and culture', 'description': 'Discussing books, stories, mythology, and how India tells its stories.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['indian', 'literature', 'storytelling', 'discussing', 'books', 'stories', 'mythology', 'india'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Have you read an Indian author writing in English?', 'Why are stories important to a culture?', 'Is reading becoming less popular among young people?']}, {'id': 'privilege_and_opportunity', 'name': 'Privilege and opportunity', 'label': 'Privilege', 'theme': 'Values', 'description': 'Discussing inequality, access to education, and why some people have more chances than others.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['privilege', 'opportunity', 'discussing', 'inequality', 'access', 'education', 'some', 'more'], 'structure_targets': ['complex conditionals', 'reported speech', 'flexible active/passive voice'], 'starters': ['Do you think where you are born determines your future?', "What privileges have helped you that others don't have?", 'What should governments do to create more equal opportunities?']}], 'B2': [{'id': '', 'name': '', 'theme': 'General', 'description': '', 'icon': '💬', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['conversation', 'practice', 'vocabulary', 'english', 'learning', 'speaking'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': []}, {'id': 'what_does_it_mean_to_be_indian_today', 'name': 'What does it mean to be Indian today?', 'label': 'Being Indian', 'theme': 'Identity and society', 'description': 'Exploring the complexity of Indian identity — regional, linguistic, religious, generational.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['mean', 'indian', 'today', 'exploring', 'complexity', 'identity', 'regional', 'linguistic'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['Is there one Indian identity or many?', 'How has the idea of being Indian changed across generations?', 'Can you be deeply rooted in your culture and still be a global citizen?']}, {'id': 'moral_dilemmas_in_everyday_life', 'name': 'Moral dilemmas in everyday life', 'label': 'Moral dilemmas', 'theme': 'Ethics', 'description': 'Discussing situations where the right thing to do is not obvious.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['moral', 'dilemmas', 'everyday', 'life', 'discussing', 'situations', 'right', 'thing'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['If you found a wallet full of money, what would you do?', 'Is it ever right to lie to protect someone?', 'Should you report a friend if they did something wrong?']}, {'id': 'the_ethics_of_artificial_intelligence', 'name': 'The ethics of artificial intelligence', 'label': 'AI ethics', 'theme': 'Technology and humanity', 'description': 'Discussing bias in algorithms, autonomous weapons, privacy, and human oversight.', 'icon': '💻', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['ethics', 'artificial', 'intelligence', 'discussing', 'bias', 'algorithms', 'autonomous', 'weapons'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ["Should AI systems be allowed to make decisions that affect people's lives?", 'Can a machine ever be truly ethical?', 'Who is responsible when an AI makes a harmful decision?']}, {'id': 'caste_class_and_social_mobility', 'name': 'Caste, class, and social mobility', 'label': 'Caste', 'theme': 'Society', 'description': 'Discussing whether India is becoming more equal and what still holds people back.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['caste', 'class', 'social', 'mobility', 'discussing', 'whether', 'india', 'becoming'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ["Has caste become less important in your generation than your parents'?", 'What does social mobility look like in India today?', 'Is economic class replacing caste as the main divider?']}, {'id': 'sustainability_and_lifestyle_choices', 'name': 'Sustainability and lifestyle choices', 'label': 'Sustainability', 'theme': 'Environment', 'description': 'Discussing whether individual choices or systemic change matter more for the environment.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['sustainability', 'lifestyle', 'choices', 'discussing', 'whether', 'individual', 'systemic', 'change'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['Can individual choices really make a difference to climate change?', 'Is it fair to ask ordinary people to change their lifestyle when corporations pollute freely?', 'What would a sustainable city look like?']}, {'id': 'mental_health_and_stigma', 'name': 'Mental health and stigma', 'label': 'Stigma', 'theme': 'Psychology', 'description': 'Discussing attitudes to mental health in India, the stigma around seeking help, and what change looks like.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['mental', 'health', 'stigma', 'discussing', 'attitudes', 'india', 'around', 'seeking'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['Why is there still stigma around mental health in India?', 'Has the conversation about mental health changed in your generation?', 'Should mental health be taught in schools?']}, {'id': 'democracy_and_young_people', 'name': 'Democracy and young people', 'label': 'Democracy', 'theme': 'Power and politics', 'description': 'Discussing whether democracy is working, voter turnout, political awareness among youth.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['democracy', 'young', 'discussing', 'whether', 'working', 'voter', 'turnout', 'political'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['Do young people in India feel represented by politicians?', 'Should voting be compulsory?', 'Can social media strengthen or weaken democracy?']}, {'id': 'english_in_india_opportunity_or_inequality', 'name': 'English in India — opportunity or inequality?', 'label': 'English', 'theme': 'Language', 'description': "Discussing whether English creates opportunity or deepens inequality between those who have access and those who don't.", 'icon': '💬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['english', 'india', 'opportunity', 'inequality', 'discussing', 'whether', 'creates', 'deepens'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['Does speaking English well give you an unfair advantage in India?', 'Should English be replaced by Hindi as the national language?', 'What is lost when a language disappears?']}, {'id': 'art_music_and_what_they_say_about_a_society', 'name': 'Art, music, and what they say about a society', 'label': 'Art and music', 'theme': 'Arts and meaning', 'description': 'Discussing how creative work reflects and shapes culture, values, and political realities.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['music', 'society', 'discussing', 'creative', 'work', 'reflects', 'shapes', 'culture'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['What does Bollywood tell us about what Indian society values?', 'Can art change minds?', 'Is there such a thing as art that is purely entertainment with no deeper meaning?']}, {'id': 'success_happiness_and_meaning', 'name': 'Success, happiness, and meaning', 'label': 'Happiness', 'theme': 'Philosophy', 'description': 'Discussing what a good life looks like — whether success and happiness are the same thing.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['success', 'happiness', 'meaning', 'discussing', 'good', 'life', 'looks', 'like'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['Is it possible to be successful but unhappy?', 'What does a meaningful life look like to you?', 'Has your idea of success changed as you have grown up?']}, {'id': 'india_s_role_in_the_world', 'name': "India's role in the world", 'label': "India's role", 'theme': 'Global issues', 'description': 'Discussing India as a rising global power — its responsibilities, relationships, and soft power.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['indias', 'role', 'world', 'discussing', 'india', 'rising', 'global', 'power'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['Is India doing enough to use its influence for good in the world?', "How is India's relationship with its neighbours shaping its global role?", 'What does Indian soft power — film, food, yoga — achieve internationally?']}, {'id': 'science_superstition_and_belief_in_modern_india', 'name': 'Science, superstition, and belief in modern India', 'label': 'Superstition', 'theme': 'Science and society', 'description': 'Discussing the coexistence of advanced science and traditional belief systems in Indian society.', 'icon': '🔬', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['science', 'superstition', 'belief', 'modern', 'india', 'discussing', 'coexistence', 'advanced'], 'structure_targets': ['modal speculation/deduction', 'participle clauses', 'extended coherent narratives'], 'starters': ['How do you explain that India can launch missions to the moon and still have widespread superstition?', 'Is it possible to be both deeply religious and rigorously scientific?', 'Should schools do more to teach critical thinking?']}], 'C1': [{'id': '', 'name': '', 'theme': 'General', 'description': '', 'icon': '💬', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['conversation', 'practice', 'vocabulary', 'english', 'learning', 'speaking'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': []}, {'id': 'does_language_shape_thought', 'name': 'Does language shape thought?', 'label': 'Language', 'theme': 'Philosophy of language', 'description': 'Exploring the Sapir-Whorf hypothesis — whether the language you speak changes how you think.', 'icon': '⚖️', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['language', 'shape', 'thought', 'exploring', 'sapir-whorf', 'hypothesis', 'whether', 'speak'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Do you think in English or in your mother tongue?', "Are there ideas in your first language that simply don't exist in English?", 'Does speaking multiple languages make you see the world differently?']}, {'id': 'justice_fairness_and_what_we_owe_each_other', 'name': 'Justice, fairness, and what we owe each other', 'label': 'Justice', 'theme': 'Ethics', 'description': 'Exploring concepts of justice — retributive, restorative, distributive — and what a fair society looks like.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['justice', 'fairness', 'each', 'other', 'exploring', 'concepts', 'retributive', 'restorative'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Is justice about punishment or rehabilitation?', 'What do the privileged owe those who are not?', 'Can a system be unjust even if no individual in it acts badly?']}, {'id': 'how_do_we_know_what_we_know', 'name': 'How do we know what we know?', 'label': 'Knowledge', 'theme': 'Knowledge and truth', 'description': 'Discussing epistemology — the nature of knowledge, certainty, evidence, and belief.', 'icon': '🔬', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['know', 'discussing', 'epistemology', 'nature', 'knowledge', 'certainty', 'evidence', 'belief'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Is there such a thing as objective truth?', 'How much of what you believe is based on evidence rather than feeling?', 'Can two people disagree about facts — or only about values?']}, {'id': 'what_makes_us_human_in_an_age_of_machines', 'name': 'What makes us human in an age of machines?', 'label': 'Humanity', 'theme': 'Technology and humanity', 'description': 'Exploring consciousness, creativity, empathy, and what AI cannot replicate.', 'icon': '💻', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['makes', 'human', 'machines', 'exploring', 'consciousness', 'creativity', 'empathy', 'cannot'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Is creativity uniquely human?', 'If a machine could feel pain, would it deserve rights?', 'What do you think you can do that no machine ever will?']}, {'id': 'power_privilege_and_who_gets_to_tell_the_story', 'name': 'Power, privilege, and who gets to tell the story', 'label': 'Power', 'theme': 'Society', 'description': 'Discussing whose narratives are heard, who writes history, and the politics of representation.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['power', 'privilege', 'gets', 'tell', 'story', 'discussing', 'whose', 'narratives'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Who gets to decide which stories are important?', "Has India's history been told fairly — by Indians and by others?", 'Why does representation in media and literature matter?']}, {'id': 'the_future_of_democracy', 'name': 'The future of democracy', 'label': 'Democracy', 'theme': 'Global future', 'description': 'Discussing whether democratic systems can survive disinformation, polarisation, and authoritarianism.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['future', 'democracy', 'discussing', 'whether', 'democratic', 'systems', 'survive', 'disinformation'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Is democracy in crisis globally?', 'Are there circumstances under which democracy might need to be suspended?', 'Can democracy survive the internet?']}, {'id': 'the_ethics_of_genetic_technology', 'name': 'The ethics of genetic technology', 'label': 'Gene ethics', 'theme': 'Science and ethics', 'description': "Discussing CRISPR, designer babies, genetic privacy, and what science should and shouldn't do.", 'icon': '🔬', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['ethics', 'genetic', 'technology', 'discussing', 'crispr', 'designer', 'babies', 'privacy'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Should parents be allowed to choose the genetic traits of their children?', 'Who owns your genetic data?', 'Where is the line between treating disease and enhancing humanity?']}, {'id': 'what_is_art_for', 'name': 'What is art for?', 'label': 'Art', 'theme': 'Arts and culture', 'description': 'Discussing the purpose of art — beauty, truth, politics, therapy, commerce.', 'icon': '🎬', 'color': '#FFF0E0', 'highlight_color': 'rgba(255,107,44,0.1)', 'panel_bg': 'linear-gradient(135deg,#FFF0E0,#FFE4CC)', 'vocab_seeds': ['discussing', 'purpose', 'beauty', 'truth', 'politics', 'therapy', 'commerce', 'conversation'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Does art have a responsibility to be political?', 'Is there a difference between art and entertainment?', 'Can something be great art even if almost no one understands it?']}, {'id': 'the_self_fixed_or_fluid', 'name': 'The self — fixed or fluid?', 'label': 'The self', 'theme': 'Identity', 'description': 'Exploring whether identity is something you have or something you perform and construct.', 'icon': '👤', 'color': '#E0EDFF', 'highlight_color': 'rgba(45,127,249,0.08)', 'panel_bg': 'linear-gradient(135deg,#E0EDFF,#CCE0FF)', 'vocab_seeds': ['self', 'fixed', 'fluid', 'exploring', 'whether', 'identity', 'something', 'perform'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Are you the same person you were ten years ago?', 'Do you present different versions of yourself in different contexts — or is one of them the real you?', 'Can you ever fully know yourself?']}, {'id': 'the_limits_of_globalisation', 'name': 'The limits of globalisation', 'label': 'Globalisation', 'theme': 'Global issues', 'description': 'Discussing whether globalisation has delivered on its promise — for India and for the world.', 'icon': '🌍', 'color': '#E6F9E6', 'highlight_color': 'rgba(59,212,42,0.12)', 'panel_bg': 'linear-gradient(135deg,#E6F9E6,#D0F0D0)', 'vocab_seeds': ['limits', 'globalisation', 'discussing', 'whether', 'delivered', 'promise', 'india', 'world'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Has globalisation made India stronger or more dependent?', 'What has India gained and lost from opening up to the world?', 'Is globalisation reversing — and if so, what does that mean?']}, {'id': 'freedom_how_much_is_too_much', 'name': 'Freedom — how much is too much?', 'label': 'Freedom', 'theme': 'Philosophy', 'description': 'Discussing liberty, responsibility, and where individual freedom ends and social obligation begins.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['freedom', 'much', 'discussing', 'liberty', 'responsibility', 'individual', 'ends', 'social'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ["Should people be free to do anything that doesn't harm others?", 'Is freedom of speech absolute?', 'Can a society be too free?']}, {'id': 'what_do_we_owe_future_generations', 'name': 'What do we owe future generations?', 'label': 'Generations', 'theme': 'Legacy and meaning', 'description': 'Discussing intergenerational responsibility — climate, debt, culture, democracy.', 'icon': '⚖️', 'color': '#F0E6FF', 'highlight_color': 'rgba(128,0,255,0.06)', 'panel_bg': 'linear-gradient(135deg,#F0E6FF,#E0D0FF)', 'vocab_seeds': ['future', 'generations', 'discussing', 'intergenerational', 'responsibility', 'climate', 'debt', 'culture'], 'structure_targets': ['figurative expressions', 'idiomatic phrasing', 'flexible registers'], 'starters': ['Are we living in a way that is fair to people who will be born in 100 years?', 'What is the most important thing your generation must do?', "Can you have obligations to people who don't yet exist?"]}]}
+LEVEL_TOPICS = {
+    "A0": [
+        {
+            "id": "a0_1",
+            "name": "My name and where I'm from",
+            "shortName": "My Name",
+            "affordances": [
+                "naming",
+                "describing"
+            ]
+        },
+        {
+            "id": "a0_2",
+            "name": "My family",
+            "shortName": "My Family",
+            "affordances": [
+                "naming",
+                "describing",
+                "preference"
+            ]
+        },
+        {
+            "id": "a0_3",
+            "name": "My school",
+            "shortName": "School",
+            "affordances": [
+                "describing",
+                "routine",
+                "preference"
+            ]
+        },
+        {
+            "id": "a0_4",
+            "name": "Food I like",
+            "shortName": "Food",
+            "affordances": [
+                "naming",
+                "preference",
+                "describing"
+            ]
+        },
+        {
+            "id": "a0_5",
+            "name": "My daily routine",
+            "shortName": "Routine",
+            "affordances": [
+                "routine",
+                "describing",
+                "present_action"
+            ]
+        },
+        {
+            "id": "a0_6",
+            "name": "Things I like and don't like",
+            "shortName": "Liking",
+            "affordances": [
+                "preference"
+            ]
+        },
+        {
+            "id": "a0_7",
+            "name": "Animals",
+            "shortName": "Animals",
+            "affordances": [
+                "naming",
+                "describing",
+                "preference"
+            ]
+        },
+        {
+            "id": "a0_8",
+            "name": "Colours, numbers, and shapes",
+            "shortName": "Colours",
+            "affordances": [
+                "naming"
+            ]
+        },
+        {
+            "id": "a0_9",
+            "name": "My home",
+            "shortName": "Home",
+            "affordances": [
+                "naming",
+                "describing",
+                "present_action"
+            ]
+        },
+        {
+            "id": "a0_10",
+            "name": "Sports and games",
+            "shortName": "Sports",
+            "affordances": [
+                "preference",
+                "present_action",
+                "describing"
+            ]
+        },
+        {
+            "id": "a0_11",
+            "name": "Festivals I celebrate",
+            "shortName": "Festivals",
+            "affordances": [
+                "describing",
+                "preference",
+                "naming"
+            ]
+        },
+        {
+            "id": "a0_12",
+            "name": "My favourite film, show, or cartoon",
+            "shortName": "Favourite Show",
+            "affordances": [
+                "preference",
+                "describing",
+                "naming"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a0_13",
+            "name": "Games we play at break time",
+            "shortName": "Break Time",
+            "affordances": [
+                "present_action",
+                "describing",
+                "preference"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a0_14",
+            "name": "My birthday",
+            "shortName": "Birthday",
+            "affordances": [
+                "describing",
+                "preference",
+                "naming"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a0_15",
+            "name": "Things I can do",
+            "shortName": "Things I Can Do",
+            "affordances": [
+                "describing",
+                "preference"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a0_16",
+            "name": "My bag and what is inside it",
+            "shortName": "My Bag",
+            "affordances": [
+                "naming",
+                "describing",
+                "present_action"
+            ],
+            "isNew": True
+        }
+    ],
+    "A1": [
+        {
+            "id": "a1_1",
+            "name": "My hobbies and free time",
+            "shortName": "Hobbies",
+            "affordances": [
+                "preference",
+                "describing",
+                "routine"
+            ]
+        },
+        {
+            "id": "a1_2",
+            "name": "My friends",
+            "shortName": "Friends",
+            "affordances": [
+                "describing",
+                "past_event",
+                "narrative",
+                "preference"
+            ]
+        },
+        {
+            "id": "a1_3",
+            "name": "A typical week",
+            "shortName": "My Week",
+            "affordances": [
+                "routine",
+                "describing"
+            ]
+        },
+        {
+            "id": "a1_4",
+            "name": "Shopping and markets",
+            "shortName": "Shopping",
+            "affordances": [
+                "describing",
+                "preference",
+                "past_event"
+            ]
+        },
+        {
+            "id": "a1_5",
+            "name": "Food and restaurants",
+            "shortName": "Eating Out",
+            "affordances": [
+                "preference",
+                "describing",
+                "comparison"
+            ]
+        },
+        {
+            "id": "a1_6",
+            "name": "My city or town",
+            "shortName": "My City",
+            "affordances": [
+                "describing",
+                "comparison",
+                "opinion"
+            ]
+        },
+        {
+            "id": "a1_7",
+            "name": "Weather and seasons",
+            "shortName": "Weather",
+            "affordances": [
+                "describing",
+                "comparison",
+                "routine"
+            ]
+        },
+        {
+            "id": "a1_8",
+            "name": "Transport and travel",
+            "shortName": "Travel",
+            "affordances": [
+                "describing",
+                "preference",
+                "past_event"
+            ]
+        },
+        {
+            "id": "a1_9",
+            "name": "A trip or holiday",
+            "shortName": "Trips",
+            "affordances": [
+                "past_event",
+                "narrative",
+                "describing"
+            ]
+        },
+        {
+            "id": "a1_10",
+            "name": "Films and TV shows",
+            "shortName": "Films & TV",
+            "affordances": [
+                "preference",
+                "opinion",
+                "narrative",
+                "describing"
+            ]
+        },
+        {
+            "id": "a1_11",
+            "name": "Celebrations and special days",
+            "shortName": "Celebrations",
+            "affordances": [
+                "past_event",
+                "narrative",
+                "describing"
+            ]
+        },
+        {
+            "id": "a1_12",
+            "name": "School subjects \u2014 likes and dislikes",
+            "shortName": "Subjects",
+            "affordances": [
+                "preference",
+                "opinion",
+                "comparison"
+            ]
+        },
+        {
+            "id": "a1_13",
+            "name": "My plans for the holidays",
+            "shortName": "Holiday Plans",
+            "affordances": [
+                "future_plan",
+                "preference",
+                "narrative"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a1_14",
+            "name": "A place I want to visit one day",
+            "shortName": "Dream Place",
+            "affordances": [
+                "future_plan",
+                "describing",
+                "preference"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a1_15",
+            "name": "What I want to learn next",
+            "shortName": "Learning Next",
+            "affordances": [
+                "future_plan",
+                "preference",
+                "opinion"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a1_16",
+            "name": "A person I look up to",
+            "shortName": "Someone I Admire",
+            "affordances": [
+                "describing",
+                "opinion",
+                "narrative"
+            ],
+            "isNew": True
+        }
+    ],
+    "A2": [
+        {
+            "id": "a2_1",
+            "name": "My ambitions and future plans",
+            "shortName": "Ambitions",
+            "affordances": [
+                "future_plan",
+                "opinion",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "a2_2",
+            "name": "My personality and values",
+            "shortName": "Who I Am",
+            "affordances": [
+                "describing",
+                "opinion",
+                "abstract"
+            ]
+        },
+        {
+            "id": "a2_3",
+            "name": "Education in India",
+            "shortName": "Education",
+            "affordances": [
+                "opinion",
+                "comparison",
+                "explanation"
+            ]
+        },
+        {
+            "id": "a2_4",
+            "name": "Social media and technology",
+            "shortName": "Social Media",
+            "affordances": [
+                "opinion",
+                "comparison",
+                "explanation"
+            ]
+        },
+        {
+            "id": "a2_5",
+            "name": "City life vs. village life",
+            "shortName": "City vs Village",
+            "affordances": [
+                "comparison",
+                "opinion",
+                "describing"
+            ]
+        },
+        {
+            "id": "a2_6",
+            "name": "Festivals and traditions",
+            "shortName": "Traditions",
+            "affordances": [
+                "narrative",
+                "describing",
+                "past_event"
+            ]
+        },
+        {
+            "id": "a2_7",
+            "name": "The environment and pollution",
+            "shortName": "Environment",
+            "affordances": [
+                "opinion",
+                "explanation",
+                "abstract"
+            ]
+        },
+        {
+            "id": "a2_8",
+            "name": "Health and lifestyle",
+            "shortName": "Health",
+            "affordances": [
+                "opinion",
+                "comparison",
+                "explanation"
+            ]
+        },
+        {
+            "id": "a2_9",
+            "name": "Indian cinema and music",
+            "shortName": "Cinema & Music",
+            "affordances": [
+                "preference",
+                "opinion",
+                "narrative",
+                "describing"
+            ]
+        },
+        {
+            "id": "a2_10",
+            "name": "Friendship and trust",
+            "shortName": "Friendship",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative"
+            ]
+        },
+        {
+            "id": "a2_11",
+            "name": "News and current events",
+            "shortName": "The News",
+            "affordances": [
+                "opinion",
+                "explanation",
+                "narrative"
+            ]
+        },
+        {
+            "id": "a2_12",
+            "name": "Cricket and sport in India",
+            "shortName": "Cricket & Sport",
+            "affordances": [
+                "preference",
+                "narrative",
+                "opinion",
+                "comparison"
+            ]
+        },
+        {
+            "id": "a2_13",
+            "name": "How my life has changed since I was younger",
+            "shortName": "Growing Up",
+            "affordances": [
+                "past_event",
+                "routine",
+                "narrative",
+                "comparison"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a2_14",
+            "name": "A time I had to make a difficult choice",
+            "shortName": "Hard Choices",
+            "affordances": [
+                "past_event",
+                "narrative",
+                "opinion",
+                "hypothetical"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a2_15",
+            "name": "Rules I would change if I were in charge",
+            "shortName": "My Rules",
+            "affordances": [
+                "hypothetical",
+                "opinion",
+                "argumentation"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a2_16",
+            "name": "A misunderstanding that taught me something",
+            "shortName": "Mix-Ups",
+            "affordances": [
+                "past_event",
+                "narrative",
+                "explanation"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a2_17",
+            "name": "My family",
+            "shortName": "My Family",
+            "affordances": [
+                "describing",
+                "narrative",
+                "opinion"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "a2_18",
+            "name": "Food and cooking",
+            "shortName": "Food",
+            "affordances": [
+                "preference",
+                "describing",
+                "narrative"
+            ],
+            "isNew": True
+        }
+    ],
+    "B1": [
+        {
+            "id": "b1_1",
+            "name": "Culture and identity",
+            "shortName": "Culture",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative"
+            ]
+        },
+        {
+            "id": "b1_2",
+            "name": "Gender equality in India",
+            "shortName": "Gender Equality",
+            "affordances": [
+                "opinion",
+                "argumentation",
+                "abstract"
+            ]
+        },
+        {
+            "id": "b1_3",
+            "name": "Education and success",
+            "shortName": "Success",
+            "affordances": [
+                "opinion",
+                "abstract",
+                "comparison"
+            ]
+        },
+        {
+            "id": "b1_4",
+            "name": "AI and the future of work",
+            "shortName": "AI & Work",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "b1_5",
+            "name": "Social media, mental health, young people",
+            "shortName": "Youth & Mind",
+            "affordances": [
+                "opinion",
+                "explanation",
+                "abstract"
+            ]
+        },
+        {
+            "id": "b1_6",
+            "name": "Climate change and India's responsibility",
+            "shortName": "Climate & India",
+            "affordances": [
+                "argumentation",
+                "explanation",
+                "abstract"
+            ]
+        },
+        {
+            "id": "b1_7",
+            "name": "Migration and opportunity",
+            "shortName": "Migration",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative"
+            ]
+        },
+        {
+            "id": "b1_8",
+            "name": "Tradition vs. modernity",
+            "shortName": "Old vs New",
+            "affordances": [
+                "comparison",
+                "abstract",
+                "opinion"
+            ]
+        },
+        {
+            "id": "b1_9",
+            "name": "Fake news and media literacy",
+            "shortName": "Fake News",
+            "affordances": [
+                "opinion",
+                "explanation",
+                "argumentation"
+            ]
+        },
+        {
+            "id": "b1_10",
+            "name": "Entrepreneurship and startups",
+            "shortName": "Startups",
+            "affordances": [
+                "narrative",
+                "opinion",
+                "explanation"
+            ]
+        },
+        {
+            "id": "b1_11",
+            "name": "Indian literature and storytelling",
+            "shortName": "Indian Stories",
+            "affordances": [
+                "abstract",
+                "narrative",
+                "opinion"
+            ]
+        },
+        {
+            "id": "b1_12",
+            "name": "Privilege and opportunity",
+            "shortName": "Privilege",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "b1_13",
+            "name": "A belief I changed my mind about",
+            "shortName": "Changed My Mind",
+            "affordances": [
+                "narrative",
+                "past_event",
+                "opinion",
+                "abstract"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b1_14",
+            "name": "What would India look like in 50 years?",
+            "shortName": "India 2075",
+            "affordances": [
+                "hypothetical",
+                "abstract",
+                "opinion"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b1_15",
+            "name": "Is it ever OK to break a rule?",
+            "shortName": "Breaking Rules",
+            "affordances": [
+                "hypothetical",
+                "argumentation",
+                "abstract"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b1_16",
+            "name": "A decision that changed someone's life",
+            "shortName": "Big Decisions",
+            "affordances": [
+                "past_event",
+                "narrative",
+                "hypothetical",
+                "opinion"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b1_17",
+            "name": "Sports and games I follow and play",
+            "shortName": "Sports",
+            "affordances": [
+                "opinion",
+                "narrative",
+                "comparison",
+                "hypothetical"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b1_18",
+            "name": "Music and entertainment I enjoy",
+            "shortName": "Music",
+            "affordances": [
+                "preference",
+                "opinion",
+                "narrative"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b1_19",
+            "name": "My family and the people close to me",
+            "shortName": "My Family",
+            "affordances": [
+                "describing",
+                "narrative",
+                "opinion",
+                "abstract"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b1_20",
+            "name": "Food, cooking, and what it means to me",
+            "shortName": "Food",
+            "affordances": [
+                "preference",
+                "narrative",
+                "opinion",
+                "comparison"
+            ],
+            "isNew": True
+        }
+    ],
+    "B2": [
+        {
+            "id": "b2_1",
+            "name": "What does it mean to be Indian today?",
+            "shortName": "Being Indian",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative"
+            ]
+        },
+        {
+            "id": "b2_2",
+            "name": "Moral dilemmas in everyday life",
+            "shortName": "Moral Dilemmas",
+            "affordances": [
+                "hypothetical",
+                "argumentation",
+                "abstract"
+            ]
+        },
+        {
+            "id": "b2_3",
+            "name": "The ethics of AI",
+            "shortName": "AI Ethics",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "b2_4",
+            "name": "Caste, class, and social mobility",
+            "shortName": "Caste & Class",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "b2_5",
+            "name": "Sustainability and lifestyle choices",
+            "shortName": "Sustainability",
+            "affordances": [
+                "argumentation",
+                "comparison",
+                "abstract"
+            ]
+        },
+        {
+            "id": "b2_6",
+            "name": "Mental health and stigma",
+            "shortName": "Mental Health",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "explanation"
+            ]
+        },
+        {
+            "id": "b2_7",
+            "name": "Democracy and young people",
+            "shortName": "Youth & Democracy",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "b2_8",
+            "name": "English in India \u2014 opportunity or inequality?",
+            "shortName": "English in India",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "b2_9",
+            "name": "Art, music, and what they say about a society",
+            "shortName": "Art & Society",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "explanation"
+            ]
+        },
+        {
+            "id": "b2_10",
+            "name": "Success, happiness, and meaning",
+            "shortName": "What Is Success?",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative"
+            ]
+        },
+        {
+            "id": "b2_11",
+            "name": "India's role in the world",
+            "shortName": "India & World",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "explanation"
+            ]
+        },
+        {
+            "id": "b2_12",
+            "name": "Science, superstition, and belief",
+            "shortName": "Science vs Belief",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "b2_13",
+            "name": "Is creativity learned or innate?",
+            "shortName": "Creativity",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "explanation"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b2_14",
+            "name": "Should history be taught differently?",
+            "shortName": "Rethink History",
+            "affordances": [
+                "argumentation",
+                "abstract",
+                "comparison"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b2_15",
+            "name": "Privacy vs. security",
+            "shortName": "Privacy vs Safety",
+            "affordances": [
+                "argumentation",
+                "abstract",
+                "hypothetical"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b2_16",
+            "name": "What does \"home\" really mean?",
+            "shortName": "Meaning of Home",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b2_17",
+            "name": "Sport and what it means to me",
+            "shortName": "Sports",
+            "affordances": [
+                "opinion",
+                "narrative",
+                "abstract",
+                "argumentation"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b2_18",
+            "name": "Music and its role in my life",
+            "shortName": "Music",
+            "affordances": [
+                "opinion",
+                "abstract",
+                "narrative"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b2_19",
+            "name": "Family, relationships, and what shapes us",
+            "shortName": "My Family",
+            "affordances": [
+                "abstract",
+                "narrative",
+                "opinion"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "b2_20",
+            "name": "Food, culture, and identity",
+            "shortName": "Food",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative",
+                "comparison"
+            ],
+            "isNew": True
+        }
+    ],
+    "C1": [
+        {
+            "id": "c1_1",
+            "name": "Does language shape thought?",
+            "shortName": "Language & Thought",
+            "affordances": [
+                "abstract",
+                "explanation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "c1_2",
+            "name": "Justice, fairness, and what we owe each other",
+            "shortName": "Justice",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "c1_3",
+            "name": "How do we know what we know?",
+            "shortName": "Knowledge",
+            "affordances": [
+                "abstract",
+                "explanation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "c1_4",
+            "name": "What makes us human in an age of machines?",
+            "shortName": "Being Human",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "c1_5",
+            "name": "Power, privilege, and who gets to tell the story",
+            "shortName": "Power & Story",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ]
+        },
+        {
+            "id": "c1_6",
+            "name": "The future of democracy",
+            "shortName": "Future Democracy",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "c1_7",
+            "name": "The ethics of genetic technology",
+            "shortName": "Gene Ethics",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "c1_8",
+            "name": "What is art for?",
+            "shortName": "Purpose of Art",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "explanation"
+            ]
+        },
+        {
+            "id": "c1_9",
+            "name": "The self \u2014 fixed or fluid?",
+            "shortName": "The Self",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "explanation"
+            ]
+        },
+        {
+            "id": "c1_10",
+            "name": "The limits of globalisation",
+            "shortName": "Globalisation",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "comparison"
+            ]
+        },
+        {
+            "id": "c1_11",
+            "name": "Freedom \u2014 how much is too much?",
+            "shortName": "Limits of Freedom",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "c1_12",
+            "name": "What do we owe future generations?",
+            "shortName": "Future Generations",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "hypothetical"
+            ]
+        },
+        {
+            "id": "c1_13",
+            "name": "Is there such a thing as a universal moral truth?",
+            "shortName": "Moral Truth",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "opinion"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "c1_14",
+            "name": "The ethics of memory \u2014 choosing to forget",
+            "shortName": "Right to Forget",
+            "affordances": [
+                "abstract",
+                "hypothetical",
+                "opinion"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "c1_15",
+            "name": "Individual responsibility in a broken system",
+            "shortName": "Broken Systems",
+            "affordances": [
+                "abstract",
+                "argumentation",
+                "hypothetical"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "c1_16",
+            "name": "Can humour change the world?",
+            "shortName": "Power of Humour",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "argumentation"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "c1_17",
+            "name": "Sport, competition, and what drives us",
+            "shortName": "Sports",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "argumentation"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "c1_18",
+            "name": "Music, art, and emotion",
+            "shortName": "Music",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "explanation"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "c1_19",
+            "name": "Family, belonging, and identity",
+            "shortName": "My Family",
+            "affordances": [
+                "abstract",
+                "opinion",
+                "narrative"
+            ],
+            "isNew": True
+        },
+        {
+            "id": "c1_20",
+            "name": "Food, culture, and memory",
+            "shortName": "Food",
+            "affordances": [
+                "abstract",
+                "narrative",
+                "opinion"
+            ],
+            "isNew": True
+        }
+    ]
+}
 
 # Maps for quick lookup
 SKILLS = {item[0]: {"level": item[1], "strand": item[2], "text": item[3]} for item in CAT}
@@ -409,3 +1567,176 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
             del p["failed_attempts"][storage_key]
             
     return p, changes
+
+# Skill Affordances Mapping
+SKILL_AFFORDANCES = {
+    "A0-VOC-01": ["naming"],
+    "A0-VOC-02": ["naming"],
+    "A0-VOC-03": ["any"],
+    "A0-VOC-04": ["naming"],
+    "A0-VOC-05": ["naming", "describing"],
+    "A0-VOC-06": ["describing"],
+    "A0-VOC-07": ["describing"],
+    "A0-GRA-01": ["any"],
+    "A0-GRA-02": ["preference"],
+    "A0-GRA-03": ["preference"],
+    "A0-GRA-04": ["any"],
+    "A0-GRA-05": ["preference"],
+    "A0-GRA-06": ["describing"],
+    "A0-GRA-07": ["describing"],
+    "A0-FLU-01": ["describing"],
+    "A0-FLU-02": ["any"],
+    "A0-FLU-03": ["describing"],
+    "A0-FLU-04": ["describing"],
+    "A0-FLU-05": ["any"],
+    "A0-FLU-06": ["any"],
+    "C1-VOC-01": ["any"],
+    "C1-VOC-02": ["any"],
+    "C1-VOC-03": ["any"],
+    "C1-VOC-04": ["any"],
+    "C1-VOC-05": ["any"],
+    "C1-VOC-06": ["any"],
+    "C1-VOC-07": ["any"],
+    "C1-GRA-01": ["any"],
+    "C1-GRA-02": ["any"],
+    "C1-GRA-03": ["any"],
+    "C1-GRA-04": ["any"],
+    "C1-GRA-05": ["any"],
+    "C1-GRA-06": ["any"],
+    "C1-GRA-07": ["any"],
+    "C1-FLU-01": ["any"],
+    "C1-FLU-02": ["any"],
+    "C1-FLU-03": ["any"],
+    "C1-FLU-04": ["any"],
+    "C1-FLU-05": ["any"],
+    "C1-FLU-06": ["any"],
+    "C1-FLU-07": ["any"],
+}
+
+# Skill Affordances Mapping
+SKILL_AFFORDANCES = {
+    "A0-VOC-01": ["naming"],
+    "A0-VOC-02": ["naming"],
+    "A0-VOC-03": ["any"],
+    "A0-VOC-04": ["naming"],
+    "A0-VOC-05": ["naming", "describing"],
+    "A0-VOC-06": ["describing"],
+    "A0-VOC-07": ["describing"],
+    "A0-GRA-01": ["any"],
+    "A0-GRA-02": ["preference"],
+    "A0-GRA-03": ["preference"],
+    "A0-GRA-04": ["any"],
+    "A0-GRA-05": ["preference"],
+    "A0-GRA-06": ["describing"],
+    "A0-GRA-07": ["describing"],
+    "A0-FLU-01": ["describing"],
+    "A0-FLU-02": ["any"],
+    "A0-FLU-03": ["describing"],
+    "A0-FLU-04": ["describing"],
+    "A0-FLU-05": ["any"],
+    "A0-FLU-06": ["any"],
+    "A1-VOC-01": ["describing"],
+    "A1-VOC-02": ["describing"],
+    "A1-VOC-03": ["describing"],
+    "A1-VOC-04": ["past_event"],
+    "A1-VOC-05": ["past_event"],
+    "A1-VOC-06": ["past_event"],
+    "A1-VOC-07": ["past_event", "narrative"],
+    "A1-GRA-01": ["preference", "opinion"],
+    "A1-GRA-02": ["preference", "opinion"],
+    "A1-GRA-03": ["preference", "comparison"],
+    "A1-GRA-04": ["opinion"],
+    "A1-GRA-05": ["routine"],
+    "A1-GRA-06": ["future_plan"],
+    "A1-GRA-07": ["future_plan"],
+    "A1-FLU-01": ["future_plan", "opinion"],
+    "A1-FLU-02": ["narrative"],
+    "A1-FLU-03": ["any"],
+    "A1-FLU-04": ["any"],
+    "A1-FLU-05": ["any"],
+    "A1-FLU-06": ["any"],
+    "A2-VOC-01": ["describing"],
+    "A2-VOC-02": ["any"],
+    "A2-VOC-03": ["past_event", "narrative"],
+    "A2-VOC-04": ["any"],
+    "A2-VOC-05": ["narrative", "comparison"],
+    "A2-VOC-06": ["past_event", "narrative"],
+    "A2-VOC-07": ["past_event", "routine"],
+    "A2-GRA-01": ["narrative", "past_event"],
+    "A2-GRA-02": ["opinion"],
+    "A2-GRA-03": ["hypothetical"],
+    "A2-GRA-04": ["opinion", "hypothetical"],
+    "A2-GRA-05": ["opinion", "explanation"],
+    "A2-GRA-06": ["explanation", "narrative"],
+    "A2-GRA-07": ["any"],
+    "A2-FLU-01": ["any"],
+    "A2-FLU-02": ["any"],
+    "A2-FLU-03": ["any"],
+    "A2-FLU-04": ["narrative", "past_event"],
+    "A2-FLU-05": ["any"],
+    "A2-FLU-06": ["any"],
+    "A2-FLU-07": ["any"],
+    "B1-VOC-01": ["any"],
+    "B1-VOC-02": ["any"],
+    "B1-VOC-03": ["hypothetical"],
+    "B1-VOC-04": ["abstract", "opinion"],
+    "B1-VOC-05": ["opinion", "argumentation"],
+    "B1-VOC-06": ["hypothetical", "past_event"],
+    "B1-VOC-07": ["narrative", "past_event"],
+    "B1-GRA-01": ["any"],
+    "B1-GRA-02": ["any"],
+    "B1-GRA-03": ["explanation"],
+    "B1-GRA-04": ["any"],
+    "B1-GRA-05": ["any"],
+    "B1-GRA-06": ["argumentation"],
+    "B1-GRA-07": ["argumentation", "opinion"],
+    "B1-FLU-01": ["any"],
+    "B1-FLU-02": ["argumentation", "opinion"],
+    "B1-FLU-03": ["any"],
+    "B1-FLU-04": ["any"],
+    "B1-FLU-05": ["any"],
+    "B1-FLU-06": ["any"],
+    "B1-FLU-07": ["any"],
+    "B2-VOC-01": ["any"],
+    "B2-VOC-02": ["abstract", "argumentation"],
+    "B2-VOC-03": ["any"],
+    "B2-VOC-04": ["any"],
+    "B2-VOC-05": ["any"],
+    "B2-VOC-06": ["any"],
+    "B2-VOC-07": ["any"],
+    "B2-GRA-01": ["any"],
+    "B2-GRA-02": ["any"],
+    "B2-GRA-03": ["any"],
+    "B2-GRA-04": ["any"],
+    "B2-GRA-05": ["any"],
+    "B2-GRA-06": ["any"],
+    "B2-GRA-07": ["any"],
+    "B2-FLU-01": ["any"],
+    "B2-FLU-02": ["any"],
+    "B2-FLU-03": ["any"],
+    "B2-FLU-04": ["any"],
+    "B2-FLU-05": ["any"],
+    "B2-FLU-06": ["any"],
+    "B2-FLU-07": ["any"],
+    "C1-VOC-01": ["any"],
+    "C1-VOC-02": ["any"],
+    "C1-VOC-03": ["any"],
+    "C1-VOC-04": ["any"],
+    "C1-VOC-05": ["any"],
+    "C1-VOC-06": ["any"],
+    "C1-VOC-07": ["any"],
+    "C1-GRA-01": ["any"],
+    "C1-GRA-02": ["any"],
+    "C1-GRA-03": ["any"],
+    "C1-GRA-04": ["any"],
+    "C1-GRA-05": ["any"],
+    "C1-GRA-06": ["any"],
+    "C1-GRA-07": ["any"],
+    "C1-FLU-01": ["any"],
+    "C1-FLU-02": ["any"],
+    "C1-FLU-03": ["any"],
+    "C1-FLU-04": ["any"],
+    "C1-FLU-05": ["any"],
+    "C1-FLU-06": ["any"],
+    "C1-FLU-07": ["any"],
+}

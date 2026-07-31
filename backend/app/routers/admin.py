@@ -1064,7 +1064,7 @@ async def reset_user(
     user.interests = None
     user.persona_memory = {}
     db.add(user)
-    await db.flush()
+    await db.commit()
 
     return {
         "status": "reset",
