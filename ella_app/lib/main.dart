@@ -1,3 +1,4 @@
+import 'package:chucker_flutter/chucker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/analytics_service.dart';
+import 'services/chucker_notifier.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
 
@@ -15,6 +17,17 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  // Debug-only: surface Chucker's recorded API calls as a real Android system
+  // notification (in the pull-down shade) that opens the request inspector on
+  // tap — so traffic is inspectable whenever, not just in the split second an
+  // in-app banner is visible. Turn OFF Chucker's own in-app banner so the
+  // persistent notification is the only surface. See ChuckerNotifier +
+  // EllaApiService (which posts the notification per request).
+  if (kDebugMode) {
+    ChuckerFlutter.showNotification = false;
+    await ChuckerNotifier.instance.init();
+  }
 
   try {
     await Firebase.initializeApp();

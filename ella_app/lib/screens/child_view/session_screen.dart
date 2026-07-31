@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/offline_alert_popup.dart';
 import '../../core/theme_colors.dart';
@@ -77,6 +78,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   @override
   void initState() {
     super.initState();
+    // Keep the display awake for the whole voice session — the child talks and
+    // listens without touching the screen, so the OS idle timer would otherwise
+    // dim and lock it mid-conversation. Released in dispose().
+    WakelockPlus.enable();
     AnalyticsService.logScreenView('Chat');
     final topicName = widget.initialTopic?.topic ?? 'Free Talk';
     AnalyticsService.logConversationStarted(topicName);
@@ -144,6 +149,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
     try {

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/theme_colors.dart';
@@ -137,6 +138,11 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
           _field(
             controller: _ageController,
             keyboardType: TextInputType.number,
+            // Age is digits only, capped at two digits.
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(2),
+            ],
           ),
           const SizedBox(height: 16),
           _isLoading
@@ -217,6 +223,7 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
   Widget _field({
     required TextEditingController controller,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       height: 72,
@@ -230,6 +237,7 @@ class _EditProfileDialogState extends ConsumerState<EditProfileDialog> {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         decoration: const InputDecoration(
           border: InputBorder.none,
           isCollapsed: true,
