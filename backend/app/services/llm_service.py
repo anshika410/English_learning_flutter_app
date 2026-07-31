@@ -157,7 +157,7 @@ async def generate_conversation_starter(
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
     )
-    from ..core.elicitation import plan_text, resolve_skill_text
+    from ..core.elicitation import resolve_skill_text
 
     level_upper = str(level or "A1").upper()
     if level_upper not in _LEVEL_BLOCKS:
@@ -254,8 +254,8 @@ async def generate_conversation_starter(
     else:
         targets_str = "- General conversation practice"
 
-    # Build elicitation plan (using plan_text(target_ids))
-    elicitation_str = plan_text(target_ids, level_upper)
+    # Build elicitation plan (using plan_text(target_ids)) - Deprecated
+    # elicitation_str = plan_text(target_ids, level_upper)
 
     unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
     unit_block = (
@@ -263,7 +263,7 @@ async def generate_conversation_starter(
         .replace("{{UNITNAME}}", str(unit_name))
         .replace("{{UNITFOCUS}}", str(unit_focus))
         .replace("{{TARGETS}}", targets_str)
-        .replace("{{ELICITATION}}", elicitation_str)
+        # .replace("{{ELICITATION}}", elicitation_str) # Deprecated
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", "1")
         .strip()
@@ -364,7 +364,7 @@ async def send_conversation_turn(
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
     )
-    from ..core.elicitation import plan_text, resolve_skill_text
+    from ..core.elicitation import resolve_skill_text
 
     # Format persona memory
     memory_str = "None"
@@ -462,8 +462,8 @@ async def send_conversation_turn(
     else:
         targets_str = "- General conversation practice"
 
-    # Build elicitation plan (using plan_text(target_ids))
-    elicitation_str = plan_text(target_ids, level_upper)
+    # Build elicitation plan (using plan_text(target_ids)) - Deprecated
+    # elicitation_str = plan_text(target_ids, level_upper)
 
     # Support new style variables for pk_1.1
     primary_id = target_ids[0] if target_ids else None
@@ -491,7 +491,7 @@ async def send_conversation_turn(
         .replace("{{UNITNAME}}", unit_name)
         .replace("{{UNITFOCUS}}", unit_focus)
         .replace("{{TARGETS}}", targets_str)
-        .replace("{{ELICITATION}}", elicitation_str)
+        # .replace("{{ELICITATION}}", elicitation_str) # Deprecated
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", str(current_turn))
         # Support new pk_1.1 placeholders
@@ -536,7 +536,7 @@ async def send_conversation_turn(
             "unit_focus": unit_focus,
             "target_ids": target_ids,
             "targets_str": targets_str,
-            "elicitation_str": elicitation_str,
+            "elicitation_str": None, # Deprecated
             "student_memory": memory_str,
             "current_turn": current_turn,
         },
