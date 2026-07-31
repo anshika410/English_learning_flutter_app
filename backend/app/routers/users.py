@@ -47,7 +47,6 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     if not isinstance(last_topics_list, list):
         last_topics_list = []
 
-    # Cast age to integer if it is a numeric string
     age_val = None
     if user.age and user.age.isdigit():
         age_val = int(user.age)
@@ -71,53 +70,61 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
             created_at=latest_placement.created_at.isoformat(),
         )
 
-    # Compute suggested next topics (avoid recently used)
-    from ..core.curriculum_data import LEVEL_TOPICS
+    from ..core.curriculum_data import LEVEL_TOPICS, UNITS
     all_topics = LEVEL_TOPICS.get(level_code, [])
     valid_topics = [t for t in all_topics if t.get("name")]
-    used = set(last_topics_list)
-    fresh = [t for t in valid_topics if t["name"] not in used]
-    stale = [t for t in valid_topics if t["name"] in used]
-    # Always show all topics — fresh ones first, recently used ones at the end.
-    # This way the user never sees fewer than the full topic list.
+    
+    # 1. Determine Needs from current active skill
+    primary_skill_id = due.get("primary")
+    skill_needs = {"any"}
+    if primary_skill_id:
+        for step in UNITS.get(level_code, []):
+            for skill in step.get("skills", []):
+                if skill.get("id") == primary_skill_id:
+                    skill_needs = set(skill.get("needs", ["any"]))
+                    break
+    
+    # 2. Filter topics by compatibility
+    compatible_topics = []
+    for t in valid_topics:
+        topic_affordances = set(t.get("affordances", []))
+        if "any" in skill_needs or skill_needs.intersection(topic_affordances):
+            compatible_topics.append(t)
+            
+    # Fallback to all topics if none matched
+    if not compatible_topics:
+        compatible_topics = valid_topics
+        
+    # 3. Apply floor 7 / ceiling 12 logic with freshness
+    used = set(last_topics_list[-2:]) if last_topics_list else set() # Exclude last 2 sessions
+    fresh = [t for t in compatible_topics if t["name"] not in used]
+    stale = [t for t in compatible_topics if t["name"] in used]
+    
+    # If excluding drops us below 7, skip exclusion
+    if len(fresh) < 7:
+        fresh = compatible_topics
+        stale = []
+        
     import random
     import hashlib
     from datetime import datetime, timezone
-
-    # Deterministic daily seed: "user_uuid-YYYY-MM-DD"
+    
     current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     seed_str = f"{user.id}-{current_date}"
     seed_int = int(hashlib.md5(seed_str.encode()).hexdigest(), 16)
-
-    # Use a localized Random instance to avoid mutating global random state
     local_random = random.Random(seed_int)
+    
     local_random.shuffle(fresh)
-    ordered_topics = fresh + stale
-
-    def _make_label(name):
-        """Derive a short label from topic name."""
-        # Common patterns: "My family" → "Family", "Food I like" → "Food", "My school" → "School"
-        lower = name.lower()
-        import re
-        clean_name = re.sub(r'[^\w\s]', '', name)
-        if lower.startswith("my "):
-            return clean_name[3:].split()[0].capitalize()
-        words = clean_name.split()
-        if len(words) <= 2:
-            return words[0].capitalize()
-        # For longer names, use first noun-like word
-        skip = {"the", "a", "an", "and", "in", "of", "vs", "i", "dont"}
-        for w in words:
-            if w.lower() not in skip and len(w) > 2:
-                return w.capitalize()
-        return words[0].capitalize() if words else ""
+    local_random.shuffle(stale)
+    
+    ordered_topics = (fresh + stale)[:12]
 
     def _topic_item(t):
         starters = t.get("starters", [])
-        icon, color, highlight, bg = get_theme_assets(t["name"])
+        icon, color, highlight, bg = get_theme_assets(t)
         return {
             "name": t["name"],
-            "label": t.get("label") or _make_label(t["name"]),
+            "label": t.get("shortName") or t.get("label") or t["name"],
             "icon": icon,
             "starter": starters[0] if starters else None,
         }
@@ -127,7 +134,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     has_completed_onboarding = user.first_session_done or bool(user.placements)
     if ordered_topics and has_completed_onboarding:
         rec = _topic_item(ordered_topics[0])
-        alts = [_topic_item(t) for t in ordered_topics[1:]]  # all remaining topics, fresh first
+        alts = [_topic_item(t) for t in ordered_topics[1:]]
         next_topics_obj = NextTopics(
             recommended=NextTopicItem(**rec),
             alternatives=[NextTopicItem(**a) for a in alts]
