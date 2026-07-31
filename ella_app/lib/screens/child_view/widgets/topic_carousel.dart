@@ -176,6 +176,11 @@ class _TopicCarouselState extends State<TopicCarousel> {
                       key: const ValueKey('home-topic-carousel-page-view'),
                       controller: controller,
                       clipBehavior: Clip.none,
+                      pageSnapping: false,
+                      physics: SnappingScrollPhysics(
+                        itemWidth: _pageExtent,
+                        parent: const BouncingScrollPhysics(),
+                      ),
                       onPageChanged: (index) =>
                           widget.onSelect(widget.topics[index % len]),
                       itemBuilder: (context, index) {
@@ -397,4 +402,64 @@ class _TopicItem extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Custom snapping scroll physics that allows free momentum/flinging across
+/// multiple items while ensuring the scroll always settles centered on an item.
+class SnappingScrollPhysics extends ScrollPhysics {
+  final double itemWidth;
+
+  const SnappingScrollPhysics({
+    required this.itemWidth,
+    super.parent,
+  });
+
+  @override
+  SnappingScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return SnappingScrollPhysics(
+      itemWidth: itemWidth,
+      parent: buildParent(ancestor),
+    );
+  }
+
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+    // If we're out of range, let the parent handle the overscroll bounce/clamp.
+    if ((velocity <= 0.0 && position.pixels <= position.minScrollExtent) ||
+        (velocity >= 0.0 && position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+
+    // Let the parent physics determine the natural deceleration simulation.
+    final Simulation? parentSimulation = super.createBallisticSimulation(position, velocity);
+    
+    double targetPixels;
+    if (parentSimulation != null) {
+      // Find where the scroll would naturally settle under friction.
+      final double naturalFinalPixels = parentSimulation.x(double.infinity);
+      // Snap that natural settling position to the nearest item boundary.
+      targetPixels = (naturalFinalPixels / itemWidth).round() * itemWidth;
+    } else {
+      // No fling velocity, just snap the current position to the nearest boundary.
+      targetPixels = (position.pixels / itemWidth).round() * itemWidth;
+    }
+    
+    // Ensure we stay within the scrollable range.
+    targetPixels = targetPixels.clamp(position.minScrollExtent, position.maxScrollExtent);
+
+    // If the target position is different, animate there with a spring.
+    if (targetPixels != position.pixels) {
+      return ScrollSpringSimulation(
+        spring,
+        position.pixels,
+        targetPixels,
+        velocity,
+        tolerance: toleranceFor(position),
+      );
+    }
+    return null;
+  }
+
+  @override
+  bool get allowImplicitScrolling => false;
 }
