@@ -47,7 +47,6 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     if not isinstance(last_topics_list, list):
         last_topics_list = []
 
-    # Cast age to integer if it is a numeric string
     age_val = None
     if user.age and user.age.isdigit():
         age_val = int(user.age)
@@ -71,135 +70,62 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
             created_at=latest_placement.created_at.isoformat(),
         )
 
-    # Compute suggested next topics (avoid recently used)
-    from ..core.curriculum_data import LEVEL_TOPICS
+    from ..core.curriculum_data import LEVEL_TOPICS, UNITS
     all_topics = LEVEL_TOPICS.get(level_code, [])
     valid_topics = [t for t in all_topics if t.get("name")]
-    used = set(last_topics_list)
-    fresh = [t for t in valid_topics if t["name"] not in used]
-    stale = [t for t in valid_topics if t["name"] in used]
-    # Always show all topics — fresh ones first, recently used ones at the end.
-    # This way the user never sees fewer than the full topic list.
+    
+    # 1. Determine Needs from current active skill
+    primary_skill_id = due.get("primary")
+    skill_needs = {"any"}
+    if primary_skill_id:
+        for step in UNITS.get(level_code, []):
+            for skill in step.get("skills", []):
+                if skill.get("id") == primary_skill_id:
+                    skill_needs = set(skill.get("needs") or ["any"])
+                    break
+    
+    # 2. Filter topics by compatibility
+    compatible_topics = []
+    for t in valid_topics:
+        topic_affordances = set(t.get("affordances", []))
+        if "any" in skill_needs or skill_needs.intersection(topic_affordances):
+            compatible_topics.append(t)
+            
+    # Fallback to all topics if none matched
+    if not compatible_topics:
+        compatible_topics = valid_topics
+        
+    # 3. Apply floor 7 / ceiling 12 logic with freshness
+    used = set(last_topics_list[-2:]) if last_topics_list else set() # Exclude last 2 sessions
+    fresh = [t for t in compatible_topics if t["name"] not in used]
+    stale = [t for t in compatible_topics if t["name"] in used]
+    
+    # If excluding drops us below 7, skip exclusion
+    if len(fresh) < 7:
+        fresh = compatible_topics
+        stale = []
+        
     import random
     import hashlib
     from datetime import datetime, timezone
-
-    # Deterministic daily seed: "user_uuid-YYYY-MM-DD"
+    
     current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     seed_str = f"{user.id}-{current_date}"
     seed_int = int(hashlib.md5(seed_str.encode()).hexdigest(), 16)
-
-    # Use a localized Random instance to avoid mutating global random state
     local_random = random.Random(seed_int)
+    
     local_random.shuffle(fresh)
-    ordered_topics = fresh + stale
-
-    def _make_label(name):
-        """Derive a short label from topic name."""
-        # Common patterns: "My family" → "Family", "Food I like" → "Food", "My school" → "School"
-        lower = name.lower()
-        if lower.startswith("my "):
-            return name[3:].split()[0].capitalize()
-        words = name.split()
-        if len(words) <= 2:
-            return words[0].capitalize()
-        # For longer names, use first noun-like word
-        skip = {"the", "a", "an", "and", "in", "of", "vs.", "i", "don't"}
-        for w in words:
-            if w.lower() not in skip and len(w) > 2:
-                return w.capitalize()
-        return words[0].capitalize()
-
-    # Topic icon mapping (topic_id → icon filename)
-    TOPIC_ICON_MAP = {
-        # A0 level topics → a1 icons
-        "my_name_and_where_i_m_from": "a1-01-my-name",
-        "my_family": "a1-02-my-family",
-        "my_school": "a1-03-my-school",
-        "food_i_like": "a1-04-food-i-like",
-        "my_daily_routine": "a1-05-my-daily-routine",
-        "things_i_like_and_don_t_like": "a1-06-likes-dontlikes",
-        "animals": "a1-07-animals",
-        "colours_numbers_and_shapes": "a1-08-colours-numbers-shapes",
-        "my_home": "a1-09-my-home",
-        "sports_and_games": "a1-10-sports-and-games",
-        "festivals_i_celebrate": "a1-11-festivals",
-        # A1 level topics → a2 icons
-        "my_hobbies_and_free_time": "a2-01-hobbies-free-time",
-        "my_friends": "a2-02-my-friends",
-        "a_typical_week": "a2-03-typical-week",
-        "shopping_and_markets": "a2-04-shopping-and-markets",
-        "food_and_restaurants": "a2-05-food-and-restaurants",
-        "my_city_or_town": "a2-06-my-city-or-town",
-        "weather_and_seasons": "a2-07-weather-and-seasons",
-        "transport_and_travel": "a2-08-transport-and-travel",
-        "a_trip_or_holiday": "a2-09-a-trip-or-holiday",
-        "films_and_tv_shows": "a2-10-films-and-tv-shows",
-        "celebrations_and_special_days": "a2-11-celebrations",
-        "school_subjects_likes_and_dislikes": "a2-12-school-subjects",
-        # A2 level topics → b1 icons
-        "my_ambitions_and_future_plans": "b1-01-ambitions-future-plans",
-        "my_personality_and_values": "b1-02-personality-and-values",
-        "education_in_india": "b1-03-education-in-india",
-        "social_media_and_technology": "b1-04-social-media-technology",
-        "city_life_vs_village_life": "b1-05-city-vs-village",
-        "festivals_and_traditions": "b1-06-festivals-and-traditions",
-        "the_environment_and_pollution": "b1-07-environment-pollution",
-        "health_and_lifestyle": "b1-08-health-and-lifestyle",
-        "indian_cinema_and_music": "b1-09-indian-cinema-music",
-        "friendship_and_trust": "b1-10-friendship-and-trust",
-        "news_and_current_events": "b1-11-news-current-events",
-        "cricket_and_sport_in_india": "b1-12-cricket-and-sport",
-        # B1 level topics → b2 icons
-        "culture_and_identity": "b2-01-culture-and-identity",
-        "gender_equality_in_india": "b2-02-gender-equality",
-        "education_and_success": "b2-03-education-and-success",
-        "artificial_intelligence_and_the_future_of_work": "b2-04-ai-future-of-work",
-        "social_media_mental_health_and_young_people": "b2-05-social-media-mental-health",
-        "climate_change_and_india_s_responsibility": "b2-06-climate-change-india",
-        "migration_and_opportunity": "b2-07-migration-and-opportunity",
-        "tradition_vs_modernity": "b2-08-tradition-vs-modernity",
-        "fake_news_and_media_literacy": "b2-09-fake-news-media-literacy",
-        "entrepreneurship_and_startups": "b2-10-entrepreneurship-startups",
-        "indian_literature_and_storytelling": "b2-11-indian-literature-storytelling",
-        "privilege_and_opportunity": "b2-12-privilege-and-opportunity",
-        # B2 level topics → c1 icons
-        "what_does_it_mean_to_be_indian_today": "c1-01-what-does-it-mean-indian",
-        "moral_dilemmas_in_everyday_life": "c1-02-moral-dilemmas",
-        "the_ethics_of_artificial_intelligence": "c1-03-ethics-of-ai",
-        "caste_class_and_social_mobility": "c1-04-caste-class-social-mobility",
-        "sustainability_and_lifestyle_choices": "c1-05-sustainability-lifestyle",
-        "mental_health_and_stigma": "c1-06-mental-health-stigma",
-        "democracy_and_young_people": "c1-07-democracy-young-people",
-        "english_in_india_opportunity_or_inequality": "c1-08-english-in-india",
-        "art_music_and_what_they_say_about_a_society": "c1-09-art-music-society",
-        "success_happiness_and_meaning": "c1-10-success-happiness-meaning",
-        "india_s_role_in_the_world": "c1-11-indias-role-in-world",
-        "science_superstition_and_belief_in_modern_india": "c1-12-science-superstition-belief",
-        # C1 level topics → c2 icons
-        "does_language_shape_thought": "c2-01-language-shape-thought",
-        "justice_fairness_and_what_we_owe_each_other": "c2-02-justice-fairness",
-        "how_do_we_know_what_we_know": "c2-03-how-do-we-know",
-        "what_makes_us_human_in_an_age_of_machines": "c2-04-what-makes-us-human",
-        "power_privilege_and_who_gets_to_tell_the_story": "c2-05-power-privilege-storytelling",
-        "the_future_of_democracy": "c2-06-future-of-democracy",
-        "the_ethics_of_genetic_technology": "c2-07-ethics-genetic-technology",
-        "what_is_art_for": "c2-08-what-is-art-for",
-        "the_self_fixed_or_fluid": "c2-09-self-fixed-or-fluid",
-        "the_limits_of_globalisation": "c2-10-limits-of-globalisation",
-        "freedom_how_much_is_too_much": "c2-11-freedom-how-much",
-        "what_do_we_owe_future_generations": "c2-12-what-do-we-owe-future",
-    }
-    ICON_BASE_URL = "https://ella.navgurukul.org/assets/topic-icons"
+    local_random.shuffle(stale)
+    
+    ordered_topics = (fresh + stale)[:12]
 
     def _topic_item(t):
         starters = t.get("starters", [])
-        topic_id = t.get("id", "")
-        icon_file = TOPIC_ICON_MAP.get(topic_id)
+        icon, color, highlight, bg = get_theme_assets(t)
         return {
             "name": t["name"],
-            "label": t.get("label") or _make_label(t["name"]),
-            "icon": icon_file,
+            "label": t.get("shortName") or t.get("label") or t["name"],
+            "icon": icon,
             "starter": starters[0] if starters else None,
         }
 
@@ -208,7 +134,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     has_completed_onboarding = user.first_session_done or bool(user.placements)
     if ordered_topics and has_completed_onboarding:
         rec = _topic_item(ordered_topics[0])
-        alts = [_topic_item(t) for t in ordered_topics[1:]]  # all remaining topics, fresh first
+        alts = [_topic_item(t) for t in ordered_topics[1:]]
         next_topics_obj = NextTopics(
             recommended=NextTopicItem(**rec),
             alternatives=[NextTopicItem(**a) for a in alts]
@@ -569,36 +495,153 @@ async def get_user_garden(
     }
 
 
-def get_theme_assets(theme_name):
-    t = theme_name.lower()
-    icon = "💬"
-    if "tech" in t: icon = "💻"
-    elif "work" in t or "ambition" in t or "career" in t: icon = "💼"
-    elif "science" in t or "knowledge" in t or "truth" in t: icon = "🔬"
-    elif "self" in t or "identity" in t or "psychology" in t or "relationship" in t: icon = "👤"
-    elif "daily" in t or "health" in t or "experiences" in t: icon = "⏰"
-    elif "world" in t or "environment" in t or "global" in t: icon = "🌍"
-    elif "sport" in t: icon = "🏏"
-    elif "art" in t or "festival" in t or "culture" in t or "media" in t: icon = "🎬"
-    elif "philosophy" in t or "ethic" in t or "value" in t or "society" in t or "power" in t or "politics" in t or "legacy" in t: icon = "⚖️"
-
+def get_theme_assets(t: dict) -> tuple[str, str, str, str]:
+    """Dynamically generate the SVG icon ID and determine colors based on topic shortName."""
+    theme_name = t.get("name", "")
+    short_name = t.get("shortName", "")
+    t_id = t.get("id", "")
+    
+    # Extract level and index from id, e.g., "a0_1" -> level "a0", idx "01"
+    parts = t_id.split("_")
+    level = parts[0] if len(parts) > 0 else "a0"
+    idx = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+    
+    THEME_TO_ICON = {
+            "My name and where I'm from": "a1-01-my-name",
+            "My family": "a1-02-my-family",
+            "My school": "a1-03-my-school",
+            "Food I like": "a1-04-food-i-like",
+            "My daily routine": "a1-05-my-daily-routine",
+            "Things I like and don't like": "a1-06-likes-dontlikes",
+            "Animals": "a1-07-animals",
+            "Colours, numbers, and shapes": "a1-08-colours-numbers-shapes",
+            "My home": "a1-09-my-home",
+            "Sports and games": "a1-10-sports-and-games",
+            "Festivals I celebrate": "a1-11-festivals",
+            "My favourite film, show, or cartoon": "a2-10-films-and-tv-shows",
+            "Games we play at break time": "a1-10-sports-and-games",
+            "My birthday": "a2-11-celebrations",
+            "Things I can do": "a2-01-hobbies-free-time",
+            "My bag and what is inside it": "a2-04-shopping-and-markets",
+            "My hobbies and free time": "a2-01-hobbies-free-time",
+            "My friends": "a2-02-my-friends",
+            "A typical week": "a2-03-typical-week",
+            "Shopping and markets": "a2-04-shopping-and-markets",
+            "Food and restaurants": "a2-05-food-and-restaurants",
+            "My city or town": "a2-06-my-city-or-town",
+            "Weather and seasons": "a2-07-weather-and-seasons",
+            "Transport and travel": "a2-08-transport-and-travel",
+            "A trip or holiday": "a2-09-a-trip-or-holiday",
+            "Films and TV shows": "a2-10-films-and-tv-shows",
+            "Celebrations and special days": "a2-11-celebrations",
+            "School subjects — likes and dislikes": "a2-12-school-subjects",
+            "My plans for the holidays": "b1-01-ambitions-future-plans",
+            "A place I want to visit one day": "a2-09-a-trip-or-holiday",
+            "What I want to learn next": "b1-03-education-in-india",
+            "A person I look up to": "b1-10-friendship-and-trust",
+            "My ambitions and future plans": "b1-01-ambitions-future-plans",
+            "My personality and values": "b1-02-personality-and-values",
+            "Education in India": "b1-03-education-in-india",
+            "Social media and technology": "b1-04-social-media-technology",
+            "City life vs. village life": "b1-05-city-vs-village",
+            "Festivals and traditions": "b1-06-festivals-and-traditions",
+            "The environment and pollution": "b1-07-environment-pollution",
+            "Health and lifestyle": "b1-08-health-and-lifestyle",
+            "Indian cinema and music": "b1-09-indian-cinema-music",
+            "Friendship and trust": "b1-10-friendship-and-trust",
+            "News and current events": "b1-11-news-current-events",
+            "Cricket and sport in India": "b1-12-cricket-and-sport",
+            "How my life has changed since I was younger": "b2-01-culture-and-identity",
+            "A time I had to make a difficult choice": "c1-02-moral-dilemmas",
+            "Rules I would change if I were in charge": "c1-07-democracy-young-people",
+            "A misunderstanding that taught me something": "b1-10-friendship-and-trust",
+            "Food and cooking": "a2-05-food-and-restaurants",
+            "Culture and identity": "b2-01-culture-and-identity",
+            "Gender equality in India": "b2-02-gender-equality",
+            "Education and success": "b2-03-education-and-success",
+            "AI and the future of work": "b2-04-ai-future-of-work",
+            "Social media, mental health, young people": "b2-05-social-media-mental-health",
+            "Climate change and India's responsibility": "b2-06-climate-change-india",
+            "Migration and opportunity": "b2-07-migration-and-opportunity",
+            "Tradition vs. modernity": "b2-08-tradition-vs-modernity",
+            "Fake news and media literacy": "b2-09-fake-news-media-literacy",
+            "Entrepreneurship and startups": "b2-10-entrepreneurship-startups",
+            "Indian literature and storytelling": "b2-11-indian-literature-storytelling",
+            "Privilege and opportunity": "b2-12-privilege-and-opportunity",
+            "A belief I changed my mind about": "c2-09-self-fixed-or-fluid",
+            "What would India look like in 50 years?": "b1-01-ambitions-future-plans",
+            "Is it ever OK to break a rule?": "c1-02-moral-dilemmas",
+            "A decision that changed someone's life": "c1-02-moral-dilemmas",
+            "Sports and games I follow and play": "a1-10-sports-and-games",
+            "Music and entertainment I enjoy": "b1-09-indian-cinema-music",
+            "My family and the people close to me": "a1-02-my-family",
+            "Food, cooking, and what it means to me": "a2-05-food-and-restaurants",
+            "What does it mean to be Indian today?": "c1-01-what-does-it-mean-indian",
+            "Moral dilemmas in everyday life": "c1-02-moral-dilemmas",
+            "The ethics of AI": "c1-03-ethics-of-ai",
+            "Caste, class, and social mobility": "c1-04-caste-class-social-mobility",
+            "Sustainability and lifestyle choices": "c1-05-sustainability-lifestyle",
+            "Mental health and stigma": "c1-06-mental-health-stigma",
+            "Democracy and young people": "c1-07-democracy-young-people",
+            "English in India — opportunity or inequality?": "c1-08-english-in-india",
+            "Art, music, and what they say about a society": "c1-09-art-music-society",
+            "Success, happiness, and meaning": "c1-10-success-happiness-meaning",
+            "India's role in the world": "c1-11-indias-role-in-world",
+            "Science, superstition, and belief": "c1-12-science-superstition-belief",
+            "Is creativity learned or innate?": "b2-03-education-and-success",
+            "Should history be taught differently?": "b2-08-tradition-vs-modernity",
+            "Privacy vs. security": "b1-04-social-media-technology",
+            'What does "home" really mean?': "a1-09-my-home",
+            "Sport and what it means to me": "a1-10-sports-and-games",
+            "Music and its role in my life": "b1-09-indian-cinema-music",
+            "Family, relationships, and what shapes us": "a1-02-my-family",
+            "Food, culture, and identity": "b2-01-culture-and-identity",
+            "Does language shape thought?": "c2-01-language-shape-thought",
+            "Justice, fairness, and what we owe each other": "c2-02-justice-fairness",
+            "How do we know what we know?": "c2-03-how-do-we-know",
+            "What makes us human in an age of machines?": "c2-04-what-makes-us-human",
+            "Power, privilege, and who gets to tell the story": "c2-05-power-privilege-storytelling",
+            "The future of democracy": "c2-06-future-of-democracy",
+            "The ethics of genetic technology": "c2-07-ethics-genetic-technology",
+            "What is art for?": "c2-08-what-is-art-for",
+            "The self — fixed or fluid?": "c2-09-self-fixed-or-fluid",
+            "The limits of globalisation": "c2-10-limits-of-globalisation",
+            "Freedom — how much is too much?": "c2-11-freedom-how-much",
+            "What do we owe future generations?": "c2-12-what-do-we-owe-future",
+            "Is there such a thing as a universal moral truth?": "c1-02-moral-dilemmas",
+            "The ethics of memory — choosing to forget": "c1-02-moral-dilemmas",
+            "Individual responsibility in a broken system": "c2-02-justice-fairness",
+            "Can humour change the world?": "a2-11-celebrations",
+            "Sport, competition, and what drives us": "a1-10-sports-and-games",
+            "Music, art, and emotion": "c1-09-art-music-society",
+            "Family, belonging, and identity": "a1-02-my-family",
+            "Food, culture, and memory": "a1-04-food-i-like",
+        }
+    
+    icon = THEME_TO_ICON.get(theme_name)
+    if not icon:
+        import re as regex
+        clean_short = regex.sub(r"[^a-z0-9]+", "-", short_name.lower()).strip("-")
+        icon = f"{level}-{str(idx).zfill(2)}-{clean_short}"
+    
+    t_lower = theme_name.lower()
     color = "#F0E6FF"
     highlight = "rgba(128,0,255,0.06)"
     bg = "linear-gradient(135deg,#F0E6FF,#E0D0FF)"
 
-    if "self" in t or "identity" in t or "psychology" in t or "relationship" in t:
+    if "self" in t_lower or "identity" in t_lower or "psychology" in t_lower or "relationship" in t_lower:
         color = "#E0EDFF"
         highlight = "rgba(45,127,249,0.08)"
         bg = "linear-gradient(135deg,#E0EDFF,#CCE0FF)"
-    elif "world" in t or "environment" in t or "global" in t or "science" in t:
+    elif "world" in t_lower or "environment" in t_lower or "global" in t_lower or "science" in t_lower:
         color = "#E6F9E6"
         highlight = "rgba(59,212,42,0.12)"
         bg = "linear-gradient(135deg,#E6F9E6,#D0F0D0)"
-    elif "daily" in t or "health" in t or "experiences" in t or "sport" in t:
+    elif "daily" in t_lower or "health" in t_lower or "experiences" in t_lower or "sport" in t_lower:
         color = "#FFFDE0"
         highlight = "rgba(255,210,63,0.12)"
         bg = "linear-gradient(135deg,#FFFDE0,#FFF5B0)"
-    elif "festival" in t or "art" in t or "culture" in t or "media" in t or "language" in t:
+    elif "festival" in t_lower or "art" in t_lower or "culture" in t_lower or "media" in t_lower or "language" in t_lower:
         color = "#FFF0E0"
         highlight = "rgba(255,107,44,0.1)"
         bg = "linear-gradient(135deg,#FFF0E0,#FFE4CC)"

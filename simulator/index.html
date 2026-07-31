@@ -1874,7 +1874,7 @@ function App(){
                   <>
                     {visible.map((t, idx) => {
                       const tName = t.name || t.topic || "";
-                      const tIcon = t.icon || "💬";
+                      const tIcon = mapIconToEmoji(t.icon);
                       return (
                         <button
                           key={idx}
@@ -3191,6 +3191,20 @@ function UnitsView({mem}){
     <small className="note">A level-up = all 5 steps complete. The active step drives due_next. This is the units answer to the "level-up rule" hole.</small>
   </div>);
 }
+const mapIconToEmoji = (iconStr) => {
+  if (!iconStr) return "💬";
+  if (iconStr.includes("technology")) return "💻";
+  if (iconStr.includes("ambitions")) return "💼";
+  if (iconStr.includes("science")) return "🔬";
+  if (iconStr.includes("identity")) return "👤";
+  if (iconStr.includes("health")) return "⏰";
+  if (iconStr.includes("environment")) return "🌍";
+  if (iconStr.includes("sports")) return "🏏";
+  if (iconStr.includes("festivals")) return "🎬";
+  if (iconStr.includes("moral")) return "⚖️";
+  return "💬";
+};
+
 function TopicsView({ mem, onStartTopic, apiTopics }) {
   const isApi = LLM_CONFIG.mode === 'api';
   const topicsList = isApi ? apiTopics : (TOPICS[mem.level] || []);
@@ -3207,7 +3221,7 @@ function TopicsView({ mem, onStartTopic, apiTopics }) {
           
           const theme = t.theme || "General";
           const desc = t.description || "Practice conversing on this topic.";
-          const icon = t.icon || "💬";
+          const icon = mapIconToEmoji(t.icon);
           const bg = t.panel_bg || "linear-gradient(135deg, #F0E6FF, #E0D0FF)";
           
           return (
