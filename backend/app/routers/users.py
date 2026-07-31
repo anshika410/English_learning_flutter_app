@@ -98,108 +98,27 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         """Derive a short label from topic name."""
         # Common patterns: "My family" → "Family", "Food I like" → "Food", "My school" → "School"
         lower = name.lower()
+        import re
+        clean_name = re.sub(r'[^\w\s]', '', name)
         if lower.startswith("my "):
-            return name[3:].split()[0].capitalize()
-        words = name.split()
+            return clean_name[3:].split()[0].capitalize()
+        words = clean_name.split()
         if len(words) <= 2:
             return words[0].capitalize()
         # For longer names, use first noun-like word
-        skip = {"the", "a", "an", "and", "in", "of", "vs.", "i", "don't"}
+        skip = {"the", "a", "an", "and", "in", "of", "vs", "i", "dont"}
         for w in words:
             if w.lower() not in skip and len(w) > 2:
                 return w.capitalize()
-        return words[0].capitalize()
-
-    # Topic icon mapping (topic_id → icon filename)
-    TOPIC_ICON_MAP = {
-        # A0 level topics → a1 icons
-        "my_name_and_where_i_m_from": "a1-01-my-name",
-        "my_family": "a1-02-my-family",
-        "my_school": "a1-03-my-school",
-        "food_i_like": "a1-04-food-i-like",
-        "my_daily_routine": "a1-05-my-daily-routine",
-        "things_i_like_and_don_t_like": "a1-06-likes-dontlikes",
-        "animals": "a1-07-animals",
-        "colours_numbers_and_shapes": "a1-08-colours-numbers-shapes",
-        "my_home": "a1-09-my-home",
-        "sports_and_games": "a1-10-sports-and-games",
-        "festivals_i_celebrate": "a1-11-festivals",
-        # A1 level topics → a2 icons
-        "my_hobbies_and_free_time": "a2-01-hobbies-free-time",
-        "my_friends": "a2-02-my-friends",
-        "a_typical_week": "a2-03-typical-week",
-        "shopping_and_markets": "a2-04-shopping-and-markets",
-        "food_and_restaurants": "a2-05-food-and-restaurants",
-        "my_city_or_town": "a2-06-my-city-or-town",
-        "weather_and_seasons": "a2-07-weather-and-seasons",
-        "transport_and_travel": "a2-08-transport-and-travel",
-        "a_trip_or_holiday": "a2-09-a-trip-or-holiday",
-        "films_and_tv_shows": "a2-10-films-and-tv-shows",
-        "celebrations_and_special_days": "a2-11-celebrations",
-        "school_subjects_likes_and_dislikes": "a2-12-school-subjects",
-        # A2 level topics → b1 icons
-        "my_ambitions_and_future_plans": "b1-01-ambitions-future-plans",
-        "my_personality_and_values": "b1-02-personality-and-values",
-        "education_in_india": "b1-03-education-in-india",
-        "social_media_and_technology": "b1-04-social-media-technology",
-        "city_life_vs_village_life": "b1-05-city-vs-village",
-        "festivals_and_traditions": "b1-06-festivals-and-traditions",
-        "the_environment_and_pollution": "b1-07-environment-pollution",
-        "health_and_lifestyle": "b1-08-health-and-lifestyle",
-        "indian_cinema_and_music": "b1-09-indian-cinema-music",
-        "friendship_and_trust": "b1-10-friendship-and-trust",
-        "news_and_current_events": "b1-11-news-current-events",
-        "cricket_and_sport_in_india": "b1-12-cricket-and-sport",
-        # B1 level topics → b2 icons
-        "culture_and_identity": "b2-01-culture-and-identity",
-        "gender_equality_in_india": "b2-02-gender-equality",
-        "education_and_success": "b2-03-education-and-success",
-        "artificial_intelligence_and_the_future_of_work": "b2-04-ai-future-of-work",
-        "social_media_mental_health_and_young_people": "b2-05-social-media-mental-health",
-        "climate_change_and_india_s_responsibility": "b2-06-climate-change-india",
-        "migration_and_opportunity": "b2-07-migration-and-opportunity",
-        "tradition_vs_modernity": "b2-08-tradition-vs-modernity",
-        "fake_news_and_media_literacy": "b2-09-fake-news-media-literacy",
-        "entrepreneurship_and_startups": "b2-10-entrepreneurship-startups",
-        "indian_literature_and_storytelling": "b2-11-indian-literature-storytelling",
-        "privilege_and_opportunity": "b2-12-privilege-and-opportunity",
-        # B2 level topics → c1 icons
-        "what_does_it_mean_to_be_indian_today": "c1-01-what-does-it-mean-indian",
-        "moral_dilemmas_in_everyday_life": "c1-02-moral-dilemmas",
-        "the_ethics_of_artificial_intelligence": "c1-03-ethics-of-ai",
-        "caste_class_and_social_mobility": "c1-04-caste-class-social-mobility",
-        "sustainability_and_lifestyle_choices": "c1-05-sustainability-lifestyle",
-        "mental_health_and_stigma": "c1-06-mental-health-stigma",
-        "democracy_and_young_people": "c1-07-democracy-young-people",
-        "english_in_india_opportunity_or_inequality": "c1-08-english-in-india",
-        "art_music_and_what_they_say_about_a_society": "c1-09-art-music-society",
-        "success_happiness_and_meaning": "c1-10-success-happiness-meaning",
-        "india_s_role_in_the_world": "c1-11-indias-role-in-world",
-        "science_superstition_and_belief_in_modern_india": "c1-12-science-superstition-belief",
-        # C1 level topics → c2 icons
-        "does_language_shape_thought": "c2-01-language-shape-thought",
-        "justice_fairness_and_what_we_owe_each_other": "c2-02-justice-fairness",
-        "how_do_we_know_what_we_know": "c2-03-how-do-we-know",
-        "what_makes_us_human_in_an_age_of_machines": "c2-04-what-makes-us-human",
-        "power_privilege_and_who_gets_to_tell_the_story": "c2-05-power-privilege-storytelling",
-        "the_future_of_democracy": "c2-06-future-of-democracy",
-        "the_ethics_of_genetic_technology": "c2-07-ethics-genetic-technology",
-        "what_is_art_for": "c2-08-what-is-art-for",
-        "the_self_fixed_or_fluid": "c2-09-self-fixed-or-fluid",
-        "the_limits_of_globalisation": "c2-10-limits-of-globalisation",
-        "freedom_how_much_is_too_much": "c2-11-freedom-how-much",
-        "what_do_we_owe_future_generations": "c2-12-what-do-we-owe-future",
-    }
-    ICON_BASE_URL = "https://ella.navgurukul.org/assets/topic-icons"
+        return words[0].capitalize() if words else ""
 
     def _topic_item(t):
         starters = t.get("starters", [])
-        topic_id = t.get("id", "")
-        icon_file = TOPIC_ICON_MAP.get(topic_id)
+        icon, color, highlight, bg = get_theme_assets(t["name"])
         return {
             "name": t["name"],
             "label": t.get("label") or _make_label(t["name"]),
-            "icon": icon_file,
+            "icon": icon,
             "starter": starters[0] if starters else None,
         }
 
