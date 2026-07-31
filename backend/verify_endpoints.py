@@ -113,8 +113,7 @@ def run_tests():
         # Verify the mock completion was called and system prompt contained memory facts
         called_args = mock_completion.call_args[0][0]
         system_prompt = next(msg["content"] for msg in called_args if msg["role"] == "system")
-        
-        assert "STUDENT MEMORY" in system_prompt, "System prompt missing STUDENT MEMORY header"
+        assert "Learner context" in system_prompt or "STUDENT MEMORY" in system_prompt, "System prompt missing learner context / memory header"
         assert "- Likes playing cricket" in system_prompt, "Memory facts not injected correctly"
         assert "- Has a pet dog named Max" in system_prompt, "Memory facts not injected correctly"
         

@@ -31,7 +31,6 @@ def resolve_prompt(
             "conv-unit-framing.md": "conv-unit-framing",
             "end-result-prompt.md": "judge",
             "correction-extraction-prompt.md": "correction-extraction",
-            "conversation-prompt.md": "conversation",
         }
         if filename.startswith("profile-"):
             profile_lvl = filename.replace(".md", "")
@@ -158,7 +157,7 @@ async def generate_conversation_starter(
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
     )
-    from ..core.elicitation import plan_text, resolve_skill_text
+    from ..core.elicitation import resolve_skill_text
 
     level_upper = str(level or "A1").upper()
     if level_upper not in _LEVEL_BLOCKS:
@@ -255,8 +254,8 @@ async def generate_conversation_starter(
     else:
         targets_str = "- General conversation practice"
 
-    # Build elicitation plan (using plan_text(target_ids))
-    elicitation_str = plan_text(target_ids, level_upper)
+    # Build elicitation plan (using plan_text(target_ids)) - Deprecated
+    # elicitation_str = plan_text(target_ids, level_upper)
 
     unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
     unit_block = (
@@ -264,7 +263,7 @@ async def generate_conversation_starter(
         .replace("{{UNITNAME}}", str(unit_name))
         .replace("{{UNITFOCUS}}", str(unit_focus))
         .replace("{{TARGETS}}", targets_str)
-        .replace("{{ELICITATION}}", elicitation_str)
+        # .replace("{{ELICITATION}}", elicitation_str) # Deprecated
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", "1")
         .strip()
@@ -272,12 +271,16 @@ async def generate_conversation_starter(
 
     base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
 
-    starter_template = resolve_prompt("starter-prompt.md", custom_prompts, user_id)
     system_prompt = (
-        starter_template
-        .replace("{base_block}", base_block)
-        .replace("{level_block}", level_block)
-        .replace("{unit_block}", unit_block)
+        f"{base_block}\n\n"
+        f"---\n\n"
+        f"{level_block}\n\n"
+        f"---\n\n"
+        f"{unit_block}\n\n"
+        f"---\n\n"
+        f"The user message supplies the topic and may include sample starters.\n\n"
+        f"After generating Zoe's first spoken turn, output on a new line:\n"
+        f"TITLE: <a natural 2–4 word conversation title, no punctuation>"
     )
     topic_line = (
         "Topic: free conversation."
@@ -314,7 +317,6 @@ def _load_level_blocks() -> dict[str, str]:
         "B1": "profile-B1.md",
         "B2": "profile-B2.md",
         "C1": "profile-C1.md",
-        "C2": "profile-C2.md",
     }
     blocks = {}
     for level, filename in mapping.items():
@@ -362,7 +364,7 @@ async def send_conversation_turn(
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
     )
-    from ..core.elicitation import plan_text, resolve_skill_text
+    from ..core.elicitation import resolve_skill_text
 
     # Format persona memory
     memory_str = "None"
@@ -460,8 +462,8 @@ async def send_conversation_turn(
     else:
         targets_str = "- General conversation practice"
 
-    # Build elicitation plan (using plan_text(target_ids))
-    elicitation_str = plan_text(target_ids, level_upper)
+    # Build elicitation plan (using plan_text(target_ids)) - Deprecated
+    # elicitation_str = plan_text(target_ids, level_upper)
 
     # Support new style variables for pk_1.1
     primary_id = target_ids[0] if target_ids else None
@@ -489,7 +491,7 @@ async def send_conversation_turn(
         .replace("{{UNITNAME}}", unit_name)
         .replace("{{UNITFOCUS}}", unit_focus)
         .replace("{{TARGETS}}", targets_str)
-        .replace("{{ELICITATION}}", elicitation_str)
+        # .replace("{{ELICITATION}}", elicitation_str) # Deprecated
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", str(current_turn))
         # Support new pk_1.1 placeholders
@@ -502,14 +504,7 @@ async def send_conversation_turn(
         .strip()
     )
 
-    prompt_template = resolve_prompt("conversation-prompt.md", custom_prompts, user_id)
-
-    system_prompt = (
-        prompt_template
-        .replace("{{BASE_BLOCK}}", base_block)
-        .replace("{{LEVEL_BLOCK}}", level_block)
-        .replace("{{UNIT_BLOCK}}", unit_block)
-    )
+    system_prompt = f"{base_block}\n\n---\n\n{level_block}\n\n---\n\n{unit_block}"
 
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": m["role"], "content": m["content"]} for m in messages
@@ -517,12 +512,7 @@ async def send_conversation_turn(
     response = await _chat_completion(api_messages, max_tokens=280, temperature=0.75)
 
     # Check for conversation_complete signal
-    max_turns = 6
-    max_turn_match = re.search(r"CURRENT[_\s]+TURN:\s*\{\{CURRENT_TURN\}\}\s*(?:of|/)\s*(\d+)", unit_template, re.IGNORECASE)
-    if max_turn_match:
-        max_turns = int(max_turn_match.group(1))
-
-    complete = current_turn >= max_turns
+    complete = False
     reply_text = response
     json_match = re.search(r'\{[^}]*"conversation_complete"\s*:\s*true[^}]*\}', response)
     if json_match:
@@ -531,7 +521,7 @@ async def send_conversation_turn(
 
     # Parse reply (no REPLY: prefix needed with new prompt)
     reply = reply_text.strip()
-    if current_turn >= max_turns:
+    if complete:
         reply = _closing_without_question(reply)
     correction = None
 
@@ -546,7 +536,7 @@ async def send_conversation_turn(
             "unit_focus": unit_focus,
             "target_ids": target_ids,
             "targets_str": targets_str,
-            "elicitation_str": elicitation_str,
+            "elicitation_str": None, # Deprecated
             "student_memory": memory_str,
             "current_turn": current_turn,
         },
@@ -581,16 +571,23 @@ async def send_placement_turn(
     # ── TURN 9+: FORCE COMPLETE ───────────────────────────────────────────────
     # Hard cap — after 9 student turns, force the LLM to assess now.
     if student_turns >= 9:
-        force_prompt = system_prompt + (
-            "\n\nMANDATORY: You have heard 9 student turns. "
-            "You MUST output the final JSON assessment NOW. "
-            "Do NOT ask another question. Do NOT output REPLY:. "
-            "Assess based on everything you have heard so far."
-        )
-        api_messages = [{"role": "system", "content": force_prompt}] + [
+        api_messages = [{"role": "system", "content": system_prompt}] + [
             {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
             for m in messages
         ]
+        # Append the final force instructions directly to the last user message to prevent the LLM
+        # from ignoring the system instructions in a long conversation context.
+        if api_messages and api_messages[-1]["role"] == "user":
+            api_messages[-1]["content"] += (
+                "\n\n[SYSTEM: The conversation is finished. You must output the final JSON assessment block now. "
+                "Do not reply to the learner's last turn with conversation. Output ONLY the JSON block.]"
+            )
+        else:
+            api_messages.append({
+                "role": "system",
+                "content": "MANDATORY: Output the final JSON assessment block now. Output ONLY valid JSON."
+            })
+
         text = await _chat_completion(api_messages, max_tokens=600, temperature=0.4)
         # Parse the forced assessment
         try:
@@ -598,8 +595,9 @@ async def send_placement_turn(
             data = json.loads(json_str)
             if "level" in data or "level_code" in data:
                 return _build_placement_result(data)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed parsing forced placement assessment: {e}. Raw text: {text}")
         # Absolute fallback if the LLM still refuses: start conservatively
         # and explicitly mark that the learner may be higher.
         return {
@@ -800,7 +798,7 @@ async def analyze_and_grade_session(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Analyze the transcript, extract facts, grade targeted skills, and return the combined JSON report."},
             ],
-            max_tokens=2500,
+            max_tokens=3500,
             temperature=0.4,
         )
         json_str = _extract_json(raw)

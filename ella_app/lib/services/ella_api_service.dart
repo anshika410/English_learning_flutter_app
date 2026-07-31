@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:chucker_flutter/chucker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'analytics_service.dart';
+import 'chucker_notifier.dart';
 import '../models/child_memory.dart';
 import '../models/garden.dart';
 import '../models/home_topic.dart';
@@ -72,6 +75,9 @@ class EllaApiService {
   static const _childNameKey = 'ella_child_name';
   static const _childAgeKey = 'ella_child_age';
   static const _placementDoneKey = 'ella_api_placement_done';
+  static const _refreshTokenKey = 'ella_api_refresh_token';
+
+  static Future<bool>? _currentRefreshFuture;
 
   final String baseUrl;
   final http.Client _client;
@@ -81,11 +87,22 @@ class EllaApiService {
           baseUrl ??
           (dotenv.isInitialized ? dotenv.env['ELLA_API_BASE_URL'] : null) ??
           'https://ella.navgurukul.org/api',
-      _client = client ?? http.Client();
+      // Debug builds route through Chucker's in-app HTTP inspector (tap the
+      // floating bubble to browse requests/responses). Release gets a plain
+      // client — zero overhead, nothing shown. Tests inject their own `client`,
+      // bypassing this entirely.
+      _client =
+          client ??
+          (kDebugMode ? ChuckerHttpClient(http.Client()) : http.Client());
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
+  }
+
+  Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
   }
 
   Future<bool> isAuthenticated() async {
@@ -93,16 +110,20 @@ class EllaApiService {
     return token != null && token.isNotEmpty;
   }
 
-  Future<void> saveTokens(String token, String userId) async {
+  Future<void> saveTokens(String token, String userId, {String? refreshToken}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userIdKey, userId);
+    if (refreshToken != null) {
+      await prefs.setString(_refreshTokenKey, refreshToken);
+    }
   }
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
+    await prefs.remove(_refreshTokenKey);
     // Clear the cached onboarding profile too, so a different user signing in
     // next doesn't inherit the previous user's name/age (the greeting is
     // re-sourced from /users/me on the fresh session).
@@ -124,9 +145,10 @@ class EllaApiService {
         body: {'token': idToken, 'device_id': deviceId},
       );
       final accessToken = data['access_token'];
+      final refreshToken = data['refresh_token'];
       final userId = data['user_id'];
       if (accessToken != null && userId != null) {
-        await saveTokens(accessToken, userId);
+        await saveTokens(accessToken, userId, refreshToken: refreshToken);
         try {
           await AnalyticsService.setUserProfile(userId: userId);
           await AnalyticsService.logLogin('google');
@@ -580,9 +602,27 @@ class EllaApiService {
 
     _log('RESPONSE $method $path  HTTP ${response.statusCode}', response.body);
 
+    // Debug builds: raise/refresh the Chucker system notification so the call
+    // is inspectable from the shade. No-op in release/tests (notifier is never
+    // initialized there). Fire-and-forget — never blocks the response.
+    if (kDebugMode) {
+      unawaited(
+        ChuckerNotifier.instance.notify(
+          method: method,
+          path: path,
+          statusCode: response.statusCode,
+        ),
+      );
+    }
+
     if (response.statusCode == 401 && auth) {
-      await _clearToken();
-      return _request(method, path, auth: auth, body: body);
+      final refreshed = await _refreshSession();
+      if (refreshed) {
+        return _request(method, path, auth: auth, body: body);
+      } else {
+        await logout();
+        throw const EllaApiException('not_authenticated');
+      }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final errorMsg = '$method $path HTTP ${response.statusCode}: ${response.body}';
@@ -634,10 +674,53 @@ class EllaApiService {
     debugPrint('└────────────────────────────────────────');
   }
 
+  Future<bool> _refreshSession() async {
+    if (_currentRefreshFuture != null) {
+      return _currentRefreshFuture!;
+    }
+
+    final completer = Completer<bool>();
+    _currentRefreshFuture = completer.future;
+
+    try {
+      final refreshToken = await getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        completer.complete(false);
+        _currentRefreshFuture = null;
+        return false;
+      }
+
+      final data = await _request(
+        'POST',
+        '/auth/refresh',
+        auth: false,
+        body: {'refresh_token': refreshToken},
+      );
+
+      final newAccessToken = data['access_token'];
+      final newRefreshToken = data['refresh_token'] ?? refreshToken;
+      final userId = data['user_id'];
+
+      if (newAccessToken != null && userId != null) {
+        await saveTokens(newAccessToken, userId, refreshToken: newRefreshToken);
+        completer.complete(true);
+      } else {
+        completer.complete(false);
+      }
+    } catch (e) {
+      _log('Refresh Session Error', e.toString());
+      completer.complete(false);
+    }
+
+    _currentRefreshFuture = null;
+    return completer.future;
+  }
+
   Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
+    await prefs.remove(_refreshTokenKey);
   }
 
   Future<String> getDeviceId() async {

@@ -113,12 +113,16 @@ async def placement_turn(
     - Queries the backend LLM state machine to decide if the test should continue or complete.
     - Returns Zoe's next question OR a final CEFR assessment (`is_complete: true`) once enough evidence is gathered.
     """
+    # Extract first name
+    raw_name = body.name or user.name
+    first_name = raw_name.strip().split(" ")[0] if raw_name else None
+
     # Handle cancellation
     if body.cancel:
         return PlacementTurnResponse(
             reply=None,
             is_complete=True,
-            name=user.first_name if not body.name else body.name.split()[0].strip(),
+            name=first_name,
             age=body.age,
             level=None,
             unit_name=None,
@@ -137,11 +141,14 @@ async def placement_turn(
         messages = [m.model_dump() for m in body.messages]
         result = await llm_service.send_placement_turn(
             messages=messages,
-            name=body.name or user.name,
+            name=first_name,
             age=body.age or (int(user.age) if user.age and user.age.isdigit() else None),
             custom_prompts=body.custom_prompts,
             user_id=user.id,
         )
+        
+        # Ensure the first name is in the result so PlacementTurnResponse includes it
+        result["name"] = first_name
         
         if result.get("is_complete"):
             from ..models.placement import Placement

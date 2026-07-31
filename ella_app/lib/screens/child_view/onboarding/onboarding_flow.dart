@@ -437,7 +437,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             keyboardType: _step == _Step.age
                 ? TextInputType.number
                 : TextInputType.text,
-            maxLength: _step == _Step.name ? 30 : null,
+            // Name allows up to 30 chars; age is capped at two digits (the
+            // number keyboard already restricts input to digits).
+            maxLength: _step == _Step.name
+                ? 30
+                : (_step == _Step.age ? 2 : null),
             highlightStart: _highlightStart,
             highlightEnd: _highlightEnd,
             speaking: _speaking,

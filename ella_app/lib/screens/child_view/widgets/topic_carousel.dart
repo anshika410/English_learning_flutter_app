@@ -177,6 +177,11 @@ class _TopicCarouselState extends State<TopicCarousel> {
                       key: const ValueKey('home-topic-carousel-page-view'),
                       controller: controller,
                       clipBehavior: Clip.none,
+                      pageSnapping: false,
+                      physics: SnappingScrollPhysics(
+                        itemWidth: _pageExtent,
+                        parent: const BouncingScrollPhysics(),
+                      ),
                       onPageChanged: (index) =>
                           widget.onSelect(widget.topics[index % len]),
                       itemBuilder: (context, index) {
@@ -223,6 +228,15 @@ class _TopicCarouselState extends State<TopicCarousel> {
                               artworkSize: artworkSize,
                               fontSize: fontSize,
                               circleTop: circleTop,
+                              onTap: () {
+                                if (_controller != null && _controller!.hasClients) {
+                                  _controller!.animateToPage(
+                                    index,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeOutCubic,
+                                  );
+                                }
+                              },
                             );
 
                             return Opacity(
@@ -267,6 +281,7 @@ class _TopicItem extends StatelessWidget {
   final double artworkSize;
   final double fontSize;
   final double circleTop;
+  final VoidCallback onTap;
 
   const _TopicItem({
     required this.topic,
@@ -276,6 +291,7 @@ class _TopicItem extends StatelessWidget {
     required this.artworkSize,
     required this.fontSize,
     required this.circleTop,
+    required this.onTap,
   });
 
   TextScaler _labelTextScaler(BuildContext context) =>
@@ -283,45 +299,51 @@ class _TopicItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          top: circleTop,
-          left: (_TopicCarouselState._pageExtent - circleSize) / 2,
-          child: HeroMode(
-            enabled: isCenter,
-            child: Hero(
-              tag: topicHandoffHeroTag(topic),
-              createRectTween: topicHandoffRectTween,
-              flightShuttleBuilder: buildTopicHandoffFlight,
-              child: TopicHandoffBadge(
-                key: ValueKey('home-topic-carousel-circle-$itemIndex'),
-                topic: topic,
-                size: circleSize,
-                iconSize: artworkSize,
-                selectedSource: isCenter,
-                artworkKey: ValueKey('home-topic-carousel-artwork-$itemIndex'),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: circleTop,
+            left: (_TopicCarouselState._pageExtent - circleSize) / 2,
+            child: HeroMode(
+              enabled: isCenter,
+              child: Hero(
+                tag: topicHandoffHeroTag(topic),
+                createRectTween: topicHandoffRectTween,
+                flightShuttleBuilder: buildTopicHandoffFlight,
+                child: TopicHandoffBadge(
+                  key: ValueKey('home-topic-carousel-circle-$itemIndex'),
+                  topic: topic,
+                  size: circleSize,
+                  iconSize: artworkSize,
+                  selectedSource: isCenter,
+                  artworkKey: ValueKey('home-topic-carousel-artwork-$itemIndex'),
+                ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          top: circleTop + circleSize + _TopicCarouselState._labelGap,
-          left: 0,
-          right: 0,
-          height: _TopicCarouselState._labelBox,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: OverflowBox(
+          Positioned(
+            top: circleTop + circleSize + _TopicCarouselState._labelGap,
+            left: 0,
+            right: 0,
+            height: _TopicCarouselState._labelBox,
+            child: Align(
               alignment: Alignment.topCenter,
-              minWidth: 0,
-              maxWidth: isCenter ? 120 : 96,
-              child: isCenter ? _pill(context) : _plainLabel(context),
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minWidth: 0,
+                maxWidth: isCenter ? 120 : 96,
+                minHeight: 0,
+                maxHeight: double.infinity,
+                child: isCenter ? _pill(context) : _plainLabel(context),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -364,4 +386,64 @@ class _TopicItem extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Custom snapping scroll physics that allows free momentum/flinging across
+/// multiple items while ensuring the scroll always settles centered on an item.
+class SnappingScrollPhysics extends ScrollPhysics {
+  final double itemWidth;
+
+  const SnappingScrollPhysics({
+    required this.itemWidth,
+    super.parent,
+  });
+
+  @override
+  SnappingScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return SnappingScrollPhysics(
+      itemWidth: itemWidth,
+      parent: buildParent(ancestor),
+    );
+  }
+
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+    // If we're out of range, let the parent handle the overscroll bounce/clamp.
+    if ((velocity <= 0.0 && position.pixels <= position.minScrollExtent) ||
+        (velocity >= 0.0 && position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+
+    // Let the parent physics determine the natural deceleration simulation.
+    final Simulation? parentSimulation = super.createBallisticSimulation(position, velocity);
+    
+    double targetPixels;
+    if (parentSimulation != null) {
+      // Find where the scroll would naturally settle under friction.
+      final double naturalFinalPixels = parentSimulation.x(double.infinity);
+      // Snap that natural settling position to the nearest item boundary.
+      targetPixels = (naturalFinalPixels / itemWidth).round() * itemWidth;
+    } else {
+      // No fling velocity, just snap the current position to the nearest boundary.
+      targetPixels = (position.pixels / itemWidth).round() * itemWidth;
+    }
+    
+    // Ensure we stay within the scrollable range.
+    targetPixels = targetPixels.clamp(position.minScrollExtent, position.maxScrollExtent);
+
+    // If the target position is different, animate there with a spring.
+    if (targetPixels != position.pixels) {
+      return ScrollSpringSimulation(
+        spring,
+        position.pixels,
+        targetPixels,
+        velocity,
+        tolerance: toleranceFor(position),
+      );
+    }
+    return null;
+  }
+
+  @override
+  bool get allowImplicitScrolling => false;
 }

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:chucker_flutter/chucker_flutter.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -85,6 +87,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
     }
 
     final token = parsedUri.queryParameters['access_token'] ?? parsedUri.queryParameters['token'];
+    final refreshToken = parsedUri.queryParameters['refresh_token'];
     String? userId = parsedUri.queryParameters['user_id'];
     
     // If backend didn't return user_id, extract it from the JWT's 'sub' claim
@@ -101,7 +104,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
     
     if (token != null && userId != null) {
       final api = EllaApiService();
-      await api.saveTokens(token, userId);
+      await api.saveTokens(token, userId, refreshToken: refreshToken);
       if (mounted) {
         // Clear the auth screens so Back can't return to login/email.
         _navigatorKey.currentState?.pushNamedAndRemoveUntil(
@@ -119,7 +122,16 @@ class _EllaAppState extends ConsumerState<EllaApp> {
       title: 'zoSpeak',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
-      navigatorObservers: [appRouteObserver],
+      navigatorObservers: [
+        appRouteObserver,
+        // Debug-only: lets Chucker's in-app HTTP inspector open its screen when
+        // you tap the floating bubble. Inert in release (showOnRelease is false).
+        // navigatorKey is already taken by this app for deep-link routing, so the
+        // (legacy) observer wiring is the right fit — the app pushes on the root
+        // navigator only, which is exactly where observer-based wiring is reliable.
+        // ignore: deprecated_member_use
+        if (kDebugMode) ChuckerFlutter.navigatorObserver,
+      ],
       // We explicitly ignore the OS-provided initialRouteName (which might contain a cached deep link)
       // because we handle deep links manually via the app_links package.
       onGenerateInitialRoutes: (String initialRouteName) {
