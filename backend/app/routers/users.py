@@ -571,16 +571,16 @@ async def get_user_garden(
 
 def get_theme_assets(theme_name):
     t = theme_name.lower()
-    icon = "💬"
-    if "tech" in t: icon = "💻"
-    elif "work" in t or "ambition" in t or "career" in t: icon = "💼"
-    elif "science" in t or "knowledge" in t or "truth" in t: icon = "🔬"
-    elif "self" in t or "identity" in t or "psychology" in t or "relationship" in t: icon = "👤"
-    elif "daily" in t or "health" in t or "experiences" in t: icon = "⏰"
-    elif "world" in t or "environment" in t or "global" in t: icon = "🌍"
-    elif "sport" in t: icon = "🏏"
-    elif "art" in t or "festival" in t or "culture" in t or "media" in t: icon = "🎬"
-    elif "philosophy" in t or "ethic" in t or "value" in t or "society" in t or "power" in t or "politics" in t or "legacy" in t: icon = "⚖️"
+    icon = "a2-01-hobbies-free-time"
+    if "tech" in t: icon = "b1-04-social-media-technology"
+    elif "work" in t or "ambition" in t or "career" in t: icon = "b1-01-ambitions-future-plans"
+    elif "science" in t or "knowledge" in t or "truth" in t: icon = "c1-12-science-superstition-belief"
+    elif "self" in t or "identity" in t or "psychology" in t or "relationship" in t: icon = "b2-01-culture-and-identity"
+    elif "daily" in t or "health" in t or "experiences" in t: icon = "b1-08-health-and-lifestyle"
+    elif "world" in t or "environment" in t or "global" in t: icon = "b1-07-environment-pollution"
+    elif "sport" in t: icon = "a1-10-sports-and-games"
+    elif "art" in t or "festival" in t or "culture" in t or "media" in t: icon = "b1-06-festivals-and-traditions"
+    elif "philosophy" in t or "ethic" in t or "value" in t or "society" in t or "power" in t or "politics" in t or "legacy" in t: icon = "c1-02-moral-dilemmas"
 
     color = "#F0E6FF"
     highlight = "rgba(128,0,255,0.06)"
