@@ -222,6 +222,15 @@ class _TopicCarouselState extends State<TopicCarousel> {
                               artworkSize: artworkSize,
                               fontSize: fontSize,
                               circleTop: circleTop,
+                              onTap: () {
+                                if (_controller != null && _controller!.hasClients) {
+                                  _controller!.animateToPage(
+                                    index,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeOutCubic,
+                                  );
+                                }
+                              },
                             );
 
                             return Opacity(
@@ -266,6 +275,7 @@ class _TopicItem extends StatelessWidget {
   final double artworkSize;
   final double fontSize;
   final double circleTop;
+  final VoidCallback onTap;
 
   const _TopicItem({
     required this.topic,
@@ -275,6 +285,7 @@ class _TopicItem extends StatelessWidget {
     required this.artworkSize,
     required this.fontSize,
     required this.circleTop,
+    required this.onTap,
   });
 
   TextScaler _labelTextScaler(BuildContext context) =>
@@ -282,62 +293,68 @@ class _TopicItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          top: circleTop,
-          left: (_TopicCarouselState._pageExtent - circleSize) / 2,
-          child: Container(
-            key: ValueKey('home-topic-carousel-circle-$itemIndex'),
-            width: circleSize,
-            height: circleSize,
-            decoration: BoxDecoration(
-              color: EllaColors.surface,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isCenter
-                    ? EllaColors.berryDark
-                    : EllaColors.ink.withValues(alpha: 0.12),
-                width: isCenter ? 3 : 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: circleTop,
+            left: (_TopicCarouselState._pageExtent - circleSize) / 2,
+            child: Container(
+              key: ValueKey('home-topic-carousel-circle-$itemIndex'),
+              width: circleSize,
+              height: circleSize,
+              decoration: BoxDecoration(
+                color: EllaColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isCenter
+                      ? EllaColors.berryDark
+                      : EllaColors.ink.withValues(alpha: 0.12),
+                  width: isCenter ? 3 : 2,
                 ),
-              ],
-            ),
-            child: Center(
-              child: SizedBox.square(
-                key: ValueKey('home-topic-carousel-artwork-$itemIndex'),
-                dimension: artworkSize,
-                child: TopicIcon(
-                  icon: topic.icon,
-                  size: artworkSize,
-                  fallbackColor: EllaColors.berryDark,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: SizedBox.square(
+                  key: ValueKey('home-topic-carousel-artwork-$itemIndex'),
+                  dimension: artworkSize,
+                  child: TopicIcon(
+                    icon: topic.icon,
+                    size: artworkSize,
+                    fallbackColor: EllaColors.berryDark,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          top: circleTop + circleSize + _TopicCarouselState._labelGap,
-          left: 0,
-          right: 0,
-          height: _TopicCarouselState._labelBox,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: OverflowBox(
+          Positioned(
+            top: circleTop + circleSize + _TopicCarouselState._labelGap,
+            left: 0,
+            right: 0,
+            height: _TopicCarouselState._labelBox,
+            child: Align(
               alignment: Alignment.topCenter,
-              minWidth: 0,
-              maxWidth: isCenter ? 120 : 96,
-              child: isCenter ? _pill(context) : _plainLabel(context),
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minWidth: 0,
+                maxWidth: isCenter ? 120 : 96,
+                minHeight: 0,
+                maxHeight: double.infinity,
+                child: isCenter ? _pill(context) : _plainLabel(context),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

@@ -118,6 +118,7 @@ TextStyle topicLabelStyle(
   fontSize: fontSize,
   fontWeight: FontWeight.w700,
   color: color,
+  height: 1.2,
 );
 
 /// Respects system scaling until the rendered topic label reaches 14px.
