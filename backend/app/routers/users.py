@@ -569,11 +569,113 @@ async def get_user_garden(
     }
 
 
+def get_theme_assets(theme_name):
+    t = theme_name.lower()
+    icon = "💬"
+    if "tech" in t: icon = "💻"
+    elif "work" in t or "ambition" in t or "career" in t: icon = "💼"
+    elif "science" in t or "knowledge" in t or "truth" in t: icon = "🔬"
+    elif "self" in t or "identity" in t or "psychology" in t or "relationship" in t: icon = "👤"
+    elif "daily" in t or "health" in t or "experiences" in t: icon = "⏰"
+    elif "world" in t or "environment" in t or "global" in t: icon = "🌍"
+    elif "sport" in t: icon = "🏏"
+    elif "art" in t or "festival" in t or "culture" in t or "media" in t: icon = "🎬"
+    elif "philosophy" in t or "ethic" in t or "value" in t or "society" in t or "power" in t or "politics" in t or "legacy" in t: icon = "⚖️"
+
+    color = "#F0E6FF"
+    highlight = "rgba(128,0,255,0.06)"
+    bg = "linear-gradient(135deg,#F0E6FF,#E0D0FF)"
+
+    if "self" in t or "identity" in t or "psychology" in t or "relationship" in t:
+        color = "#E0EDFF"
+        highlight = "rgba(45,127,249,0.08)"
+        bg = "linear-gradient(135deg,#E0EDFF,#CCE0FF)"
+    elif "world" in t or "environment" in t or "global" in t or "science" in t:
+        color = "#E6F9E6"
+        highlight = "rgba(59,212,42,0.12)"
+        bg = "linear-gradient(135deg,#E6F9E6,#D0F0D0)"
+    elif "daily" in t or "health" in t or "experiences" in t or "sport" in t:
+        color = "#FFFDE0"
+        highlight = "rgba(255,210,63,0.12)"
+        bg = "linear-gradient(135deg,#FFFDE0,#FFF5B0)"
+    elif "festival" in t or "art" in t or "culture" in t or "media" in t or "language" in t:
+        color = "#FFF0E0"
+        highlight = "rgba(255,107,44,0.1)"
+        bg = "linear-gradient(135deg,#FFF0E0,#FFE4CC)"
+
+    return icon, color, highlight, bg
+
 @router.get("/me/topics", response_model=list[TopicResponse])
 async def get_user_topics(user: User = Depends(get_current_user)):
     level = (user.level or "A0").upper()
-    from ..core.curriculum_data import LEVEL_TOPICS
-    return LEVEL_TOPICS.get(level, [])
+    from ..core.curriculum_data import LEVEL_TOPICS, SKILL_AFFORDANCES, validate_due_next
+    import random
+    
+    level_topics = LEVEL_TOPICS.get(level, [])
+    
+    due = validate_due_next(user.due_next, level)
+    primary_id = due.get("primary")
+    
+    needed_affordances = set(SKILL_AFFORDANCES.get(primary_id, ["any"])) if primary_id else {"any"}
+    
+    pool = []
+    if "any" in needed_affordances:
+        pool = level_topics.copy()
+    else:
+        for t in level_topics:
+            t_affs = set(t.get("affordances", []))
+            if needed_affordances.intersection(t_affs) or "any" in t_affs:
+                pool.append(t)
+                
+    persona = user.persona_memory or {}
+    used_topics = persona.get("last_topics", [])
+    if not isinstance(used_topics, list):
+        used_topics = []
+    
+    recent_2 = used_topics[-2:] if len(used_topics) >= 2 else used_topics
+    fresh_pool = [t for t in pool if t["name"] not in recent_2]
+    
+    if len(fresh_pool) < 7:
+        fresh_pool = pool.copy()
+        
+    if len(fresh_pool) < 7:
+        remaining = [t for t in level_topics if t not in fresh_pool]
+        random.shuffle(remaining)
+        needed = 7 - len(fresh_pool)
+        fresh_pool.extend(remaining[:needed])
+        
+    if len(fresh_pool) > 12:
+        random.shuffle(fresh_pool)
+        fresh_pool = fresh_pool[:12]
+        
+    if fresh_pool:
+        zoes_pick = random.choice(fresh_pool)
+        for t in fresh_pool:
+            if t == zoes_pick:
+                t["isZoesPick"] = True
+            else:
+                t["isZoesPick"] = False
+                
+    response_list = []
+    for t in fresh_pool:
+        theme_name = t.get("name", "General")
+        icon, color, highlight, bg = get_theme_assets(theme_name)
+        response_list.append({
+            "id": t.get("id", "t_unknown"),
+            "name": t.get("name", "Unknown Topic"),
+            "theme": theme_name,
+            "description": t.get("name", "Unknown Topic"),
+            "icon": icon,
+            "color": color,
+            "highlight_color": highlight,
+            "panel_bg": bg,
+            "vocab_seeds": t.get("vocab_seeds", []),
+            "structure_targets": t.get("structure_targets", []),
+            "starters": t.get("starters", []),
+            "isZoesPick": t.get("isZoesPick", False)
+        })
+
+    return response_list
 
 
 from pydantic import BaseModel
