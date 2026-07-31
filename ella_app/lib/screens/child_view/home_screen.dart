@@ -26,9 +26,9 @@ import '../../services/analytics_service.dart';
 import '../../services/sounds.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
-import 'widgets/circle_icon_button.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/home_scene_background.dart';
+import 'widgets/home_shortcut_header.dart';
 import 'widgets/shake.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/topic_carousel.dart';
@@ -41,10 +41,6 @@ import 'widgets/network_error_view.dart';
 // real profile name is wired through.
 const String kHomeChildName = 'Maya';
 
-// Design-exported nav glyphs (glass-dome garden + child avatar) and the CTA
-// voice icon.
-const String _kNavGarden = 'assets/homescreen/new/nav-garden.svg';
-const String _kNavProfile = 'assets/homescreen/new/nav-profile.svg';
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg'; // CTA
 
 // Mascot footprint from the Figma frame (150.55-wide in a 430-wide artboard).
@@ -263,10 +259,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
       final sel = _selected;
       if (sel != null && sel.name.isNotEmpty) {
         // The topic NAME (not the label) is what the backend expects.
-        await startTopicByName(
+        await startTopic(
           context,
           ref,
-          sel.name,
+          sel,
           onConversationEnded: widget.onConversationEnded,
         );
         return;
@@ -314,7 +310,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
           child: Column(
             children: [
-              _HeaderRow(
+              HomeShortcutHeader(
                 onOpenProfile: widget.onOpenProfile,
                 onOpenGarden: _handleOpenGarden,
               ),
@@ -416,8 +412,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   }
 }
 
-// ── Header (greeting + profile / garden shortcuts) ──────────────────────────
-
 class _TalkAboutCtaLabel extends StatelessWidget {
   final String topicLabel;
 
@@ -491,109 +485,6 @@ class _TalkAboutCtaLabel extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _HeaderRow extends StatelessWidget {
-  final VoidCallback? onOpenProfile;
-  final VoidCallback? onOpenGarden;
-
-  const _HeaderRow({required this.onOpenProfile, required this.onOpenGarden});
-
-  @override
-  Widget build(BuildContext context) {
-    // Garden shortcut in the top-left corner, Profile in the top-right — each a
-    // full-circle nav glyph (glass-dome garden / child avatar) over the botanical
-    // scene, with its caption below.
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        EllaCircleIconButton(
-          glyph: _SwayingGlyph(
-            child: SvgPicture.asset(_kNavGarden, width: 56, height: 56),
-          ),
-          diameter: 72,
-          fill: EllaColors.greenLight,
-          ring: EllaColors.greenDark,
-          label: 'Garden',
-          labelColor: EllaColors.greenDeep,
-          labelStyle: EllaTextStyles.buttonSmall,
-          labelAsChip: true,
-          chipFill: EllaColors.greenLight,
-          chipBorder: EllaColors.greenDark,
-          onTap: onOpenGarden,
-        ),
-        EllaCircleIconButton(
-          glyph: SvgPicture.asset(_kNavProfile, width: 56, height: 56),
-          diameter: 72,
-          fill: EllaColors.surfaceVariant,
-          ring: EllaColors.info,
-          label: 'Profile',
-          labelColor: EllaColors.infoDark,
-          labelStyle: EllaTextStyles.buttonSmall,
-          labelAsChip: true,
-          chipFill: EllaColors.surfaceVariant,
-          chipBorder: EllaColors.info,
-          onTap: onOpenProfile,
-        ),
-      ],
-    );
-  }
-}
-
-// A slow left↔right breeze on a small glyph — the garden shortcut's leaf sways
-// from its base the way the plot plants do (see placement_garden_screen), just
-// tighter and a touch quicker so it still reads at 32px.
-class _SwayingGlyph extends StatefulWidget {
-  final Widget child;
-
-  const _SwayingGlyph({required this.child});
-
-  @override
-  State<_SwayingGlyph> createState() => _SwayingGlyphState();
-}
-
-class _SwayingGlyphState extends State<_SwayingGlyph>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _sway = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2600),
-  );
-  late final Animation<double> _angle = Tween<double>(
-    begin: -0.06,
-    end: 0.06,
-  ).animate(CurvedAnimation(parent: _sway, curve: Curves.easeInOut));
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.of(context).disableAnimations) {
-      _sway.stop();
-      _sway.value = 0.5; // upright
-    } else if (!_sway.isAnimating) {
-      _sway.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _sway.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (MediaQuery.of(context).disableAnimations) return widget.child;
-    return AnimatedBuilder(
-      animation: _angle,
-      builder: (context, child) => Transform.rotate(
-        angle: _angle.value,
-        alignment: Alignment.bottomCenter,
-        child: child,
-      ),
-      child: widget.child,
     );
   }
 }

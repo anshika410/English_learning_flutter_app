@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
+import '../../models/child_memory.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
@@ -32,11 +33,16 @@ class SessionScreen extends ConsumerStatefulWidget {
   /// pick for this session's POST /session; otherwise the engine chooses.
   final Topic? initialTopic;
 
+  /// Home-screen presentation metadata. Kept separate from [initialTopic] so
+  /// icon and short-label concerns do not leak into the conversation engine.
+  final TopicChoice? topicPresentation;
+
   const SessionScreen({
     super.key,
     this.introText,
     this.onEnded,
     this.initialTopic,
+    this.topicPresentation,
   });
 
   @override
@@ -357,6 +363,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return null;
   }
 
+  TopicChoice _topicPresentationFor(ChatState s) {
+    final supplied = widget.topicPresentation;
+    if (supplied != null) return supplied;
+    final name =
+        s.currentTopic?.topic ?? widget.initialTopic?.topic ?? 'Free Talk';
+    return TopicChoice(name: name, label: name);
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
@@ -425,7 +439,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
       ChatStatus.zoeThinking => MicState.busy,
-      ChatStatus.zoeSpeaking => MicState.idle,  // Allow interrupt — user can tap to cut in
+      ChatStatus.zoeSpeaking =>
+        MicState.idle, // Allow interrupt — user can tap to cut in
       ChatStatus.idle || ChatStatus.offline => MicState.idle,
     };
 
@@ -456,6 +471,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     return ConversationView(
       phase: phase,
+      topic: _topicPresentationFor(s),
+      animateTopicHeader: widget.topicPresentation != null,
       mascotPaused: _paused,
       mascotSpeaking:
           _ending ||

@@ -16,10 +16,12 @@ import 'package:dotted_border/dotted_border.dart';
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
+import '../../../models/child_memory.dart';
 import '../../../services/audio_service.dart';
 import 'chat_reply_composer.dart';
 import 'home_scene_background.dart';
 import 'speaker_dot_button.dart';
+import 'topic_handoff.dart';
 import 'zoe_mascot.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../chat_bubble.dart';
@@ -30,6 +32,8 @@ enum MicState { idle, listening, busy }
 
 class ConversationView extends StatelessWidget {
   final ConvPhase phase;
+  final TopicChoice? topic;
+  final bool animateTopicHeader;
   final bool mascotSpeaking;
   final bool mascotThinking; // Zoe is preparing her reply
   final bool isOffline;
@@ -70,6 +74,8 @@ class ConversationView extends StatelessWidget {
   const ConversationView({
     super.key,
     required this.phase,
+    this.topic,
+    this.animateTopicHeader = false,
     required this.mascotSpeaking,
     this.mascotThinking = false,
     this.isOffline = false,
@@ -98,6 +104,7 @@ class ConversationView extends StatelessWidget {
     final bubbleMaxWidth = w * 0.78;
 
     final mascot = ZoeMascot(
+      key: const ValueKey('conversation-zoe-mascot'),
       mode: isOffline
           ? ZoeMascotMode.sleep
           : phase == ConvPhase.ending && mascotSpeaking
@@ -114,86 +121,122 @@ class ConversationView extends StatelessWidget {
     );
 
     final content = SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            // Placement progress bar (Figma "Placement Flow"): a thin rounded
-            // track pinned at the very top that fills as the screening
-            // advances. Null on the normal chat (no fixed turn count).
-            if (progress != null) ...[
-              const SizedBox(height: 8),
-              _ProgressBar(value: progress!),
-              const SizedBox(height: 12),
-            ] else
-              const SizedBox(height: 28),
-            // During prepare phase, mascot and card are centered together.
-            // Otherwise, mascot stays fixed at the top.
-            if (phase != ConvPhase.prepare) ...[
-              mascot,
-              const SizedBox(height: 18),
-            ],
-            // Latest-turn bubbles live in a scroll region so a long turn can't
-            // overflow the screen (or get clipped when the keyboard is up).
-            // `reverse: true` pins the newest bubble just above the dock and
-            // lets the older text scroll up and disappear under the fixed
-            // mascot; the minHeight box keeps short turns top-aligned (right
-            // under the mascot) exactly as before. In the prepare phase the
-            // mascot + card centre in the space instead (Figma loader frame).
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  reverse: true,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: Padding(
+                key: ValueKey(
+                  phase == ConvPhase.prepare
+                      ? 'conversation-prepare-content'
+                      : 'conversation-active-content',
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Placement progress bar (Figma "Placement Flow"): a thin rounded
+                    // track pinned at the very top that fills as the screening
+                    // advances. Null on the normal chat (no fixed turn count).
+                    if (progress != null) ...[
+                      const SizedBox(height: 8),
+                      _ProgressBar(value: progress!),
+                      const SizedBox(height: 12),
+                    ] else
+                      SizedBox(
+                        height: topic == null
+                            ? 28
+                            : phase == ConvPhase.prepare
+                            ? 60
+                            : 76,
+                      ),
+                    // During prepare phase, mascot and card are centered together.
+                    // Otherwise, mascot stays fixed at the top.
+                    if (phase != ConvPhase.prepare) ...[
+                      mascot,
+                      SizedBox(height: topic == null ? 18 : 16),
+                    ],
+                    // Latest-turn bubbles live in a scroll region so a long turn can't
+                    // overflow the screen (or get clipped when the keyboard is up).
+                    // `reverse: true` pins the newest bubble just above the dock and
+                    // lets the older text scroll up and disappear under the fixed
+                    // mascot; the minHeight box keeps short turns top-aligned (right
+                    // under the mascot) exactly as before. In the prepare phase the
+                    // mascot + card centre in the space instead (Figma loader frame).
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) =>
+                            SingleChildScrollView(
+                              reverse: true,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisAlignment: phase == ConvPhase.prepare
+                                      ? MainAxisAlignment.center
+                                      : MainAxisAlignment.start,
+                                  children: [
+                                    if (phase == ConvPhase.prepare) ...[
+                                      mascot,
+                                      const SizedBox(height: 18),
+                                      const _PrepareCard(),
+                                    ] else
+                                      _Bubbles(
+                                        zoeLine: zoeLine,
+                                        studentLine: studentLine,
+                                        onSpeakAgain: onSpeakAgain,
+                                        speaking: mascotSpeaking,
+                                        maxWidth: bubbleMaxWidth,
+                                        highlightStart: highlightStart,
+                                        highlightEnd: highlightEnd,
+                                      ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                ),
+                              ),
+                            ),
+                      ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: phase == ConvPhase.prepare
-                          ? MainAxisAlignment.center
-                          : MainAxisAlignment.start,
-                      children: [
-                        if (phase == ConvPhase.prepare) ...[
-                          mascot,
-                          const SizedBox(height: 18),
-                          const _PrepareCard(),
-                        ] else
-                          _Bubbles(
-                            zoeLine: zoeLine,
-                            studentLine: studentLine,
-                            onSpeakAgain: onSpeakAgain,
-                            speaking: mascotSpeaking,
-                            maxWidth: bubbleMaxWidth,
-                            highlightStart: highlightStart,
-                            highlightEnd: highlightEnd,
-                          ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
-                  ),
+                    if (phase == ConvPhase.talking)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 18),
+                        child: textMode
+                            ? _TextDock(
+                                controller: textController,
+                                onSend: onSend,
+                                onSwitchToSpeaking: onToggleKeyboard,
+                              )
+                            : _VoiceDock(
+                                micState: micState,
+                                onMic: onMic,
+                                onKeyboard: onToggleKeyboard,
+                                onEnd: onEnd,
+                              ),
+                      )
+                    else
+                      const SizedBox(height: 24),
+                  ],
                 ),
               ),
             ),
-            if (phase == ConvPhase.talking)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: textMode
-                    ? _TextDock(
-                        controller: textController,
-                        onSend: onSend,
-                        onSwitchToSpeaking: onToggleKeyboard,
-                      )
-                    : _VoiceDock(
-                        micState: micState,
-                        onMic: onMic,
-                        onKeyboard: onToggleKeyboard,
-                        onEnd: onEnd,
-                      ),
-              )
-            else
-              const SizedBox(height: 24),
-          ],
-        ),
+          ),
+          if (topic != null)
+            Positioned(
+              top: 8,
+              left: 20,
+              right: 20,
+              child: ConversationTopicHeader(
+                key: ValueKey(topicHandoffHeroTag(topic!)),
+                topic: topic!,
+                animateEntrance: animateTopicHeader,
+              ),
+            ),
+        ],
       ),
     );
 
@@ -337,6 +380,7 @@ class _ZoeBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bubble = Container(
+      key: const ValueKey('conversation-zoe-bubble'),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
@@ -495,6 +539,7 @@ class _PrepareCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const ValueKey('conversation-prepare-card'),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: ellaSmoothDecoration(
         color: EllaColors.surface,

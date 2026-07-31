@@ -1,41 +1,33 @@
 // Placement intro — the first-run "Homescreen" (Figma "Placement Flow").
 // Shown by RootGate before a student has been levelled: the botanical scene,
-// Zoe, a warm "tell me about yourself" greeting, and a single "Let's Talk" CTA
-// that starts the voice placement screening. Mirrors HomeScreen's header (labelled
-// Profile/Garden shortcuts) but stays simpler — no topic chips or Last-time
-// card, since there's no history or level yet.
+// the same Garden/Profile header used on Home, Zoe, a warm "tell me about
+// yourself" bubble, and a single CTA that starts the voice placement screening.
 
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/offline_alert_popup.dart';
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
-import '../../core/offline_alert_popup.dart';
 import '../../providers/connectivity_provider.dart';
-import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/stt_tts_service.dart';
-import '../../services/audio_service.dart';
-import '../../services/sounds.dart';
-import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'placement_screen.dart';
 import 'profile_screen.dart';
-import 'widgets/circle_icon_button.dart';
+import 'chat_bubble.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/home_scene_background.dart';
+import 'widgets/home_shortcut_header.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/zoe_mascot.dart';
-import 'dart:async';
-import 'chat_bubble.dart';
 
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
-const String _kPlantIcon = 'assets/homescreen/new/Plant.svg';
 
 const String _kGreeting =
     "Let's find a good place to start. I'll ask a few questions about "
@@ -176,123 +168,75 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final mascotW = (size.width * 0.35).clamp(128.0, 168.0);
-    // Figma places Zoe ~24% down (y=224/932) with a clear sky band above; a
-    // clamped top gap holds that on tall/short phones without re-centering.
-    final topGap = (size.height * 0.14).clamp(64.0, 150.0);
-    // Prefer the name the child typed during onboarding; fall back to the demo
-    // placeholder if it isn't cached yet.
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
-
-    final childName =
-        ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName;
-
-    final greetingText = _kGreeting;
 
     return HomeSceneBackground(
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          // Stack (not a Column) so the mascot + greeting + CTA group sits at
-          // the true centre of the screen; the header overlays the top edge.
-          child: Stack(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
             children: [
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Top gap seats Zoe ~24% down with a sky band above, per
-                      // Figma (top-aligned, not re-centered).
-                      SizedBox(height: topGap),
-                      ZoeMascot(
-                        // Speak the greeting with the speaking animation; fall
-                        // back to the calm listening pose when idle.
-                        mode: !isOnline
-                            ? ZoeMascotMode.sleep
-                            : _speaking
-                            ? ZoeMascotMode.speaking
-                            : ZoeMascotMode.listening,
-                        size: mascotW,
-                        reducedMotion: MediaQuery.of(context).disableAnimations,
-                      ),
-                      const SizedBox(height: 10),
-                      _GreetingCard(
-                        speaking: _speaking,
-                        onToggle: _toggleSpeak,
-                        highlightStart: _highlightStart,
-                        highlightEnd: _highlightEnd,
-                        text: greetingText,
-                      ),
-                      const SizedBox(height: 24),
-                      EllaPrimaryButton(
-                        label: 'Start Talking',
-                        height: 60,
-                        leading: SvgPicture.asset(
-                          _kVoiceIcon,
-                          width: 22,
-                          height: 22,
-                          colorFilter: const ColorFilter.mode(
-                            EllaColors.onPrimary,
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                        onTap: _startPlacement,
-                      ),
-                    ],
-                  ),
-                ),
+              HomeShortcutHeader(
+                onOpenGarden: _openGarden,
+                onOpenProfile: _openProfile,
               ),
-              // Header mirrors HomeScreen: greeting left, labelled Profile /
-              // Garden shortcuts stacked on the right.
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Hi, $childName!',
-                        style: EllaTextStyles.headline,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Column(
+                        key: const ValueKey('placement-home-upper-content'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // The regular Home starts Zoe directly below its
+                          // shortcuts. Placement sits 16px lower to give this
+                          // simpler screen a little more breathing room.
+                          const SizedBox(height: 16),
+                          ZoeMascot(
+                            key: const ValueKey('placement-home-zoe-mascot'),
+                            mode: !isOnline
+                                ? ZoeMascotMode.sleep
+                                : _speaking
+                                ? ZoeMascotMode.speaking
+                                : ZoeMascotMode.listening,
+                            size: mascotW,
+                            reducedMotion: MediaQuery.of(
+                              context,
+                            ).disableAnimations,
+                          ),
+                          const SizedBox(height: 10),
+                          _GreetingCard(
+                            speaking: _speaking,
+                            onToggle: _toggleSpeak,
+                            highlightStart: _highlightStart,
+                            highlightEnd: _highlightEnd,
+                            text: _kGreeting,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       ),
                     ),
                   ),
-                  Column(
-                    children: [
-                      EllaCircleIconButton(
-                        glyph: const Icon(
-                          Icons.person_rounded,
-                          size: 30,
-                          color: EllaColors.infoDark,
-                        ),
-                        fill: EllaColors.surfaceVariant,
-                        ring: EllaColors.info,
-                        label: 'Profile',
-                        labelColor: EllaColors.infoDark,
-                        labelStyle: EllaTextStyles.buttonSmall,
-                        onTap: _openProfile,
-                      ),
-                      const SizedBox(height: 12),
-                      EllaCircleIconButton(
-                        // Garden leaf gently sways (Figma placement intro).
-                        glyph: _SwayingLeaf(
-                          child: SvgPicture.asset(
-                            _kPlantIcon,
-                            width: 32,
-                            height: 32,
-                          ),
-                        ),
-                        fill: EllaColors.greenLight,
-                        ring: EllaColors.greenDark,
-                        label: 'Garden',
-                        labelColor: EllaColors.greenDeep,
-                        labelStyle: EllaTextStyles.buttonSmall,
-                        onTap: _openGarden,
-                      ),
-                    ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              EllaPrimaryButton(
+                key: const ValueKey('placement-home-talk-cta'),
+                label: 'Start Talking',
+                height: 60,
+                leading: SvgPicture.asset(
+                  _kVoiceIcon,
+                  width: 22,
+                  height: 22,
+                  colorFilter: const ColorFilter.mode(
+                    EllaColors.onPrimary,
+                    BlendMode.srcIn,
                   ),
-                ],
+                ),
+                onTap: _startPlacement,
               ),
             ],
           ),
@@ -323,6 +267,7 @@ class _GreetingCard extends StatelessWidget {
     // above and off the right edge. Top padding keeps it inside the Stack's
     // hit-test bounds.
     return Stack(
+      key: const ValueKey('placement-home-greeting-card'),
       clipBehavior: Clip.none,
       children: [
         Padding(
@@ -350,61 +295,6 @@ class _GreetingCard extends StatelessWidget {
           child: SpeakerDotButton(active: speaking, onTap: onToggle, size: 40),
         ),
       ],
-    );
-  }
-}
-
-/// Gently sways [child] about its base (±3°, 3000ms ping-pong) — the Garden
-/// button's leaf on the placement intro. Mirrors onboarding_scenery's
-/// `_SwayingBloom`; frozen under reduced-motion.
-class _SwayingLeaf extends StatefulWidget {
-  final Widget child;
-  const _SwayingLeaf({required this.child});
-
-  @override
-  State<_SwayingLeaf> createState() => _SwayingLeafState();
-}
-
-class _SwayingLeafState extends State<_SwayingLeaf>
-    with SingleTickerProviderStateMixin {
-  static const double _maxRad = 3.0 * math.pi / 180;
-
-  late final AnimationController _sway = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 3000),
-  );
-  late final Animation<double> _angle = Tween<double>(
-    begin: -_maxRad,
-    end: _maxRad,
-  ).animate(CurvedAnimation(parent: _sway, curve: Curves.easeInOut));
-
-  bool _started = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.of(context).disableAnimations || _started) return;
-    _started = true;
-    _sway.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _sway.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final reducedMotion = MediaQuery.of(context).disableAnimations;
-    return AnimatedBuilder(
-      animation: _sway,
-      builder: (_, child) => Transform.rotate(
-        angle: reducedMotion ? 0 : _angle.value,
-        alignment: Alignment.bottomCenter,
-        child: child,
-      ),
-      child: widget.child,
     );
   }
 }

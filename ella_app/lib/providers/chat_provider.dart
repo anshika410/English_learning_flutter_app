@@ -666,7 +666,11 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   // ── Next chat (keeps memory) ──────────────────────────────────────────────
 
-  Future<void> nextChat({Topic? topicOverride}) async {
+  /// Clears a completed session while preserving its refreshed memory.
+  ///
+  /// This synchronous half of [nextChat] lets a destination screen mount before
+  /// starting its API call, which is important for shared-element transitions.
+  void prepareNextChat() {
     final cur = state.requireValue;
     if (!cur.sessionEnded) return;
 
@@ -690,6 +694,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         status: ChatStatus.idle,
       ),
     );
+  }
+
+  Future<void> nextChat({Topic? topicOverride}) async {
+    final cur = state.requireValue;
+    if (!cur.sessionEnded) return;
+    prepareNextChat();
     await startSession(topicOverride: topicOverride);
   }
 
@@ -868,7 +878,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   Future<void> stopListening() async {
     final stt = ref.read(sttProvider);
     await stt.stopListening();
-    
+
     final sessionId = _activeSttSessionId;
 
     // After stop(), the plugin normally fires onResult(finalResult: true),

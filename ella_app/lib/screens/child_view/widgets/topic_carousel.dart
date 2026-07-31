@@ -15,6 +15,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../models/child_memory.dart';
+import 'topic_handoff.dart';
 import 'topic_icon.dart';
 
 class TopicCarousel extends StatefulWidget {
@@ -288,36 +289,19 @@ class _TopicItem extends StatelessWidget {
         Positioned(
           top: circleTop,
           left: (_TopicCarouselState._pageExtent - circleSize) / 2,
-          child: Container(
-            key: ValueKey('home-topic-carousel-circle-$itemIndex'),
-            width: circleSize,
-            height: circleSize,
-            decoration: BoxDecoration(
-              color: EllaColors.surface,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isCenter
-                    ? EllaColors.berryDark
-                    : EllaColors.ink.withValues(alpha: 0.12),
-                width: isCenter ? 3 : 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: SizedBox.square(
-                key: ValueKey('home-topic-carousel-artwork-$itemIndex'),
-                dimension: artworkSize,
-                child: TopicIcon(
-                  icon: topic.icon,
-                  size: artworkSize,
-                  fallbackColor: EllaColors.berryDark,
-                ),
+          child: HeroMode(
+            enabled: isCenter,
+            child: Hero(
+              tag: topicHandoffHeroTag(topic),
+              createRectTween: topicHandoffRectTween,
+              flightShuttleBuilder: buildTopicHandoffFlight,
+              child: TopicHandoffBadge(
+                key: ValueKey('home-topic-carousel-circle-$itemIndex'),
+                topic: topic,
+                size: circleSize,
+                iconSize: artworkSize,
+                selectedSource: isCenter,
+                artworkKey: ValueKey('home-topic-carousel-artwork-$itemIndex'),
               ),
             ),
           ),
