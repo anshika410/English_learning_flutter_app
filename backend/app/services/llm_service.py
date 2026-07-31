@@ -798,7 +798,7 @@ async def analyze_and_grade_session(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Analyze the transcript, extract facts, grade targeted skills, and return the combined JSON report."},
             ],
-            max_tokens=2500,
+            max_tokens=3500,
             temperature=0.4,
         )
         json_str = _extract_json(raw)
