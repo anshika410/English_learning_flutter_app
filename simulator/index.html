@@ -1244,7 +1244,7 @@ function App(){
   }
 
   useEffect(()=>{
-    initSession(level, model);
+    initSession(null, model);
   },[]); // eslint-disable-line
   function targetsListFor(m, modelOverride){
     let picks; const activeModel=modelOverride||model;
