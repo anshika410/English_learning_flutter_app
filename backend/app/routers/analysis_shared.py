@@ -102,7 +102,7 @@ async def run_and_save_session_analysis(
     # Apply merge & deterministic updates
     import datetime
     created_at_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    updated_progress, changes = apply_merge(progress, scores, level, topic=actual_topic, created_at=created_at_str)
+    updated_progress, changes = apply_merge(progress, scores, level, topic=actual_topic, created_at=created_at_str, primary_target=aimed[0] if aimed else None)
     
     # Increment times spoken
     if turns_total is not None:
