@@ -161,6 +161,10 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         units=units_list,
         last_topics=last_topics_list,
         persona_memory={k: v for k, v in (user.persona_memory or {}).items() if k not in ("last_topics", "units")},
+        mastery=public_progress.get("mastery", {}),
+        evidence_count=public_progress.get("evidence_count", {}),
+        context_diversity=public_progress.get("context_diversity", {}),
+        recent_primary_history=public_progress.get("recent_primary_history", []),
     )
 
 

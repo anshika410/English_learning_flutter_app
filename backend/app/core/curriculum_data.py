@@ -1323,7 +1323,7 @@ def public_progress_for_level(progress: dict, level: str) -> dict:
                 public_ids.append(public_id)
         result[field] = public_ids
 
-    for field in ("sightings", "strength", "last_seen", "evidence"):
+    for field in ("sightings", "strength", "last_seen", "evidence", "mastery", "evidence_count", "context_diversity"):
         public_values = {}
         values = result.get(field, {})
         if not isinstance(values, dict):
@@ -1336,6 +1336,21 @@ def public_progress_for_level(progress: dict, level: str) -> dict:
             if scoped_level == lvl:
                 public_values[public_id] = value
         result[field] = public_values
+
+    # Clean up recent_primary_history format
+    raw_history = result.get("recent_primary_history", [])
+    if not isinstance(raw_history, list):
+        raw_history = []
+    public_history = []
+    for key in raw_history:
+        if key in SKILLS:
+            public_history.append(key)
+            continue
+        scoped_level, public_id = _split_unit_progress_key(key)
+        if scoped_level == lvl:
+            public_history.append(public_id)
+    result["recent_primary_history"] = public_history
+
     return result
 
 def get_skill_text(skill_id: str, level = None) -> str:
