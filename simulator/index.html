@@ -1280,6 +1280,9 @@ function App(){
               try {
                 const memoryData = await callEllaAPI('/users/me/memory');
                 setDbMemory(memoryData || {});
+                if (memoryData && memoryData.level) {
+                  setLevel(memoryData.level);
+                }
                 const gardenData = await callEllaAPI('/users/me/garden');
                 setDbGarden(gardenData || null);
               } catch (e) {}
