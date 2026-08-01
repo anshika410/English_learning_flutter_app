@@ -293,8 +293,21 @@ async def clear_user_memory(
     Clears the child's permanent persona memory block and resets onboarding state.
     """
     user.persona_memory = {}
+    user.skills_progress = {}
+    user.due_next = {}
+    user.level = None
+    user.level_label = None
+    user.first_session_done = False
+    user.interests = None
+    user.location = None
     user.name = None
     user.age = None
+
+    # Clear placement records to fully reset onboarding status
+    from sqlalchemy import delete
+    from ..models.placement import Placement
+    await db.execute(delete(Placement).where(Placement.user_id == user.id))
+
     db.add(user)
     await db.commit()
     return None
