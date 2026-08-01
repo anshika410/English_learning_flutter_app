@@ -702,7 +702,7 @@ async def get_user_topics(user: User = Depends(get_current_user)):
     response_list = []
     for t in fresh_pool:
         theme_name = t.get("name", "General")
-        icon, color, highlight, bg = get_theme_assets(theme_name)
+        icon, color, highlight, bg = get_theme_assets(t)
         response_list.append({
             "id": t.get("id", "t_unknown"),
             "name": t.get("name", "Unknown Topic"),
