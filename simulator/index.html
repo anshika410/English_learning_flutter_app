@@ -1698,7 +1698,46 @@ function App(){
           <button className={model==='unit'?'on':''} onClick={()=>changeModel('unit')}>units</button>
         </div>
       </div>
-      <div className="statline">Chat #{chatNum} · {model} · {level} · turns: {turnCount} · lifetime talks: {mem.effort.times_spoken_total} · LLM: {llmLive===null?'—':llmLive?'live':'mock'}</div>
+      <div className="statline" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span>Chat #{chatNum} · {model} · {level} · turns: {turnCount} · lifetime talks: {mem.effort.times_spoken_total} · LLM: {llmLive===null?'—':llmLive?'live':'mock'}</span>
+        {React.createElement(()=>{
+          const [copied,setCopied]=React.useState(false);
+          const handleCopy=()=>{
+            const transcript = msgs
+              .filter(m => m.role === 'zoe' || m.role === 'me')
+              .map(m => {
+                const roleName = m.role === 'zoe' ? 'Zoe' : 'Student';
+                return `${roleName}: ${m.text}`;
+              })
+              .join('\n');
+            navigator.clipboard.writeText(transcript).then(()=>{
+              setCopied(true);
+              setTimeout(()=>setCopied(false), 2000);
+            }).catch(()=>{
+              const ta=document.createElement('textarea');
+              ta.value=transcript;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+              setCopied(true);
+              setTimeout(()=>setCopied(false), 2000);
+            });
+          };
+          return <button onClick={handleCopy} style={{
+            background: copied ? '#2f7d46' : 'transparent',
+            color: copied ? 'white' : '#8a8678',
+            border: '1px solid ' + (copied ? '#2f7d46' : '#d1d0c5'),
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: '600',
+            padding: '2px 8px',
+            cursor: 'pointer',
+            marginLeft: '8px',
+            transition: 'all 0.2s'
+          }}>{copied ? '✓ Copied' : '📋 Copy Transcript'}</button>;
+        },{})}
+      </div>
       {sessionType === 'placement' ? (
         <div className="mission" style={{borderColor:'var(--rust)'}}>
           <b>Diagnostic Screening:</b> Talk to Zoe naturally. She is assessing your speaking capability.
