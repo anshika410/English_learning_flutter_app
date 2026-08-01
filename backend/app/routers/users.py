@@ -39,7 +39,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     level_code = (user.level or "A0").upper()
     public_progress = public_progress_for_level(progress, level_code)
     due = validate_due_next(user.due_next, level_code)
-    if not due:
+    if not due and user.level:
         from ..core.curriculum_data import targets_list_for, make_due_next
         aimed = targets_list_for(progress, "unit", level_code)
         due = make_due_next(aimed, level_code)
