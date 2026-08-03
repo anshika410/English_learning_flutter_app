@@ -82,7 +82,7 @@ flowchart TD
 flowchart TB
     subgraph RECENCY["PRIORITY-BASED SELECTION WITH RECENCY"]
         direction TB
-        R1[Conversation ends] --> R2[Primary skill gets recency penalty]
+        R1[Conversation ends] --> R2[Primary skill gets recency cooldown]
         R2 --> R3[Recalculate ALL priority scores]
         R3 --> R4[Highest score wins<br/>becomes next primary]
         R4 --> R1
@@ -95,7 +95,7 @@ flowchart TB
 ```
 
 <Warning>
-**This is NOT a fixed rotation.** The order is not VOC-01 → VOC-02 → GRA-01 → FLU-01. It's determined dynamically by the priority score after each conversation. Recently practiced skills receive a temporary recency penalty, allowing other skills to become the next primary target. The winner depends on all 6 scoring factors — not just recency alone.
+**This is NOT a fixed rotation.** The order is not VOC-01 → VOC-02 → GRA-01 → FLU-01. It's determined dynamically by the priority score after each conversation. Recently practiced skills receive a temporary recency cooldown, allowing other skills to become the next primary target. The winner depends on all 6 scoring factors — not just recency alone.
 </Warning>
 
 **STUCK SKILL LOOP** — When only 1 skill left in unit and it fails 2x:
@@ -780,7 +780,7 @@ Therefore:
 GRA-01 = 0.66  ← highest priority
 ```
 
-**Next Primary Target = GRA-01** (not VOC-01, because recency penalty dragged it down)
+**Next Primary Target = GRA-01** (not VOC-01, because recency cooldown dragged it down)
 
 ---
 
@@ -817,9 +817,9 @@ With 4 skills (VOC-01, VOC-02, GRA-01, FLU-01), all starting at mastery 0.00:
 | Conversation | Primary Target | Why? |
 |---|---|---|
 | 1 | VOC-01 | Highest initial priority (curriculum order) |
-| 2 | GRA-01 | VOC-01 now has recency penalty, GRA-01 rises |
-| 3 | VOC-02 | GRA-01 now has recency penalty, VOC-02 rises |
-| 4 | FLU-01 | VOC-02 now has recency penalty, FLU-01 rises |
+| 2 | GRA-01 | VOC-01 now has recency cooldown, GRA-01 rises |
+| 3 | VOC-02 | GRA-01 now has recency cooldown, VOC-02 rises |
+| 4 | FLU-01 | VOC-02 now has recency cooldown, FLU-01 rises |
 | 5 | VOC-01 | Recency decayed, still has high Need |
 | 6 | GRA-01 | Returns for another opportunity |
 | 7 | VOC-02 | Returns for another opportunity |
