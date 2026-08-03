@@ -129,62 +129,11 @@ flowchart TB
 **Not a fixed rotation.** The order is determined dynamically by priority score. Recently practiced skills get a temporary cooldown, allowing others to become the next primary.
 </Warning>
 
-### When Do Scores Update? (Per Session, Not Per Turn)
+### Session-Based Evaluation
 
-These values update **once per session** — not during individual turns. The whole conversation is evaluated as one unit at the end:
-
-```text
-Student has conversation (multiple turns with Zoe)
-         ↓
-Conversation ENDS
-         ↓
-LLM Judge evaluates the WHOLE conversation at once
-         ↓
-Gives confidence score per skill (e.g. VOC-01 = 0.80)
-         ↓
-apply_merge() runs ONCE:
-    • Sightings: +1 (if confidence ≥ 0.70)
-    • Recency: primary skill added to recent list
-    • Mastery: old + 0.40 × conf × (1-old)
-         ↓
-due_unit() runs ONCE:
-    • Recalculates priority for all skills
-    • Picks new primary target
-         ↓
-Saved to database → Next conversation uses new primary
-```
-
-| What updates | When | How |
-|---|---|---|
-| **Sightings** | End of session | Judge gives ≥ 0.70 → count +1 |
-| **Recency** | End of session | Primary target added to `recent_primary_history` (max 4) |
-| **Uncertainty** | End of session | Recalculated as `1/√(sightings + 1)` — fresh each time |
-| **Mastery** | End of session | `old + 0.40 × confidence × (1 - old)` |
-| **Context diversity** | End of session | Topic added to list (if new topic) |
-
-<Warning>
-**Individual turns don't matter for scoring.** A student can say 1 word or 20 sentences — the judge evaluates the entire conversation transcript at the end and gives ONE confidence score per skill. There is no mid-conversation scoring.
-</Warning>
-
-**Example: Session 15 (U2-VOC-01 is primary, student talks 10 turns about "Animals")**
-
-```text
-Before session:
-  sightings[U2-VOC-01] = 0
-  recency = not in recent list
-  uncertainty = 1/√(0+1) = 1.0
-
-Judge evaluates all 10 turns → confidence = 0.80
-
-After session:
-  sightings[U2-VOC-01] = 1
-  recency = now in recent list (cooldown next time)
-  uncertainty = 1/√(1+1) = 0.71
-  mastery = 0 + 0.40 × 0.80 × (1-0) = 0.32
-
-Score change: 0.97 → ~0.72 (drops because practiced)
-→ Next session: different skill wins
-```
+<Note>
+ELLA evaluates the entire conversation as a single learning session. Individual turns are not scored independently. After the conversation ends, the LLM Judge assigns one confidence score per skill, updates learner progress, and selects the next primary target for the following conversation.
+</Note>
 
 ---
 
