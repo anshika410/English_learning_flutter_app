@@ -76,9 +76,11 @@ flowchart TD
 
 ### The Two Loops Explained
 
+**RECENCY LOOP** — When multiple skills are available in the same unit:
+
 ```mermaid
 flowchart LR
-    subgraph RECENCY["RECENCY LOOP (within unit)"]
+    subgraph RECENCY["RECENCY LOOP (within unit, multiple skills available)"]
         direction TB
         R1[VOC-01 primary] --> R2[VOC-02 primary]
         R2 --> R3[GRA-01 primary]
@@ -86,25 +88,98 @@ flowchart LR
         R4 --> R1
     end
 
-    subgraph STUCK["STUCK SKILL LOOP (between units)"]
-        direction TB
-        S1[GRA-01 fails 2x] --> S2[Next unit opens]
-        S2 --> S3[Unit 2 skills rotate<br/>3-4 sessions]
-        S3 --> S4[GRA-01 comes back]
-        S4 --> S5{Scores ≥ 0.70?}
-        S5 -->|YES| S6[Owned! ✅<br/>Unit complete]
-        S5 -->|NO| S3
-    end
-
     style R1 fill:#e3f2fd
     style R2 fill:#e3f2fd
     style R3 fill:#e3f2fd
     style R4 fill:#e3f2fd
+```
+
+**STUCK SKILL LOOP** — When only 1 skill left in unit and it fails 2x:
+
+```mermaid
+flowchart TB
+    subgraph STUCK["STUCK SKILL LOOP (last skill in unit fails 2x)"]
+        direction TB
+        S0[Unit 1: 3 owned ✅ + 1 left ❌ GRA-01] --> S1[GRA-01 fails 2x · cz=2]
+        S1 --> S2[Next unit opens · Pool expands]
+        S2 --> S3[Pool now contains:]
+        S3 --> S4["🔴 U1-GRA-01 (stuck, low priority)<br/>🟢 U2-VOC-01 (fresh, high priority)<br/>🟢 U2-GRA-01 (fresh, high priority)<br/>🟢 U2-GRA-02 (fresh, high priority)<br/>🟢 U2-FLU-01 (fresh, high priority)"]
+        S4 --> S5[Fresh Unit 2 skills win for 3-4 sessions]
+        S5 --> S6[GRA-01 recency decays · ReviewDue grows]
+        S6 --> S7[GRA-01 rises back into pool · Becomes primary]
+        S7 --> S8{Scores ≥ 0.70?}
+        S8 -->|YES| S9[GRA-01 owned ✅<br/>Unit 1 COMPLETE<br/>Pool = only Unit 2 skills now]
+        S8 -->|NO| S5
+    end
+
+    style S0 fill:#fff3e0
     style S1 fill:#ffcdd2
-    style S2 fill:#fff3e0
-    style S3 fill:#e8f5e9
-    style S4 fill:#fff3e0
-    style S6 fill:#c8e6c9
+    style S4 fill:#f5f5f5
+    style S5 fill:#e3f2fd
+    style S7 fill:#fff3e0
+    style S9 fill:#c8e6c9
+```
+
+### What the Pool Looks Like (Visual)
+
+**Before trigger (Unit 1 only, 1 skill left):**
+
+```text
+┌─────────────────────────────────┐
+│         CANDIDATE POOL          │
+│                                 │
+│  🔴 U1-GRA-01 (only option)    │
+│                                 │
+└─────────────────────────────────┘
+     → Always GRA-01. No rotation possible.
+```
+
+**After trigger (Unit 1 + Unit 2 merged):**
+
+```text
+┌─────────────────────────────────┐
+│         CANDIDATE POOL          │
+│                                 │
+│  🔴 U1-GRA-01  score: 0.68     │
+│  🟢 U2-VOC-01  score: 0.97  ← WINS │
+│  🟢 U2-GRA-01  score: 0.95     │
+│  🟢 U2-GRA-02  score: 0.93     │
+│  🟢 U2-FLU-01  score: 0.91     │
+│                                 │
+└─────────────────────────────────┘
+     → Highest score wins. GRA-01 stays but loses.
+```
+
+**After 4 sessions (GRA-01 returns):**
+
+```text
+┌─────────────────────────────────┐
+│         CANDIDATE POOL          │
+│                                 │
+│  🟡 U1-GRA-01  score: 0.87  ← WINS (recency gone + ReviewDue high) │
+│  🔵 U2-VOC-01  score: 0.54  (has recency) │
+│  🔵 U2-GRA-01  score: 0.53     │
+│  🔵 U2-GRA-02  score: 0.52     │
+│  🔵 U2-FLU-01  score: 0.51     │
+│                                 │
+└─────────────────────────────────┘
+     → GRA-01 floats back up. Gets another chance.
+```
+
+**After GRA-01 finally gets evidence:**
+
+```text
+┌─────────────────────────────────┐
+│         CANDIDATE POOL          │
+│                                 │
+│  ✅ U1-GRA-01  OWNED! (removed) │
+│  🟢 U2-VOC-01  score: 0.84  ← WINS │
+│  🟢 U2-GRA-01  score: 0.82     │
+│  🟢 U2-GRA-02  score: 0.80     │
+│  🟢 U2-FLU-01  score: 0.78     │
+│                                 │
+└─────────────────────────────────┘
+     → Unit 1 complete. Pure Unit 2 rotation now.
 ```
 
 ---
