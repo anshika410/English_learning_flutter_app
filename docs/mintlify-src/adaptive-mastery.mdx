@@ -136,7 +136,7 @@ LLM Judge evaluates the WHOLE conversation at once
 Gives confidence score per skill (e.g. VOC-01 = 0.80)
          ↓
 apply_merge() runs ONCE:
-    • Evidence count: +1 (if confidence ≥ 0.70)
+    • Sightings: +1 (if confidence ≥ 0.70)
     • Recency: primary skill added to recent list
     • Mastery: old + 0.40 × conf × (1-old)
          ↓
@@ -149,9 +149,9 @@ Saved to database → Next conversation uses new primary
 
 | What updates | When | How |
 |---|---|---|
-| **Evidence count** | End of session | Judge gives ≥ 0.70 → count +1 |
+| **Sightings** | End of session | Judge gives ≥ 0.70 → count +1 |
 | **Recency** | End of session | Primary target added to `recent_primary_history` (max 4) |
-| **Uncertainty** | End of session | Recalculated as `1/√(evidence_count + 1)` — fresh each time |
+| **Uncertainty** | End of session | Recalculated as `1/√(sightings + 1)` — fresh each time |
 | **Mastery** | End of session | `old + 0.40 × confidence × (1 - old)` |
 | **Context diversity** | End of session | Topic added to list (if new topic) |
 
@@ -163,14 +163,14 @@ Saved to database → Next conversation uses new primary
 
 ```text
 Before session:
-  evidence_count[U2-VOC-01] = 0
+  sightings[U2-VOC-01] = 0
   recency = not in recent list
   uncertainty = 1/√(0+1) = 1.0
 
 Judge evaluates all 10 turns → confidence = 0.80
 
 After session:
-  evidence_count[U2-VOC-01] = 1
+  sightings[U2-VOC-01] = 1
   recency = now in recent list (penalty next time)
   uncertainty = 1/√(1+1) = 0.71
   mastery = 0 + 0.40 × 0.80 × (1-0) = 0.32
@@ -272,7 +272,7 @@ Score change: 0.97 → ~0.72 (drops because practiced)
 
 | Term | What it is | How it updates |
 |---|---|---|
-| **Sighting** | Number of sessions where the student demonstrated this skill with confidence ≥ 0.70. Same as evidence_count. | +1 after each session where judge gives ≥ 0.70 |
+| **Sighting** | Number of sessions where the student demonstrated this skill with confidence ≥ 0.70. Same variable in the code is called evidence_count. | +1 after each session where judge gives ≥ 0.70 |
 | **Recency** | A list of the last 4 primary targets. Used as INPUT to the priority formula to give recently-practiced skills a cooldown. | After each session → current primary target is added to the list (max 4 items). |
 | **Uncertainty** | "How much data do I have about this skill?" Calculated from sightings: `1 / √(sightings + 1)`. Not stored — recalculated fresh each time. | As sightings go up → uncertainty goes down → skill becomes less urgent to check. |
 
@@ -495,9 +495,9 @@ ELLA's grader evaluates this and says: `VOC-01 confidence = 0.85`. That is **one
 
 Later the student says: *"Last Sunday I visited my grandmother."*
 
-ELLA sees the skill again: `VOC-01 confidence = 0.80`. Now `evidence_count = 2`.
+ELLA sees the skill again: `VOC-01 confidence = 0.80`. Now `sightings = 2`.
 
-**Evidence count answers: "How many times have I collected meaningful proof?"**
+**Sightings answers: "How many times have I collected meaningful proof?"**
 
 ### What is Context?
 
@@ -509,7 +509,7 @@ ELLA sees the skill again: `VOC-01 confidence = 0.80`. Now `evidence_count = 2`.
 | C2 | Family | ✅ |
 | C3 | Travel | ✅ |
 
-Result: `evidence_count = 3`, `context_diversity = 3`
+Result: `sightings = 3`, `context_diversity = 3`
 
 ### Why Context Matters
 
@@ -529,7 +529,7 @@ Same topic repeated:
 | C2 | Sports | ✅ | Sports |
 | C3 | Sports | ✅ | Sports |
 
-Result: `evidence_count = 3` ✅ but `context_diversity = 1` ❌ → **NOT OWNED**
+Result: `sightings = 3` ✅ but `context_diversity = 1` ❌ → **NOT OWNED**
 
 Different topics:
 
@@ -539,7 +539,7 @@ Different topics:
 | C2 | Family | ✅ | Family |
 | C3 | Travel | ✅ | Travel |
 
-Result: `evidence_count = 3` ✅ and `context_diversity = 3` ✅ → **Can be OWNED** (if mastery ≥ 0.75)
+Result: `sightings = 3` ✅ and `context_diversity = 3` ✅ → **Can be OWNED** (if mastery ≥ 0.75)
 
 <Info>
 **In one sentence:** Evidence tells ELLA *"How much proof do I have?"* Context tells ELLA *"How broadly has the student demonstrated it?"*
@@ -617,7 +617,7 @@ So at C4:
 
 ```text
 Mastery        = 0.752  ✅
-Evidence count = 4       ✅
+Sightings = 4       ✅
 Context diversity = ?
 ```
 
@@ -716,7 +716,7 @@ But you still check:
 
 ```text
 Mastery >= 0.75       ✅
-Evidence count >= 2   ✅
+Sightings >= 2   ✅
 Context diversity >= 2 ?
 ```
 
@@ -892,7 +892,7 @@ Pass threshold?                   LLM confidence score
    ↓                                  ↓
 Bloomed                           Check mastery
                                       +
-                                  evidence count
+                                  sightings
                                       +
                                   context diversity
                                       ↓
