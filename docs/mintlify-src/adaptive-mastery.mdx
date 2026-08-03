@@ -237,7 +237,7 @@ These sightings **still count toward garden growth**. Plants still bloom based o
 
 The adaptive mastery system works **alongside** sightings.
 
-Instead of using sightings alone to decide whether a skill is fully learned, ELLA also asks:
+In addition to tracking sightings, ELLA also asks:
 
 > **"Based on the evidence I've collected, how confident am I that this student knows `VOC-01`?"**
 
@@ -255,19 +255,19 @@ Strong demonstration         → larger change
 So the two systems work together:
 
 ```text
-Sighting (confidence ≥ 0.70)
-   ↓
-Garden growth (plants bloom at 3 sightings)
-   │
-   └──────────────────┐
-                      ↓
-              Evidence collected
-                      ↓
-              Adaptive mastery
-                      ↓
-             Confidence changes
-                      ↓
-         Ownership + target selection
+            Student demonstrates skill
+                     │
+              confidence ≥ 0.70
+                     │
+             ┌───────┴───────┐
+             ↓               ↓
+         Sighting        Evidence
+             ↓               ↓
+      Garden growth    Adaptive mastery
+             ↓               ↓
+      Plant blooms     Confidence changes
+                             ↓
+                    Ownership + targeting
 ```
 
 ### And there's one more ownership check
