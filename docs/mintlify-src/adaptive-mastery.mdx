@@ -5,29 +5,40 @@ description: "How ELLA dynamically selects conversation targets and tracks maste
 icon: "brain"
 ---
 
-The **Adaptive Mastery & Dynamic Target Selection** system replaces the legacy hardcoded "3 sightings" progression model. Instead of counting sightings as a proxy for learning, ELLA calculates a continuous **Mastery Confidence** score and selects today's active conversation target using a weighted **Priority Score** with recency-based cooldowns.
+## TL;DR (The Whole System in 5 Lines)
+
+1. **Student talks to Zoe** → LLM judge scores each skill (0 to 1.0)
+2. **Score ≥ 0.70** → mastery goes up, sighting +1, garden grows
+3. **Score < 0.70** → nothing happens, try again later
+4. **Next session** → whatever you just practiced gets skipped (recency), different skill becomes primary
+5. **Stuck 2x on last skill** → opens next unit, comes back every 4-5 sessions for a retry
 
 ---
 
-## The Three Systems at a Glance
+## How It Works (Simple Version)
 
-| Logic | Where it operates | What it does |
+| What | How |
+|---|---|
+| **Picking next skill** | All un-owned skills get a priority score. Highest wins. Recently practiced = penalized. |
+| **When garden grows** | Student demonstrates skill with confidence ≥ 0.70 |
+| **When skill is "owned"** | Mastery ≥ 0.75 AND shown in 2+ different topics |
+| **When unit is "complete"** | All skills in that unit are owned |
+| **When stuck** | Same skill fails 2x with no evidence → next unit opens |
+| **Sequencing** | Unit 1 → Unit 2 → Unit 3. Always in order. Never skips. |
+
+---
+
+## The Three Systems
+
+| System | Where | What it does |
 |---|---|---|
-| **Recency Rotation** | **Within** a unit | After being the primary target, a skill gets a penalty for 3-4 sessions → a different skill becomes primary next time. Prevents same skill repeating. |
-| **Consecutive Zeros** | **Between** units | If the same skill gets 0 evidence 2 times in a row → opens next unit's skills. Prevents student being stuck forever. |
-| **Adaptive Mastery Scoring** | **Within** a unit | Instead of "3 sightings = done", calculates a confidence score (0→1.0) + requires evidence in 2 different topics before declaring a skill owned. More meaningful than counting. |
+| **Recency** | Within a unit | Just-practiced skill gets penalized → different skill next time |
+| **Consecutive Zeros** | Between units | 2 fails on last skill → next unit opens |
+| **Mastery Scoring** | Within a unit | Confidence score (0→1.0) + 2 topics needed to own a skill |
 
 <Note>
-**Does the garden still grow?** Yes. Sightings still increment in parallel → plants still grow (seed → sprout → budding → bloomed). The adaptive mastery system runs alongside the old sighting system. Nothing changes visually for the student.
+**Garden still grows?** Yes. Sightings still count. Plants still bloom at 3. Nothing changes visually.
 </Note>
-
-<Tip>
-**The simplest way to understand this:**
-
-Old ELLA: *"You did it 3 times → you're good."*
-
-New ELLA: *"I've collected enough evidence to become confident that you know it."*
-</Tip>
 
 ---
 
