@@ -5,13 +5,18 @@ description: "How ELLA dynamically selects conversation targets and tracks maste
 icon: "brain"
 ---
 
-## TL;DR (The Whole System in 5 Lines)
+## TL;DR (The Whole System in 6 Lines)
 
 1. **Student talks to Zoe** → LLM judge scores each skill (0 to 1.0)
 2. **Score ≥ 0.70** → mastery goes up, sighting +1, garden grows
 3. **Score < 0.70** → nothing happens, try again later
 4. **Next session** → whatever you just practiced gets skipped (recency), different skill becomes primary
 5. **Stuck 2x on last skill** → opens next unit, comes back every 4-5 sessions for a retry
+6. **When that stuck skill finally scores ≥ 0.70** → it gets owned, unit completes, normal flow continues to next unit
+
+<Info>
+Each level (A0, A1, etc.) has 4-5 units. Each unit has 3-4 skills. So across one level you're rotating through ~16-20 skills total — it's never just 1 skill blocking everything.
+</Info>
 
 ---
 
