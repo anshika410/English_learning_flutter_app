@@ -1,0 +1,248 @@
+---
+title: "Testing the Rotation Logic"
+sidebarTitle: "Testing & Criteria"
+description: "How the skill rotation works, the consecutive zeros logic, and what 10 conversations should look like."
+icon: "vial"
+---
+
+This document explains the **rotation logic**, the **consecutive zeros (stuck-skill) logic**, and provides **two 10-conversation scenarios** for testing.
+
+---
+
+## 1. Three Problems We Solved
+
+| Problem | What was happening | How we solved it |
+|---|---|---|
+| **Repetition** | Same skill every conversation (no variety) | **Fatigue penalty** — after being primary, a skill gets penalized for next 3-4 sessions |
+| **Frustration** | Student struggles with one skill, gets stuck forever | **Consecutive zeros** — after 2 fails with no evidence, open the next unit |
+| **Rigidity** | Skills practiced in fixed order regardless of performance | **Priority scoring** — 6 weighted factors decide what to practice next |
+
+---
+
+## 2. The Rotation Logic (Fatigue)
+
+### What it does
+
+After every conversation, the primary target gets a **cooldown penalty**. This forces a different skill to become the next primary target.
+
+### When it matters
+
+When there are **multiple un-owned skills** in the current unit. The fatigue ensures ELLA cycles through all of them rather than repeating one.
+
+### How it works
+
+```text
+Conversation ends
+       ↓
+Primary target added to "recently practiced" list (max 4)
+       ↓
+Next time, that skill gets penalty: recent_count / 4.0
+       ↓
+Other skills now score higher
+       ↓
+Different skill becomes primary
+```
+
+---
+
+## 3. The Consecutive Zeros Logic (Stuck-Skill)
+
+### What it does
+
+If the same skill has been the primary target **2 times in a row** and the student scored **0 evidence both times** (below 0.70 threshold), ELLA opens the next unit's skills.
+
+### What problem it solves
+
+Imagine: Unit 1 has 4 skills. The student owns 3 of them. Only GRA-01 remains. Without this logic:
+
+```text
+Conv 1 → GRA-01 → 0 evidence
+Conv 2 → GRA-01 → 0 evidence
+Conv 3 → GRA-01 → 0 evidence  ← stuck forever!
+Conv 4 → GRA-01 → 0 evidence
+...
+```
+
+The student is trapped. They can't progress because they keep failing the same skill, and there's nothing else to rotate to.
+
+### With consecutive zeros logic:
+
+```text
+Conv 1 → GRA-01 → 0 evidence (consecutive_zeros = 1)
+Conv 2 → GRA-01 → 0 evidence (consecutive_zeros = 2) ← TRIGGER!
+Conv 3 → U2-VOC-01 → next unit opens! Student makes progress.
+Conv 4 → U2-GRA-01 → fresh skills, fresh opportunities
+Conv 5 → GRA-01 → comes back for another try (fatigue decayed)
+```
+
+### The trigger rule
+
+```text
+IF:
+  - ALL remaining skills in the current unit have consecutive_zeros >= 2
+  
+THEN:
+  - Also include skills from the NEXT unit in the candidate pool
+  - Run priority scoring on the combined pool
+  - Fresh next-unit skills naturally win (high Uncertainty + zero Fatigue)
+  - Stuck skill stays in pool but ranked low — comes back later
+```
+
+### When does consecutive_zeros reset?
+
+- **Resets to 0** as soon as the skill gets ANY qualifying evidence (confidence >= 0.70)
+- So if the student finally demonstrates the skill, it leaves the "stuck" state immediately
+
+---
+
+## 4. Ten Conversations — Scenario A: Student IS Getting Evidence
+
+This is the **happy path**. The student performs well enough that skills get evidence.
+
+**Setup:** A0, Unit 1, all 4 skills starting at mastery 0.00
+
+| Conv | Primary Target | Evidence? | What Happens |
+|---|---|---|---|
+| 1 | **U1-VOC-01** | YES (0.80) | Mastery → 0.32. Fatigue added. |
+| 2 | **U1-VOC-02** | YES (0.75) | Mastery → 0.30. VOC-01 fatigued → VOC-02 rose. |
+| 3 | **U1-GRA-01** | YES (0.70) | Mastery → 0.28. VOC-02 fatigued → GRA-01 rose. |
+| 4 | **U1-FLU-01** | YES (0.80) | Mastery → 0.32. GRA-01 fatigued → FLU-01 rose. |
+| 5 | **U1-VOC-01** | YES (0.80) | Mastery → 0.54. Fatigue decayed, came back. |
+| 6 | **U1-VOC-02** | YES (0.75) | Mastery → 0.51. Came back. |
+| 7 | **U1-GRA-01** | YES (0.75) | Mastery → 0.49. Came back. |
+| 8 | **U1-VOC-01** | YES (0.85) | Mastery → 0.70. Getting close to owned! |
+| 9 | **U1-FLU-01** | YES (0.80) | Mastery → 0.54. Came back. |
+| 10 | **U1-GRA-01** | YES (0.80) | Mastery → 0.63. Making progress. |
+
+### What you see:
+
+- Skills rotate every conversation (no repeats in a row)
+- All 4 skills get practiced 2-3 times each
+- Mastery increases steadily
+- Garden plants grow (sightings increase)
+- No skill gets stuck
+
+### After 10 conversations:
+
+| Skill | Mastery | Sightings | Plant | Times as Primary |
+|---|---|---|---|---|
+| U1-VOC-01 | ~0.70 | 3 | 🌸 Bloomed | 3 |
+| U1-VOC-02 | ~0.51 | 2 | 🌿 Budding | 2 |
+| U1-GRA-01 | ~0.63 | 3 | 🌸 Bloomed | 3 |
+| U1-FLU-01 | ~0.54 | 2 | 🌿 Budding | 2 |
+
+---
+
+## 5. Ten Conversations — Scenario B: Student is NOT Getting Evidence (Stuck)
+
+This is the **struggling path**. The student owns 3 skills and keeps failing the last one.
+
+**Setup:** A0, Unit 1. VOC-01, VOC-02, FLU-01 already owned. Only GRA-01 left.
+
+| Conv | Primary Target | Evidence? | What Happens |
+|---|---|---|---|
+| 1 | **U1-GRA-01** | NO (0.30) | consecutive_zeros = 1. No mastery change. |
+| 2 | **U1-GRA-01** | NO (0.25) | consecutive_zeros = 2. **TRIGGER!** Next unit opens. |
+| 3 | **U2-VOC-01** | YES (0.80) | Fresh skill! Mastery → 0.32. Student feels progress. |
+| 4 | **U2-GRA-01** | YES (0.70) | Another fresh skill. Mastery → 0.28. |
+| 5 | **U2-GRA-02** | YES (0.75) | Fresh skill. Mastery → 0.30. |
+| 6 | **U1-GRA-01** | NO (0.40) | Comes back (fatigue decayed). Still no evidence. cz stays 2. |
+| 7 | **U2-FLU-01** | YES (0.80) | Back to Unit 2 skills. Mastery → 0.32. |
+| 8 | **U2-VOC-01** | YES (0.85) | Unit 2 skill returns. Mastery → 0.55. |
+| 9 | **U1-GRA-01** | YES! (0.72) | **Finally!** consecutive_zeros resets to 0. Mastery → 0.29. |
+| 10 | **U2-GRA-01** | YES (0.80) | Back to Unit 2. Mastery → 0.50. |
+
+### What you see:
+
+- Conversations 1-2: Student struggles on GRA-01
+- Conversation 3: System moves on! Fresh skills from Unit 2
+- Conversations 3-5, 7-8: Student makes progress on Unit 2 (feels good!)
+- Conversation 6: GRA-01 comes back for another try (fails again)
+- Conversation 9: GRA-01 finally clicks! Student demonstrates it
+- The student was NEVER stuck — they kept making progress while the stuck skill got periodic retries
+
+### After 10 conversations:
+
+| Skill | Mastery | Status | Notes |
+|---|---|---|---|
+| U1-GRA-01 | ~0.29 | EMERGING | Finally got first evidence on conv 9! |
+| U2-VOC-01 | ~0.55 | EMERGING | Good progress |
+| U2-GRA-01 | ~0.50 | EMERGING | Good progress |
+| U2-GRA-02 | ~0.30 | EMERGING | Started |
+| U2-FLU-01 | ~0.32 | EMERGING | Started |
+
+---
+
+## 6. How the Three Systems Work Together
+
+```text
+┌─────────────────────────────────────────────────┐
+│           ELLA's Decision Engine                 │
+│                                                  │
+│  ┌──────────────┐  ┌──────────────────────┐    │
+│  │   ROTATION   │  │  CONSECUTIVE ZEROS   │    │
+│  │   (Fatigue)  │  │   (Stuck Detection)  │    │
+│  │              │  │                      │    │
+│  │ "Don't       │  │ "If failing the      │    │
+│  │  repeat the  │  │  same skill 2x in    │    │
+│  │  same skill  │  │  a row, open next    │    │
+│  │  next time"  │  │  unit"               │    │
+│  └──────┬───────┘  └──────────┬───────────┘    │
+│         │                      │                │
+│         └──────────┬───────────┘                │
+│                    ↓                            │
+│         ┌─────────────────────┐                 │
+│         │  PRIORITY SCORING   │                 │
+│         │                     │                 │
+│         │  Need + Uncertainty │                 │
+│         │  + ReviewDue        │                 │
+│         │  + CurriculumOrder  │                 │
+│         │  + Variety          │                 │
+│         │  - Fatigue          │                 │
+│         └──────────┬──────────┘                 │
+│                    ↓                            │
+│         🏆 HIGHEST PRIORITY WINS                │
+│                    ↓                            │
+│         NEXT PRIMARY TARGET                     │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Testing Checklist
+
+### For Scenario A (student getting evidence):
+
+- [ ] Primary target changes after every conversation
+- [ ] No skill repeats as primary 3+ times in a row
+- [ ] All 4 unit skills appear as primary within 10 conversations
+- [ ] Garden grows (sightings increase each session)
+- [ ] Skills with higher mastery get selected less often
+
+### For Scenario B (student stuck):
+
+- [ ] After 2 zero-evidence sessions on same skill, primary changes to a different unit's skill
+- [ ] The stuck skill still comes back every 3-4 conversations for a retry
+- [ ] When the stuck skill finally gets evidence, consecutive_zeros resets
+- [ ] Student makes visible progress on the new unit's skills
+- [ ] Garden still grows on the new skills
+
+### How to verify in Admin:
+
+1. **Admin → Sessions → View** for each conversation
+2. Look at **"Conversation Prompt Used"** → check `Primary target:`
+3. Confirm it changes between sessions
+4. After 2 zeros: confirm the next primary is from the **next unit** (U2-xxx instead of U1-xxx)
+5. **Admin → Memory** → check `due_next` field shows the new targets
+
+---
+
+## 8. Summary
+
+| Logic | Trigger | Effect |
+|---|---|---|
+| **Fatigue** | Skill was just primary | Gets penalized for 3-4 sessions |
+| **Consecutive Zeros** | Same skill, 2x zero evidence in a row | Opens next unit's skills |
+| **Priority Scoring** | Always runs | Picks the highest-value skill to practice next |
+
+> **In one sentence:** "ELLA rotates skills using fatigue, moves forward when stuck using consecutive zeros, and always picks the most valuable next skill using priority scoring."
