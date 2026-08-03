@@ -163,7 +163,7 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 | **When garden grows** | A skill gets a sighting when the student demonstrates it with confidence **≥ 0.70**. |
 | **When skill is "owned"** | **Mastery ≥ 0.75** and the skill has been demonstrated in **2+ different topics**. |
 | **When unit is "complete"** | All skills in the unit are owned. |
-| **When stuck** | The same last un-owned skill gets **2 consecutive sessions with no evidence** → the next unit opens. |
+| **When stuck** | The **last remaining un-owned skill in the unit** gets **2 consecutive sessions with no evidence** → the next unit opens. |
 | **Sequencing** | Units always progress **Unit 1 → Unit 2 → Unit 3**. Units are never skipped. |
 
 ---
@@ -172,7 +172,7 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 | System | Where | What it does |
 |---|---|---|
 | **Recency** | Within a unit | Recently practiced skill gets a **cooldown**, giving another skill a chance next time. |
-| **Consecutive Zeros** | Between units | If the **last remaining un-owned skill** gets 2 consecutive sessions with no evidence, the next unit opens. |
+| **Consecutive Zeros** | Between units | If the **last remaining un-owned skill in the unit** gets 2 consecutive sessions with no evidence, the next unit opens. |
 | **Mastery Scoring** | Within a unit | Combines confidence-based evidence over time with **2+ topic contexts** to determine ownership. |
 
 <Note>
