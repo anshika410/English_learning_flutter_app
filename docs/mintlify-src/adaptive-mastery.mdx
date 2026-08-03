@@ -79,20 +79,24 @@ flowchart TD
 **RECENCY LOOP** — When multiple skills are available in the same unit:
 
 ```mermaid
-flowchart LR
-    subgraph RECENCY["RECENCY LOOP (within unit, multiple skills available)"]
+flowchart TB
+    subgraph RECENCY["PRIORITY-BASED SELECTION WITH RECENCY"]
         direction TB
-        R1[VOC-01 primary] --> R2[VOC-02 primary]
-        R2 --> R3[GRA-01 primary]
-        R3 --> R4[FLU-01 primary]
+        R1[Conversation ends] --> R2[Primary skill gets recency penalty]
+        R2 --> R3[Recalculate ALL priority scores]
+        R3 --> R4[Highest score wins<br/>becomes next primary]
         R4 --> R1
     end
 
-    style R1 fill:#e3f2fd
-    style R2 fill:#e3f2fd
+    style R1 fill:#f5f5f5
+    style R2 fill:#ffcdd2
     style R3 fill:#e3f2fd
-    style R4 fill:#e3f2fd
+    style R4 fill:#c8e6c9
 ```
+
+<Warning>
+**This is NOT a fixed rotation.** The order is not VOC-01 → VOC-02 → GRA-01 → FLU-01. It's determined dynamically by the priority score after each conversation. Recently practiced skills receive a temporary recency penalty, allowing other skills to become the next primary target. The winner depends on all 6 scoring factors — not just recency alone.
+</Warning>
 
 **STUCK SKILL LOOP** — When only 1 skill left in unit and it fails 2x:
 
