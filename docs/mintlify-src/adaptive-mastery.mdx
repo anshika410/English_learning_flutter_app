@@ -24,11 +24,11 @@ Each level (A0, A1, etc.) has 4-5 units. Each unit has 3-4 skills. So across one
 
 | What | How |
 |---|---|
-| **Picking next skill** | All un-owned skills get a priority score. Highest wins. Recently practiced = penalized. |
+| **Picking next skill** | All un-owned skills get a priority score. Highest wins. Recently practiced = penalized. **Order is NOT linear** — it's based on scores, not sequence. |
 | **When garden grows** | Student demonstrates skill with confidence ≥ 0.70 |
 | **When skill is "owned"** | Mastery ≥ 0.75 AND shown in 2+ different topics |
 | **When unit is "complete"** | All skills in that unit are owned |
-| **When stuck** | Same skill fails 2x with no evidence → next unit opens |
+| **When stuck** | Same skill fails 2x with no evidence → next unit opens. **Only applies when it's the last un-owned skill in the unit** (if there are 2+ skills left, recency handles rotation normally). |
 | **Sequencing** | Unit 1 → Unit 2 → Unit 3. Always in order. Never skips. |
 
 ---
@@ -38,7 +38,7 @@ Each level (A0, A1, etc.) has 4-5 units. Each unit has 3-4 skills. So across one
 | System | Where | What it does |
 |---|---|---|
 | **Recency** | Within a unit | Just-practiced skill gets penalized → different skill next time |
-| **Consecutive Zeros** | Between units | 2 fails on last skill → next unit opens |
+| **Consecutive Zeros** | Between units | 2 fails on last skill → next unit opens. **Only triggers when ALL remaining skills in the unit are stuck — not just any skill.** |
 | **Mastery Scoring** | Within a unit | Confidence score (0→1.0) + 2 topics needed to own a skill |
 
 <Note>
