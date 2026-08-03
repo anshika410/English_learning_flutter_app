@@ -27,7 +27,7 @@ flowchart TD
     A([Conversation Ends]) --> B[LLM Judge scores all skills<br/>confidence 0 to 1.0]
     B --> C{Score ≥ 0.70?<br/>FLOOR threshold}
     
-    C -->|YES| D[Mastery ↑<br/>Formula: old + 0.40 × conf × 1-old<br/>Sighting +1 · Garden grows 🌱<br/>cz resets to 0]
+    C -->|YES| D[Mastery increases<br/>Sighting +1<br/>Garden grows<br/>cz resets to 0]
     C -->|NO| E[No mastery change<br/>cz +1 if this was primary<br/>Sighting stays same]
     
     D --> F[Pick Next Primary Target]
@@ -35,11 +35,11 @@ flowchart TD
     
     F --> G{Multiple un-owned<br/>skills in unit?}
     
-    G -->|YES: 2+ skills available| H[PRIORITY SELECTION<br/>Formula: 0.35×Need + 0.20×Uncertainty<br/>+ 0.20×ReviewDue + 0.15×Curriculum<br/>+ 0.10×Variety − 0.25×Recency<br/>───────────<br/>Last practiced enters cooldown (−0.25)<br/>Different skill wins highest score]
+    G -->|YES: 2+ skills available| H[PRIORITY SELECTION<br/>Last practiced enters cooldown<br/>All skills rescored<br/>Highest score wins]
     G -->|NO: only 1 skill left| I{Is cz ≥ 2?<br/>Failed same skill<br/>2x in a row?}
     
     I -->|NO: cz is 0 or 1| J[Same skill again<br/>No other option<br/>Try one more time]
-    I -->|YES: cz = 2 TRIGGER!| K[Open NEXT unit skills<br/>All compete together<br/>Fresh skills have high<br/>Uncertainty + zero Recency<br/>→ they win]
+    I -->|YES: cz = 2 TRIGGER!| K[Open NEXT unit skills<br/>All compete together<br/>Fresh skills win]
     
     H --> L([New Primary Target Set<br/>Start next conversation])
     K --> L
