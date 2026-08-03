@@ -74,7 +74,14 @@ flowchart TD
 | **Same skill again** | No alternative available | Only 1 skill left + hasn't failed twice yet |
 | **New Primary = highest score** | `prioritize_skills()` | All candidates scored → sorted → top one wins |
 
-### The Two Behaviours Explained
+### The Two Core Behaviours
+
+ELLA's adaptive engine has two core behaviours. Most conversations follow the normal priority-based selection process, where the next skill is chosen dynamically based on its priority score. When progress becomes blocked because only one difficult skill remains, a separate recovery behaviour temporarily expands the learning pool so the learner can continue making progress before revisiting that skill.
+
+| Behaviour | Question it answers |
+|---|---|
+| **Priority-Based Selection** | "Which skill should we practice next?" |
+| **Stuck Skill Recovery** | "What should we do when progress gets blocked?" |
 
 **Priority-Based Selection with Recency** — When multiple skills are available in the same unit:
 
