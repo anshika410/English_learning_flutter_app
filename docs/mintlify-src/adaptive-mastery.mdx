@@ -54,6 +54,24 @@ flowchart TD
     style J fill:#ffcdd2,stroke:#c62828
 ```
 
+### Logic at Each Step
+
+| Flowchart Node | Logic Used | Formula / Rule |
+|---|---|---|
+| **LLM Judge scores** | DeepSeek evaluates transcript | Confidence = 0.0 to 1.0 per skill |
+| **Score ≥ 0.70?** | FLOOR threshold | `FLOOR = 0.70` — below this, evidence is ignored |
+| **Mastery ↑** | Bounded learning rate | `new = old + 0.40 × confidence × (1 - old)` |
+| **Garden grows** | Sighting incremented | `sightings[skill] += 1` → plant stage changes at 1/2/3 |
+| **cz resets** | Consecutive zeros tracker | `consecutive_zeros[skill] = 0` |
+| **cz +1** | Consecutive zeros tracker | `consecutive_zeros[skill] += 1` |
+| **Multiple skills?** | `active_step()` finds first incomplete unit | Checks how many skills have `bucket != "owned"` |
+| **RECENCY ROTATION** | Priority scoring with penalty | Score = 0.35×Need + 0.20×Uncertainty + 0.20×ReviewDue + 0.15×Curriculum + 0.10×Variety **- 0.25×Recency** |
+| **Recency penalty** | Recent primary history | `penalty = recent_count / 4.0` (max 4 tracked) |
+| **Is cz ≥ 2?** | Stuck detection | If ALL remaining skills have `consecutive_zeros >= 2` |
+| **Open next unit** | `due_unit()` expands pool | Adds next sequential unit's un-owned skills to candidates |
+| **Same skill again** | No alternative available | Only 1 skill left + hasn't failed twice yet |
+| **New Primary = highest score** | `prioritize_skills()` | All candidates scored → sorted → top one wins |
+
 ### The Two Loops Explained
 
 ```mermaid
