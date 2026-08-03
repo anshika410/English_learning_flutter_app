@@ -82,9 +82,9 @@ flowchart TD
 flowchart TB
     subgraph RECENCY["PRIORITY-BASED SELECTION WITH RECENCY"]
         direction TB
-        R1[Conversation ends] --> R2[Primary skill gets recency cooldown]
-        R2 --> R3[Recalculate ALL priority scores]
-        R3 --> R4[Highest score wins<br/>becomes next primary]
+        R1[Conversation ends] --> R2[Previous primary<br/>temporarily enters cooldown]
+        R2 --> R3[Recalculate all priority scores]
+        R3 --> R4[Highest priority becomes<br/>the next primary]
         R4 --> R1
     end
 
