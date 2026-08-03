@@ -22,92 +22,69 @@ Each level (A0, A1, etc.) has 4-5 units. Each unit has 3-4 skills. So across one
 
 ## The Complete Flowchart
 
-```text
-┌─────────────────────────────────┐
-│      CONVERSATION ENDS          │
-└────────────────┬────────────────┘
-                 ↓
-┌─────────────────────────────────┐
-│   LLM Judge scores all skills   │
-│   (confidence 0 to 1.0)         │
-└────────────────┬────────────────┘
-                 ↓
-          ┌──────┴──────┐
-          │ Score ≥ 0.70?│
-          └──────┬──────┘
-         YES ↙        ↘ NO
-        ↓                ↓
-┌─────────────┐    ┌─────────────────┐
-│ Mastery ↑   │    │ Nothing happens  │
-│ Sighting +1 │    │ cz +1 (if this  │
-│ Garden      │    │ was the primary) │
-│ grows 🌱    │    └────────┬────────┘
-│ cz resets   │             │
-└──────┬──────┘             │
-       └────────┬───────────┘
-                ↓
-┌─────────────────────────────────┐
-│    PICK NEXT PRIMARY TARGET     │
-└────────────────┬────────────────┘
-                 ↓
-          ┌──────┴────────────┐
-          │ Multiple un-owned  │
-          │ skills in unit?    │
-          └──────┬────────────┘
-         YES ↙        ↘ NO (only 1 left)
-        ↓                ↓
-┌─────────────┐    ┌──────────────┐
-│  RECENCY    │    │  Is cz ≥ 2?  │
-│  ROTATION   │    └──────┬───────┘
-│             │       YES ↙    ↘ NO
-│ Last        │      ↓          ↓
-│ practiced   │ ┌────────┐ ┌──────────┐
-│ skill gets  │ │ OPEN   │ │ SAME     │
-│ penalty     │ │ NEXT   │ │ SKILL    │
-│      ↓      │ │ UNIT   │ │ AGAIN    │
-│ Different   │ └───┬────┘ └────┬─────┘
-│ skill wins  │     │           │
-└──────┬──────┘     │           │
-       │            ↓           ↓
-       │    ┌──────────────────────────┐
-       │    │ All skills (stuck +      │
-       │    │ next unit) compete       │
-       │    │ together via priority    │
-       │    │ scoring                  │
-       │    └───────────┬──────────────┘
-       │                │
-       └────────┬───────┘
-                ↓
-┌─────────────────────────────────┐
-│     NEW PRIMARY TARGET SET      │
-│     Start next conversation     │
-└────────────────┬────────────────┘
-                 ↓
-        ┌────────┴────────┐
-        │                 │
-        ↓                 ↓
-┌──────────────┐  ┌───────────────────┐
-│ RECENCY      │  │ STUCK SKILL       │
-│ LOOP:        │  │ LOOP:             │
-│              │  │                   │
-│ A→B→C→D→A   │  │ Opens next unit   │
-│              │  │       ↓           │
-│ Each skill   │  │ Next unit skills  │
-│ takes turns  │  │ rotate (3-4       │
-│ as primary.  │  │ sessions)         │
-│ Rotates      │  │       ↓           │
-│ every        │  │ Stuck skill       │
-│ session.     │  │ comes back        │
-│              │  │ (recency          │
-│ Continues    │  │  decayed)         │
-│ until all    │  │       ↓           │
-│ skills       │  │ Scores ≥ 0.70?   │
-│ are owned.   │  │   YES → owned!   │
-│              │  │   NO → back to   │
-│              │  │   next unit loop  │
-│              │  │   (tries again    │
-│              │  │   in 4-5 sessions)│
-└──────────────┘  └───────────────────┘
+```mermaid
+flowchart TD
+    A[Conversation Ends] --> B[LLM Judge scores all skills<br/>confidence 0 to 1.0]
+    B --> C{Score ≥ 0.70?}
+    
+    C -->|YES| D[Mastery ↑<br/>Sighting +1<br/>Garden grows 🌱<br/>cz resets to 0]
+    C -->|NO| E[Nothing happens<br/>cz +1 if primary target]
+    
+    D --> F[Pick Next Primary Target]
+    E --> F
+    
+    F --> G{Multiple un-owned<br/>skills in unit?}
+    
+    G -->|YES| H[RECENCY ROTATION<br/>Last practiced gets penalty<br/>Different skill wins]
+    G -->|NO - only 1 left| I{Is cz ≥ 2?}
+    
+    I -->|NO| J[Same skill again<br/>Try one more time]
+    I -->|YES - TRIGGER!| K[Open next unit skills<br/>All compete together]
+    
+    H --> L[New Primary Target Set<br/>Start next conversation]
+    K --> L
+    J --> L
+    
+    L --> A
+
+    style D fill:#c8e6c9,stroke:#2e7d32
+    style E fill:#ffcdd2,stroke:#c62828
+    style H fill:#e3f2fd,stroke:#1565c0
+    style K fill:#fff3e0,stroke:#e65100
+    style J fill:#ffcdd2,stroke:#c62828
+```
+
+### The Two Loops Explained
+
+```mermaid
+flowchart LR
+    subgraph RECENCY["RECENCY LOOP (within unit)"]
+        direction TB
+        R1[VOC-01 primary] --> R2[VOC-02 primary]
+        R2 --> R3[GRA-01 primary]
+        R3 --> R4[FLU-01 primary]
+        R4 --> R1
+    end
+
+    subgraph STUCK["STUCK SKILL LOOP (between units)"]
+        direction TB
+        S1[GRA-01 fails 2x] --> S2[Next unit opens]
+        S2 --> S3[Unit 2 skills rotate<br/>3-4 sessions]
+        S3 --> S4[GRA-01 comes back]
+        S4 --> S5{Scores ≥ 0.70?}
+        S5 -->|YES| S6[Owned! ✅<br/>Unit complete]
+        S5 -->|NO| S3
+    end
+
+    style R1 fill:#e3f2fd
+    style R2 fill:#e3f2fd
+    style R3 fill:#e3f2fd
+    style R4 fill:#e3f2fd
+    style S1 fill:#ffcdd2
+    style S2 fill:#fff3e0
+    style S3 fill:#e8f5e9
+    style S4 fill:#fff3e0
+    style S6 fill:#c8e6c9
 ```
 
 ---
