@@ -35,7 +35,7 @@ flowchart TD
     
     F --> G{Multiple un-owned<br/>skills in unit?}
     
-    G -->|YES: 2+ skills available| H[RECENCY ROTATION<br/>Formula: 0.35×Need + 0.20×Uncertainty<br/>+ 0.20×ReviewDue + 0.15×Curriculum<br/>+ 0.10×Variety − 0.25×Recency<br/>───────────<br/>Last practiced gets −0.25 penalty<br/>Different skill wins highest score]
+    G -->|YES: 2+ skills available| H[RECENCY ROTATION<br/>Formula: 0.35×Need + 0.20×Uncertainty<br/>+ 0.20×ReviewDue + 0.15×Curriculum<br/>+ 0.10×Variety − 0.25×Recency<br/>───────────<br/>Last practiced enters cooldown (−0.25)<br/>Different skill wins highest score]
     G -->|NO: only 1 skill left| I{Is cz ≥ 2?<br/>Failed same skill<br/>2x in a row?}
     
     I -->|NO: cz is 0 or 1| J[Same skill again<br/>No other option<br/>Try one more time]
@@ -67,8 +67,8 @@ flowchart TD
 | **cz resets** | Consecutive zeros tracker | `consecutive_zeros[skill] = 0` |
 | **cz +1** | Consecutive zeros tracker | `consecutive_zeros[skill] += 1` |
 | **Multiple skills?** | `active_step()` finds first incomplete unit | Checks how many skills have `bucket != "owned"` |
-| **RECENCY ROTATION** | Priority scoring with penalty | Score = 0.35×Need + 0.20×Uncertainty + 0.20×ReviewDue + 0.15×Curriculum + 0.10×Variety **- 0.25×Recency** |
-| **Recency penalty** | Recent primary history | `penalty = recent_count / 4.0` (max 4 tracked) |
+| **RECENCY ROTATION** | Priority scoring with cooldown | Score = 0.35×Need + 0.20×Uncertainty + 0.20×ReviewDue + 0.15×Curriculum + 0.10×Variety **- 0.25×Recency** |
+| **Recency cooldown** | Recent primary history | `cooldown = recent_count / 4.0` (max 4 tracked) |
 | **Is cz ≥ 2?** | Stuck detection | If ALL remaining skills have `consecutive_zeros >= 2` |
 | **Open next unit** | `due_unit()` expands pool | Adds next sequential unit's un-owned skills to candidates |
 | **Same skill again** | No alternative available | Only 1 skill left + hasn't failed twice yet |
@@ -175,7 +175,7 @@ Judge evaluates all 10 turns → confidence = 0.80
 
 After session:
   sightings[U2-VOC-01] = 1
-  recency = now in recent list (penalty next time)
+  recency = now in recent list (cooldown next time)
   uncertainty = 1/√(1+1) = 0.71
   mastery = 0 + 0.40 × 0.80 × (1-0) = 0.32
 
@@ -754,7 +754,7 @@ $$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 
 | **Review Due** | `0.20` | $1.0 - e^{-\frac{\text{days\_since\_last\_practice}}{7.0}}$ | Spaced repetition decay. Prioritizes older skills to combat memory decay. |
 | **Curriculum Need** | `0.15` | $1.0 - \frac{\text{index}}{\text{total\_skills}}$ | Retains a gentle pull toward the natural curriculum order. |
 | **Variety** | `0.10` | $\frac{1}{\text{evidence\_count} + 1.0}$ | Prefers skills that have been practiced less overall. |
-| **Recency** | `-0.25` | $\frac{\text{recent\_primary\_count}}{4.0}$ | A **large penalty** if the skill was a primary target in recent chats. |
+| **Recency** | `-0.25` | $\frac{\text{recent\_primary\_count}}{4.0}$ | A **large cooldown** if the skill was a primary target in recent chats. |
 
 ### Worked Example: 3 Skills After a Session
 
@@ -780,7 +780,7 @@ Therefore:
 GRA-01 = 0.66  ← highest priority
 ```
 
-**Next Primary Target = GRA-01** (not VOC-01, because recency cooldown dragged it down)
+**Next Primary Target = GRA-01** (not VOC-01, because recency cooldown lowered its priority)
 
 ---
 
