@@ -120,9 +120,10 @@ flowchart TB
 
 | | **Normal Behaviour** | **Recovery Behaviour** |
 |---|---|---|
-| **When** | Multiple skills available | One skill left + failed twice |
-| **What happens** | Cooldown, rescore, highest wins | Open next unit, practice, retry later |
-| **Result** | Different skill each session | Never stuck, retry every 4-5 sessions |
+| **When** | Multiple skills are available | One skill remains and it has failed twice |
+| **Purpose** | Select the next skill dynamically | Prevent the learner from getting stuck |
+| **What happens** | Previous primary cools down → priorities are recalculated → highest priority becomes next primary | Next unit opens → learner practices other skills → blocked skill is retried later |
+| **Result** | Different skills are practiced over time | Learning continues without one skill blocking progress |
 
 <Warning>
 **Not a fixed rotation.** The order is determined dynamically by priority score. Recently practiced skills get a temporary cooldown, allowing others to become the next primary.
