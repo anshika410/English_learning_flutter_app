@@ -28,11 +28,15 @@ class TopicCarousel extends StatefulWidget {
   /// Fired when the carousel settles on a topic (user swipe).
   final ValueChanged<TopicChoice> onSelect;
 
+  /// The topic designated as Zoe's Pick. Defaults to topics.first if omitted.
+  final TopicChoice? zoePick;
+
   const TopicCarousel({
     super.key,
     required this.topics,
     required this.selected,
     required this.onSelect,
+    this.zoePick,
   });
 
   @override
@@ -65,6 +69,15 @@ class _TopicCarouselState extends State<TopicCarousel> {
     super.initState();
     final len = widget.topics.length;
     _base = len * (_loops ~/ 2);
+  }
+
+  int get _zoePickIndex {
+    final pick = widget.zoePick ?? (widget.topics.isNotEmpty ? widget.topics.first : null);
+    if (pick != null) {
+      final idx = widget.topics.indexWhere((t) => t.name == pick.name);
+      if (idx >= 0) return idx;
+    }
+    return 0;
   }
 
   @override
@@ -115,17 +128,34 @@ class _TopicCarouselState extends State<TopicCarousel> {
       key: const ValueKey('home-topic-carousel'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          "Zoe's Pick",
-          key: const ValueKey('home-topic-carousel-pick-label'),
-          style: EllaTextStyles.bodySmall.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: EllaColors.berryDeep,
-          ),
+        AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final zoeIdx = _zoePickIndex;
+            final page = _page;
+            final distToZoe = len > 0 ? ((page - zoeIdx) % len).abs() : 0.0;
+            final normalizedDist =
+                len > 0
+                    ? (distToZoe > len / 2 ? len - distToZoe : distToZoe).abs()
+                    : 0.0;
+            final labelOpacity = (1.0 - (normalizedDist * 2)).clamp(0.0, 1.0);
+
+            return Opacity(
+              opacity: labelOpacity,
+              child: Text(
+                "Zoe's Pick",
+                key: const ValueKey('home-topic-carousel-pick-label'),
+                style: EllaTextStyles.bodySmall.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: EllaColors.berryDeep,
+                ),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 2),
-        // Pointer aimed at the centered circle.
+        // Pointer aimed at the centered circle (always visible).
         const Icon(
           Icons.arrow_drop_down,
           key: ValueKey('home-topic-carousel-pointer'),

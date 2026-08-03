@@ -479,6 +479,71 @@ void main() {
     expect(selectedNames, ['school', 'food']);
   });
 
+  testWidgets("home carousel shows Zoe's Pick label only for Zoe's pick topic", (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final topics = [
+      _topic('food', 'Food'),
+      _topic('school', 'School'),
+      _topic('home', 'Home'),
+      _topic('animals', 'Animals'),
+      _topic('sports', 'Sports'),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 844)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 342,
+                child: TopicCarousel(
+                  topics: topics,
+                  selected: topics.first,
+                  zoePick: topics.first,
+                  onSelect: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final pointerFinder = find.byKey(
+      const ValueKey('home-topic-carousel-pointer'),
+    );
+    expect(pointerFinder, findsOneWidget);
+
+    final labelFinder = find.byKey(
+      const ValueKey('home-topic-carousel-pick-label'),
+    );
+    final opacityFinder = find.ancestor(
+      of: labelFinder,
+      matching: find.byType(Opacity),
+    );
+    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 1.0);
+
+    final carousel = find.byKey(
+      const ValueKey('home-topic-carousel-page-view'),
+    );
+
+    // Swipe to Topic B (School)
+    await tester.drag(carousel, const Offset(-106, 0));
+    await tester.pumpAndSettle();
+    expect(pointerFinder, findsOneWidget);
+    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 0.0);
+
+    // Swipe back to Topic A (Food)
+    await tester.drag(carousel, const Offset(106, 0));
+    await tester.pumpAndSettle();
+    expect(pointerFinder, findsOneWidget);
+    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 1.0);
+  });
+
   testWidgets('home carousel interpolates the arc while dragging', (
     tester,
   ) async {
