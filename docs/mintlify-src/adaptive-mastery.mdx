@@ -771,3 +771,14 @@ The adaptive mastery data is saved inside the user's `skills_progress` JSON payl
   "recent_primary_history": ["A1:U1-GRA-01"]
 }
 ```
+
+
+---
+
+## Design Notes & FAQ
+
+<Note>
+**Why is rotation non-linear (not VOC-01 → VOC-02 → GRA-01 → FLU-01 in fixed order)?**
+
+Non-linear is intentional. It's what makes this adaptive, not just a rotation playlist. The "randomness" isn't random — it's priority-scored based on the student's actual gaps. If we make it linear, we lose the adaptive part and it's just a round-robin scheduler. The system spends MORE time on what the student needs and LESS time on what they've already got. That's the entire value proposition.
+</Note>
