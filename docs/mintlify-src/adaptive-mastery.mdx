@@ -5,7 +5,21 @@ description: "How ELLA dynamically selects conversation targets and tracks maste
 icon: "brain"
 ---
 
-The **Adaptive Mastery & Dynamic Target Selection** system replaces the legacy hardcoded "3 sightings" progression model. Instead of counting sightings as a proxy for learning, ELLA calculates a continuous **Mastery Confidence** score and selects today's active conversation target using a weighted **Priority Score** with fatigue-based cooldowns.
+The **Adaptive Mastery & Dynamic Target Selection** system replaces the legacy hardcoded "3 sightings" progression model. Instead of counting sightings as a proxy for learning, ELLA calculates a continuous **Mastery Confidence** score and selects today's active conversation target using a weighted **Priority Score** with recency-based cooldowns.
+
+---
+
+## The Three Systems at a Glance
+
+| Logic | Where it operates | What it does |
+|---|---|---|
+| **Recency Rotation** | **Within** a unit | After being the primary target, a skill gets a penalty for 3-4 sessions → a different skill becomes primary next time. Prevents same skill repeating. |
+| **Consecutive Zeros** | **Between** units | If the same skill gets 0 evidence 2 times in a row → opens next unit's skills. Prevents student being stuck forever. |
+| **Adaptive Mastery Scoring** | **Within** a unit | Instead of "3 sightings = done", calculates a confidence score (0→1.0) + requires evidence in 2 different topics before declaring a skill owned. More meaningful than counting. |
+
+<Note>
+**Does the garden still grow?** Yes. Sightings still increment in parallel → plants still grow (seed → sprout → budding → bloomed). The adaptive mastery system runs alongside the old sighting system. Nothing changes visually for the student.
+</Note>
 
 <Tip>
 **The simplest way to understand this:**
@@ -473,13 +487,13 @@ $$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 
 | **Review Due** | `0.20` | $1.0 - e^{-\frac{\text{days\_since\_last\_practice}}{7.0}}$ | Spaced repetition decay. Prioritizes older skills to combat memory decay. |
 | **Curriculum Need** | `0.15` | $1.0 - \frac{\text{index}}{\text{total\_skills}}$ | Retains a gentle pull toward the natural curriculum order. |
 | **Variety** | `0.10` | $\frac{1}{\text{evidence\_count} + 1.0}$ | Prefers skills that have been practiced less overall. |
-| **Fatigue** | `-0.25` | $\frac{\text{recent\_primary\_count}}{4.0}$ | A **large penalty** if the skill was a primary target in recent chats. |
+| **Recency** | `-0.25` | $\frac{\text{recent\_primary\_count}}{4.0}$ | A **large penalty** if the skill was a primary target in recent chats. |
 
 ### Worked Example: 3 Skills After a Session
 
 Suppose VOC-01 was just the primary target and we now need to pick the next one:
 
-| Skill | Need | Uncertainty | Review | Curriculum | Variety | Fatigue | **Final Priority** |
+| Skill | Need | Uncertainty | Review | Curriculum | Variety | Recency | **Final Priority** |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | VOC-01 | 0.25 | 0.25 | 0.40 | 0.80 | 0.25 | 0.75 | **0.22** |
 | GRA-01 | 0.70 | 0.50 | 0.80 | 0.90 | 0.50 | 0.00 | **0.66** |
@@ -499,22 +513,22 @@ Therefore:
 GRA-01 = 0.66  ← highest priority
 ```
 
-**Next Primary Target = GRA-01** (not VOC-01, because fatigue dragged it down)
+**Next Primary Target = GRA-01** (not VOC-01, because recency penalty dragged it down)
 
 ---
 
-## 8. The Fatigue Cooldown Loop
+## 8. The Recency Cooldown Loop
 
 In a hardcoded model, if a student struggles with a skill, the system keeps serving that same skill as the primary target because they haven't met the "3 sightings" criterion. This creates frustration and engagement blockages.
 
-### How Fatigue Solves This
+### How Recency Solves This
 
 ```
          Practice VOC-01
                 ↓
          Mastery increases slightly
                 ↓
-         Fatigue increases (just practiced)
+         Recency increases (just practiced)
                 ↓
    VOC-01 temporarily falls down the priority list
                 ↓
@@ -522,7 +536,7 @@ In a hardcoded model, if a student struggles with a skill, the system keeps serv
                 ↓
          Time passes (other conversations happen)
                 ↓
-      Fatigue decreases (hasn't been primary recently)
+      Recency decreases (hasn't been primary recently)
                 ↓
     VOC-01 becomes high-priority again
                 ↓
@@ -536,13 +550,13 @@ With 4 skills (VOC-01, VOC-02, GRA-01, FLU-01), all starting at mastery 0.00:
 | Conversation | Primary Target | Why? |
 |---|---|---|
 | 1 | VOC-01 | Highest initial priority (curriculum order) |
-| 2 | GRA-01 | VOC-01 now fatigued, GRA-01 rises |
-| 3 | VOC-02 | GRA-01 now fatigued, VOC-02 rises |
-| 4 | FLU-01 | VOC-02 now fatigued, FLU-01 rises |
-| 5 | VOC-01 | Fatigue decayed, still has high Need |
+| 2 | GRA-01 | VOC-01 now has recency penalty, GRA-01 rises |
+| 3 | VOC-02 | GRA-01 now has recency penalty, VOC-02 rises |
+| 4 | FLU-01 | VOC-02 now has recency penalty, FLU-01 rises |
+| 5 | VOC-01 | Recency decayed, still has high Need |
 | 6 | GRA-01 | Returns for another opportunity |
 | 7 | VOC-02 | Returns for another opportunity |
-| 8 | VOC-01 | Need remains high, fatigue decayed again |
+| 8 | VOC-01 | Need remains high, recency decayed again |
 | 9 | FLU-01 | Fluency gets another turn |
 | 10 | GRA-01 | Grammar gets another turn |
 
@@ -621,7 +635,7 @@ Bloomed                           Check mastery
                                       ↓
                                   Calculate priority
                                       ↓
-                                  Apply fatigue
+                                  Apply recency
                                       ↓
                                   Select next target
 ```

@@ -13,13 +13,13 @@ This document explains the **rotation logic**, the **consecutive zeros (stuck-sk
 
 | Problem | What was happening | How we solved it |
 |---|---|---|
-| **Repetition** | Same skill every conversation (no variety) | **Fatigue penalty** — after being primary, a skill gets penalized for next 3-4 sessions |
+| **Repetition** | Same skill every conversation (no variety) | **Recency penalty** — after being primary, a skill gets penalized for next 3-4 sessions |
 | **Frustration** | Student struggles with one skill, gets stuck forever | **Consecutive zeros** — after 2 fails with no evidence, open the next unit |
 | **Rigidity** | Skills practiced in fixed order regardless of performance | **Priority scoring** — 6 weighted factors decide what to practice next |
 
 ---
 
-## 2. The Rotation Logic (Fatigue)
+## 2. The Rotation Logic (Recency)
 
 ### What it does
 
@@ -27,7 +27,7 @@ After every conversation, the primary target gets a **cooldown penalty**. This f
 
 ### When it matters
 
-When there are **multiple un-owned skills** in the current unit. The fatigue ensures ELLA cycles through all of them rather than repeating one.
+When there are **multiple un-owned skills** in the current unit. The recency penalty ensures ELLA cycles through all of them rather than repeating one.
 
 ### How it works
 
@@ -72,7 +72,7 @@ Conv 1 → GRA-01 → 0 evidence (consecutive_zeros = 1)
 Conv 2 → GRA-01 → 0 evidence (consecutive_zeros = 2) ← TRIGGER!
 Conv 3 → U2-VOC-01 → next unit opens! Student makes progress.
 Conv 4 → U2-GRA-01 → fresh skills, fresh opportunities
-Conv 5 → GRA-01 → comes back for another try (fatigue decayed)
+Conv 5 → GRA-01 → comes back for another try (recency decayed)
 ```
 
 ### The trigger rule
@@ -84,7 +84,7 @@ IF:
 THEN:
   - Also include skills from the NEXT unit in the candidate pool
   - Run priority scoring on the combined pool
-  - Fresh next-unit skills naturally win (high Uncertainty + zero Fatigue)
+  - Fresh next-unit skills naturally win (high Uncertainty + zero Recency)
   - Stuck skill stays in pool but ranked low — comes back later
 ```
 
@@ -103,10 +103,10 @@ This is the **happy path**. The student performs well enough that skills get evi
 
 | Conv | Primary Target | Evidence? | What Happens |
 |---|---|---|---|
-| 1 | **U1-VOC-01** | YES (0.80) | Mastery → 0.32. Fatigue added. |
-| 2 | **U1-VOC-02** | YES (0.75) | Mastery → 0.30. VOC-01 fatigued → VOC-02 rose. |
-| 3 | **U1-GRA-01** | YES (0.70) | Mastery → 0.28. VOC-02 fatigued → GRA-01 rose. |
-| 4 | **U1-FLU-01** | YES (0.80) | Mastery → 0.32. GRA-01 fatigued → FLU-01 rose. |
+| 1 | **U1-VOC-01** | YES (0.80) | Mastery → 0.32. Recency added. |
+| 2 | **U1-VOC-02** | YES (0.75) | Mastery → 0.30. VOC-01 has recency penalty → VOC-02 rose. |
+| 3 | **U1-GRA-01** | YES (0.70) | Mastery → 0.28. VOC-02 has recency penalty → GRA-01 rose. |
+| 4 | **U1-FLU-01** | YES (0.80) | Mastery → 0.32. GRA-01 has recency penalty → FLU-01 rose. |
 | 5 | **U1-VOC-01** | YES (0.80) | Mastery → 0.54. Fatigue decayed, came back. |
 | 6 | **U1-VOC-02** | YES (0.75) | Mastery → 0.51. Came back. |
 | 7 | **U1-GRA-01** | YES (0.75) | Mastery → 0.49. Came back. |
@@ -146,7 +146,7 @@ This is the **struggling path**. The student owns 3 skills and keeps failing the
 | 3 | **U2-VOC-01** | YES (0.80) | Fresh skill! Mastery → 0.32. Student feels progress. |
 | 4 | **U2-GRA-01** | YES (0.70) | Another fresh skill. Mastery → 0.28. |
 | 5 | **U2-GRA-02** | YES (0.75) | Fresh skill. Mastery → 0.30. |
-| 6 | **U1-GRA-01** | NO (0.40) | Comes back (fatigue decayed). Still no evidence. cz stays 2. |
+| 6 | **U1-GRA-01** | NO (0.40) | Comes back (recency decayed). Still no evidence. cz stays 2. |
 | 7 | **U2-FLU-01** | YES (0.80) | Back to Unit 2 skills. Mastery → 0.32. |
 | 8 | **U2-VOC-01** | YES (0.85) | Unit 2 skill returns. Mastery → 0.55. |
 | 9 | **U1-GRA-01** | YES! (0.72) | **Finally!** consecutive_zeros resets to 0. Mastery → 0.29. |
@@ -181,7 +181,7 @@ This is the **struggling path**. The student owns 3 skills and keeps failing the
 │                                                  │
 │  ┌──────────────┐  ┌──────────────────────┐    │
 │  │   ROTATION   │  │  CONSECUTIVE ZEROS   │    │
-│  │   (Fatigue)  │  │   (Stuck Detection)  │    │
+│  │   (Recency)  │  │   (Stuck Detection)  │    │
 │  │              │  │                      │    │
 │  │ "Don't       │  │ "If failing the      │    │
 │  │  repeat the  │  │  same skill 2x in    │    │
@@ -198,7 +198,7 @@ This is the **struggling path**. The student owns 3 skills and keeps failing the
 │         │  + ReviewDue        │                 │
 │         │  + CurriculumOrder  │                 │
 │         │  + Variety          │                 │
-│         │  - Fatigue          │                 │
+│         │  - Recency          │                 │
 │         └──────────┬──────────┘                 │
 │                    ↓                            │
 │         🏆 HIGHEST PRIORITY WINS                │
@@ -241,8 +241,8 @@ This is the **struggling path**. The student owns 3 skills and keeps failing the
 
 | Logic | Trigger | Effect |
 |---|---|---|
-| **Fatigue** | Skill was just primary | Gets penalized for 3-4 sessions |
+| **Recency** | Skill was just primary | Gets penalized for 3-4 sessions |
 | **Consecutive Zeros** | Same skill, 2x zero evidence in a row | Opens next unit's skills |
 | **Priority Scoring** | Always runs | Picks the highest-value skill to practice next |
 
-> **In one sentence:** "ELLA rotates skills using fatigue, moves forward when stuck using consecutive zeros, and always picks the most valuable next skill using priority scoring."
+> **In one sentence:** "ELLA rotates skills using recency, moves forward when stuck using consecutive zeros, and always picks the most valuable next skill using priority scoring."
