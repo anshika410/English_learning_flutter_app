@@ -235,9 +235,9 @@ Conversation 4 → ✅ = 3 sightings
 
 So the old system basically says:
 
-> **"I saw you do it correctly 3 times, so I'll call this skill Bloomed."**
+> **"I saw you demonstrate it correctly 3 times, so I'll call this skill Bloomed."**
 
-It doesn't really care *how strong* each performance was after it passes the threshold.
+Once a demonstration passes the sighting threshold, the system mainly tracks whether another qualifying sighting happens — it doesn't distinguish between a barely-passing and a strong demonstration.
 
 ### New system = "How confident am I?"
 
@@ -281,6 +281,8 @@ And eventually:
 82%
 ```
 
+*These are actual outputs from the mastery formula assuming evidence confidence of 0.80 each time. Stronger demonstrations increase confidence faster; weaker ones increase it less.*
+
 So instead of:
 
 ```text
@@ -305,7 +307,7 @@ you have:
 82%
 ```
 
-### And there's one more safety check
+### And there's one more ownership check
 
 Even if ELLA reaches **75% confidence**, it asks:
 
