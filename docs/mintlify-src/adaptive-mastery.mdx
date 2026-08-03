@@ -24,34 +24,36 @@ Each level (A0, A1, etc.) has 4-5 units. Each unit has 3-4 skills. So across one
 
 ```mermaid
 flowchart TD
-    A[Conversation Ends] --> B[LLM Judge scores all skills<br/>confidence 0 to 1.0]
-    B --> C{Score ≥ 0.70?}
+    A([Conversation Ends]) --> B[LLM Judge scores all skills<br/>confidence 0 to 1.0]
+    B --> C{Score ≥ 0.70?<br/>FLOOR threshold}
     
-    C -->|YES| D[Mastery ↑<br/>Sighting +1<br/>Garden grows 🌱<br/>cz resets to 0]
-    C -->|NO| E[Nothing happens<br/>cz +1 if primary target]
+    C -->|YES| D[Mastery ↑<br/>Formula: old + 0.40 × conf × 1-old<br/>Sighting +1 · Garden grows 🌱<br/>cz resets to 0]
+    C -->|NO| E[No mastery change<br/>cz +1 if this was primary<br/>Sighting stays same]
     
     D --> F[Pick Next Primary Target]
     E --> F
     
     F --> G{Multiple un-owned<br/>skills in unit?}
     
-    G -->|YES| H[RECENCY ROTATION<br/>Last practiced gets penalty<br/>Different skill wins]
-    G -->|NO - only 1 left| I{Is cz ≥ 2?}
+    G -->|YES: 2+ skills available| H[RECENCY ROTATION<br/>Formula: 0.35×Need + 0.20×Uncertainty<br/>+ 0.20×ReviewDue + 0.15×Curriculum<br/>+ 0.10×Variety − 0.25×Recency<br/>───────────<br/>Last practiced gets −0.25 penalty<br/>Different skill wins highest score]
+    G -->|NO: only 1 skill left| I{Is cz ≥ 2?<br/>Failed same skill<br/>2x in a row?}
     
-    I -->|NO| J[Same skill again<br/>Try one more time]
-    I -->|YES - TRIGGER!| K[Open next unit skills<br/>All compete together]
+    I -->|NO: cz is 0 or 1| J[Same skill again<br/>No other option<br/>Try one more time]
+    I -->|YES: cz = 2 TRIGGER!| K[Open NEXT unit skills<br/>All compete together<br/>Fresh skills have high<br/>Uncertainty + zero Recency<br/>→ they win]
     
-    H --> L[New Primary Target Set<br/>Start next conversation]
+    H --> L([New Primary Target Set<br/>Start next conversation])
     K --> L
     J --> L
     
     L --> A
 
+    style A fill:#f5f5f5,stroke:#333
     style D fill:#c8e6c9,stroke:#2e7d32
     style E fill:#ffcdd2,stroke:#c62828
     style H fill:#e3f2fd,stroke:#1565c0
     style K fill:#fff3e0,stroke:#e65100
     style J fill:#ffcdd2,stroke:#c62828
+    style L fill:#f5f5f5,stroke:#333
 ```
 
 ### Logic at Each Step
