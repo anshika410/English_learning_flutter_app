@@ -193,14 +193,23 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 
 The formula is `1 / √(sightings + 1)`. That's it.
 
-- The **1** on top is just the number 1 (constant, never changes)
-- The bottom is **sightings + 1** (how many times this skill was demonstrated + 1)
+**What do the numbers mean?**
+
+* **`sightings`** = how many qualifying sessions have demonstrated this skill (same as `evidence_count` in code).
+* **`+ 1`** = a mathematical offset, not an additional sighting. It allows the formula to calculate uncertainty even when a skill has never been demonstrated.
+* **`√`** = square root. Makes uncertainty decrease gradually, not instantly.
+* **`1 / ...`** = makes uncertainty go down as sightings increase.
+
+**Examples:**
 
 ```text
-sightings = 0 → 1/√(0+1) = 1/√1 = 1.00  (no evidence yet)
-sightings = 1 → 1/√(1+1) = 1/√2 = 0.71  (some evidence)
-sightings = 3 → 1/√(3+1) = 1/√4 = 0.50  (more evidence)
-sightings = 8 → 1/√(8+1) = 1/√9 = 0.33  (stronger evidence)
+sightings = 0 → 1 / √(0 + 1) = 1 / √1 = 1.00  (No evidence yet)
+
+sightings = 1 → 1 / √(1 + 1) = 1 / √2 ≈ 0.71  (1 piece of evidence)
+
+sightings = 3 → 1 / √(3 + 1) = 1 / √4 = 0.50  (3 pieces of evidence)
+
+sightings = 8 → 1 / √(8 + 1) = 1 / √9 ≈ 0.33  (8 pieces of evidence)
 ```
 
 **In plain words:** The more times a skill has been demonstrated, the less uncertain the system is about it. Fresh skills (0 sightings) have maximum uncertainty because the system has no evidence about them, which can increase their priority when selecting the next skill.
