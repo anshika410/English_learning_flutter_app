@@ -20,7 +20,97 @@ Each level (A0, A1, etc.) has 4-5 units. Each unit has 3-4 skills. So across one
 
 ---
 
-## How It Works (Simple Version)
+## The Complete Flowchart
+
+```text
+┌─────────────────────────────────┐
+│      CONVERSATION ENDS          │
+└────────────────┬────────────────┘
+                 ↓
+┌─────────────────────────────────┐
+│   LLM Judge scores all skills   │
+│   (confidence 0 to 1.0)         │
+└────────────────┬────────────────┘
+                 ↓
+          ┌──────┴──────┐
+          │ Score ≥ 0.70?│
+          └──────┬──────┘
+         YES ↙        ↘ NO
+        ↓                ↓
+┌─────────────┐    ┌─────────────────┐
+│ Mastery ↑   │    │ Nothing happens  │
+│ Sighting +1 │    │ cz +1 (if this  │
+│ Garden      │    │ was the primary) │
+│ grows 🌱    │    └────────┬────────┘
+│ cz resets   │             │
+└──────┬──────┘             │
+       └────────┬───────────┘
+                ↓
+┌─────────────────────────────────┐
+│    PICK NEXT PRIMARY TARGET     │
+└────────────────┬────────────────┘
+                 ↓
+          ┌──────┴────────────┐
+          │ Multiple un-owned  │
+          │ skills in unit?    │
+          └──────┬────────────┘
+         YES ↙        ↘ NO (only 1 left)
+        ↓                ↓
+┌─────────────┐    ┌──────────────┐
+│  RECENCY    │    │  Is cz ≥ 2?  │
+│  ROTATION   │    └──────┬───────┘
+│             │       YES ↙    ↘ NO
+│ Last        │      ↓          ↓
+│ practiced   │ ┌────────┐ ┌──────────┐
+│ skill gets  │ │ OPEN   │ │ SAME     │
+│ penalty     │ │ NEXT   │ │ SKILL    │
+│      ↓      │ │ UNIT   │ │ AGAIN    │
+│ Different   │ └───┬────┘ └────┬─────┘
+│ skill wins  │     │           │
+└──────┬──────┘     │           │
+       │            ↓           ↓
+       │    ┌──────────────────────────┐
+       │    │ All skills (stuck +      │
+       │    │ next unit) compete       │
+       │    │ together via priority    │
+       │    │ scoring                  │
+       │    └───────────┬──────────────┘
+       │                │
+       └────────┬───────┘
+                ↓
+┌─────────────────────────────────┐
+│     NEW PRIMARY TARGET SET      │
+│     Start next conversation     │
+└────────────────┬────────────────┘
+                 ↓
+        ┌────────┴────────┐
+        │                 │
+        ↓                 ↓
+┌──────────────┐  ┌───────────────────┐
+│ RECENCY      │  │ STUCK SKILL       │
+│ LOOP:        │  │ LOOP:             │
+│              │  │                   │
+│ A→B→C→D→A   │  │ Opens next unit   │
+│              │  │       ↓           │
+│ Each skill   │  │ Next unit skills  │
+│ takes turns  │  │ rotate (3-4       │
+│ as primary.  │  │ sessions)         │
+│ Rotates      │  │       ↓           │
+│ every        │  │ Stuck skill       │
+│ session.     │  │ comes back        │
+│              │  │ (recency          │
+│ Continues    │  │  decayed)         │
+│ until all    │  │       ↓           │
+│ skills       │  │ Scores ≥ 0.70?   │
+│ are owned.   │  │   YES → owned!   │
+│              │  │   NO → back to   │
+│              │  │   next unit loop  │
+│              │  │   (tries again    │
+│              │  │   in 4-5 sessions)│
+└──────────────┘  └───────────────────┘
+```
+
+---
 
 | What | How |
 |---|---|
