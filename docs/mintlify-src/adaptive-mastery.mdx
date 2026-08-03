@@ -135,81 +135,38 @@ flowchart TB
 ELLA evaluates the entire conversation as a single learning session. Individual turns are not scored independently. After the conversation ends, the LLM Judge assigns one confidence score per skill, updates learner progress, and selects the next primary target for the following conversation.
 </Note>
 
+
+
+### Candidate Pool Expansion
+
+**Before recovery** (only 1 skill left, no rotation possible):
+
+```text
+Candidate Pool:  U1-GRA-01 (only option)
+```
+
+**After recovery triggers** (next unit opens, pool expands):
+
+```text
+Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-01
+```
+
+> Instead of replacing the blocked skill, ELLA expands the candidate pool. The blocked skill remains eligible, but now competes with newly unlocked skills. Priority scoring determines which skill becomes the next primary target. The blocked skill returns naturally as its priority rises after other skills accumulate cooldown.
+
 ---
 
-**Before trigger (Unit 1 only, 1 skill left):**
-
-```text
-┌─────────────────────────────────┐
-│         CANDIDATE POOL          │
-│                                 │
-│  🔴 U1-GRA-01 (only option)    │
-│                                 │
-└─────────────────────────────────┘
-     → Always GRA-01. No rotation possible.
-```
-
-**After trigger (Unit 1 + Unit 2 merged):**
-
-```text
-┌─────────────────────────────────┐
-│         CANDIDATE POOL          │
-│                                 │
-│  🔴 U1-GRA-01  score: 0.68     │
-│  🟢 U2-VOC-01  score: 0.97  ← WINS │
-│  🟢 U2-GRA-01  score: 0.95     │
-│  🟢 U2-GRA-02  score: 0.93     │
-│  🟢 U2-FLU-01  score: 0.91     │
-│                                 │
-└─────────────────────────────────┘
-     → Highest score wins. GRA-01 stays but loses.
-```
-
-**After 4 sessions (GRA-01 returns):**
-
-```text
-┌─────────────────────────────────┐
-│         CANDIDATE POOL          │
-│                                 │
-│  🟡 U1-GRA-01  score: 0.87  ← WINS (recency gone + ReviewDue high) │
-│  🔵 U2-VOC-01  score: 0.54  (has recency) │
-│  🔵 U2-GRA-01  score: 0.53     │
-│  🔵 U2-GRA-02  score: 0.52     │
-│  🔵 U2-FLU-01  score: 0.51     │
-│                                 │
-└─────────────────────────────────┘
-     → GRA-01 floats back up. Gets another chance.
-```
-
-**After GRA-01 finally gets evidence:**
-
-```text
-┌─────────────────────────────────┐
-│         CANDIDATE POOL          │
-│                                 │
-│  ✅ U1-GRA-01  OWNED! (removed) │
-│  🟢 U2-VOC-01  score: 0.84  ← WINS │
-│  🟢 U2-GRA-01  score: 0.82     │
-│  🟢 U2-GRA-02  score: 0.80     │
-│  🟢 U2-FLU-01  score: 0.78     │
-│                                 │
-└─────────────────────────────────┘
-     → Unit 1 complete. Pure Unit 2 rotation now.
-```
-
----
+## How It Works (Simple Version)
 
 | What | How |
 |---|---|
-| **Picking next skill** | All un-owned skills get a priority score. Highest wins. Recently practiced = penalized. **Order is NOT linear** — it's based on scores, not sequence. |
+| **Picking next skill** | All un-owned skills get a priority score. Highest wins. Recently practiced = cooldown. **Order is NOT linear** — it's based on scores, not sequence. |
 | **When garden grows** | Student demonstrates skill with confidence ≥ 0.70 |
 | **When skill is "owned"** | Mastery ≥ 0.75 AND shown in 2+ different topics |
 | **When unit is "complete"** | All skills in that unit are owned |
-| **When stuck** | Same skill fails 2x with no evidence → next unit opens. **Only applies when it's the last un-owned skill in the unit** (if there are 2+ skills left, recency handles rotation normally). |
+| **When stuck** | Same skill fails 2x with no evidence → next unit opens. **Only applies when it's the last un-owned skill in the unit.** |
 | **Sequencing** | Unit 1 → Unit 2 → Unit 3. Always in order. Never skips. |
 
 ---
-
 ## The Three Systems
 
 | System | Where | What it does |
