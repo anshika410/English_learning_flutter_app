@@ -9,85 +9,80 @@ Unlike traditional linear language learning apps that restrict students to lock-
 
 ---
 
-## The Non-Linear Pathway
+## 2D Learning Path Coordinate Grid
+
+Here is a 2D visualization of how skills map to coordinates in the non-linear learning grid:
+
+![Non-Linear Skill Coordinate Grid](/logo/non-linear-skill.png)
+
+---
+
+## 1. The Non-Linear Pathway
 
 When a student interacts with Zoe:
 1. **Passive Tracking:** The engine actively prompts for the student's *primary target* but listens and grades all unowned skills *passively* in the background.
 2. **Multi-Unit Activation:** A single spoken turn can evidence vocabulary, grammar, and fluency skills belonging to different units.
 3. **Dynamic Promotion:** Plants sprout and bloom inside their respective raised beds regardless of which unit is currently "selected".
 
-
 ---
 
-## Under the Hood: Progression Merge
+## 2. Under the Hood: Progression Merge
 
 When a turn is processed, the parser executes the following evaluation:
 
 ```mermaid
 graph TD
     A[Student Speech Input] --> B[LLM Grader]
-    B --> C{Confidence >= 0.70?}
-    C -- No --> D[Ignore Sight]
-    C -- Yes --> E[Register Sighting]
-    E --> F{Total Sightings?}
-    F -- 1 --> G[Status: Emerging Sprout]
-    F -- 2 --> H[Status: Emerging Bud]
-    F -- 3+ --> I[Status: Owned Bloom]
-    G --> J[Update User Memory & Garden]
-    H --> J
-    I --> J
+    B --> C{Confidence >= Floor 0.50?}
+    C -- No --> D[Ignore Evidence]
+    C -- Yes --> E[Update Mastery Score<br>Mastery = Mastery + 0.40 * Confidence * 1 - Mastery]
+    E --> F[Record Topic in Context Diversity]
+    F --> G{Mastery >= 0.75 AND<br>Evidence Count >= 2 AND<br>Context Diversity >= 2?}
+    G -- Yes --> H[Status: Owned Bloom]
+    G -- No --> I{Mastery >= 0.25?}
+    I -- Yes --> J[Status: Emerging Sprout/Bud]
+    I -- No --> K[Status: Locked]
 ```
 
 This guarantees that a student who spontaneously speaks advanced sentence structures will see their garden bloom advanced plants immediately, without needing to perform linear drills.
 
 ---
 
-## Unit Completion & Progression Rules
+## 3. Unit Completion & Progression Rules
 
 The system uses **different mastery thresholds per strand** to decide when a unit is complete and the student advances to the next one. This is the core of the non-linear design:
 
-| Strand | Required State to Pass | Sightings Needed |
+| Strand | Required State to Pass | Mastery / Evidence Needed |
 |--------|----------------------|-----------------|
-| **VOC** (Vocabulary) | Must be **Owned** | 3/3 |
-| **FLU** (Fluency) | Must be **Owned** | 3/3 |
-| **GRA** (Grammar) | Must be at least **Emerging** | 1/3 |
+| **VOC** (Vocabulary) | Must be **Owned** | Mastery $\ge 0.75$, Evidence Count $\ge 2$, Context Diversity $\ge 2$ |
+| **FLU** (Fluency) | Must be **Owned** | Mastery $\ge 0.75$, Evidence Count $\ge 2$, Context Diversity $\ge 2$ |
+| **GRA** (Grammar) | Must be at least **Emerging** | Mastery $\ge 0.25$ |
 
 ### Why Grammar Has a Lower Bar
-
 Grammar is intentionally given a lower threshold because:
-- Grammar is **harder to evidence** in natural conversation — students rarely produce textbook-perfect structures spontaneously
-- Blocking progression on grammar would frustrate students who communicate effectively despite imperfect grammar
-- Grammar skills continue to be **watched and scored** even after the student moves to the next unit — they can still bloom later
+- Grammar is **harder to evidence** in natural conversation — students rarely produce textbook-perfect structures spontaneously.
+- Blocking progression on grammar would frustrate students who communicate effectively despite imperfect grammar.
+- Grammar skills continue to be **watched and scored** even after the student moves to the next unit — they can still bloom later.
 
 ### How Unit Progression Works
-
 ```python
 def unit_complete(progress, unit, level):
     for skill in unit["skills"]:
         status = bucket_of(progress, skill["id"], level)
-        # VOC and FLU must be fully mastered
+        # VOC and FLU must be fully mastered (owned)
         if skill["strand"] in ("FLU", "VOC") and status != "owned":
             return False
-        # GRA only needs to show any evidence (emerging or owned)
+        # GRA only needs to show some evidence (emerging or owned)
         if skill["strand"] == "GRA" and status == "locked":
             return False
     return True
 ```
 
-### What This Means in Practice
-
-1. Student completes **VOC + FLU** skills (3 sightings each) → unit advances
-2. **GRA** skill may still be at emerging (1-2 sightings) → that's OK, student moves forward
-3. The GRA skill continues to be **targeted in future sessions** until it reaches owned
-4. The garden shows the GRA skill as a growing plant (not yet bloomed) even in a "completed" unit
-
-This ensures students feel progress and momentum while grammar catches up naturally through continued conversation.
-
 ---
 
-## Session & Skill Selection Flowchart
+## 4. Session & Skill Selection Flowchart
 
-The following flowchart describes the decision logic used by the backend progression engine at the end of each session to grade the student and determine the target skills for the next conversation:
+The following flowchart describes the decision logic used by the backend progression engine at the end of each session to grade the student, record target fatigue, and rank target skills for the next conversation:
 
 ```mermaid
 flowchart TD
@@ -96,46 +91,41 @@ flowchart TD
     B -- No --> D[Stay in the current Unit]
     
     C --> E[Load skills of the new Unit]
-    D --> F[Find all skills in this Unit that are not yet 'owned']
+    D --> F[Find all un-owned skills in this Unit]
     E --> F
     
-    F --> G[Sort them by their order in curriculum_data.py]
-    G --> H[Primary Target = First un-owned skill in the list]
-    G --> I[Watch-Only = All other un-owned skills in the list]
+    F --> G[Run Priority Formula scoring for candidates<br>Apply Spaced Repetition boost & Fatigue Cooldown]
+    G --> H[Sort candidates by Priority Score descending]
+    H --> I[Primary Target = Candidate with highest Priority Score]
+    H --> J[Watching Targets = Other candidates in the list]
     
-    H & I --> J[Start next conversation]
-    
-    J --> K{Did student demonstrate the Primary Target? <br>LLM Grade >= 0.70}
-    K -- Yes --> L[Increment sightings. <br>If sightings >= 3, mark as 'owned']
-    K -- No --> M[Skill remains 'locked' or 'emerging']
-    
-    L & M --> A
+    I & J --> K[Start next conversation]
+    K --> L[Post-chat: Add chosen Primary Target to recent_primary_history]
 ```
 
 ---
 
-### Step-by-Step Selection Logic Breakdown
+## 5. Step-by-Step Selection Logic Breakdown
 
 #### 1. The Gateway Check (Unit Completion)
 Right after a conversation session completes:
-* **The check:** The engine asks: *"Are all Vocabulary (VOC) and Fluency (FLU) skills in this unit `owned` (sightings $\ge 3$) AND all Grammar (GRA) skills in this unit at least `emerging` (sightings $\ge 1$)?"*
+* **The check:** The engine asks: *"Are all Vocabulary (VOC) and Fluency (FLU) skills in this unit `owned` (mastery $\ge 0.75$, diversity $\ge 2$) AND all Grammar (GRA) skills in this unit at least `emerging` (mastery $\ge 0.25$)?"*
 * **Decision:**
   * **Yes:** You advance to the next Unit step (e.g. Unit 1 ➡️ Unit 2). The engine loads the skills of the new unit.
   * **No:** You stay in the current Unit.
 
-#### 2. Picking Targets for the Next Chat
+#### 2. Picking Targets for the Next Chat (Priority Ranking)
 Once the active unit is confirmed:
-1. **Find Un-owned Skills:** It takes all the skills in that unit that are not yet `owned` (sightings $< 3$).
-2. **Curriculum Sorting:** It sorts them in the default curriculum order (e.g., `VOC-01` ➡️ `VOC-02` ➡️ `GRA-01` ➡️ `FLU-01`).
-3. **Primary Target Assignment:** The **first** un-owned skill in that sorted list is designated as the **Primary Target** (Zoe's invisible elicitation playbook will actively steer the session to elicit this).
-4. **Watch-Only Targets Assignment:** All **other** un-owned skills in the active unit are set as **Watch-Only** (Zoe won't force them, but she will grade them if you naturally use them).
+1. **Find Un-owned Skills:** It takes all the skills in that unit that are not yet `owned`.
+2. **Calculate Priority Scores:** For each skill, the system computes a score balancing:
+   * **Need:** How far the student is from mastery.
+   * **Review Due:** How long it has been since they last practiced it (memory decay).
+   * **Curriculum Need:** The natural sequence of the curriculum.
+   * **Fatigue Penalty:** A heavy penalty if this skill was a primary target in the last 4 chats.
+3. **Primary Target Assignment:** The skill with the **highest priority score** is selected as the **Primary Target** (elicited actively by Zoe).
+4. **Watch-Only Targets Assignment:** All other candidate skills are set as **Watch-Only** (Zoe grades them if used naturally).
 
-#### 3. Having the Next Chat
-You start the next conversation session. Zoe initiates the chat using the primary target's specific prompt framework.
-
-#### 4. Post-Chat Grading & Sighting updates
-At the end of the chat, the LLM Grader runs:
-* **Did you demonstrate the Primary Target?** (LLM Grade $\ge 0.70$)
-  * **Yes:** You receive +1 sighting. (If total sightings reach $\ge 3$, the skill is marked as `owned`).
-  * **No:** The skill sightings remain unchanged.
-* The loop starts over at **Step 1** for the next session.
+#### 3. Post-Chat Cooldown Update
+At the end of the chat:
+* The active primary target is pushed into `recent_primary_history`.
+* This ensures that even if a student struggles and fails, that skill gets a fatigue cooldown penalty, letting other skills rotate to the top for the next conversation to avoid frustration.

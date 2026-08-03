@@ -1,0 +1,90 @@
+---
+title: "Adaptive Mastery & Target Selection"
+sidebarTitle: "Adaptive Mastery"
+description: "How ELLA dynamically selects conversation targets and tracks mastery confidence."
+icon: "brain"
+---
+
+The **Adaptive Mastery & Dynamic Target Selection** system replaces the legacy hardcoded "3 sightings" progression model. Instead of counting sightings as a proxy for learning, ELLA calculates a continuous **Mastery Confidence** score and selects today's active conversation target using a weighted **Priority Score** with fatigue-based cooldowns.
+
+---
+
+## 1. Mastery Confidence Score
+
+Every skill has a continuous mastery score represented as a float from `0.0` (locked/unknown) to `1.0` (fully mastered).
+
+### The Update Formula
+After a conversation, ELLA's grading engine evaluates the learner's responses. If a learner successfully uses a skill with confidence above the threshold, their mastery score is updated using a bounded learning rate equation:
+
+$$\text{Mastery}_{\text{new}} = \text{Mastery}_{\text{old}} + \eta \cdot \text{Evidence} \cdot (1 - \text{Mastery}_{\text{old}})$$
+
+Where:
+* **$\eta$ (Learning Rate):** Set to `0.40`.
+* **$\text{Evidence}$:** The qualitative grading confidence returned by the LLM Judge (`0.0` to `1.0`).
+* **$(1 - \text{Mastery}_{\text{old}})$:** The learning headroom, ensuring the score asymptotes smoothly towards `1.0`.
+
+### State Transitions (Buckets)
+The continuous score maps directly to the discrete status buckets displayed in the user interface (such as the Conversation Garden):
+
+* **LOCKED:** $\text{Mastery} < 0.25$
+* **EMERGING:** $\text{Mastery} \ge 0.25$
+* **OWNED (Mastered):** $\text{Mastery} \ge 0.75$ AND $\text{evidence\_count} \ge 2$ AND $\text{context\_diversity} \ge 2$
+
+*Note: Transitioning to the `owned` state requires both high mastery confidence and evidence of using the skill across at least 2 distinct conversation topics/contexts.*
+
+---
+
+## 2. Dynamic Target Selection
+
+Before a conversation session starts, ELLA dynamically ranks and selects target skills in the active unit or level. Rather than selecting targets in a rigid linear sequence, the system computes a **Priority Score** for each candidate skill:
+
+$$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 0.20 \cdot \text{ReviewDue} + 0.15 \cdot \text{CurriculumNeed} + 0.10 \cdot \text{Variety} - 0.25 \cdot \text{Fatigue}$$
+
+### Component Weights
+
+| Component | Weight | Calculation | Description |
+|---|---|---|---|
+| **Need** | `0.35` | $1.0 - \text{Mastery}(s)$ | Prioritizes skills where the learner has the lowest mastery. |
+| **Uncertainty** | `0.20` | $\frac{1}{\sqrt{\text{evidence\_count} + 1}}$ | Prioritizes skills with few recorded assessment data points. |
+| **Review Due** | `0.20` | $1.0 - e^{-\frac{\text{days\_since\_last\_practice}}{7.0}}$ | Spaced repetition decay. Prioritizes older skills to combat memory decay. |
+| **Curriculum Need** | `0.15` | $1.0 - \frac{\text{index}}{\text{total\_skills}}$ | Retains a gentle pull toward the natural curriculum order. |
+| **Variety** | `0.10` | $\frac{1}{\text{evidence\_count} + 1.0}$ | Prefers skills that have been practiced less overall. |
+| **Fatigue** | `-0.25` | $\frac{\text{recent\_primary\_count}}{4.0}$ | A **large penalty** if the skill was a primary target in recent chats. |
+
+---
+
+## 3. Resolving the "Junior's Frustration" (Fatigue Cooldown)
+
+In a hardcoded model, if a student struggles with a skill, the system keeps serving that same skill as the primary target because they haven't met the "3 sightings" master criterion. This creates frustration and engagement blockages.
+
+With **Adaptive Priority Selection**:
+1. If a student struggles on `VOC-01`, its mastery remains unchanged.
+2. Because `VOC-01` was just target-focused, ELLA appends it to the `recent_primary_history` log.
+3. On the next session, `VOC-01` receives a **Fatigue penalty of -0.25**.
+4. This penalty drags down its Priority Score, allowing a fresh grammar (`GRA-01`) or fluency (`FLU-01`) skill to easily overtake it and become the new primary target.
+5. The student gets to practice something else, experiences success, and eventually circles back to `VOC-01` once the fatigue cooldown decays.
+
+---
+
+## 4. DB JSON Schema
+
+The adaptive mastery data is saved inside the user's `skills_progress` JSON payload:
+
+```json
+{
+  "owned": ["A1:U1-VOC-01", "A1:U1-FLU-01"],
+  "emerging": ["A1:U1-GRA-01"],
+  "mastery": {
+    "A1:U1-VOC-01": 0.82,
+    "A1:U1-GRA-01": 0.36
+  },
+  "evidence_count": {
+    "A1:U1-VOC-01": 3,
+    "A1:U1-GRA-01": 1
+  },
+  "context_diversity": {
+    "A1:U1-VOC-01": ["Shopping and markets", "Celebrations"]
+  },
+  "recent_primary_history": ["A1:U1-GRA-01"]
+}
+```

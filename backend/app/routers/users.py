@@ -39,6 +39,10 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
     level_code = (user.level or "A0").upper()
     public_progress = public_progress_for_level(progress, level_code)
     due = validate_due_next(user.due_next, level_code)
+    if not due and user.level:
+        from ..core.curriculum_data import targets_list_for, make_due_next
+        aimed = targets_list_for(progress, "unit", level_code)
+        due = make_due_next(aimed, level_code)
     units_list = persona.get("units", [])
     if not isinstance(units_list, list):
         units_list = []
@@ -161,6 +165,10 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         units=units_list,
         last_topics=last_topics_list,
         persona_memory={k: v for k, v in (user.persona_memory or {}).items() if k not in ("last_topics", "units")},
+        mastery=public_progress.get("mastery", {}),
+        evidence_count=public_progress.get("evidence_count", {}),
+        context_diversity=public_progress.get("context_diversity", {}),
+        recent_primary_history=public_progress.get("recent_primary_history", []),
     )
 
 
@@ -285,8 +293,21 @@ async def clear_user_memory(
     Clears the child's permanent persona memory block and resets onboarding state.
     """
     user.persona_memory = {}
+    user.skills_progress = {}
+    user.due_next = {}
+    user.level = None
+    user.level_label = None
+    user.first_session_done = False
+    user.interests = None
+    user.location = None
     user.name = None
     user.age = None
+
+    # Clear placement records to fully reset onboarding status
+    from sqlalchemy import delete
+    from ..models.placement import Placement
+    await db.execute(delete(Placement).where(Placement.user_id == user.id))
+
     db.add(user)
     await db.commit()
     return None
@@ -702,7 +723,7 @@ async def get_user_topics(user: User = Depends(get_current_user)):
     response_list = []
     for t in fresh_pool:
         theme_name = t.get("name", "General")
-        icon, color, highlight, bg = get_theme_assets(theme_name)
+        icon, color, highlight, bg = get_theme_assets(t)
         response_list.append({
             "id": t.get("id", "t_unknown"),
             "name": t.get("name", "Unknown Topic"),

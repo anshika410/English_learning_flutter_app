@@ -1323,7 +1323,7 @@ def public_progress_for_level(progress: dict, level: str) -> dict:
                 public_ids.append(public_id)
         result[field] = public_ids
 
-    for field in ("sightings", "strength", "last_seen", "evidence"):
+    for field in ("sightings", "strength", "last_seen", "evidence", "mastery", "evidence_count", "context_diversity"):
         public_values = {}
         values = result.get(field, {})
         if not isinstance(values, dict):
@@ -1336,6 +1336,21 @@ def public_progress_for_level(progress: dict, level: str) -> dict:
             if scoped_level == lvl:
                 public_values[public_id] = value
         result[field] = public_values
+
+    # Clean up recent_primary_history format
+    raw_history = result.get("recent_primary_history", [])
+    if not isinstance(raw_history, list):
+        raw_history = []
+    public_history = []
+    for key in raw_history:
+        if key in SKILLS:
+            public_history.append(key)
+            continue
+        scoped_level, public_id = _split_unit_progress_key(key)
+        if scoped_level == lvl:
+            public_history.append(public_id)
+    result["recent_primary_history"] = public_history
+
     return result
 
 def get_skill_text(skill_id: str, level = None) -> str:
@@ -1399,6 +1414,65 @@ def active_step(progress: dict, level: str = None) -> dict | None:
             return u
     return None
 
+def prioritize_skills(progress: dict, skill_ids: list[str], level: str) -> list[str]:
+    """
+    Score and sort a list of skill IDs based on dynamic target priority selection:
+    TargetScore(s) = 0.35 * Need + 0.20 * Uncertainty + 0.20 * ReviewDue + 0.15 * CurriculumNeed + 0.10 * Variety - 0.25 * Fatigue
+    """
+    import math
+    from datetime import datetime
+    
+    scores_dict = {}
+    recent_primaries = progress.get("recent_primary_history", [])
+    
+    for idx, sid in enumerate(skill_ids):
+        storage_key = progress_key_for(sid, level)
+        if not storage_key:
+            scores_dict[sid] = -999.0
+            continue
+            
+        # 1. Need (Weight 0.35): 1.0 - mastery
+        mastery = progress.get("mastery", {}).get(storage_key, 0.0)
+        need = 1.0 - mastery
+        
+        # 2. Uncertainty (Weight 0.20): 1.0 / sqrt(evidence_count + 1)
+        ev_count = progress.get("evidence_count", {}).get(storage_key, 0)
+        uncertainty = 1.0 / math.sqrt(ev_count + 1)
+        
+        # 3. ReviewDue (Weight 0.20): 1.0 - exp(-days_since / 7.0)
+        last_seen_str = progress.get("last_seen", {}).get(storage_key)
+        if last_seen_str:
+            try:
+                last_seen_date = datetime.strptime(last_seen_str, "%Y-%m-%d")
+                days_since = (datetime.now() - last_seen_date).days
+            except Exception:
+                days_since = 99.0
+        else:
+            days_since = 99.0
+        review_due = 1.0 - math.exp(-days_since / 7.0)
+        
+        # 4. CurriculumNeed (Weight 0.15): lower index in original list gets slight priority
+        curriculum_need = 1.0 - (idx / max(len(skill_ids), 1))
+        
+        # 5. Variety (Weight 0.10): prefers less practiced overall
+        variety = 1.0 / (ev_count + 1.0)
+        
+        # 6. Fatigue (Penalty 0.25): based on count in recent primary history
+        recent_count = recent_primaries.count(storage_key)
+        fatigue = recent_count / 4.0 if recent_primaries else 0.0
+        
+        score = (
+            0.35 * need +
+            0.20 * uncertainty +
+            0.20 * review_due +
+            0.15 * curriculum_need +
+            0.10 * variety -
+            0.25 * fatigue
+        )
+        scores_dict[sid] = score
+
+    return sorted(skill_ids, key=lambda s_id: scores_dict[s_id], reverse=True)
+
 def due_unit(progress: dict, level: str = None) -> dict:
     u = active_step(progress, level)
     if not u:
@@ -1410,47 +1484,30 @@ def due_unit(progress: dict, level: str = None) -> dict:
         if bucket_of(progress, s["id"], level) != "owned":
             picks.append({"id": s["id"], "why": f"active unit: Step {u['step']} - {u['name']}"} )
     
-    return {"picks": picks, "u": u}
+    pick_ids = [p["id"] for p in picks]
+    lvl = level or progress.get("level", "A1")
+    sorted_ids = prioritize_skills(progress, pick_ids, lvl)
+    
+    sorted_picks = []
+    for sid in sorted_ids:
+        orig = next(p for p in picks if p["id"] == sid)
+        sorted_picks.append(orig)
+        
+    return {"picks": sorted_picks, "u": u}
 
 def due_skill(progress: dict, level: str) -> list[dict]:
     # Filter flat skills for this level
     lvl_skills = [s for s in CAT if s[1] == level.upper()]
-    picks = []
-    why = []
     
-    # 1. Finish what is started (emerging flat skills at this level)
-    emerging_ids = progress.get("emerging", [])
-    em = next((sid for sid in emerging_ids if any(s[0] == sid and s[1] == level.upper() for s in CAT)), None)
-    if em:
-        picks.append(em)
-        why.append("finish what is started (emerging)")
-        
-    # 2. Balance strands: find the strand with the fewest owned skills at this level, and pick the first locked skill in that strand
-    owned_ids = progress.get("owned", [])
-    so = {"VOC": 0, "GRA": 0, "FLU": 0}
-    for sid in owned_ids:
-        s_meta = SKILLS.get(sid)
-        if s_meta and s_meta["level"] == level.upper():
-            so[s_meta["strand"]] += 1
+    unowned_ids = []
+    for s in lvl_skills:
+        sid = s[0]
+        if bucket_of(progress, sid) != "owned":
+            unowned_ids.append(sid)
             
-    # Sort strands by number of owned skills
-    order = sorted(so.keys(), key=lambda k: so[k])
-    
-    for st in order:
-        # Find first locked skill of this strand at this level
-        next_locked = next((s[0] for s in lvl_skills if s[2] == st and bucket_of(progress, s[0]) == "locked" and s[0] not in picks), None)
-        if next_locked:
-            picks.append(next_locked)
-            why.append(f"open weakest strand: {STRANDS[st]}")
-            break
-            
-    # 3. Familiar favourite (owned flat skill at this level)
-    fav = next((sid for sid in owned_ids if any(s[0] == sid and s[1] == level.upper() for s in CAT) and sid not in picks), None)
-    if fav:
-        picks.append(fav)
-        why.append("familiar favourite (owned)")
-        
-    return [{"id": picks[i], "why": why[i]} for i in range(len(picks))]
+    sorted_ids = prioritize_skills(progress, unowned_ids, level)
+    picks_to_return = sorted_ids[:3]
+    return [{"id": sid, "why": "adaptive flat skill priority"} for sid in picks_to_return]
 
 def targets_list_for(progress: dict, model: str, level: str) -> list[str]:
     # Returns the target skill IDs
@@ -1476,7 +1533,7 @@ def targets_list_for(progress: dict, model: str, level: str) -> list[str]:
         return unstuck + stuck
     return skill_ids
 
-def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = None, created_at: str = None) -> tuple[dict, list[dict]]:
+def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = None, created_at: str = None, primary_target: str = None) -> tuple[dict, list[dict]]:
     # Clone progression dict to avoid side-effects
     import copy
     p = copy.deepcopy(progress)
@@ -1489,7 +1546,19 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
     if "last_seen" not in p: p["last_seen"] = {}
     if "evidence" not in p: p["evidence"] = {}
     if "effort" not in p: p["effort"] = {"times_spoken_total": 0}
+    if "mastery" not in p: p["mastery"] = {}
+    if "evidence_count" not in p: p["evidence_count"] = {}
+    if "context_diversity" not in p: p["context_diversity"] = {}
+    if "recent_primary_history" not in p: p["recent_primary_history"] = []
     
+    # Append current session's primary target to history
+    if primary_target:
+        p_key = progress_key_for(primary_target, level)
+        if p_key:
+            p["recent_primary_history"].append(p_key)
+            if len(p["recent_primary_history"]) > 4:
+                p["recent_primary_history"] = p["recent_primary_history"][-4:]
+
     changes = []
     bar = own_bar(level)
     
@@ -1508,6 +1577,7 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
         
         qualifies = confidence >= bar
         
+        # Legacy tracking for backwards compatibility
         if confidence >= FLOOR:
             p["last_seen"][storage_key] = datetime.now().isoformat()[:10]
             if qualifies:
@@ -1531,31 +1601,49 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
                     })
                     if len(p["evidence"][storage_key]) > 3:
                         p["evidence"][storage_key] = p["evidence"][storage_key][-3:]
-                
-        sightings = p["sightings"].get(storage_key, 0)
-        unprompted_count = p["strength"].get(storage_key, 0)
+                        
+        # New Continuous Mastery Updater
+        old_mastery = p["mastery"].get(storage_key, 0.0)
+        if confidence >= FLOOR:
+            evidence_quality = confidence
+            new_mastery = old_mastery + 0.40 * evidence_quality * (1.0 - old_mastery)
+            p["mastery"][storage_key] = round(new_mastery, 4)
+            p["evidence_count"][storage_key] = p["evidence_count"].get(storage_key, 0) + 1
+            
+            if topic:
+                if storage_key not in p["context_diversity"]:
+                    p["context_diversity"][storage_key] = []
+                if topic not in p["context_diversity"][storage_key]:
+                    p["context_diversity"][storage_key].append(topic)
+        else:
+            new_mastery = old_mastery
+            
+        # Determine new bucket trigger state
+        ev_count = p["evidence_count"].get(storage_key, 0)
+        diversity = len(p["context_diversity"].get(storage_key, []))
         
-        # Effort path disabled in 4-state progression
-        effort_path = False
-        
-        if confidence < FLOOR:
-            next_state = prior
-        elif prior == "locked":
-            next_state = "emerging"
-        elif prior == "emerging" and (sightings >= SIGHTINGS_TO_OWN or effort_path):
+        if new_mastery >= 0.75 and ev_count >= 2 and diversity >= 2:
             next_state = "owned"
+        elif new_mastery >= 0.25:
+            next_state = "emerging"
+        else:
+            next_state = "locked"
             
         if next_state != prior:
             changes.append({"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id, level)})
-            if prior == "locked":
+            # Safely promote/demote by removing first
+            if storage_key in p["emerging"]:
+                p["emerging"].remove(storage_key)
+            if storage_key in p["owned"]:
+                p["owned"].remove(storage_key)
+                
+            # Add to correct list
+            if next_state == "emerging":
                 p["emerging"].append(storage_key)
-            if prior == "emerging" and next_state == "owned":
-                if storage_key in p["emerging"]:
-                    p["emerging"].remove(storage_key)
-                if storage_key not in p["owned"]:
-                    p["owned"].append(storage_key)
-
-        # Track failed attempts to support stuck rotation logic
+            elif next_state == "owned":
+                p["owned"].append(storage_key)
+                
+        # Track failed attempts to support stuck rotation logic (legacy fallback)
         if "failed_attempts" not in p:
             p["failed_attempts"] = {}
         if storage_key not in p["owned"]:
