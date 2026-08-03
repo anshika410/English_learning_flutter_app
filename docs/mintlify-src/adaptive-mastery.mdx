@@ -220,11 +220,9 @@ sightings = 8 → 1 / √(8 + 1) = 1 / √9 ≈ 0.33  (8 pieces of evidence)
 
 Forget the formulas for a moment. Think about **one skill: `VOC-01`**.
 
-### Old system = "Count how many times"
+### The existing system = "Did I see it?"
 
-Imagine ELLA is watching whether the student knows `VOC-01`.
-
-The student uses it correctly:
+ELLA still tracks **sightings**. When the student demonstrates `VOC-01` with confidence ≥ 0.70, it counts as a sighting:
 
 ```text
 Conversation 1 → ✅ = 1 sighting
@@ -233,78 +231,43 @@ Conversation 3 → ❌ = still 2
 Conversation 4 → ✅ = 3 sightings
 ```
 
-So the old system basically says:
+These sightings **still count toward garden growth**. Plants still bloom based on the existing sighting logic.
 
-> **"I saw you demonstrate it correctly 3 times, so I'll call this skill Bloomed."**
+### Adaptive mastery = "How confident am I?"
 
-Once a demonstration passes the sighting threshold, the system mainly tracks whether another qualifying sighting happens — it doesn't distinguish between a barely-passing and a strong demonstration.
+The adaptive mastery system works **alongside** sightings.
 
-### New system = "How confident am I?"
+Instead of using sightings alone to decide whether a skill is fully learned, ELLA also asks:
 
-Now ELLA doesn't just count. It says:
+> **"Based on the evidence I've collected, how confident am I that this student knows `VOC-01`?"**
 
-> **"Based on everything I've seen, how confident am I that this student knows VOC-01?"**
-
-It starts at:
+Confidence develops over time:
 
 ```text
-0% confidence
+First good demonstration     → confidence increases
+Another good demonstration   → confidence increases further
+Weaker demonstration         → smaller change
+Strong demonstration         → larger change
 ```
 
-After the first good demonstration:
+*These are driven by the mastery formula. Stronger demonstrations increase confidence faster; weaker ones increase it less.*
+
+So the two systems work together:
 
 ```text
-32% confidence
-```
-
-After another:
-
-```text
-54%
-```
-
-After another weaker demonstration:
-
-```text
-61%
-```
-
-After another strong demonstration:
-
-```text
-75%
-```
-
-And eventually:
-
-```text
-82%
-```
-
-*These are actual outputs from the mastery formula assuming evidence confidence of 0.80 each time. Stronger demonstrations increase confidence faster; weaker ones increase it less.*
-
-So instead of:
-
-```text
-1 sighting
-2 sightings
-3 sightings → Bloomed
-```
-
-you have:
-
-```text
-0%
- ↓
-32%
- ↓
-54%
- ↓
-61%
- ↓
-75%
- ↓
-82%
+Sighting (confidence ≥ 0.70)
+   ↓
+Garden growth (plants bloom at 3 sightings)
+   │
+   └──────────────────┐
+                      ↓
+              Evidence collected
+                      ↓
+              Adaptive mastery
+                      ↓
+             Confidence changes
+                      ↓
+         Ownership + target selection
 ```
 
 ### And there's one more ownership check
@@ -331,15 +294,15 @@ So:
 
 ### The easiest sentence to remember
 
-**Old ELLA:**
+**Sighting system:**
 
-> "You did it 3 times → you're good."
+> "I saw you demonstrate it." → Garden grows.
 
-**New ELLA:**
+**Adaptive mastery:**
 
-> "I've collected enough evidence to become confident that you know it."
+> "I've collected enough evidence to become confident that you know it." → Skill becomes owned.
 
-That's the fundamental change.
+**Both systems continue to work together.**
 
 ---
 
