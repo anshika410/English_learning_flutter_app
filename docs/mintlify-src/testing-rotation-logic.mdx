@@ -95,6 +95,59 @@ THEN:
 
 ---
 
+## 4. What Happens to the Stuck Skill? (Spaced Retries)
+
+When the next unit opens, the stuck skill (e.g. U1-GRA-01) does NOT disappear. It stays in the candidate pool alongside Unit 2 skills. Every session, ALL candidates are scored and the highest wins.
+
+### Why Unit 2 skills win initially (numerical example):
+
+After the trigger fires, here's what the priority scoring looks like:
+
+| Skill | Need (35%) | Uncertainty (20%) | ReviewDue (20%) | Curriculum (15%) | Variety (10%) | Recency (-25%) | **TOTAL** |
+|---|---|---|---|---|---|---|---|
+| **U2-VOC-01** | 0.35 (mastery=0) | 0.20 (never seen) | 0.20 (never practiced) | 0.12 | 0.10 (never) | 0.00 (not recent) | **0.97** |
+| **U2-GRA-01** | 0.35 | 0.20 | 0.20 | 0.10 | 0.10 | 0.00 | **0.95** |
+| **U1-GRA-01** | 0.35 (mastery=0) | 0.14 (seen 2x) | 0.05 (just yesterday) | 0.15 | 0.05 (seen 2x) | -0.06 (recent) | **0.68** |
+
+U1-GRA-01 loses because:
+- Low Uncertainty (already seen it 2 times)
+- Low ReviewDue (just practiced yesterday)
+- Low Variety (practiced before)
+- Has Recency penalty (was primary recently)
+
+Unit 2 skills have perfect scores (everything is fresh/new).
+
+### After 4 sessions of Unit 2 practice:
+
+| Skill | Need | Uncertainty | ReviewDue | Curriculum | Variety | Recency | **TOTAL** |
+|---|---|---|---|---|---|---|---|
+| **U1-GRA-01** | 0.35 (mastery still 0) | 0.14 | 0.18 (4 days passed!) | 0.15 | 0.05 | 0.00 (not recent anymore) | **0.87** |
+| **U2-VOC-01** | 0.24 (mastery=0.32) | 0.14 (seen 1x) | 0.05 (just practiced) | 0.12 | 0.05 | -0.06 (recent) | **0.54** |
+
+Now U1-GRA-01 WINS because:
+- Its ReviewDue increased (hasn't been practiced in 4 days)
+- Its Recency penalty is gone (wasn't primary recently)
+- Unit 2 skills now have their own recency penalties
+
+### The cycle repeats:
+
+```text
+Sessions 15-18: Unit 2 skills rotate (GRA-01 in pool but loses)
+Session 19:     GRA-01 rises back → becomes primary → gets another try
+                   ↓
+           Student succeeds? → Evidence! → cz resets → eventually owned
+           Student fails?    → Back to pool → tries again in 4-5 sessions
+```
+
+### Key point:
+
+The stuck skill comes back every **4-5 sessions** because:
+1. Recency decays after 3-4 sessions
+2. ReviewDue keeps growing (spaced repetition effect)
+3. Need stays high (mastery is still near 0)
+
+This creates **natural spaced retries** — the student gets periodic chances to demonstrate the skill without being trapped on it.
+
 ## 4. Ten Conversations — Scenario A: Student IS Getting Evidence
 
 This is the **happy path**. The student performs well enough that skills get evidence.
