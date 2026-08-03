@@ -159,24 +159,24 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 
 | What | How |
 |---|---|
-| **Picking next skill** | All un-owned skills get a priority score. Highest wins. Recently practiced = cooldown. **Order is NOT linear** — it's based on scores, not sequence. |
-| **When garden grows** | Student demonstrates skill with confidence ≥ 0.70 |
-| **When skill is "owned"** | Mastery ≥ 0.75 AND shown in 2+ different topics |
-| **When unit is "complete"** | All skills in that unit are owned |
-| **When stuck** | Same skill fails 2x with no evidence → next unit opens. **Only applies when it's the last un-owned skill in the unit.** |
-| **Sequencing** | Unit 1 → Unit 2 → Unit 3. Always in order. Never skips. |
+| **Picking next skill** | Every un-owned skill gets a priority score. The highest score wins. Recently practiced skills get a cooldown, giving other skills a chance. **Order is not linear** — the next skill is determined by priority scores. |
+| **When garden grows** | A skill gets a sighting when the student demonstrates it with confidence **≥ 0.70**. |
+| **When skill is "owned"** | **Mastery ≥ 0.75** and the skill has been demonstrated in **2+ different topics**. |
+| **When unit is "complete"** | All skills in the unit are owned. |
+| **When stuck** | The same last un-owned skill gets **2 consecutive sessions with no evidence** → the next unit opens. |
+| **Sequencing** | Units always progress **Unit 1 → Unit 2 → Unit 3**. Units are never skipped. |
 
 ---
 ## The Three Systems
 
 | System | Where | What it does |
 |---|---|---|
-| **Recency** | Within a unit | Just-practiced skill gets a cooldown → different skill gets a turn next time |
-| **Consecutive Zeros** | Between units | 2 fails on last skill → next unit opens. **Only triggers when ALL remaining skills in the unit are stuck — not just any skill.** |
-| **Mastery Scoring** | Within a unit | Confidence score (0→1.0) + 2 topics needed to own a skill |
+| **Recency** | Within a unit | Recently practiced skill gets a **cooldown**, giving another skill a chance next time. |
+| **Consecutive Zeros** | Between units | If the **last remaining un-owned skill** gets 2 consecutive sessions with no evidence, the next unit opens. |
+| **Mastery Scoring** | Within a unit | Combines confidence-based evidence over time with **2+ topic contexts** to determine ownership. |
 
 <Note>
-**Garden still grows?** Yes. Sightings still count. Plants still bloom at 3. Nothing changes visually.
+**Does the garden still grow?** Yes. Sightings still count toward garden growth, and plants still bloom at 3 sightings. **Garden growth and skill ownership are separate.**
 </Note>
 
 ---
@@ -185,9 +185,9 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 
 | Term | What it is | How it updates |
 |---|---|---|
-| **Sighting** | Number of sessions where the student demonstrated this skill with confidence ≥ 0.70. Same variable in the code is called evidence_count. | +1 after each session where judge gives ≥ 0.70 |
-| **Recency** | A list of the last 4 primary targets. Used as INPUT to the priority formula to give recently-practiced skills a cooldown. | After each session → current primary target is added to the list (max 4 items). |
-| **Uncertainty** | "How much data do I have about this skill?" Calculated from sightings: `1 / √(sightings + 1)`. Not stored — recalculated fresh each time. | As sightings go up → uncertainty goes down → skill becomes less urgent to check. |
+| **Sighting** | A session where the student demonstrates a skill with confidence **≥ 0.70**. In code, this is `evidence_count`. | +1 after a session where the judge gives confidence ≥ 0.70 |
+| **Recency** | A list of the last **4 primary targets**. It is used by the priority formula to give recently practiced skills a cooldown. | After each session, the current primary target is added to the list. Maximum 4 items. |
+| **Uncertainty** | "How much data do we have about this skill?" Calculated from sightings: **`1 / √(sightings + 1)`**. Not stored — recalculated when needed. | As sightings increase → uncertainty decreases → the skill becomes less urgent to investigate. |
 
 ### Uncertainty formula explained:
 
