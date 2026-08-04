@@ -593,6 +593,52 @@ Mastery isn't what directly determines the next conversation. ELLA computes a **
 
 $$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 0.20 \cdot \text{ReviewDue} + 0.15 \cdot \text{CurriculumNeed} + 0.10 \cdot \text{Variety} - 0.25 \cdot \text{Fatigue}$$
 
+### How Recency and Recovery fit inside Target Selection
+
+Both Recency and Recovery are NOT separate systems. They are **adjustments inside** the target selection process:
+
+```text
+due_unit() runs:
+    1. Get un-owned skills from current unit
+    2. CHECK: All stuck? (RECOVERY) → if yes, add next unit skills to pool
+    3. prioritize_skills() runs on the pool:
+        - Scores each skill using Need, Uncertainty, ReviewDue, Curriculum, Variety
+        - Applies -0.25 × Recency (RECENCY) → lowers recently-practiced skills
+        - Sorts by score
+    4. Highest score = next primary
+```
+
+| Mechanism | What it does | Where in the code |
+|---|---|---|
+| **Recency** | The `-0.25 × Recency` part of the priority formula. Lowers the score of recently-practiced skills so they don't win again immediately. | Inside `prioritize_skills()` — one of the 6 scoring factors |
+| **Recovery** | The consecutive zeros check. Before scoring, checks: "Are all remaining skills stuck?" If yes, expands the pool by adding next unit's skills. | Inside `due_unit()` — runs before `prioritize_skills()` |
+
+**Recency adjusts the score.** Recovery adjusts the candidate pool. Then priority scoring picks the winner from whatever pool exists.
+
+### Guaranteed Ordering Properties
+
+Given the current priority formula and weights:
+
+* A newly introduced (fresh) skill will always outrank a skill that was just practiced in the previous session, assuming both are in the same candidate pool.
+* Recently practiced skills always receive a recency cooldown.
+* Higher mastery always reduces Need.
+* More evidence always reduces Uncertainty.
+* ReviewDue increases with time since last practice.
+
+These properties ensure that ELLA naturally rotates skills instead of repeatedly selecting the same one.
+
+### How Priority Scores Typically Behave
+
+The priority score has **no fixed threshold**. It is only used to rank candidate skills. The skill with the highest score becomes the next primary target.
+
+| Skill State | Typical Behavior |
+|---|---|
+| **Fresh skill** | Usually highest priority because Need, Uncertainty, and ReviewDue are all at maximum. |
+| **Recently practiced** | Priority drops due to lower Need, lower Uncertainty, and a Recency cooldown. |
+| **Emerging skill** | Remains competitive and continues appearing in rotation. |
+| **Well-mastered skill** | Usually lower priority because Need is small. |
+| **Review overdue** | Priority gradually rises again, allowing spaced review. |
+
 ### Component Weights
 
 | Factor | Weight | Calculation | Why it exists |
