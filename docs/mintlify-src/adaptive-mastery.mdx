@@ -735,40 +735,45 @@ The next conversation's target is **not** necessarily VOC-02. ELLA recalculates 
 
 ## 10. The Big Picture (Old vs New)
 
-```text
-OLD SYSTEM                         NEW SYSTEM
-────────────────────              ─────────────────────
+## 10. The Complete Learning Flow
 
-Evidence                          Evidence
-   ↓                                  ↓
-Pass threshold?                   LLM confidence score
-   ↓                                  ↓
-+1 sighting                       Update mastery
-   ↓                                  ↓
-1 → 2 → 3                         0.32 → 0.54 → 0.61...
-   ↓                                  ↓
-Bloomed                           Check mastery
-                                      +
-                                  sightings
-                                      +
-                                  context diversity
-                                      ↓
-                                  Calculate priority
-                                      ↓
-                                  Apply recency
-                                      ↓
-                                  Select next target
+```text
+Conversation
+        │
+        ↓
+LLM Judge evaluates transcript
+        │
+        ↓
+Confidence per skill (0.0–1.0)
+        │
+   ┌────┴────┐
+   ↓         ↓
+Sighting   Mastery update
+   ↓         ↓
+Garden    Learning state
+grows     (locked/emerging/owned)
+   │         │
+   └────┬────┘
+        ↓
+Updated learner model
+        ↓
+Next conversation begins
+        ↓
+Priority scoring
+(Need + Uncertainty + ReviewDue + Curriculum + Variety - Recency)
+        ↓
+Highest priority = next primary target
 ```
 
 <Info>
-**The one sentence that explains the change:**
-
-*"The old system counted how many times a learner demonstrated a skill; the new system estimates how confident we are that the learner has mastered it, and then uses that confidence to decide what the learner should practice next."*
+**ELLA uses two complementary learning signals.** Sightings record successful demonstrations for garden growth, while mastery estimates how confidently the learner knows each skill. Together they drive ownership, priority scoring, and future conversations.
 </Info>
 
 ---
 
-## 11. DB JSON Schema
+## Developer Reference
+
+### DB JSON Schema
 
 The adaptive mastery data is saved inside the user's `skills_progress` JSON payload:
 
@@ -799,5 +804,5 @@ The adaptive mastery data is saved inside the user's `skills_progress` JSON payl
 <Note>
 **Why is rotation non-linear (not VOC-01 → VOC-02 → GRA-01 → FLU-01 in fixed order)?**
 
-Non-linear is intentional. It's what makes this adaptive, not just a rotation playlist. The "randomness" isn't random — it's priority-scored based on the student's actual gaps. If we make it linear, we lose the adaptive part and it's just a round-robin scheduler. The system spends MORE time on what the student needs and LESS time on what they've already got. That's the entire value proposition.
+The order isn't random and it isn't fixed. After every conversation, all eligible skills are rescored and the highest-priority skill becomes the next primary target. This allows ELLA to spend more time on weaker skills and less time on skills the learner already demonstrates confidently.
 </Note>
