@@ -466,120 +466,51 @@ Result: `sightings = 3` ✅ and `context_diversity = 3` ✅ → **Can be OWNED**
 
 ---
 
-## 5. Old System vs New System (Side-by-Side)
+## 5. Old System vs New System
 
-Let's take exactly **one skill: `VOC-01`** and run the old vs new system side-by-side using the same learner evidence.
+### The core difference
 
-### Assumption
+| | Old System | New System |
+|---|---|---|
+| **Philosophy** | "How many times did I see this?" | "How confident am I that the learner knows this?" |
+| **Garden growth** | Sightings → plant grows | Same — sightings still drive garden growth |
+| **Evidence weight** | Every qualifying sighting counts equally | Stronger demonstrations increase mastery more |
+| **Context requirement** | None | Must demonstrate in 2+ different topics |
+| **Ownership** | Based on sighting count | Based on mastery + evidence + context diversity |
+| **Target selection** | Fixed order or simple rotation | Priority-scored based on need, uncertainty, recency |
 
-The learner demonstrates `VOC-01` in 5 conversations:
+### One worked example
 
-| Conversation | LLM evidence |
-|---|---:|
-| C1 | 0.80 |
-| C2 | 0.80 |
-| C3 | 0.40 |
-| C4 | 0.90 |
-| C5 | 0.70 |
-
-### The Comparison
-
-| Conversation | Evidence | OLD: Sighting system | NEW: Mastery system |
-|---|---:|---|---|
-| Start | — | 0 sightings → Locked | Mastery = **0.00** |
-| C1 | 0.80 | 1st sighting → **Emerging** | 0 + 0.40×0.80×(1−0) = **0.320** |
-| C2 | 0.80 | 2nd sighting → **Growing** | 0.320 + 0.40×0.80×(1−0.320) = **0.538** |
-| C3 | 0.40 | Doesn't qualify → **still Growing** | 0.538 + 0.40×0.40×(1−0.538) = **0.612** |
-| C4 | 0.90 | 3rd sighting → **Bloomed** 🌸 | 0.612 + 0.40×0.90×(1−0.612) = **0.752** |
-| C5 | 0.70 | Already Bloomed | 0.752 + 0.40×0.70×(1−0.752) = **0.821** |
-
-### Visual Timeline
+Same student, same 5 conversations, different outcomes:
 
 ```text
-OLD
-────────────────────────────────────────
+Student demonstrates VOC-01 five times:
+  C1: confidence 0.80
+  C2: confidence 0.80
+  C3: confidence 0.40 (weak)
+  C4: confidence 0.90
+  C5: confidence 0.70
 
-C1       C2       C3       C4       C5
-│        │        │        │        │
-0        1        2        2        3 sightings
-         ↓        ↓        ↓
-      Emerging  Growing  Bloomed
-                           🌸
+Old System:
+  C1 → sighting 1
+  C2 → sighting 2
+  C3 → below threshold, ignored
+  C4 → sighting 3 → Bloomed!
+  C5 → already done
+
+New System:
+  C1 → mastery 0.32 (emerging)
+  C2 → mastery 0.54
+  C3 → below 0.70, no update
+  C4 → mastery 0.75
+  C5 → mastery 0.82
+       + needs 2 topics for ownership
 ```
-
-versus:
-
-```text
-NEW
-────────────────────────────────────────
-
-C1       C2       C3       C4       C5
-│        │        │        │        │
-0.00 →  0.32 →   0.54 →   0.61 →   0.75 → 0.82
-          ↑                  ↑
-       Emerging           OWNED*
-```
-
-### The Important Correction
-
-At C4, `0.752` is **not automatically OWNED**. The new rule says:
-
-```text
-OWNED if:
-
-Mastery ≥ 0.75
-AND evidence_count ≥ 2
-AND context_diversity ≥ 2
-```
-
-So at C4:
-
-```text
-Mastery        = 0.752  ✅
-Sightings = 4       ✅
-Context diversity = ?
-```
-
-If the learner used `VOC-01` only in **one context**:
-
-```text
-VOC-01
-Mastery = 0.752
-Evidence = 4
-Contexts = 1
-
-→ EMERGING, not OWNED
-```
-
-If they used it across **two different contexts**:
-
-```text
-VOC-01
-Mastery = 0.752
-Evidence = 4
-Contexts = 2
-
-→ OWNED 🌸
-```
-
-### The Strongest Difference
-
-The old system says:
-
-> **"I saw 3 qualifying demonstrations → Bloomed."**
-
-The new system says:
-
-> **"My confidence is 0.752, I've seen enough evidence, and I've seen the learner use it in multiple contexts → Owned."**
-
-So you're no longer saying: **3 times = learned.**
-
-You're saying: **confidence + sufficient evidence + contextual diversity = learned.**
 
 **Key differences:**
-- The old system ignores C3 entirely (below threshold). The new system still learns from weak evidence — mastery increases from 0.54 to 0.61.
-- The old system declares mastery at C4. The new system waits until context diversity is satisfied.
-- The new system never "finishes" — the score continues refining with each new piece of evidence.
+- The old system declares mastery at C4 (3 sightings). The new system requires mastery ≥ 0.75 AND context diversity.
+- The old system ignores C3 entirely. The new system also ignores it (below FLOOR = 0.70).
+- The new system never "finishes" — the score continues refining with each new evidence.
 
 ---
 
