@@ -314,16 +314,17 @@ So:
 
 ELLA does **not** say "Conversation 1 → VOC-01, Conversation 2 → VOC-02…"
 
-After **every** conversation, ELLA recalculates the priority of all eligible skills. The highest-scoring skill becomes the next primary target. The sequence of targets isn't predetermined — it emerges from the student's actual performance.
+After **every** conversation, ELLA recalculates the priority of all eligible skills. The highest-scoring skill becomes the next primary target. The sequence isn't predetermined — it adapts to the learner's progress.
 
-After every conversation, ELLA asks itself:
+After every conversation, ELLA asks:
 
-1. How confident am I that this student knows each skill?
-2. Which skill needs the most attention right now?
-3. What haven't I seen this student practice in a while?
-4. What was I just focusing on? (Don't repeat it immediately.)
+* **Which skill needs the most practice?** *(Need / Mastery)*
+* **Which skills am I least certain about?** *(Uncertainty)*
+* **Which skills are due for review?** *(Review Due)*
+* **Which skill did I just practice?** *(Recency)*
+* **Which skill best fits the learner's current curriculum?** *(Curriculum Progression)*
 
-The answers to these questions produce a **priority ranking**, and the highest-priority skill becomes the next conversation target.
+The answers are combined into a priority score. The skill with the highest score becomes the next primary target.
 
 ---
 
