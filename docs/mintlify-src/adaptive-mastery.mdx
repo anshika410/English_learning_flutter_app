@@ -708,6 +708,56 @@ Every value in the formula is derived from the student's stored progress:
 
 **Why GRA-01 won:** Still completely fresh — maximum Need, Uncertainty, ReviewDue, and zero Recency.
 
+### Detailed Input Trace: U1-VOC-01 After Being Practiced
+
+After Session 1 (VOC-01 was primary, judge gave 0.80), here's exactly where each number comes from:
+
+| Factor | Input Value | Source in Database | Calculation | Result |
+|---|---|---|---|---|
+| **Need** | mastery = 0.32 | `skills_progress.mastery["A0:U1-VOC-01"]` (updated this session) | `1 - 0.32` | 0.68 |
+| **Uncertainty** | sightings = 1 | `skills_progress.evidence_count["A0:U1-VOC-01"]` (got +1) | `1 / √(1+1)` = `1/√2` | 0.71 |
+| **ReviewDue** | last_seen = today | `skills_progress.last_seen["A0:U1-VOC-01"]` = "2026-08-04" | `1 - e^(-0/7)` = `1-1` | 0.00 |
+| **Curriculum** | index=0, total=4 | Position in the skill list from UNITS data | `1 - (0/4)` | 1.00 |
+| **Variety** | sightings = 1 | Same as Uncertainty | `1 / (1+1)` | 0.50 |
+| **Recency** | count = 1 | `recent_primary_history` = ["A0:U1-VOC-01"]. Appears 1 time. | `1/4` | 0.25 |
+
+**Score** = 0.35×0.68 + 0.20×0.71 + 0.20×0.00 + 0.15×1.00 + 0.10×0.50 - 0.25×0.25 = **0.52**
+
+Compare with U1-GRA-01 (never practiced — all values are at maximum):
+
+**Score** = 0.35×1.0 + 0.20×1.0 + 0.20×1.0 + 0.15×0.75 + 0.10×1.0 - 0.25×0.0 = **0.96**
+
+GRA-01 wins because it's completely fresh. VOC-01 lost because practicing it updated mastery (lower Need), added a sighting (lower Uncertainty), set last_seen to today (zero ReviewDue), and added it to recency history (penalty).
+
+### How Conversation Quality Affects the System
+
+The LLM judge's confidence score (0.0–1.0) is the **only input from the conversation**. Higher quality = higher confidence = faster mastery growth:
+
+| Conversation Quality | Judge Confidence | Effect on Mastery | Effect on Next Target |
+|---|---|---|---|
+| Student barely demonstrates skill | 0.70 (minimum) | Small increase: `+0.40 × 0.70 × headroom` | Need drops slightly → skill still high priority |
+| Student demonstrates well | 0.80 | Medium increase | Need drops more → other skills start winning |
+| Student demonstrates strongly | 0.90 | Large increase | Need drops significantly → skill deprioritized |
+| Student doesn't demonstrate | 0.40 (below 0.70) | **No change** (ignored) | Need stays the same → skill keeps high priority |
+
+**Example:** Same skill, different quality over 3 sessions:
+
+```text
+Strong student (0.90 each time):
+  Session 1: mastery 0 → 0.36
+  Session 2: mastery 0.36 → 0.59
+  Session 3: mastery 0.59 → 0.74  ← almost owned!
+
+Weak student (0.70 each time):
+  Session 1: mastery 0 → 0.28
+  Session 2: mastery 0.28 → 0.48
+  Session 3: mastery 0.48 → 0.63  ← still far from 0.75
+```
+
+The strong student's skill gets deprioritized faster (Need drops to 0.26 by session 3), so ELLA moves on to other skills sooner. The weak student's skill stays higher priority longer (Need = 0.37), so ELLA keeps bringing it back.
+
+**This is how quality self-regulates:** stronger demonstrations = faster progress = more variety. Weaker demonstrations = more repetition = more practice on that skill.
+
 ---
 
 ## 8. The Recency Cooldown Loop
