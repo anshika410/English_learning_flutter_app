@@ -185,9 +185,14 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 
 | Term | What it is | How it updates |
 |---|---|---|
-| **Sighting** | A session where the student demonstrates a skill with confidence **≥ 0.70**. In code, this is `evidence_count`. | +1 after a session where the judge gives confidence ≥ 0.70 |
+| **Evidence Quality** | The confidence score (0.0–1.0) assigned by the LLM Judge for a specific skill demonstration. | Produced fresh after each conversation by the judge. |
+| **Sighting (Evidence Count)** | The number of qualifying demonstrations (confidence ≥ 0.70). In code: `evidence_count`. | +1 after a session where the judge gives confidence ≥ 0.70 |
 | **Recency** | A list of the last **4 primary targets**. It is used by the priority formula to give recently practiced skills a cooldown. | After each session, the current primary target is added to the list. Maximum 4 items. |
 | **Uncertainty** | "How much data do we have about this skill?" Calculated from sightings: **`1 / √(sightings + 1)`**. Not stored — recalculated when needed. | As sightings increase → uncertainty decreases → the skill becomes less urgent to investigate. |
+
+<Note>
+**Several learner-state fields update together** at the end of each session: mastery, sightings, recency, context diversity, and consecutive zeros all update in the same moment after the judge evaluates the conversation.
+</Note>
 
 ### Uncertainty formula explained:
 
@@ -263,11 +268,13 @@ So the two systems work together:
              ↓               ↓
          Sighting        Evidence
              ↓               ↓
-      Garden growth    Adaptive mastery
+      Garden growth    Mastery updates
              ↓               ↓
-      Plant blooms     Confidence changes
+      Plant blooms     Need = 1 - Mastery
                              ↓
-                    Ownership + targeting
+                    Priority scoring
+                             ↓
+                    Target selection
 ```
 
 <Note>
