@@ -609,16 +609,16 @@ $$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 
 
 ### Component Weights
 
-**Why each factor exists:**
-
-| Factor | Weight | Problem it solves | Without it... |
+| Factor | Weight | Calculation | Why it exists |
 |---|---|---|---|
-| **Need** | 0.35 | Practice what you're weakest at | Strong and weak skills would get equal attention |
-| **Uncertainty** | 0.20 | Check skills you've never tested | A brand new skill could sit untested forever |
-| **ReviewDue** | 0.20 | Don't forget what you learned last week | Skills practiced once would never come back |
-| **Curriculum** | 0.15 | Follow the teaching sequence loosely | Random jumping with no structure |
-| **Variety** | 0.10 | Don't over-practice one skill | A skill with 5 sightings could dominate over one with 0 |
-| **Recency** | -0.25 | Don't repeat what you just did | Same skill every session |
+| **Need** | 0.35 | `1.0 - Mastery` | Prioritizes skills with the lowest mastery. |
+| **Uncertainty** | 0.20 | `1 / √(sightings + 1)` | Prioritizes skills with little assessment data. |
+| **Review Due** | 0.20 | `1.0 - e^(-days_since / 7.0)` | Brings back older skills for spaced repetition. |
+| **Curriculum** | 0.15 | `1.0 - (index / total_skills)` | Keeps learners moving roughly in curriculum order. |
+| **Variety** | 0.10 | `1 / (sightings + 1)` | Gives more attention to skills practiced less often. |
+| **Recency** | -0.25 | `recent_primary_count / 4.0` | Prevents repeating the same primary skill in consecutive sessions. |
+
+The priority score determines `due_next.primary` — the skill the next conversation will target.
 
 **What changes per student (the variables):**
 
@@ -630,17 +630,6 @@ $$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 
 | **recent_primary_history** | Last 4 skill IDs | After EVERY conversation (regardless of evidence) | Current primary added. Max 4. |
 
 **The weights (0.35, 0.20, etc.) are fixed constants — they never change. The variables update after every conversation based on the student's performance.**
-
-**Detailed calculation per skill:**
-
-| Component | Weight | Calculation | Description |
-|---|---|---|---|
-| **Need** | `0.35` | $1.0 - \text{Mastery}(s)$ | Prioritizes skills where the learner has the lowest mastery. |
-| **Uncertainty** | `0.20` | $\frac{1}{\sqrt{\text{evidence\_count} + 1}}$ | Prioritizes skills with few recorded assessment data points. |
-| **Review Due** | `0.20` | $1.0 - e^{-\frac{\text{days\_since\_last\_practice}}{7.0}}$ | Spaced repetition decay. Prioritizes older skills to combat memory decay. |
-| **Curriculum Need** | `0.15` | $1.0 - \frac{\text{index}}{\text{total\_skills}}$ | Retains a gentle pull toward the natural curriculum order. |
-| **Variety** | `0.10` | $\frac{1}{\text{evidence\_count} + 1.0}$ | Prefers skills that have been practiced less overall. |
-| **Recency** | `-0.25` | $\frac{\text{recent\_primary\_count}}{4.0}$ | A **large cooldown** if the skill was a primary target in recent chats. |
 
 ### Where Each Score Comes From
 
