@@ -407,6 +407,70 @@ Transitioning to the `owned` state requires **all three conditions**: high maste
 
 ---
 
+### Two Important Thresholds
+
+```text
+0.70 = "This was a valid demonstration." (Evidence threshold — FLOOR)
+0.75 = "We trust that you own this skill." (Mastery threshold — for ownership)
+```
+
+| Threshold | What it means | What happens |
+|---|---|---|
+| **0.70 (FLOOR)** | Judge confidence must be ≥ 0.70 for anything to count | Below 0.70 → no sighting, no mastery update, nothing changes |
+| **0.75 (Mastery)** | Mastery must reach 0.75 for ownership | Below 0.75 → skill stays Emerging even with 3+ sightings |
+
+### How Conversation Quality Drives Everything
+
+The LLM judge's confidence score is the **single input** that cascades through the entire system:
+
+```text
+Student demonstrates skill in conversation
+              ↓
+LLM Judge gives confidence (0.0–1.0)
+              ↓
+Is confidence ≥ 0.70?
+              ↓
+         YES: apply_merge() runs
+              ├── Mastery updated (formula)
+              ├── Sighting +1
+              ├── Context diversity updated
+              └── Recent history updated
+              ↓
+         Ownership checked:
+              mastery ≥ 0.75 + sightings ≥ 2 + contexts ≥ 2?
+              ↓
+         prioritize_skills() runs:
+              Need = 1 - Mastery
+              ↓
+         Priority Score calculated
+              ↓
+         Next Primary Target selected
+```
+
+### Why quality matters (the key insight)
+
+| Demonstration Quality | Confidence | Mastery after 3 sessions | Need after 3 sessions | What happens |
+|---|---|---|---|---|
+| Strong | 0.90 each | 0.74 | 0.26 (low) | Skill deprioritized fast → more variety |
+| Medium | 0.80 each | 0.63 | 0.37 | Skill stays in rotation |
+| Bare minimum | 0.70 each | 0.54 | 0.46 (high) | Skill keeps coming back → more practice |
+| Below threshold | 0.40 | 0.00 (no change) | 1.00 (max) | Skill stays highest priority |
+
+**Three barely-passing demonstrations (0.70) are no longer automatically enough:**
+
+```text
+C1 (0.70): mastery → 0.28
+C2 (0.70): mastery → 0.48
+C3 (0.70): mastery → 0.63
+
+Garden: 3 sightings → Bloomed ✅
+Ownership: mastery 0.63 < 0.75 → NOT Owned ❌
+```
+
+This is the **single most important difference** from the old system: quality-sensitive ownership.
+
+---
+
 ## 4. Evidence vs Context
 
 These are the two additional gates that prevent premature mastery.
