@@ -154,18 +154,22 @@ This is the **happy path**. The student performs well enough that skills get evi
 
 **Setup:** A0, Unit 1, all 4 skills starting at mastery 0.00
 
-| Conv | Primary Target | Evidence? | What Happens |
-|---|---|---|---|
-| 1 | **U1-VOC-01** | YES (0.80) | Mastery → 0.32. Recency added. |
-| 2 | **U1-VOC-02** | YES (0.75) | Mastery → 0.30. VOC-01 has recency penalty → VOC-02 rose. |
-| 3 | **U1-GRA-01** | YES (0.70) | Mastery → 0.28. VOC-02 has recency penalty → GRA-01 rose. |
-| 4 | **U1-FLU-01** | YES (0.80) | Mastery → 0.32. GRA-01 has recency penalty → FLU-01 rose. |
-| 5 | **U1-VOC-01** | YES (0.80) | Mastery → 0.54. Fatigue decayed, came back. |
-| 6 | **U1-VOC-02** | YES (0.75) | Mastery → 0.51. Came back. |
-| 7 | **U1-GRA-01** | YES (0.75) | Mastery → 0.49. Came back. |
-| 8 | **U1-VOC-01** | YES (0.85) | Mastery → 0.70. Getting close to owned! |
-| 9 | **U1-FLU-01** | YES (0.80) | Mastery → 0.54. Came back. |
-| 10 | **U1-GRA-01** | YES (0.80) | Mastery → 0.63. Making progress. |
+<Note>
+**Evidence** = confidence ≥ 0.70. Below that threshold, no sighting or mastery update occurs.
+</Note>
+
+| Conv | Primary Target | Confidence | Evidence? | Mastery | Reason for next primary |
+|---|---|---|---|---|---|
+| 1 | **U1-VOC-01** | 0.80 | ✅ | 0.32 | VOC-01 has recency → VOC-02 wins |
+| 2 | **U1-VOC-02** | 0.75 | ✅ | 0.30 | VOC-02 has recency → GRA-01 wins |
+| 3 | **U1-GRA-01** | 0.70 | ✅ | 0.28 | GRA-01 has recency → FLU-01 wins |
+| 4 | **U1-FLU-01** | 0.80 | ✅ | 0.32 | FLU-01 has recency → VOC-01 highest Need |
+| 5 | **U1-VOC-01** | 0.80 | ✅ | 0.54 | VOC-01 recency → VOC-02 Need+ReviewDue |
+| 6 | **U1-VOC-02** | 0.75 | ✅ | 0.51 | VOC-02 recency → GRA-01 highest Need |
+| 7 | **U1-GRA-01** | 0.75 | ✅ | 0.49 | GRA-01 recency → FLU-01 highest Need |
+| 8 | **U1-VOC-01** | 0.85 | ✅ | 0.70 | VOC-01 recency → GRA-01 Need |
+| 9 | **U1-FLU-01** | 0.80 | ✅ | 0.54 | FLU-01 recency → VOC-01 ReviewDue |
+| 10 | **U1-GRA-01** | 0.80 | ✅ | 0.63 | GRA-01 still has highest Need |
 
 ### What you see:
 
@@ -192,18 +196,24 @@ This is the **struggling path**. The student owns 3 skills and keeps failing the
 
 **Setup:** A0, Unit 1. VOC-01, VOC-02, FLU-01 already owned. Only GRA-01 left.
 
-| Conv | Primary Target | Evidence? | What Happens |
-|---|---|---|---|
-| 1 | **U1-GRA-01** | NO (0.30) | consecutive_zeros = 1. No mastery change. |
-| 2 | **U1-GRA-01** | NO (0.25) | consecutive_zeros = 2. **TRIGGER!** Next unit opens. |
-| 3 | **U2-VOC-01** | YES (0.80) | Fresh skill! Mastery → 0.32. Student feels progress. |
-| 4 | **U2-GRA-01** | YES (0.70) | Another fresh skill. Mastery → 0.28. |
-| 5 | **U2-GRA-02** | YES (0.75) | Fresh skill. Mastery → 0.30. |
-| 6 | **U1-GRA-01** | NO (0.40) | Comes back (recency decayed). Still no evidence. cz stays 2. |
-| 7 | **U2-FLU-01** | YES (0.80) | Back to Unit 2 skills. Mastery → 0.32. |
-| 8 | **U2-VOC-01** | YES (0.85) | Unit 2 skill returns. Mastery → 0.55. |
-| 9 | **U1-GRA-01** | YES! (0.72) | **Finally!** consecutive_zeros resets to 0. Mastery → 0.29. |
-| 10 | **U2-GRA-01** | YES (0.80) | Back to Unit 2. Mastery → 0.50. |
+| Conv | Primary Target | Confidence | Evidence? | Mastery | Reason for next primary |
+|---|---|---|---|---|---|
+| 1 | **U1-GRA-01** | 0.30 | ❌ | 0.00 | Only skill left. cz=1 |
+| 2 | **U1-GRA-01** | 0.25 | ❌ | 0.00 | cz=2 **TRIGGER!** Next unit opens |
+| 3 | **U2-VOC-01** | 0.80 | ✅ | 0.32 | Fresh skill wins (high uncertainty) |
+| 4 | **U2-GRA-01** | 0.70 | ✅ | 0.28 | U2-VOC-01 recency → next fresh skill |
+| 5 | **U2-GRA-02** | 0.75 | ✅ | 0.30 | U2-GRA-01 recency → next fresh skill |
+| 6 | **U2-FLU-01** | 0.80 | ✅ | 0.32 | U2-GRA-02 recency → last fresh skill |
+| 7 | **U1-GRA-01** | 0.40 | ❌ | 0.00 | All U2 have recency, GRA-01 ReviewDue high |
+| 8 | **U2-VOC-01** | 0.85 | ✅ | 0.55 | GRA-01 recency, U2-VOC-01 Need+ReviewDue |
+| 9 | **U1-GRA-01** | 0.72 | ✅ | 0.29 | **Finally!** cz resets. GRA-01 ReviewDue highest |
+| 10 | **U2-GRA-01** | 0.80 | ✅ | 0.50 | GRA-01 recency → U2-GRA-01 Need |
+
+**Candidate pool after trigger (Conv 3 onwards):**
+
+```text
+U1-GRA-01 (stuck, low priority) + U2-VOC-01 + U2-GRA-01 + U2-GRA-02 + U2-FLU-01
+```
 
 ### What you see:
 
