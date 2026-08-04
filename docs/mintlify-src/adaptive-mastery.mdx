@@ -185,6 +185,8 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 
 | Term | What it is | How it updates |
 |---|---|---|
+| **Judge Confidence** | Score given by the LLM after one conversation (0.0–1.0). This is the **input** to the system. | Produced fresh after each conversation by the judge. |
+| **Mastery** | Running confidence that the learner knows a skill (0.0–1.0). This is **stored state**. Not the same as judge confidence. | Updated by the mastery formula after qualifying evidence. |
 | **Evidence Quality** | The confidence score (0.0–1.0) assigned by the LLM Judge for a specific skill demonstration. | Produced fresh after each conversation by the judge. |
 | **Sighting (Evidence Count)** | The number of qualifying demonstrations (confidence ≥ 0.70). In code: `evidence_count`. | +1 after a session where the judge gives confidence ≥ 0.70 |
 | **Recency** | A list of the last **4 primary targets**. It is used by the priority formula to give recently practiced skills a cooldown. | After each session, the current primary target is added to the list. Maximum 4 items. |
@@ -236,7 +238,7 @@ Conversation 3 → ❌ = still 2
 Conversation 4 → ✅ = 3 sightings
 ```
 
-These sightings **still count toward garden growth**. Plants still bloom based on the existing sighting logic.
+These sightings **still count toward garden growth**. Plants bloom at 3 sightings, but sightings continue increasing beyond 3 for learning and scheduling purposes.
 
 ### Adaptive mastery = "How confident am I?"
 
@@ -278,7 +280,7 @@ So the two systems work together:
 ```
 
 <Note>
-A plant can bloom before the skill is owned. This is intentional — garden growth celebrates successful practice, while ownership represents demonstrated mastery across multiple conversations and contexts.
+A plant can bloom before the skill is owned. This is intentional — garden growth celebrates successful demonstrations (confidence ≥ 0.70), while ownership represents demonstrated mastery across multiple conversations and contexts.
 </Note>
 
 ### And there's one more ownership check
