@@ -819,3 +819,9 @@ The adaptive mastery data is saved inside the user's `skills_progress` JSON payl
 
 The order isn't random and it isn't fixed. After every conversation, all eligible skills are rescored and the highest-priority skill becomes the next primary target. This allows ELLA to spend more time on weaker skills and less time on skills the learner already demonstrates confidently.
 </Note>
+
+<Note>
+**Why can a plant bloom but the skill not be owned?**
+
+The conflict isn't in the algorithm. It's that one visual state (a fully bloomed flower) represents only one milestone, while the engine has two: **successful practice** (3 sightings → bloomed) and **mastery** (mastery ≥ 0.75 + 2 topics → owned). The garden celebrates effort; ownership represents demonstrated mastery. A future UI enhancement (e.g. a star on mastered plants) could make both milestones visible without changing the learning logic.
+</Note>
