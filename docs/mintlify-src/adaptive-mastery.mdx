@@ -466,51 +466,58 @@ Result: `sightings = 3` ✅ and `context_diversity = 3` ✅ → **Can be OWNED**
 
 ---
 
-## 5. Old System vs New System
+## 5. Sightings and Mastery Working Together
 
-### The core difference
+After every successful demonstration, both systems update in parallel:
 
-| | Old System | New System |
-|---|---|---|
-| **Philosophy** | "How many times did I see this?" | "How confident am I that the learner knows this?" |
-| **Garden growth** | Sightings → plant grows | Same — sightings still drive garden growth |
-| **Evidence weight** | Every qualifying sighting counts equally | Stronger demonstrations increase mastery more |
-| **Context requirement** | None | Must demonstrate in 2+ different topics |
-| **Ownership** | Based on sighting count | Based on mastery + evidence + context diversity |
-| **Target selection** | Fixed order or simple rotation | Priority-scored based on need, uncertainty, recency |
+```text
+Conversation ends
+        │
+Judge confidence = 0.80
+        │
+   ┌────┴────┐
+   ↓         ↓
+Sighting   Mastery
+  +1       updates
+   ↓         ↓
+Garden    Confidence
+grows     increases
+   └────┬────┘
+        ↓
+  Ownership progresses
+```
+
+### How they complement each other
+
+| Sightings | Mastery |
+|---|---|
+| Counts successful demonstrations | Measures confidence from those demonstrations |
+| Drives garden growth (plants bloom at 3) | Tracks learning progress (locked → emerging → owned) |
+| Uses confidence ≥ 0.70 as threshold | Uses the judge's confidence score as input |
+| Visual motivation for the student | Learning state for the adaptive engine |
+| One input to ownership | One input to ownership |
 
 ### One worked example
 
-Same student, same 5 conversations, different outcomes:
+Same student, same 5 conversations — both systems update together:
 
 ```text
 Student demonstrates VOC-01 five times:
   C1: confidence 0.80
   C2: confidence 0.80
-  C3: confidence 0.40 (weak)
+  C3: confidence 0.40 (below 0.70 — both systems ignore it)
   C4: confidence 0.90
   C5: confidence 0.70
 
-Old System:
-  C1 → sighting 1
-  C2 → sighting 2
-  C3 → below threshold, ignored
-  C4 → sighting 3 → Bloomed!
-  C5 → already done
-
-New System:
-  C1 → mastery 0.32 (emerging)
-  C2 → mastery 0.54
-  C3 → below 0.70, no update
-  C4 → mastery 0.75
-  C5 → mastery 0.82
-       + needs 2 topics for ownership
+Sightings:          1 → 2 → (skip) → 3 → 4
+Mastery:         0.32 → 0.54 → (skip) → 0.75 → 0.82
+Garden:        sprout → budding → — → bloomed → bloomed
+Learning state: emerging → emerging → — → emerging* → owned (if 2+ topics)
 ```
 
-**Key differences:**
-- The old system declares mastery at C4 (3 sightings). The new system requires mastery ≥ 0.75 AND context diversity.
-- The old system ignores C3 entirely. The new system also ignores it (below FLOOR = 0.70).
-- The new system never "finishes" — the score continues refining with each new evidence.
+*At C4, the plant blooms (3 sightings) but the skill may not be owned yet — ownership also requires context diversity ≥ 2.*
+
+**These are two complementary signals that work together after every successful conversation.** Sightings celebrate effort visually. Mastery ensures the student truly knows the skill before moving on.
 
 ---
 
