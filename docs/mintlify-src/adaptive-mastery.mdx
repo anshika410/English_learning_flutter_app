@@ -330,7 +330,34 @@ The answers are combined into a priority score. The skill with the highest score
 
 ## 3. Mastery Confidence Score
 
-Every skill has a continuous mastery score represented as a float from `0.0` (locked/unknown) to `1.0` (fully mastered).
+### Why does ELLA need mastery if it already tracks sightings?
+
+Sightings answer:
+
+> *"Did I observe this skill?"*
+
+Mastery answers:
+
+> *"How confident am I that the learner truly knows this skill?"*
+
+Every skill has a mastery score between **0.0** and **1.0**. Unlike sightings, which simply record successful demonstrations, mastery measures the **strength and consistency** of those demonstrations over time.
+
+Mastery serves two purposes:
+
+1. **Determines learning state** — Locked → Emerging → Owned
+2. **Influences future practice** — Higher mastery reduces the skill's Need score (`Need = 1 - Mastery`) during target selection, making it less likely to become the next primary target.
+
+### When does mastery update?
+
+```text
+Conversation ends
+        ↓
+LLM Judge evaluates the full transcript
+        ↓
+Gives confidence score (0.0–1.0)
+        ↓
+If confidence ≥ 0.70 → mastery formula updates the stored value
+```
 
 ### The Update Formula
 
@@ -339,9 +366,9 @@ After a conversation, ELLA's grading engine evaluates the learner's responses. I
 $$\text{Mastery}_{\text{new}} = \text{Mastery}_{\text{old}} + \eta \cdot \text{Evidence} \cdot (1 - \text{Mastery}_{\text{old}})$$
 
 Where:
-* **$\eta$ (Learning Rate):** Set to `0.40`.
-* **$\text{Evidence}$:** The qualitative grading confidence returned by the LLM Judge (`0.0` to `1.0`).
-* **$(1 - \text{Mastery}_{\text{old}})$:** The learning headroom, ensuring the score asymptotes smoothly towards `1.0`.
+* **Learning Rate (0.40):** Controls how quickly mastery grows. Higher = faster progression.
+* **Evidence:** The confidence score assigned by the LLM Judge (`0.0` to `1.0`). Stronger demonstrations produce higher values.
+* **$(1 - \text{Mastery}_{\text{old}})$:** Reduces future gains as mastery increases, preventing sudden jumps to `1.0`. A skill at 0.80 mastery gains less per session than one at 0.20.
 
 ### Example: One Skill Over Multiple Conversations
 
