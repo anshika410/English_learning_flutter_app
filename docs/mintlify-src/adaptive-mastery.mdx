@@ -618,31 +618,82 @@ $$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 
 | **Variety** | `0.10` | $\frac{1}{\text{evidence\_count} + 1.0}$ | Prefers skills that have been practiced less overall. |
 | **Recency** | `-0.25` | $\frac{\text{recent\_primary\_count}}{4.0}$ | A **large cooldown** if the skill was a primary target in recent chats. |
 
-### Worked Example: 3 Skills After a Session
+### Where Each Score Comes From
 
-Suppose VOC-01 was just the primary target and we now need to pick the next one:
-
-| Skill | Need | Uncertainty | Review | Curriculum | Variety | Recency | **Final Priority** |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| VOC-01 | 0.25 | 0.25 | 0.40 | 0.80 | 0.25 | 0.75 | **0.22** |
-| GRA-01 | 0.70 | 0.50 | 0.80 | 0.90 | 0.50 | 0.00 | **0.66** |
-| FLU-01 | 0.50 | 0.33 | 0.30 | 0.60 | 0.33 | 0.00 | **0.43** |
-
-Calculation for GRA-01:
+Every value in the formula is derived from the student's stored progress:
 
 ```text
-0.35×0.70 + 0.20×0.50 + 0.20×0.80 + 0.15×0.90 + 0.10×0.50 - 0.25×0.00
-= 0.245 + 0.10 + 0.16 + 0.135 + 0.05 - 0
-= 0.69
+                    DATABASE (skills_progress)
+                           │
+              ┌────────────┼────────────────┐
+              ↓            ↓                ↓
+          mastery     sightings        last_seen
+              ↓            ↓                ↓
+           Need      Uncertainty       ReviewDue
+              │        Variety              │
+              └────────────┼────────────────┘
+                           ↓
+                    recent_primary_history
+                           ↓
+                        Recency
+                           ↓
+                   ┌───────────────┐
+                   │ PRIORITY SCORE │
+                   └───────┬───────┘
+                           ↓
+                    Highest wins = Next Primary
 ```
 
-Therefore:
+| Variable | Source in DB | Formula |
+|---|---|---|
+| Need | `mastery` | `1 - mastery` |
+| Uncertainty | `sightings` (evidence_count) | `1 / √(sightings + 1)` |
+| ReviewDue | `last_seen` (date) | `1 - e^(-days_since / 7)` |
+| Curriculum | Position in skill list | `1 - (index / total_skills)` |
+| Variety | `sightings` | `1 / (sightings + 1)` |
+| Recency | `recent_primary_history` | `count_in_history / 4` |
 
-```text
-GRA-01 = 0.66  ← highest priority
-```
+### End-to-End Example: Selecting the Next Primary Skill
 
-**Next Primary Target = GRA-01** (not VOC-01, because recency cooldown lowered its priority)
+**Setup:** Unit 1 has 4 skills (all fresh, never practiced):
+- U1-VOC-01 (index 0)
+- U1-GRA-01 (index 1)
+- U1-GRA-02 (index 2)
+- U1-FLU-01 (index 3)
+
+**Initial database:** mastery = 0, sightings = 0, last_seen = never, recent_primary_history = []
+
+**Session 1 — Picking the first primary (all fresh):**
+
+| Skill | Need | Uncertainty | ReviewDue | Curriculum | Variety | Recency | **SCORE** |
+|---|---|---|---|---|---|---|---|
+| VOC-01 (idx 0) | 1.0 | 1.0 | ~1.0 | 1.00 | 1.0 | 0 | **1.00** |
+| GRA-01 (idx 1) | 1.0 | 1.0 | ~1.0 | 0.75 | 1.0 | 0 | **0.96** |
+| GRA-02 (idx 2) | 1.0 | 1.0 | ~1.0 | 0.50 | 1.0 | 0 | **0.93** |
+| FLU-01 (idx 3) | 1.0 | 1.0 | ~1.0 | 0.25 | 1.0 | 0 | **0.89** |
+
+**Winner: VOC-01** (curriculum order breaks the tie when everything else is equal)
+
+**After conversation (judge confidence = 0.80):**
+- mastery[VOC-01]: 0 → 0.32
+- sightings[VOC-01]: 0 → 1
+- last_seen[VOC-01]: today
+- recent_primary_history: [VOC-01]
+
+**Session 2 — Picking the next primary:**
+
+| Skill | Need | Uncertainty | ReviewDue | Curriculum | Variety | Recency | **SCORE** |
+|---|---|---|---|---|---|---|---|
+| VOC-01 | 0.68 | 0.71 | ~0.0 | 1.00 | 0.50 | 0.25 | **0.52** |
+| GRA-01 | 1.0 | 1.0 | ~1.0 | 0.75 | 1.0 | 0 | **0.96** |
+| GRA-02 | 1.0 | 1.0 | ~1.0 | 0.50 | 1.0 | 0 | **0.93** |
+| FLU-01 | 1.0 | 1.0 | ~1.0 | 0.25 | 1.0 | 0 | **0.89** |
+
+**Winner: GRA-01** (VOC-01 dropped from 1.00 to 0.52 because of recency + lower need + lower uncertainty)
+
+**Why VOC-01 lost:** Its mastery increased (lower Need), it was just practiced (Recency), it has data now (lower Uncertainty), and it was seen today (low ReviewDue).
+
+**Why GRA-01 won:** Still completely fresh — maximum Need, Uncertainty, ReviewDue, and zero Recency.
 
 ---
 
