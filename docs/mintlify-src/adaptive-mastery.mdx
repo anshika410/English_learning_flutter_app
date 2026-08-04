@@ -784,16 +784,21 @@ The adaptive mastery data is saved inside the user's `skills_progress` JSON payl
     "A1:U1-VOC-01": 0.82,
     "A1:U1-GRA-01": 0.36
   },
-  "evidence_count": {
-    "A1:U1-VOC-01": 3,
-    "A1:U1-GRA-01": 1
+  "sightings": {
+    "A1:U1-VOC-01": 6,
+    "A1:U1-GRA-01": 2,
+    "A1:U1-FLU-01": 4
   },
   "context_diversity": {
-    "A1:U1-VOC-01": ["Shopping and markets", "Celebrations"]
+    "A1:U1-VOC-01": ["Shopping and markets", "Celebrations", "My family"]
   },
   "recent_primary_history": ["A1:U1-GRA-01"]
 }
 ```
+
+<Note>
+**Developer note:** In the current implementation, the code stores a field called `evidence_count` which holds the same value as `sightings`. Both increment when judge confidence is ≥ 0.70. They are the same concept with two internal names. Sightings are not capped — the garden stops visually changing at 3 (bloomed), but the count continues increasing.
+</Note>
 
 
 ---
