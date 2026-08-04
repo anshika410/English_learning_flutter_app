@@ -20,7 +20,7 @@ Each level contains 4–5 units with 3–4 skills each. New units unlock as need
 
 ---
 
-## Adaptive Learning Cycle
+## 2. Adaptive Learning Cycle
 
 ```mermaid
 flowchart TD
@@ -129,14 +129,6 @@ flowchart TB
 **Not a fixed rotation.** The order is determined dynamically by priority score. Recently practiced skills get a temporary cooldown, allowing others to become the next primary.
 </Warning>
 
-### Session-Based Evaluation
-
-<Note>
-ELLA evaluates the entire conversation as a single learning session. Individual turns are not scored independently. After the conversation ends, the LLM Judge assigns one confidence score per skill, updates learner progress, and selects the next primary target for the following conversation.
-</Note>
-
-
-
 ### Candidate Pool Expansion
 
 **Before recovery** (only 1 skill left, no rotation possible):
@@ -153,9 +145,7 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 
 > Instead of replacing the blocked skill, ELLA expands the candidate pool. The blocked skill remains eligible, but now competes with newly unlocked skills. Priority scoring determines which skill becomes the next primary target. The blocked skill returns naturally as its priority rises after other skills accumulate cooldown.
 
----
-
-## How It Works (Simple Version)
+### How It Works (Simple Version)
 
 | What | How |
 |---|---|
@@ -166,8 +156,7 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 | **When stuck** | The **last remaining un-owned skill in the unit** gets **2 consecutive sessions with no evidence** → the next unit opens. |
 | **Sequencing** | Units always progress **Unit 1 → Unit 2 → Unit 3**. Units are never skipped. |
 
----
-## The Three Systems
+### The Three Systems
 
 | System | Where | What it does |
 |---|---|---|
@@ -181,7 +170,7 @@ Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-
 
 ---
 
-## Key Definitions
+## 3. Key Definitions
 
 | Term | What it is | How it updates |
 |---|---|---|
@@ -221,13 +210,21 @@ sightings = 8 → 1 / √(8 + 1) = 1 / √9 ≈ 0.33  (8 pieces of evidence)
 
 **In plain words:** The more times a skill has been demonstrated, the less uncertain the system is about it. Fresh skills (0 sightings) have maximum uncertainty because the system has no evidence about them, which can increase their priority when selecting the next skill.
 
+### Session-Based Evaluation
+
+<Note>
+ELLA evaluates the entire conversation as a single learning session. Individual turns are not scored independently. After the conversation ends, the LLM Judge assigns one confidence score per skill, updates learner progress, and selects the next primary target for the following conversation.
+</Note>
+
 ---
 
-## 1. The Plain-English Version (No Formulas)
+## 4. Adaptive Mastery
+
+### The Plain-English Version (No Formulas)
 
 Forget the formulas for a moment. Think about **one skill: `VOC-01`**.
 
-### The existing system = "Did I see it?"
+#### The existing system = "Did I see it?"
 
 ELLA still tracks **sightings**. When the student demonstrates `VOC-01` with confidence ≥ 0.70, it counts as a sighting:
 
@@ -240,7 +237,7 @@ Conversation 4 → ✅ = 3 sightings
 
 These sightings **still count toward garden growth**. Plants bloom at 3 sightings, but sightings continue increasing beyond 3 for learning and scheduling purposes.
 
-### Adaptive mastery = "How confident am I?"
+#### Adaptive mastery = "How confident am I?"
 
 The adaptive mastery system works **alongside** sightings.
 
@@ -283,7 +280,7 @@ So the two systems work together:
 A plant can bloom before the skill is owned. This is intentional — garden growth celebrates successful demonstrations (confidence ≥ 0.70), while ownership represents demonstrated mastery across multiple conversations and contexts.
 </Note>
 
-### And there's one more ownership check
+#### And there's one more ownership check
 
 Even if ELLA reaches **75% confidence**, it asks:
 
@@ -305,7 +302,7 @@ So:
       OWNED
 ```
 
-### The easiest sentence to remember
+#### The easiest sentence to remember
 
 **Sighting system:**
 
@@ -317,9 +314,7 @@ So:
 
 **Both systems continue to work together.**
 
----
-
-## 2. The Core Idea
+### The Core Idea
 
 ELLA does **not** say "Conversation 1 → VOC-01, Conversation 2 → VOC-02…"
 
@@ -335,11 +330,9 @@ After every conversation, ELLA asks:
 
 The answers are combined into a priority score. The skill with the highest score becomes the next primary target.
 
----
+### Mastery Confidence Score
 
-## 3. Mastery Confidence Score
-
-### Why does ELLA need mastery if it already tracks sightings?
+#### Why does ELLA need mastery if it already tracks sightings?
 
 Sightings answer:
 
@@ -356,7 +349,7 @@ Mastery serves two purposes:
 1. **Determines learning state** — Locked → Emerging → Owned
 2. **Influences future practice** — Higher mastery reduces the skill's Need score (`Need = 1 - Mastery`) during target selection, making it less likely to become the next primary target.
 
-### When does mastery update?
+#### When does mastery update?
 
 ```text
 Conversation ends
@@ -368,7 +361,7 @@ Gives confidence score (0.0–1.0)
 If confidence ≥ 0.70 → mastery formula updates the stored value
 ```
 
-### The Update Formula
+#### The Update Formula
 
 After a conversation, ELLA's grading engine evaluates the learner's responses. If a learner successfully uses a skill with confidence above the threshold, their mastery score is updated using a bounded learning rate equation:
 
@@ -379,7 +372,7 @@ Where:
 * **Evidence:** The confidence score assigned by the LLM Judge (`0.0` to `1.0`). Stronger demonstrations produce higher values.
 * **$(1 - \text{Mastery}_{\text{old}})$:** Reduces future gains as mastery increases, preventing sudden jumps to `1.0`. A skill at 0.80 mastery gains less per session than one at 0.20.
 
-### Example: One Skill Over Multiple Conversations
+#### Example: One Skill Over Multiple Conversations
 
 Suppose a skill starts at mastery `0.00` and the student demonstrates it with evidence strength `0.80` each time:
 
@@ -393,7 +386,7 @@ Suppose a skill starts at mastery `0.00` and the student demonstrates it with ev
 
 *Even at 0.79, the skill is **not automatically OWNED** — see the triple gate below.*
 
-### State Transitions (Buckets)
+#### State Transitions (Buckets)
 
 The continuous score maps directly to the discrete status buckets displayed in the user interface (such as the Conversation Garden):
 
@@ -407,7 +400,7 @@ Transitioning to the `owned` state requires **all three conditions**: high maste
 
 ---
 
-### Two Important Thresholds
+#### Two Important Thresholds
 
 ```text
 0.70 = "This was a valid demonstration." (Evidence threshold — FLOOR)
@@ -419,7 +412,7 @@ Transitioning to the `owned` state requires **all three conditions**: high maste
 | **0.70 (FLOOR)** | Judge confidence must be ≥ 0.70 for anything to count | Below 0.70 → no sighting, no mastery update, nothing changes |
 | **0.75 (Mastery)** | Mastery must reach 0.75 for ownership | Below 0.75 → skill stays Emerging even with 3+ sightings |
 
-### How Conversation Quality Drives Everything
+#### How Conversation Quality Drives Everything
 
 The LLM judge's confidence score is the **single input** that cascades through the entire system:
 
@@ -447,7 +440,7 @@ Is confidence ≥ 0.70?
          Next Primary Target selected
 ```
 
-### Why quality matters (the key insight)
+#### Why quality matters (the key insight)
 
 | Demonstration Quality | Confidence | Mastery after 3 sessions | Need after 3 sessions | What happens |
 |---|---|---|---|---|
@@ -471,7 +464,7 @@ This is the **single most important difference** from the old system: quality-se
 
 ---
 
-## 4. Evidence vs Context
+## 5. Evidence vs Context
 
 These are the two additional gates that prevent premature mastery.
 
@@ -539,7 +532,7 @@ Result: `sightings = 3` ✅ and `context_diversity = 3` ✅ → **Can be OWNED**
 
 ---
 
-## 5. Sightings and Mastery Working Together
+## 6. Sightings and Mastery Working Together
 
 After every successful demonstration, both systems update in parallel:
 
@@ -594,77 +587,6 @@ Learning state: emerging → emerging → — → emerging* → owned (if 2+ top
 
 ---
 
-## 6. Step-by-Step Math Walkthrough
-
-Taking the same `VOC-01` skill, here's each conversation calculated individually:
-
-**Start:** Mastery = 0
-
-### C1 — Evidence = 0.80
-
-```text
-0 + 0.40 × 0.80 × (1 - 0)
-= 0.32
-```
-
-**Mastery = 0.32** → EMERGING
-
----
-
-### C2 — Evidence = 0.80
-
-```text
-0.32 + 0.40 × 0.80 × (1 - 0.32)
-= 0.5376
-```
-
-**Mastery = 0.538** → EMERGING
-
----
-
-### C3 — Evidence = 0.40
-
-```text
-0.538 + 0.40 × 0.40 × (1 - 0.538)
-≈ 0.612
-```
-
-**Mastery ≈ 0.612** → EMERGING
-
----
-
-### C4 — Evidence = 0.90
-
-```text
-0.612 + 0.40 × 0.90 × (1 - 0.612)
-≈ 0.752
-```
-
-**Mastery ≈ 0.752** → Now above the 0.75 threshold!
-
-But you still check:
-
-```text
-Mastery >= 0.75       ✅
-Sightings >= 2   ✅
-Context diversity >= 2 ?
-```
-
-If context diversity is only 1: **NOT OWNED YET.**
-
----
-
-### C5 — Evidence = 0.70
-
-```text
-0.752 + 0.40 × 0.70 × (1 - 0.752)
-≈ 0.821
-```
-
-**Mastery ≈ 0.821** → If context diversity ≥ 2 by now: **OWNED** 🌸
-
----
-
 ## 7. Dynamic Target Selection
 
 Mastery isn't what directly determines the next conversation. ELLA computes a **Priority Score** for each candidate skill:
@@ -684,7 +606,7 @@ $$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 
 
 The priority score determines `due_next.primary` — the skill the next conversation will target.
 
-**What changes per student (the variables):**
+### What changes per student (the variables)
 
 | Variable | What it stores | When it updates | How |
 |---|---|---|---|
@@ -920,7 +842,6 @@ The next conversation's target is **not** necessarily VOC-02. ELLA recalculates 
 
 ---
 
-
 ## 10. The Complete Learning Flow
 
 ```text
@@ -957,7 +878,7 @@ Highest priority = next primary target
 
 ---
 
-## Developer Reference
+## 11. Developer Reference
 
 ### DB JSON Schema
 
@@ -987,10 +908,9 @@ The adaptive mastery data is saved inside the user's `skills_progress` JSON payl
 **Developer note:** In the current implementation, the code stores a field called `evidence_count` which holds the same value as `sightings`. Both increment when judge confidence is ≥ 0.70. They are the same concept with two internal names. Sightings are not capped — the garden stops visually changing at 3 (bloomed), but the count continues increasing.
 </Note>
 
-
 ---
 
-## Design Notes & FAQ
+## 12. Design Notes & FAQ
 
 <Note>
 **Why is rotation non-linear (not VOC-01 → VOC-02 → GRA-01 → FLU-01 in fixed order)?**
