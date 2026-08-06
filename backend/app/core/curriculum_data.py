@@ -1395,15 +1395,39 @@ def bucket_of(progress: dict, skill_id: str, level: str = None) -> str:
     return "locked"
 
 def unit_complete(progress: dict, u: dict, level: str = None) -> bool:
+    """Unit is complete if ALL skills are owned OR early-unlock condition is met.
+    Early unlock: all-but-1 skills owned AND remaining skill has ≥1 sighting.
+    When early unlock triggers, the remaining skill is added to carryover queue.
+    """
+    lvl = level or progress.get("level", "A1")
+    unowned = []
     for s in u["skills"]:
-        b = bucket_of(progress, s["id"], level)
-        # FLU and VOC must be owned
-        if s["strand"] in ("FLU", "VOC") and b != "owned":
-            return False
-        # GRA must be at least emerging (emerging or owned)
-        if s["strand"] == "GRA" and b == "locked":
-            return False
-    return True
+        if bucket_of(progress, s["id"], lvl) != "owned":
+            unowned.append(s)
+    
+    # All owned → complete
+    if len(unowned) == 0:
+        return True
+    
+    # Early unlock: exactly 1 unowned skill with ≥1 sighting
+    if len(unowned) == 1:
+        remaining = unowned[0]
+        storage_key = progress_key_for(remaining["id"], lvl)
+        sightings = progress.get("sightings", {}).get(storage_key, 0)
+        if sightings >= 1:
+            # Add to carryover queue (if not already there)
+            if "carryover" not in progress:
+                progress["carryover"] = []
+            already = any(c["id"] == remaining["id"] for c in progress["carryover"])
+            if not already:
+                progress["carryover"].append({
+                    "id": remaining["id"],
+                    "from_unit": u["step"],
+                    "sightings_at_carry": sightings
+                })
+            return True
+    
+    return False
 
 def active_step(progress: dict, level: str = None) -> dict | None:
     if level is None:
@@ -1475,16 +1499,21 @@ def prioritize_skills(progress: dict, skill_ids: list[str], level: str) -> list[
 
 def due_unit(progress: dict, level: str = None) -> dict:
     u = active_step(progress, level)
+    lvl = level or progress.get("level", "A1")
+    
+    # Post-last-unit cleanup: if no active unit but carryover remains, rotate only carryover
     if not u:
+        carryover = progress.get("carryover", [])
+        if carryover:
+            # Return oldest carryover skill as the pick
+            picks = [{"id": c["id"], "why": "carryover cleanup (all units done)"} for c in carryover]
+            return {"picks": picks, "u": None}
         return {"picks": [], "u": None}
     
-    # v1 Simple A→B→C→D rotation
-    # Always pick the NEXT skill in curriculum order after the last one practiced.
-    # Skip owned skills. Wrap around.
-    lvl = level or progress.get("level", "A1")
+    # v1 Simple A→B→C→D rotation with carryover injection
     all_skills = u["skills"]  # curriculum order
     
-    # Find un-owned skills
+    # Find un-owned skills in this unit
     unowned = []
     for s in all_skills:
         if bucket_of(progress, s["id"], lvl) != "owned":
@@ -1493,9 +1522,24 @@ def due_unit(progress: dict, level: str = None) -> dict:
     if not unowned:
         return {"picks": [], "u": u}
     
-    # Determine which skill comes next in rotation
+    # Check if this is a carryover slot (every 3rd conversation)
     recent = progress.get("recent_primary_history", [])
+    carryover = progress.get("carryover", [])
     
+    # Every 3rd conversation = carryover slot (positions 2, 5, 8, 11...)
+    is_carryover_slot = len(recent) > 0 and (len(recent) % 3 == 2) and len(carryover) > 0
+    
+    if is_carryover_slot:
+        # Pick oldest carryover skill that's not yet owned
+        for c in carryover:
+            if bucket_of(progress, c["id"], lvl) != "owned":
+                picks = [{"id": c["id"], "why": f"carryover from Unit {c['from_unit']}"}]
+                # Also include current unit skills as fallback
+                for s in unowned:
+                    picks.append({"id": s["id"], "why": f"active unit: Step {u['step']} - {u['name']}"})
+                return {"picks": picks, "u": u}
+    
+    # Normal rotation: pick next skill in curriculum order
     if recent:
         last_key = recent[-1]
         # Find position of last practiced skill in curriculum order
@@ -1515,7 +1559,7 @@ def due_unit(progress: dict, level: str = None) -> dict:
                     ordered_picks.append({"id": candidate["id"], "why": f"active unit: Step {u['step']} - {u['name']}"})
             picks = ordered_picks
         else:
-            # Last practiced skill not found in this unit, start from first un-owned
+            # Last practiced skill not in this unit (maybe was carryover), start from first un-owned
             picks = [{"id": s["id"], "why": f"active unit: Step {u['step']} - {u['name']}"} for s in unowned]
     else:
         # No history yet — start from first skill in curriculum order
@@ -1686,9 +1730,14 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
             else:
                 p["consecutive_zeros"][p_key] = p["consecutive_zeros"].get(p_key, 0) + 1
 
-    return p, changes
+    # Clean up carryover: remove any skill that has reached 3 sightings (owned)
+    if "carryover" in p:
+        p["carryover"] = [
+            c for c in p["carryover"]
+            if bucket_of(p, c["id"], level) != "owned"
+        ]
 
-# Skill Affordances Mapping
+    return p, changes
 SKILL_AFFORDANCES = {
     "A0-VOC-01": ["naming"],
     "A0-VOC-02": ["naming"],
