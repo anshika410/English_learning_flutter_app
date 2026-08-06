@@ -1323,7 +1323,7 @@ def public_progress_for_level(progress: dict, level: str) -> dict:
                 public_ids.append(public_id)
         result[field] = public_ids
 
-    for field in ("sightings", "strength", "last_seen", "evidence", "mastery", "evidence_count", "context_diversity"):
+    for field in ("sightings", "strength", "last_seen", "evidence"):
         public_values = {}
         values = result.get(field, {})
         if not isinstance(values, dict):
@@ -1602,9 +1602,6 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
     if "last_seen" not in p: p["last_seen"] = {}
     if "evidence" not in p: p["evidence"] = {}
     if "effort" not in p: p["effort"] = {"times_spoken_total": 0}
-    if "mastery" not in p: p["mastery"] = {}
-    if "evidence_count" not in p: p["evidence_count"] = {}
-    if "context_diversity" not in p: p["context_diversity"] = {}
     if "recent_primary_history" not in p: p["recent_primary_history"] = []
     
     # Append current session's primary target to history
@@ -1662,22 +1659,6 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
                     if len(p["evidence"][storage_key]) > 3:
                         p["evidence"][storage_key] = p["evidence"][storage_key][-3:]
                         
-        # New Continuous Mastery Updater
-        old_mastery = p["mastery"].get(storage_key, 0.0)
-        if confidence >= FLOOR:
-            evidence_quality = confidence
-            new_mastery = old_mastery + 0.40 * evidence_quality * (1.0 - old_mastery)
-            p["mastery"][storage_key] = round(new_mastery, 4)
-            p["evidence_count"][storage_key] = p["evidence_count"].get(storage_key, 0) + 1
-            
-            if topic:
-                if storage_key not in p["context_diversity"]:
-                    p["context_diversity"][storage_key] = []
-                if topic not in p["context_diversity"][storage_key]:
-                    p["context_diversity"][storage_key].append(topic)
-        else:
-            new_mastery = old_mastery
-            
         # v1 Ownership: 3 sightings (confidence >= FLOOR) = owned
         # No mastery formula or context diversity requirement
         sightings = p["sightings"].get(storage_key, 0)

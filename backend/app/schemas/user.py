@@ -108,10 +108,6 @@ class UserMemoryResponse(BaseModel):
     units: list[str] = []
     last_topics: list[str] = []
     persona_memory: dict = {}
-    # New progressive mastery & target rotation properties
-    mastery: dict[str, float] = {}
-    evidence_count: dict[str, int] = {}
-    context_diversity: dict[str, list[str]] = {}
     recent_primary_history: list[str] = []
 
 
