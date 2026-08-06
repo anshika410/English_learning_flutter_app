@@ -65,7 +65,7 @@ WelcomeScreen
 
 ## Key Patterns
 
-**Colours:** Always use `EllaColors.*` — never hardcode hex values. See `docs/ella-design-system-v3.md`.
+**Colours:** Always use `EllaColors.*` — never hardcode hex values. See [`docs/ella-design-system.md`](ella-design-system.md).
 
 **Buttons:** Use `EllaPrimaryButton` for all CTAs. It has the stamp-shadow press-depth animation built in.
 
@@ -77,7 +77,7 @@ WelcomeScreen
 
 **Latency:** Every conversation turn records STT / LLM / TTS durations in `LatencyInfo`, attached to each `ChatMessage`. Visible in ChatScreen debug view.
 
-**Typography:** Bold (w700) reserved for button labels and Fredoka headings only. Zoe's chat bubbles use Kalam w400; user's chat bubbles use Baloo 2 w500. All body/supporting text (metadata, card copy, non-button chips) uses Baloo 2 w500. See `docs/zoe-design-system.md` for the full type scale.
+**Typography:** Titles/UI use **Amulya**; body copy, buttons, and Zoe's voice use **Synonym** (Zoe's voice is Synonym w400, never bold); Hindi falls back to Baloo 2. Bold (w700) is reserved for button labels. See [`docs/ella-design-system.md`](ella-design-system.md) for the full type scale and [`docs/ella-components.md`](ella-components.md) for component specs.
 
 ---
 

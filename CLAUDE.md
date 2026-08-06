@@ -13,7 +13,8 @@ Before reading any code, start here:
 | Document                                                 | When to read it                                                                   |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | [`docs/project-summary.md`](docs/project-summary.md)     | Architecture, screen flow, key files, key patterns — read once to orient yourself |
-| [`docs/zoe-design-system.md`](docs/zoe-design-system.md) | Colour tokens, typography, shadows, component specs — check when touching UI      |
+| [`docs/ella-design-system.md`](docs/ella-design-system.md) | Botanical Berry foundations — colour tokens, typography, shadows, garden atmospheres — check when touching UI |
+| [`docs/ella-components.md`](docs/ella-components.md)     | Per-component style specs (buttons, bubbles, chips, mascot, dialogs) — check when building/editing a component |
 
 **Rule of thumb:** Only open code files when you actually need to change something. The project summary gives you enough context to navigate without reading every screen upfront.
 
@@ -49,7 +50,8 @@ lib/
   theme/         # EllaColors + EllaTheme
 docs/
   project-summary.md
-  ella-design-system-v3.md
+  ella-design-system.md   # Botanical Berry foundations (colour, type, gardens)
+  ella-components.md      # per-component style specs
 assets/
   mascot-animations/   # Zoe .webp animations
   chillax/             # Chillax font files

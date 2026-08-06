@@ -9,6 +9,7 @@ import 'package:ella_app/providers/chat_provider.dart';
 import 'package:ella_app/providers/onboarding_provider.dart';
 import 'package:ella_app/screens/child_view/all_topics_screen.dart';
 import 'package:ella_app/screens/child_view/home_screen.dart';
+import 'package:ella_app/screens/child_view/widgets/topic_carousel.dart';
 import 'package:ella_app/screens/child_view/widgets/topic_icon.dart';
 
 TopicChoice _topic(String name, String label) =>
@@ -38,7 +39,13 @@ class _FakeOnboardingNotifier extends OnboardingNotifier {
       const OnboardingState(done: true, name: 'Maya', age: 10);
 }
 
-Widget _harness(Widget child, MemoryState memory, {double textScale = 1}) {
+Widget _harness(
+  Widget child,
+  MemoryState memory, {
+  double textScale = 1,
+  Size size = const Size(390, 844),
+  bool disableAnimations = false,
+}) {
   return ProviderScope(
     overrides: [
       chatProvider.overrideWith(() => _FakeChatNotifier(memory)),
@@ -47,8 +54,9 @@ Widget _harness(Widget child, MemoryState memory, {double textScale = 1}) {
     child: MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(
-          size: const Size(390, 844),
+          size: size,
           textScaler: TextScaler.linear(textScale),
+          disableAnimations: disableAnimations,
         ),
         child: child,
       ),
@@ -74,6 +82,12 @@ Future<void> _pumpHome(WidgetTester tester, List<TopicChoice> topics) async {
 
 Finder _labelTextFinder(Key labelKey) =>
     find.descendant(of: find.byKey(labelKey), matching: find.byType(Text));
+
+Finder _keyStartsWith(String prefix) => find.byWidgetPredicate(
+  (widget) =>
+      widget.key is ValueKey<String> &&
+      (widget.key! as ValueKey<String>).value.startsWith(prefix),
+);
 
 void _expectLabelFitsAt12(WidgetTester tester, Key labelKey) {
   final textFinder = _labelTextFinder(labelKey);
@@ -188,7 +202,7 @@ void main() {
     );
   });
 
-  testWidgets('reported long labels fit both three-column layouts at 390px', (
+  testWidgets('reported long labels fit the all-topics layout at 390px', (
     tester,
   ) async {
     _setPhoneViewport(tester);
@@ -196,57 +210,6 @@ void main() {
       _topic('sustainability', 'Sustainability'),
       _topic('superstition', 'Superstition'),
     ];
-
-    await _pumpHome(tester, topics);
-
-    const homeSustainabilityCard = ValueKey('home-topic-chip-Sustainability');
-    const homeSuperstitionCard = ValueKey('home-topic-chip-Superstition');
-    const homeSustainabilityIcon = ValueKey('home-topic-icon-Sustainability');
-    const homeSuperstitionIcon = ValueKey('home-topic-icon-Superstition');
-    _expectLabelFitsAt12(
-      tester,
-      const ValueKey('home-topic-label-Sustainability'),
-    );
-    _expectLabelFitsAt12(
-      tester,
-      const ValueKey('home-topic-label-Superstition'),
-    );
-
-    final homeFirstRect = tester.getRect(find.byKey(homeSustainabilityCard));
-    final homeSecondRect = tester.getRect(find.byKey(homeSuperstitionCard));
-    expect(homeSecondRect.left - homeFirstRect.right, closeTo(8, 0.01));
-    expect(
-      tester.getTopLeft(find.byKey(homeSustainabilityIcon)).dy -
-          homeFirstRect.top,
-      closeTo(12, 0.01),
-    );
-    expect(
-      tester.getSize(find.byKey(homeSustainabilityIcon)),
-      const Size.square(kTopicIconSize),
-    );
-    expect(
-      tester
-              .getRect(
-                find.byKey(const ValueKey('home-topic-label-Sustainability')),
-              )
-              .left -
-          homeFirstRect.left,
-      closeTo(12, 0.01),
-    );
-    expect(
-      tester.getTopLeft(find.byKey(homeSuperstitionIcon)).dy -
-          homeSecondRect.top,
-      closeTo(12, 0.01),
-    );
-    expect(
-      tester
-              .getRect(
-                find.byKey(const ValueKey('home-topic-label-Superstition')),
-              )
-              .left -
-          homeSecondRect.left,
-      closeTo(12, 0.01),
-    );
 
     await tester.pumpWidget(_harness(const AllTopicsScreen(), _memory(topics)));
     await tester.pump();
@@ -296,84 +259,441 @@ void main() {
     );
   });
 
-  testWidgets('home keeps an all-single-line topic row compact and equal', (
+  testWidgets('home carousel centres the recommended topic and drives the CTA', (
     tester,
   ) async {
     _setPhoneViewport(tester);
     await _pumpHome(tester, [
       _topic('food', 'Food'),
       _topic('school', 'School'),
+      _topic('home', 'Home'),
+      _topic('animals', 'Animals'),
+      _topic('sports', 'Sports'),
     ]);
 
-    final first = tester.getSize(
-      find.byKey(const ValueKey('home-topic-chip-Food')),
-    );
-    final second = tester.getSize(
-      find.byKey(const ValueKey('home-topic-chip-School')),
-    );
-    final seeMore = tester.getSize(
-      find.byKey(const ValueKey('home-see-more-chip')),
-    );
+    // The recommended topic (first) is centred, so its pill label shows and the
+    // CTA is labelled for it.
+    expect(find.text('Food'), findsWidgets);
+    expect(find.textContaining("Let's Talk About Food"), findsOneWidget);
 
-    expect(first.height, lessThanOrEqualTo(100));
-    expect(second.height, first.height);
-    expect(seeMore.height, first.height);
+    final pickLabel = tester.widget<Text>(
+      find.byKey(const ValueKey('home-topic-carousel-pick-label')),
+    );
+    expect(pickLabel.data, "Zoe's Pick");
+    expect(pickLabel.style?.fontSize, 14);
+
+    final artworkFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'home-topic-carousel-artwork-',
+          ),
+    );
+    expect(artworkFinder, findsAtLeastNWidgets(5));
+
+    final artworkSizes = <Size>[
+      for (var i = 0; i < artworkFinder.evaluate().length; i++)
+        tester.getSize(artworkFinder.at(i)),
+    ];
     expect(
-      tester.getSize(find.byKey(const ValueKey('home-topic-icon-Food'))),
-      const Size.square(kTopicIconSize),
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('home-see-more-icon'))),
-      const Size.square(kTopicIconSize),
-    );
-  });
-
-  testWidgets('home expands only a mixed row and keeps icons top-aligned', (
-    tester,
-  ) async {
-    _setPhoneViewport(tester);
-    await _pumpHome(tester, [
-      _topic('food', 'Food'),
-      _topic('school', 'School'),
-    ]);
-    final compactHeight = tester
-        .getSize(find.byKey(const ValueKey('home-topic-chip-Food')))
-        .height;
-
-    await _pumpHome(tester, [
-      _topic('food', 'Food'),
-      _topic('mental-health', 'Mental health and wellbeing'),
-    ]);
-
-    final foodCard = find.byKey(const ValueKey('home-topic-chip-Food'));
-    final longCard = find.byKey(
-      const ValueKey('home-topic-chip-Mental health and wellbeing'),
-    );
-    final seeMoreCard = find.byKey(const ValueKey('home-see-more-chip'));
-    final foodHeight = tester.getSize(foodCard).height;
-
-    expect(foodHeight, greaterThan(compactHeight));
-    expect(tester.getSize(longCard).height, foodHeight);
-    expect(tester.getSize(seeMoreCard).height, foodHeight);
-    expect(
-      tester.getTopLeft(find.byKey(const ValueKey('home-topic-icon-Food'))).dy,
-      tester
-          .getTopLeft(
-            find.byKey(
-              const ValueKey('home-topic-icon-Mental health and wellbeing'),
-            ),
-          )
-          .dy,
+      artworkSizes.where((size) => size == const Size.square(72)),
+      hasLength(1),
     );
     expect(
-      tester.getSize(
-        find.byKey(
-          const ValueKey('home-topic-icon-Mental health and wellbeing'),
+      artworkSizes.where((size) => size == const Size.square(48)).length,
+      greaterThanOrEqualTo(4),
+    );
+    expect(find.byType(ImageFiltered), findsAtLeastNWidgets(2));
+
+    final pageViewRect = tester.getRect(
+      find.byKey(const ValueKey('home-topic-carousel-page-view')),
+    );
+    final circleFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'home-topic-carousel-circle-',
+          ),
+    );
+    final selectedCircle = [
+      for (var i = 0; i < circleFinder.evaluate().length; i++)
+        circleFinder.at(i),
+    ].singleWhere((finder) => tester.getSize(finder) == const Size.square(96));
+    expect(
+      tester.getCenter(selectedCircle).dx,
+      closeTo(pageViewRect.center.dx, 0.01),
+    );
+
+    final recapRect = tester.getRect(
+      find.byKey(const ValueKey('home-last-time-card')),
+    );
+    final bubbleRect = tester.getRect(
+      find.byKey(const ValueKey('home-last-time-bubble')),
+    );
+    final pickRect = tester.getRect(
+      find.byKey(const ValueKey('home-topic-carousel-pick-label')),
+    );
+    expect(pickRect.top - recapRect.bottom, closeTo(32, 0.01));
+
+    final zoeRect = tester.getRect(
+      find.byKey(const ValueKey('home-zoe-mascot')),
+    );
+    expect(zoeRect.top, lessThanOrEqualTo(110));
+    expect(bubbleRect.top - zoeRect.bottom, closeTo(24, 0.01));
+
+    final ctaRect = tester.getRect(find.byKey(const ValueKey('home-talk-cta')));
+    expect(844 - ctaRect.bottom, closeTo(24, 0.01));
+
+    final circleRects = [
+      for (var i = 0; i < circleFinder.evaluate().length; i++)
+        (finder: circleFinder.at(i), rect: tester.getRect(circleFinder.at(i))),
+    ];
+    final visibleCircles =
+        circleRects
+            .where((entry) => entry.rect.right > 0 && entry.rect.left < 390)
+            .toList()
+          ..sort((a, b) => a.rect.center.dx.compareTo(b.rect.center.dx));
+    expect(visibleCircles, hasLength(greaterThanOrEqualTo(5)));
+
+    final selectedRect = tester.getRect(selectedCircle);
+    final leftNeighbour = visibleCircles.lastWhere(
+      (entry) => entry.rect.center.dx < selectedRect.center.dx,
+    );
+    final rightNeighbour = visibleCircles.firstWhere(
+      (entry) => entry.rect.center.dx > selectedRect.center.dx,
+    );
+    expect(selectedRect.left - leftNeighbour.rect.right, closeTo(24, 0.01));
+    expect(rightNeighbour.rect.left - selectedRect.right, closeTo(24, 0.01));
+    expect(
+      selectedRect.center.dx - leftNeighbour.rect.center.dx,
+      closeTo(106, 0.01),
+    );
+    expect(
+      rightNeighbour.rect.center.dx - selectedRect.center.dx,
+      closeTo(106, 0.01),
+    );
+    expect(
+      leftNeighbour.rect.center.dy - selectedRect.center.dy,
+      closeTo(12, 0.01),
+    );
+    expect(
+      rightNeighbour.rect.center.dy - selectedRect.center.dy,
+      closeTo(12, 0.01),
+    );
+
+    final leftOuter = visibleCircles.firstWhere(
+      (entry) => entry.rect.center.dx < leftNeighbour.rect.center.dx,
+    );
+    final rightOuter = visibleCircles.lastWhere(
+      (entry) => entry.rect.center.dx > rightNeighbour.rect.center.dx,
+    );
+    expect(
+      leftOuter.rect.center.dy - selectedRect.center.dy,
+      closeTo(24, 0.01),
+    );
+    expect(
+      rightOuter.rect.center.dy - selectedRect.center.dy,
+      closeTo(24, 0.01),
+    );
+
+    String itemSuffix(Finder circle) {
+      final key = tester.widget(circle).key! as ValueKey<String>;
+      return key.value.replaceFirst('home-topic-carousel-circle-', '');
+    }
+
+    final selectedLabelRect = tester.getRect(
+      find.byKey(
+        ValueKey('home-topic-carousel-label-${itemSuffix(selectedCircle)}'),
+      ),
+    );
+    final neighbourLabelRect = tester.getRect(
+      find.byKey(
+        ValueKey(
+          'home-topic-carousel-label-${itemSuffix(rightNeighbour.finder)}',
         ),
       ),
-      const Size.square(kTopicIconSize),
+    );
+    expect(selectedLabelRect.top - selectedRect.bottom, closeTo(6, 0.01));
+    expect(
+      neighbourLabelRect.top - rightNeighbour.rect.bottom,
+      closeTo(6, 0.01),
+    );
+
+    expect(
+      find.byKey(const ValueKey('home-topic-carousel-arc')),
+      findsOneWidget,
+    );
+
+    final itemOpacities = tester
+        .widgetList<Opacity>(_keyStartsWith('home-topic-carousel-item-'))
+        .map((widget) => widget.opacity);
+    expect(
+      itemOpacities.any((opacity) => (opacity - 0.55).abs() < 0.01),
+      isTrue,
     );
   });
+
+  testWidgets('home carousel swipes one topic at a time in both directions', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final topics = [
+      _topic('food', 'Food'),
+      _topic('school', 'School'),
+      _topic('home', 'Home'),
+      _topic('animals', 'Animals'),
+      _topic('sports', 'Sports'),
+    ];
+    final selectedNames = <String>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 844)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 342,
+                child: TopicCarousel(
+                  topics: topics,
+                  selected: topics.first,
+                  onSelect: (topic) => selectedNames.add(topic.name),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final carousel = find.byKey(
+      const ValueKey('home-topic-carousel-page-view'),
+    );
+    await tester.drag(carousel, const Offset(-90, 0));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(selectedNames, ['school']);
+
+    await tester.drag(carousel, const Offset(90, 0));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(selectedNames, ['school', 'food']);
+  });
+
+  testWidgets("home carousel shows Zoe's Pick label only for Zoe's pick topic", (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final topics = [
+      _topic('food', 'Food'),
+      _topic('school', 'School'),
+      _topic('home', 'Home'),
+      _topic('animals', 'Animals'),
+      _topic('sports', 'Sports'),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 844)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 342,
+                child: TopicCarousel(
+                  topics: topics,
+                  selected: topics.first,
+                  zoePick: topics.first,
+                  onSelect: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final pointerFinder = find.byKey(
+      const ValueKey('home-topic-carousel-pointer'),
+    );
+    expect(pointerFinder, findsOneWidget);
+
+    final labelFinder = find.byKey(
+      const ValueKey('home-topic-carousel-pick-label'),
+    );
+    final opacityFinder = find.ancestor(
+      of: labelFinder,
+      matching: find.byType(Opacity),
+    );
+    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 1.0);
+
+    final carousel = find.byKey(
+      const ValueKey('home-topic-carousel-page-view'),
+    );
+
+    // Swipe to Topic B (School)
+    await tester.drag(carousel, const Offset(-106, 0));
+    await tester.pumpAndSettle();
+    expect(pointerFinder, findsOneWidget);
+    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 0.0);
+
+    // Swipe back to Topic A (Food)
+    await tester.drag(carousel, const Offset(106, 0));
+    await tester.pumpAndSettle();
+    expect(pointerFinder, findsOneWidget);
+    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 1.0);
+  });
+
+  testWidgets('home carousel interpolates the arc while dragging', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final topics = [
+      _topic('food', 'Food'),
+      _topic('school', 'School'),
+      _topic('home', 'Home'),
+      _topic('animals', 'Animals'),
+      _topic('sports', 'Sports'),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 844)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 342,
+                child: TopicCarousel(
+                  topics: topics,
+                  selected: topics.first,
+                  onSelect: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final carousel = find.byKey(
+      const ValueKey('home-topic-carousel-page-view'),
+    );
+    final circles = _keyStartsWith('home-topic-carousel-circle-');
+    final initialSelected = [
+      for (var i = 0; i < circles.evaluate().length; i++) circles.at(i),
+    ].singleWhere((finder) => tester.getSize(finder) == const Size.square(96));
+    final initialCenterY = tester.getCenter(initialSelected).dy;
+
+    final gesture = await tester.startGesture(tester.getCenter(carousel));
+    await gesture.moveBy(const Offset(-53, 0));
+    await tester.pump();
+
+    final halfwayCircles = [
+      for (var i = 0; i < circles.evaluate().length; i++) circles.at(i),
+    ].where((finder) => (tester.getSize(finder).width - 82).abs() < 0.01);
+    expect(halfwayCircles, hasLength(2));
+    for (final circle in halfwayCircles) {
+      expect(tester.getCenter(circle).dy, closeTo(initialCenterY + 6, 0.01));
+    }
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('home carousel keeps ordinary multi-word labels on one line', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+    final topics = [
+      _topic('fake-news', 'Fake news'),
+      _topic('old-vs-new', 'Old vs new'),
+      _topic('ai-work', 'AI and work'),
+      _topic('mental-health', 'Mental health and wellbeing'),
+      _topic('sports', 'Sports'),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 844)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 342,
+                child: TopicCarousel(
+                  topics: topics,
+                  selected: topics.first,
+                  onSelect: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    for (final label in ['Fake news', 'Old vs new', 'AI and work']) {
+      final text = find.text(label);
+      expect(text, findsOneWidget);
+      expect(tester.getSize(text).height, lessThan(24));
+    }
+
+    final longLabel = find.text('Mental health and wellbeing');
+    expect(longLabel, findsOneWidget);
+    expect(tester.getSize(longLabel).height, lessThanOrEqualTo(44));
+  });
+
+  testWidgets(
+    'home carousel handles long labels and reduced motion on a short phone',
+    (tester) async {
+      const size = Size(320, 700);
+      _setPhoneViewport(tester, size: size);
+      final topics = [
+        _topic('entrepreneurship', 'Entrepreneurship'),
+        _topic('mental-health', 'Mental health and wellbeing'),
+        _topic('sustainability', 'Sustainability'),
+        _topic('superstition', 'Superstition'),
+        _topic('future-generations', 'Future generations'),
+      ];
+
+      await tester.pumpWidget(
+        _harness(
+          const HomeScreen(),
+          _memory(topics),
+          textScale: 1.3,
+          size: size,
+          disableAnimations: true,
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey('home-topic-carousel-pick-label')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('home-topic-carousel-page-view')),
+        findsOneWidget,
+      );
+      final visibleItemCount = tester
+          .widgetList<Opacity>(_keyStartsWith('home-topic-carousel-item-'))
+          .where((widget) => widget.opacity > 0.01)
+          .length;
+      expect(visibleItemCount, 3);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('home-topic-carousel')),
+          matching: find.byType(ImageFiltered),
+        ),
+        findsNothing,
+      );
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'all topics calculates compact and mixed row heights separately',
@@ -448,5 +768,4 @@ void main() {
       const Size.square(kTopicIconSize),
     );
   });
-
 }

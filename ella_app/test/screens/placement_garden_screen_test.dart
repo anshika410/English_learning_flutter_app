@@ -14,6 +14,7 @@ import 'package:ella_app/providers/placement_provider.dart';
 import 'package:ella_app/providers/service_providers.dart';
 import 'package:ella_app/screens/child_view/garden_screen.dart';
 import 'package:ella_app/screens/child_view/placement_garden_screen.dart';
+import 'package:ella_app/screens/child_view/widgets/placement_garden_scene_background.dart';
 import 'package:ella_app/services/audio_service.dart';
 import 'package:ella_app/services/sounds.dart';
 import 'package:ella_app/services/stt_tts_service.dart';
@@ -250,6 +251,8 @@ void main() {
 
     await tester.pumpWidget(_harness(tts: tts));
 
+    expect(find.byType(PlacementGardenBackdrop), findsOneWidget);
+    expect(find.byType(PlacementGardenWildflowers), findsOneWidget);
     expect(
       find.byKey(const ValueKey('placement-garden-tilled-tile')),
       findsOneWidget,
@@ -380,7 +383,9 @@ void main() {
     await _pumpUntilFound(tester, find.text('Explore Garden'));
 
     expect(find.text('Explore Garden'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('placement-garden-sprout-explore')));
+    await tester.tap(
+      find.byKey(const ValueKey('placement-garden-sprout-explore')),
+    );
     await tester.pump();
 
     expect(find.text('See My Garden'), findsNothing);

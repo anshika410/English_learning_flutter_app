@@ -27,7 +27,7 @@ import '../../services/ella_api_service.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'widgets/conversation_view.dart';
-import 'widgets/garden_sky_background.dart';
+import 'widgets/home_scene_background.dart';
 
 class PlacementScreen extends ConsumerStatefulWidget {
   const PlacementScreen({super.key});
@@ -309,7 +309,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
         resizeToAvoidBottomInset: true,
         backgroundColor: EllaColors.surfaceVariant,
         body: s.error != null && s.messages.isEmpty
-            ? GardenSkyBackground(
+            ? HomeSceneBackground(
                 child: Center(
                   child: Text(
                     s.error!,

@@ -36,6 +36,7 @@ import 'widgets/spotlight_overlay.dart';
 import 'widgets/zoe_mascot.dart';
 import 'widgets/network_error_view.dart';
 import 'widgets/mascot_loading_screen.dart';
+import 'widgets/placement_garden_scene_background.dart';
 
 // Garden values from docs/Garden Themes - Figma Values.md.
 const Color _dawnSkyTop = Color(0xFFFFE3D0);
@@ -701,10 +702,16 @@ class _GardenScreenState extends ConsumerState<GardenScreen>
             onTalk: _returnHome,
           );
         },
-        loading: () =>
-            const MascotLoadingScreen(message: 'Preparing your garden...'),
-        error: (e, _) =>
-            NetworkErrorView(onRetry: () => ref.invalidate(gardenProvider)),
+        loading: () => MascotLoadingScreen(
+          message: 'Preparing your garden...',
+          backgroundBuilder: (child) =>
+              PlacementGardenStatusBackground(child: child),
+        ),
+        error: (e, _) => NetworkErrorView(
+          onRetry: () => ref.invalidate(gardenProvider),
+          backgroundBuilder: (child) =>
+              PlacementGardenStatusBackground(child: child),
+        ),
       ),
     );
     if (!widget.firstTime) return garden;
@@ -1612,7 +1619,13 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       if (previous != null) {
         displayData = previous;
       } else if (previousAsync.isLoading) {
-        return const MascotLoadingScreen(message: 'Preparing your garden...');
+        return MascotLoadingScreen(
+          message: 'Preparing your garden...',
+          backgroundBuilder: (child) => _LevelGardenStatusBackground(
+            spec: _visualSpecFor(viewedLevel),
+            child: child,
+          ),
+        );
       } else {
         // Error: keep the current garden on screen until the listener above
         // resets the selection.
@@ -1719,7 +1732,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           child: RepaintBoundary(
             child: AnimatedSwitcher(
               duration: Duration(
-                milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 450,
+                milliseconds: MediaQuery.of(context).disableAnimations
+                    ? 0
+                    : 450,
               ),
               child: widget.showTalkBar && !modalLayerActive
                   ? _LetsTalkBar(
@@ -1923,6 +1938,29 @@ class _GardenBackdrop extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _LevelGardenStatusBackground extends StatelessWidget {
+  final _GardenLevelVisualSpec spec;
+  final Widget child;
+
+  const _LevelGardenStatusBackground({required this.spec, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: _GardenBackdrop(
+            key: ValueKey('garden-backdrop-${spec.code}'),
+            spec: spec,
+          ),
+        ),
+        child,
+      ],
     );
   }
 }
@@ -3766,8 +3804,7 @@ class _PlotState extends State<_Plot> {
               skill: skills[i],
               spot: tileSpots[i],
               pressed: _pressedSkillId == skills[i].id,
-              onPressChanged: (pressed) =>
-                  _setPressed(skills[i].id, pressed),
+              onPressChanged: (pressed) => _setPressed(skills[i].id, pressed),
               onTap: () => _handleTileTap(
                 skills[i].id,
                 () => showSkillSheet(

@@ -12,6 +12,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
+import '../../models/child_memory.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
@@ -33,11 +34,16 @@ class SessionScreen extends ConsumerStatefulWidget {
   /// pick for this session's POST /session; otherwise the engine chooses.
   final Topic? initialTopic;
 
+  /// Home-screen presentation metadata. Kept separate from [initialTopic] so
+  /// icon and short-label concerns do not leak into the conversation engine.
+  final TopicChoice? topicPresentation;
+
   const SessionScreen({
     super.key,
     this.introText,
     this.onEnded,
     this.initialTopic,
+    this.topicPresentation,
   });
 
   @override
@@ -363,6 +369,14 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return null;
   }
 
+  TopicChoice _topicPresentationFor(ChatState s) {
+    final supplied = widget.topicPresentation;
+    if (supplied != null) return supplied;
+    final name =
+        s.currentTopic?.topic ?? widget.initialTopic?.topic ?? 'Free Talk';
+    return TopicChoice(name: name, label: name);
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
@@ -431,7 +445,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
       ChatStatus.zoeThinking => MicState.busy,
-      ChatStatus.zoeSpeaking => MicState.idle,  // Allow interrupt — user can tap to cut in
+      ChatStatus.zoeSpeaking =>
+        MicState.idle, // Allow interrupt — user can tap to cut in
       ChatStatus.idle || ChatStatus.offline => MicState.idle,
     };
 
@@ -462,6 +477,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     return ConversationView(
       phase: phase,
+      topic: _topicPresentationFor(s),
+      animateTopicHeader: widget.topicPresentation != null,
       mascotPaused: _paused,
       mascotSpeaking:
           _ending ||
@@ -476,15 +493,21 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,
-      onMic: isOnline ? () => _onMic(s) : () {
-        OfflineAlertPopup.show(context);
-      },
-      onToggleKeyboard: isOnline ? _toggleKeyboard : () {
-        OfflineAlertPopup.show(context);
-      },
-      onSend: isOnline ? _sendTyped : () {
-        OfflineAlertPopup.show(context);
-      },
+      onMic: isOnline
+          ? () => _onMic(s)
+          : () {
+              OfflineAlertPopup.show(context);
+            },
+      onToggleKeyboard: isOnline
+          ? _toggleKeyboard
+          : () {
+              OfflineAlertPopup.show(context);
+            },
+      onSend: isOnline
+          ? _sendTyped
+          : () {
+              OfflineAlertPopup.show(context);
+            },
       onEnd: _endConversation,
       // Speaker dot on Zoe's bubble: replays the line when idle. While she's
       // already talking the tap is a no-op (never stops or restarts her). Only
