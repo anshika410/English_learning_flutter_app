@@ -5,11 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app_links/app_links.dart';
-import 'services/sounds.dart';
 import 'services/ella_api_service.dart';
 import 'services/analytics_service.dart';
-import 'providers/connectivity_provider.dart';
-import 'providers/service_providers.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/privacy_policy_webview_screen.dart';
@@ -19,13 +16,14 @@ import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
 import 'providers/chat_provider.dart';
 import 'providers/onboarding_provider.dart';
+import 'providers/placement_provider.dart';
+import 'providers/garden_provider.dart';
 import 'screens/child_view/home_screen.dart';
 import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
 import 'screens/child_view/placement_intro_screen.dart';
 import 'screens/child_view/profile_screen.dart';
 import 'screens/child_view/widgets/mascot_loading_screen.dart';
-import 'providers/connectivity_provider.dart';
 
 
 class EllaApp extends ConsumerStatefulWidget {
@@ -106,6 +104,13 @@ class _EllaAppState extends ConsumerState<EllaApp> {
       final api = EllaApiService();
       await api.saveTokens(token, userId, refreshToken: refreshToken);
       if (mounted) {
+        // Invalidate auth-dependent providers so they reload with the new token
+        ref.invalidate(chatProvider);
+        ref.invalidate(onboardingProvider);
+        ref.invalidate(placementProvider);
+        ref.invalidate(placementCacheProvider);
+        ref.invalidate(gardenProvider);
+
         // Clear the auth screens so Back can't return to login/email.
         _navigatorKey.currentState?.pushNamedAndRemoveUntil(
           '/',
