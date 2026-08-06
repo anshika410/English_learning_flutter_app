@@ -53,7 +53,8 @@
           "placement-garden",
           "garden-progress-system",
           "learning-path-visualizer",
-          "adaptive-mastery"
+          "adaptive-mastery",
+          "testing-rotation-logic"
         ]
       },
       {

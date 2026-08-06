@@ -1484,8 +1484,31 @@ def due_unit(progress: dict, level: str = None) -> dict:
         if bucket_of(progress, s["id"], level) != "owned":
             picks.append({"id": s["id"], "why": f"active unit: Step {u['step']} - {u['name']}"} )
     
-    pick_ids = [p["id"] for p in picks]
+    # Check if ALL remaining skills in this unit are stuck (2+ consecutive zeros).
+    # If so, also include skills from the next unit to avoid the student being
+    # trapped on a single skill they keep failing.
+    consecutive_zeros = progress.get("consecutive_zeros", {})
     lvl = level or progress.get("level", "A1")
+    
+    all_stuck = len(picks) > 0 and all(
+        consecutive_zeros.get(progress_key_for(p["id"], lvl), 0) >= 2
+        for p in picks
+    )
+    
+    if all_stuck:
+        # Find the next unit after the current one
+        units_list = UNITS.get(lvl.upper(), UNITS.get("A1", []))
+        current_step_idx = next(
+            (i for i, unit in enumerate(units_list) if unit["step"] == u["step"]),
+            None
+        )
+        if current_step_idx is not None and current_step_idx + 1 < len(units_list):
+            next_unit = units_list[current_step_idx + 1]
+            for s in next_unit["skills"]:
+                if bucket_of(progress, s["id"], lvl) != "owned":
+                    picks.append({"id": s["id"], "why": f"next unit (current stuck): Step {next_unit['step']} - {next_unit['name']}"})
+
+    pick_ids = [p["id"] for p in picks]
     sorted_ids = prioritize_skills(progress, pick_ids, lvl)
     
     sorted_picks = []
@@ -1558,6 +1581,10 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
             p["recent_primary_history"].append(p_key)
             if len(p["recent_primary_history"]) > 4:
                 p["recent_primary_history"] = p["recent_primary_history"][-4:]
+
+    # Track consecutive zeros for the primary target (for stuck-skill detection)
+    if "consecutive_zeros" not in p:
+        p["consecutive_zeros"] = {}
 
     changes = []
     bar = own_bar(level)
@@ -1653,7 +1680,23 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
                 p["failed_attempts"][storage_key] = p["failed_attempts"].get(storage_key, 0) + 1
         elif storage_key in p["failed_attempts"]:
             del p["failed_attempts"][storage_key]
-            
+
+    # Update consecutive zeros for the primary target.
+    # If the primary target scored 0 hits (no score >= FLOOR), increment.
+    # If it got any hit, reset to 0.
+    if primary_target:
+        p_key = progress_key_for(primary_target, level)
+        if p_key:
+            primary_hit = any(
+                sc.get("confidence", 0.0) >= FLOOR
+                for sc in scores
+                if progress_key_for(public_skill_id(sc.get("id", "")), level) == p_key
+            )
+            if primary_hit:
+                p["consecutive_zeros"][p_key] = 0
+            else:
+                p["consecutive_zeros"][p_key] = p["consecutive_zeros"].get(p_key, 0) + 1
+
     return p, changes
 
 # Skill Affordances Mapping
