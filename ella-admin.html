@@ -1181,15 +1181,6 @@
         html += `</div>`;
       }
 
-      // Best moment
-      if (d.best_moment && d.best_moment.quote) {
-        html += `<div style="margin-bottom:16px;background:#fffbeb;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:0 8px 8px 0;">
-          <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:4px;">⭐ Best moment</div>
-          <div style="font-size:13px;font-style:italic;color:#4b5563;">"${d.best_moment.quote}"</div>
-          ${d.best_moment.note ? `<div style="font-size:12px;color:#6b7280;margin-top:4px;">${d.best_moment.note}</div>` : ''}
-        </div>`;
-      }
-
       // Correction Highlight
       if (d.correction_highlight && d.correction_highlight.student_said) {
         html += `<div style="margin-bottom:16px;background:#ffebee;border-left:3px solid #ef5350;padding:10px 14px;border-radius:0 8px 8px 0;">
@@ -1200,30 +1191,6 @@
         </div>`;
       }
 
-      // Next Steps
-      if (d.try_next && d.try_next.skill) {
-        html += `<div style="margin-bottom:16px;background:#f3e5f5;border-left:3px solid #ab47bc;padding:10px 14px;border-radius:0 8px 8px 0;">
-          <div style="font-size:12px;font-weight:700;color:#6a1b9a;margin-bottom:4px;">🚀 Next Step (Try next time)</div>
-          <div style="font-size:13px;color:#2c1e0f;"><strong>Skill:</strong> ${d.try_next.skill}</div>
-          ${d.try_next.example ? `<div style="font-size:13px;color:#4b5563;margin-top:4px;font-style:italic;">Example prompt: "${d.try_next.example}"</div>` : ''}
-        </div>`;
-      }
-
-      // Zoe's Recap
-      if (d.zoe_recap) {
-        html += `<div style="margin-bottom:16px;background:#e8f5e9;border-left:3px solid #66bb6a;padding:10px 14px;border-radius:0 8px 8px 0;">
-          <div style="font-size:12px;font-weight:700;color:#2e7d32;margin-bottom:4px;">🧠 Zoe's Memory/Recap for next session</div>
-          <div style="font-size:13px;color:#2c1e0f;line-height:1.5;">${d.zoe_recap}</div>
-        </div>`;
-      }
-
-      // Courage / Motivation
-      if (d.courage && d.courage.content) {
-        html += `<div style="margin-bottom:16px;background:#e0f7fa;border-left:3px solid #26c6da;padding:10px 14px;border-radius:0 8px 8px 0;">
-          <div style="font-size:12px;font-weight:700;color:#00838f;margin-bottom:4px;">💪 Student Courage & Motivation (${d.courage.type || 'General'})</div>
-          <div style="font-size:13px;color:#2c1e0f;">${d.courage.content}</div>
-        </div>`;
-      }
 
       // Transcript
       if (d.transcript && d.transcript.length > 0) {
