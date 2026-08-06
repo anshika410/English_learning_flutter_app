@@ -16,8 +16,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'widgets/edit_profile_dialog.dart';
+import 'widgets/home_scene_background.dart';
 import 'widgets/mascot_loading_screen.dart';
-import 'widgets/profile_scenery.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -235,8 +235,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final initial = _name.isNotEmpty ? _name[0].toUpperCase() : 'S';
 
     return Scaffold(
-      backgroundColor: EllaColors.canvas,
-      body: ProfileScenery(
+      backgroundColor: Colors.transparent,
+      body: HomeSceneBackground(
         child: SafeArea(
           child: Column(
             children: [
@@ -467,7 +467,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                                     _email,
                                                     style: EllaFonts.body(
                                                       const TextStyle(
-                                                        fontSize: 15,
+                                                        fontSize: 16,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color: Color(

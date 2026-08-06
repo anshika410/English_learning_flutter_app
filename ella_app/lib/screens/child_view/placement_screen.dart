@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
@@ -26,7 +27,7 @@ import '../../services/ella_api_service.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'widgets/conversation_view.dart';
-import 'widgets/garden_sky_background.dart';
+import 'widgets/home_scene_background.dart';
 
 class PlacementScreen extends ConsumerStatefulWidget {
   const PlacementScreen({super.key});
@@ -70,6 +71,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   @override
   void initState() {
     super.initState();
+    // Keep the display awake for the whole placement conversation (voice-first,
+    // no touch input) so the OS idle timer can't dim/lock it. Released in
+    // dispose().
+    WakelockPlus.enable();
     AnalyticsService.logScreenView('Placement');
     _tts = ref.read(ttsProvider);
     _placementNotifier = ref.read(placementProvider.notifier);
@@ -96,6 +101,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
     try {
@@ -303,7 +309,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
         resizeToAvoidBottomInset: true,
         backgroundColor: EllaColors.surfaceVariant,
         body: s.error != null && s.messages.isEmpty
-            ? GardenSkyBackground(
+            ? HomeSceneBackground(
                 child: Center(
                   child: Text(
                     s.error!,

@@ -15,7 +15,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/audio_service.dart';
 import '../../services/sounds.dart';
-import 'widgets/garden_sky_background.dart';
+import 'widgets/home_scene_background.dart';
 import 'widgets/topic_icon.dart';
 import 'widgets/zoe_mascot.dart';
 
@@ -33,7 +33,7 @@ class AllTopicsScreen extends ConsumerWidget {
     // yellow underline (this screen is pushed as a bare route).
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: GardenSkyBackground(
+      body: HomeSceneBackground(
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),

@@ -32,7 +32,7 @@ All pages live at [ella.navgurukul.org](https://ella.navgurukul.org):
 |------|-----|-------------|
 | 📚 **Pedagogy** | [Google Doc](https://docs.google.com/document/d/1Bd4OvFehxRBKiNbFrNwiAeGNUk5Ps7xiysQelWWey58/edit?tab=t.1lsxmeb5c035) | Teaching approach and learning design |
 | 📄 **Project Summary** | [docs/project-summary.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/project-summary.md) | Project overview and goals |
-| 🎨 **Design System** | [docs/zoe-design-system.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/zoe-design-system.md) | Zoe design system reference |
+| 🎨 **Design System** | [docs/ella-design-system.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/ella-design-system.md) · [docs/ella-components.md](https://github.com/navgurukul/ella_flutter/blob/main/docs/ella-components.md) | Botanical Berry foundations + component specs |
 | 🎨 **Design v0 (Stitch)** | [stitch.withgoogle.com](https://stitch.withgoogle.com/projects/15401642752604590464) | UI design reference for ella-v0 |
 | 🗣️ **Conversation Flow (v2)** | [ella.navgurukul.org/v2/conversation-flow/](https://ella.navgurukul.org/v2/conversation-flow/) | Interactive conversation product experience |
 | 🎨 **Design v1** | [ella.navgurukul.org/design/](https://ella.navgurukul.org/design/) | Figma-style user flow and design system |
@@ -58,7 +58,8 @@ Before reading any code, start here:
 | Document | When to read it |
 |---|---|
 | [`docs/project-summary.md`](docs/project-summary.md) | Architecture, screen flow, key files, key patterns — read once to orient yourself |
-| [`docs/zoe-design-system.md`](docs/zoe-design-system.md) | Colour tokens, typography, shadows, component specs — check when touching UI |
+| [`docs/ella-design-system.md`](docs/ella-design-system.md) | Botanical Berry foundations — colour tokens, typography, shadows, garden atmospheres |
+| [`docs/ella-components.md`](docs/ella-components.md) | Per-component style specs — check when building/editing a component |
 
 **Rule of thumb:** Only open code files when you actually need to change something. The project summary gives you enough context to navigate without reading every screen upfront.
 

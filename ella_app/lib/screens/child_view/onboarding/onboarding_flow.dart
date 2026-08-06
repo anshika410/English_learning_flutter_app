@@ -32,7 +32,7 @@ import '../../../services/analytics_service.dart';
 import '../../../services/stt_tts_service.dart';
 import '../placement_garden_screen.dart';
 import '../widgets/chat_reply_composer.dart';
-import '../widgets/garden_sky_background.dart';
+import '../widgets/home_scene_background.dart';
 import '../widgets/zoe_mascot.dart';
 
 enum _Step { name, age, congrats }
@@ -220,38 +220,59 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         break;
       }
     }
-    
+
     if (t.isEmpty) {
-      return (null, "Hmm, I didn't quite catch that. Can you tell me your name?");
+      return (
+        null,
+        "Hmm, I didn't quite catch that. Can you tell me your name?",
+      );
     }
-    
+
     // Check word count first to prevent accepting full sentences
     if (t.split(RegExp(r'\s+')).length > 3) {
-      return (null, "That's a lot of words! Try typing just your name in one or two words.");
+      return (
+        null,
+        "That's a lot of words! Try typing just your name in one or two words.",
+      );
     }
-    
+
     if (t.length > 30) {
-      return (null, "Oops! That looks a bit too long. Try typing just your first name!");
+      return (
+        null,
+        "Oops! That looks a bit too long. Try typing just your first name!",
+      );
     }
-    
+
     if (RegExp(r'[0-9]').hasMatch(t)) {
-      return (null, "I see some numbers in there! Names should only have letters. Let's try again.");
+      return (
+        null,
+        "I see some numbers in there! Names should only have letters. Let's try again.",
+      );
     }
-    
+
     if (RegExp(r'[!@#\$%\^&\*\(\)_\+=\[\]\{\};:"\\|<>\/?~`]').hasMatch(t)) {
-      return (null, "I see some special symbols in there! Names should only have letters. Let's try again.");
+      return (
+        null,
+        "I see some special symbols in there! Names should only have letters. Let's try again.",
+      );
     }
-    
+
     if (!_nameOk.hasMatch(t)) {
       if (attemptCount == 0) {
-        return (null, "Hmm, I didn't quite catch that. Can you tell me just your first name?");
+        return (
+          null,
+          "Hmm, I didn't quite catch that. Can you tell me just your first name?",
+        );
       } else if (attemptCount == 1) {
         return (null, "Oops! Make sure to only use letters for your name.");
       } else {
-        return (null, "I can only read names made of letters! Let's try one more time.");
+        return (
+          null,
+          "I can only read names made of letters! Let's try one more time.",
+        );
       }
     }
-    
+
     // Extract just the first name
     t = t.split(RegExp(r'\s+')).first;
     return (t[0].toUpperCase() + t.substring(1), null);
@@ -298,7 +319,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         // Re-ask as Zoe's next bubble (child's reply shown, Zoe asks again).
         await _reask(
           typed,
-          errorMsg ?? "That doesn't look like a name. Try the name you'd like Zoe to use",
+          errorMsg ??
+              "Hmm, I don't think that was your name. Can you tell me your name again?",
         );
         return;
       }
@@ -393,7 +415,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.of(context).disableAnimations;
-    return GardenSkyBackground(
+    return HomeSceneBackground(
       child: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 500),
@@ -412,10 +434,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             sendEnabled: !_busy,
             onSend: _onSend,
             onReplay: () => _replay(_zoeText),
-            keyboardType: _step == _Step.age 
-                ? TextInputType.number 
+            keyboardType: _step == _Step.age
+                ? TextInputType.number
                 : TextInputType.text,
-            maxLength: _step == _Step.name ? 30 : null,
+            // Name allows up to 30 chars; age is capped at two digits (the
+            // number keyboard already restricts input to digits).
+            maxLength: _step == _Step.name
+                ? 30
+                : (_step == _Step.age ? 2 : null),
             highlightStart: _highlightStart,
             highlightEnd: _highlightEnd,
             speaking: _speaking,
