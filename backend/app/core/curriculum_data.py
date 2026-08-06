@@ -1478,45 +1478,50 @@ def due_unit(progress: dict, level: str = None) -> dict:
     if not u:
         return {"picks": [], "u": None}
     
-    # Picks are skills in this unit that are NOT yet owned
-    picks = []
-    for s in u["skills"]:
-        if bucket_of(progress, s["id"], level) != "owned":
-            picks.append({"id": s["id"], "why": f"active unit: Step {u['step']} - {u['name']}"} )
-    
-    # Check if ALL remaining skills in this unit are stuck (2+ consecutive zeros).
-    # If so, also include skills from the next unit to avoid the student being
-    # trapped on a single skill they keep failing.
-    consecutive_zeros = progress.get("consecutive_zeros", {})
+    # v1 Simple A→B→C→D rotation
+    # Always pick the NEXT skill in curriculum order after the last one practiced.
+    # Skip owned skills. Wrap around.
     lvl = level or progress.get("level", "A1")
+    all_skills = u["skills"]  # curriculum order
     
-    all_stuck = len(picks) > 0 and all(
-        consecutive_zeros.get(progress_key_for(p["id"], lvl), 0) >= 2
-        for p in picks
-    )
+    # Find un-owned skills
+    unowned = []
+    for s in all_skills:
+        if bucket_of(progress, s["id"], lvl) != "owned":
+            unowned.append(s)
     
-    if all_stuck:
-        # Find the next unit after the current one
-        units_list = UNITS.get(lvl.upper(), UNITS.get("A1", []))
-        current_step_idx = next(
-            (i for i, unit in enumerate(units_list) if unit["step"] == u["step"]),
-            None
-        )
-        if current_step_idx is not None and current_step_idx + 1 < len(units_list):
-            next_unit = units_list[current_step_idx + 1]
-            for s in next_unit["skills"]:
-                if bucket_of(progress, s["id"], lvl) != "owned":
-                    picks.append({"id": s["id"], "why": f"next unit (current stuck): Step {next_unit['step']} - {next_unit['name']}"})
-
-    pick_ids = [p["id"] for p in picks]
-    sorted_ids = prioritize_skills(progress, pick_ids, lvl)
+    if not unowned:
+        return {"picks": [], "u": u}
     
-    sorted_picks = []
-    for sid in sorted_ids:
-        orig = next(p for p in picks if p["id"] == sid)
-        sorted_picks.append(orig)
+    # Determine which skill comes next in rotation
+    recent = progress.get("recent_primary_history", [])
+    
+    if recent:
+        last_key = recent[-1]
+        # Find position of last practiced skill in curriculum order
+        last_idx = None
+        for i, s in enumerate(all_skills):
+            if progress_key_for(s["id"], lvl) == last_key:
+                last_idx = i
+                break
         
-    return {"picks": sorted_picks, "u": u}
+        if last_idx is not None:
+            # Start from next position, wrap around, find first un-owned
+            ordered_picks = []
+            n = len(all_skills)
+            for offset in range(1, n + 1):
+                candidate = all_skills[(last_idx + offset) % n]
+                if bucket_of(progress, candidate["id"], lvl) != "owned":
+                    ordered_picks.append({"id": candidate["id"], "why": f"active unit: Step {u['step']} - {u['name']}"})
+            picks = ordered_picks
+        else:
+            # Last practiced skill not found in this unit, start from first un-owned
+            picks = [{"id": s["id"], "why": f"active unit: Step {u['step']} - {u['name']}"} for s in unowned]
+    else:
+        # No history yet — start from first skill in curriculum order
+        picks = [{"id": s["id"], "why": f"active unit: Step {u['step']} - {u['name']}"} for s in unowned]
+
+    return {"picks": picks, "u": u}
 
 def due_skill(progress: dict, level: str) -> list[dict]:
     # Filter flat skills for this level
@@ -1533,28 +1538,12 @@ def due_skill(progress: dict, level: str) -> list[dict]:
     return [{"id": sid, "why": "adaptive flat skill priority"} for sid in picks_to_return]
 
 def targets_list_for(progress: dict, model: str, level: str) -> list[str]:
-    # Returns the target skill IDs
+    # v1: Simply return skills in curriculum order (rotation handled by due_unit)
     if model == "unit":
         picks = due_unit(progress, level)["picks"]
     else:
         picks = due_skill(progress, level)
-    skill_ids = [p["id"] for p in picks]
-
-    # Stuck rotation logic:
-    # Rotate skills with >= 2 consecutive failed attempts to the end of the list.
-    failed_attempts = progress.get("failed_attempts", {})
-    stuck = []
-    unstuck = []
-    for sid in skill_ids:
-        storage_key = progress_key_for(sid, level)
-        attempts = failed_attempts.get(storage_key, 0) if storage_key else 0
-        if attempts >= 2:
-            stuck.append(sid)
-        else:
-            unstuck.append(sid)
-    if unstuck:
-        return unstuck + stuck
-    return skill_ids
+    return [p["id"] for p in picks]
 
 def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = None, created_at: str = None, primary_target: str = None) -> tuple[dict, list[dict]]:
     # Clone progression dict to avoid side-effects
@@ -1645,16 +1634,16 @@ def apply_merge(progress: dict, scores: list[dict], level: str, topic: str = Non
         else:
             new_mastery = old_mastery
             
-        # Determine new bucket trigger state
-        ev_count = p["evidence_count"].get(storage_key, 0)
-        diversity = len(p["context_diversity"].get(storage_key, []))
+        # v1 Ownership: 3 sightings (confidence >= FLOOR) = owned
+        # No mastery formula or context diversity requirement
+        sightings = p["sightings"].get(storage_key, 0)
         
-        if new_mastery >= 0.75 and ev_count >= 2 and diversity >= 2:
+        if sightings >= 3:
             next_state = "owned"
-        elif new_mastery >= 0.25:
+        elif sightings >= 1:
             next_state = "emerging"
         else:
-            next_state = "locked"
+            next_state = prior
             
         if next_state != prior:
             changes.append({"id": skill_id, "from": prior, "to": next_state, "name": get_skill_text(skill_id, level)})
