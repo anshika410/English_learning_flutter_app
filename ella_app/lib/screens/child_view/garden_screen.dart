@@ -974,6 +974,93 @@ class _CompletedPreviousGardenBubble extends StatelessWidget {
   }
 }
 
+/// One-time "you're one of the first students" message shown in place on the
+/// garden after the 2nd conversation, once the usual growth reveal has
+/// finished. Modelled on [_CompletedPreviousGardenIntroLayer] — same plain
+/// dark scrim + Zoe + card + single CTA shape — but standalone, since there's
+/// no specific garden element to spotlight here.
+class _GardenMilestoneLayer extends StatelessWidget {
+  final bool reducedMotion;
+  final VoidCallback onDismiss;
+
+  const _GardenMilestoneLayer({
+    required this.reducedMotion,
+    required this.onDismiss,
+  });
+
+  static const String _message =
+      "You're one of the first students using ZoSpeak! What we learn from "
+      'you will help make it better for many more students.';
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return GestureDetector(
+      key: const ValueKey('garden-second-chat-milestone'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(color: Colors.black.withValues(alpha: 0.58)),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ZoeMascot(
+                    key: const ValueKey('garden-second-chat-milestone-zoe'),
+                    mode: ZoeMascotMode.idle,
+                    size: 96,
+                    reducedMotion: reducedMotion,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: ellaSmoothDecoration(
+                      color: EllaColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      shadows: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          offset: const Offset(0, 8),
+                          blurRadius: 18,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _message,
+                          textAlign: TextAlign.center,
+                          style: EllaTextStyles.bodySemiboldLarge.copyWith(
+                            color: EllaColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _GardenIntroButton(
+                          key: const ValueKey(
+                            'garden-second-chat-milestone-cta',
+                          ),
+                          label: 'Got it',
+                          width: math.min(220.0, media.size.width - 96),
+                          onTap: onDismiss,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GardenIntroButton extends StatelessWidget {
   final String label;
   final double width;
@@ -1103,6 +1190,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
   ZoeMascotMode _revealZoeMode = ZoeMascotMode.listening;
   String? _poppingSkillId;
   int _revealToken = 0;
+  bool _showSecondChatMilestone = false;
 
   @override
   void initState() {
@@ -1204,6 +1292,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
         );
         if (pendingItem != null) _startPendingWatering(pendingItem);
       }
+      // Nothing was queued to reveal this session (e.g. a quick hello) —
+      // the milestone check in _onRevealCta never runs, so check here too.
+      _maybeShowSecondChatMilestone();
       return;
     }
     final item = queue.first;
@@ -1536,7 +1627,28 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       } else {
         controller.consumeCurrent();
       }
+      _maybeShowSecondChatMilestone();
     });
+  }
+
+  /// Shows a one-time "you're one of the first students" message right on
+  /// the garden (no navigation) after the student's 2nd conversation, once
+  /// the usual plant-growth reveal has finished (or immediately if there was
+  /// nothing to reveal that session). Independent of the growth-reveal state
+  /// machine above so it can't get tangled in its timers/tokens.
+  void _maybeShowSecondChatMilestone() {
+    if (_showSecondChatMilestone) return;
+    if (ref.read(secondConversationMilestoneSeenProvider)) return;
+    final postConversation = ref.read(postConversationGardenRevealProvider);
+    if (postConversation?.chatNumber != 2) return;
+    if (ref.read(gardenGrowthRevealProvider).isNotEmpty) return;
+    if (_activeRevealItem != null) return;
+    setState(() => _showSecondChatMilestone = true);
+  }
+
+  void _dismissSecondChatMilestone() {
+    ref.read(secondConversationMilestoneSeenProvider.notifier).markSeen();
+    setState(() => _showSecondChatMilestone = false);
   }
 
   void _onExploreCompletedPreviousGarden(String viewedLevel) {
@@ -1841,6 +1953,13 @@ class _GardenViewState extends ConsumerState<_GardenView> {
             child: _CompletedPreviousGardenIntroLayer(
               levelLabel: levelName,
               onExplore: () => _onExploreCompletedPreviousGarden(viewedLevel),
+            ),
+          ),
+        if (_showSecondChatMilestone)
+          Positioned.fill(
+            child: _GardenMilestoneLayer(
+              reducedMotion: media.disableAnimations,
+              onDismiss: _dismissSecondChatMilestone,
             ),
           ),
       ],

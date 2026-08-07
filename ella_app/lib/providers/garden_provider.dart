@@ -191,6 +191,54 @@ final completedGardenIntroSeenProvider =
       CompletedGardenIntroSeenState
     >((ref) => CompletedGardenIntroSeenController());
 
+/// A single one-shot "has this student seen X" flag, scoped by the signed-in
+/// user id so it survives app restarts but never leaks across accounts on a
+/// shared device. Same [SharedPreferences] scoping as
+/// [CompletedGardenIntroSeenController], just without the per-level set.
+class OneShotSeenController extends StateNotifier<bool> {
+  final String _prefsKeyPrefix;
+
+  OneShotSeenController(this._prefsKeyPrefix) : super(false) {
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_completedGardenIntroUserIdPrefsKey)?.trim();
+    final scopedUserId = userId == null || userId.isEmpty
+        ? 'anonymous'
+        : userId;
+    final seen = prefs.getBool('$_prefsKeyPrefix:$scopedUserId') ?? false;
+    if (!mounted) return;
+    state = seen;
+  }
+
+  Future<void> markSeen() async {
+    if (state) return;
+    state = true;
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_completedGardenIntroUserIdPrefsKey)?.trim();
+    final scopedUserId = userId == null || userId.isEmpty
+        ? 'anonymous'
+        : userId;
+    await prefs.setBool('$_prefsKeyPrefix:$scopedUserId', true);
+  }
+}
+
+/// Gates the one-time "You've got a spot" early-access welcome screen shown
+/// right after login, before name/age onboarding (see RootGate in app.dart).
+final spotAccessSeenProvider =
+    StateNotifierProvider<OneShotSeenController, bool>(
+      (ref) => OneShotSeenController('ella_spot_access_seen_v1'),
+    );
+
+/// Gates the one-time "you're one of the first students" milestone message
+/// shown on GardenScreen after the student's 2nd conversation.
+final secondConversationMilestoneSeenProvider =
+    StateNotifierProvider<OneShotSeenController, bool>(
+      (ref) => OneShotSeenController('ella_second_chat_milestone_seen_v1'),
+    );
+
 String _canonicalGardenLevel(String level) {
   final upper = level.trim().toUpperCase();
   return gardenSequence.any((entry) => entry.code == upper)
