@@ -111,29 +111,16 @@ async def run_and_save_session_analysis(
         turn_count = len([m for m in messages if m["role"] in ("user", "learner")])
     updated_progress["effort"]["times_spoken_total"] = updated_progress["effort"].get("times_spoken_total", 0) + turn_count
     
-    # Check for a single level-up before creating the next due target. Unit
-    # progress is level-scoped, so finishing A0 cannot complete A1 by collision.
-    # Ensure user.level is initialized
+    # Check for level-up: only when ALL units are complete AND no carryover remains.
     if not user.level:
         user.level = level
 
     next_level = user.level
     if progression_model == "unit":
-        level_skills = [
-            skill["id"]
-            for unit in UNITS.get(user.level, [])
-            for skill in unit.get("skills", [])
-        ]
-        owned_count = sum(
-            1 for skill_id in level_skills
-            if bucket_of(updated_progress, skill_id, user.level) == "owned"
-        )
-        reached_threshold = bool(
-            level_skills and owned_count >= len(level_skills) * 0.8
-        )
         completed_all_steps = active_step(updated_progress, user.level) is None
+        no_carryover = not updated_progress.get("carryover", [])
         levels_chain = ["A0", "A1", "A2", "B1", "B2", "C1"]
-        if reached_threshold or completed_all_steps:
+        if completed_all_steps and no_carryover:
             try:
                 current_idx = levels_chain.index(user.level)
                 if current_idx < len(levels_chain) - 1:
