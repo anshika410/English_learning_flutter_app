@@ -1181,16 +1181,6 @@
         html += `</div>`;
       }
 
-      // Correction Highlight
-      if (d.correction_highlight && d.correction_highlight.student_said) {
-        html += `<div style="margin-bottom:16px;background:#ffebee;border-left:3px solid #ef5350;padding:10px 14px;border-radius:0 8px 8px 0;">
-          <div style="font-size:12px;font-weight:700;color:#c62828;margin-bottom:4px;">📝 Student Correction Highlight</div>
-          <div style="font-size:13px;color:#2c1e0f;margin-bottom:4px;"><strong>Student said:</strong> "${d.correction_highlight.student_said}"</div>
-          <div style="font-size:13px;color:#2e7d32;margin-bottom:4px;"><strong>Corrected:</strong> "${d.correction_highlight.corrected}"</div>
-          ${d.correction_highlight.highlight_word ? `<div style="font-size:12px;color:#ef5350;margin-top:4px;"><strong>Key change:</strong> ${d.correction_highlight.highlight_word}</div>` : ''}
-        </div>`;
-      }
-
 
       // Transcript
       if (d.transcript && d.transcript.length > 0) {
