@@ -1101,11 +1101,14 @@
       if (d.scores && d.scores.length > 0) {
         html += `<div style="margin-bottom:16px;">
           <div style="font-size:12px;font-weight:700;color:#6B5740;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🎯 Skills aimed this session</div>`;
-        d.scores.forEach(sc => {
+        d.scores.forEach((sc, idx) => {
           const confidenceFloat = (sc.confidence_pct / 100).toFixed(2);
           const isPassed = sc.passed;
           const progressColor = isPassed ? '#22c55e' : '#ef4444';
           const promptedText = sc.prompted ? 'prompted' : 'organic';
+          const isPrimary = d.aimed_at && d.aimed_at.length > 0 && sc.id === d.aimed_at[0];
+          const primaryBadge = isPrimary ? `<span style="background:#2563eb;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:8px;">PRIMARY</span>` : '';
+
           
           // Determine strand from skill ID
           const getStrand = (id) => {
@@ -1137,7 +1140,7 @@
               <!-- Card Header -->
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div style="font-size:13px; font-weight:700; color:#1f2937;">
-                  ${sc.id} <span style="font-weight:400; color:#6b7280; margin:0 4px;">·</span> <span style="font-weight:400; color:#6b7280; font-size:12px;">${promptedText}</span>
+                  ${sc.id} <span style="font-weight:400; color:#6b7280; margin:0 4px;">·</span> <span style="font-weight:400; color:#6b7280; font-size:12px;">${promptedText}</span>${primaryBadge}
                 </div>
                 <div style="font-size:14px; font-weight:800; color:${progressColor}; margin-left:auto;">
                   ${confidenceFloat}
