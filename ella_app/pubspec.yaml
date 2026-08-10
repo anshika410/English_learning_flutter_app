@@ -95,6 +95,7 @@ flutter:
     - .env
     - assets/auth/
     - assets/chillax/
+    - assets/decorations/
     - assets/homescreen/
     - assets/homescreen/new/
     - assets/gardent-view/

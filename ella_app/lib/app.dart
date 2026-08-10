@@ -15,6 +15,7 @@ import 'route_observer.dart';
 import 'core/theme_colors.dart';
 import 'core/text_styles.dart';
 import 'providers/chat_provider.dart';
+import 'providers/garden_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'providers/placement_provider.dart';
 import 'providers/garden_provider.dart';
@@ -23,6 +24,7 @@ import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
 import 'screens/child_view/placement_intro_screen.dart';
 import 'screens/child_view/profile_screen.dart';
+import 'screens/child_view/spot_access_screen.dart';
 import 'screens/child_view/widgets/mascot_loading_screen.dart';
 
 
@@ -198,6 +200,27 @@ final placementCacheProvider = FutureProvider<bool>((ref) {
   return EllaApiService().isPlacementDone();
 });
 
+/// Whether the signed-in student's email marks them as part of NavGurukul's
+/// small early-access group. Purely cosmetic (drives the one-time "You've
+/// got a spot" welcome screen) — never used to gate real features, so a
+/// client-side check against the already-authenticated user's own profile is
+/// sufficient; no backend flag needed.
+final isEarlyAccessStudentProvider = FutureProvider<bool>((ref) async {
+  final api = EllaApiService();
+  String? email;
+  try {
+    final profile = await api.getUserProfile();
+    final profMap = profile['profile'] as Map<String, dynamic>? ?? {};
+    email = (profile['email'] as String?) ?? (profMap['email'] as String?);
+    if (email != null && email.trim().isNotEmpty) {
+      await api.cacheUserEmail(email.trim());
+    }
+  } catch (_) {
+    email = await api.getCachedEmail();
+  }
+  return (email ?? '').trim().toLowerCase().endsWith('@navgurukul.org');
+});
+
 /// Gateway logic that resolves which branch of the app the child should see.
 /// When online, users who haven't completed placement are sent to the
 /// [PlacementIntroScreen]. If they are offline (or error out while originally
@@ -247,7 +270,7 @@ class RootGate extends ConsumerWidget {
           return Scaffold(
             backgroundColor: Colors.transparent,
             body: showOnboarding
-                ? const OnboardingFlow()
+                ? _gatedOnboarding(ref)
                 : const PlacementIntroScreen(),
           );
         } else {
@@ -267,11 +290,32 @@ class RootGate extends ConsumerWidget {
               return Scaffold(
                 backgroundColor: Colors.transparent,
                 body: !onboardingDone
-                    ? const OnboardingFlow()
+                    ? _gatedOnboarding(ref)
                     : const PlacementIntroScreen(),
               );
         }
       },
+    );
+  }
+
+  /// Shows the one-time "You've got a spot" early-access welcome before
+  /// [OnboardingFlow] for students whose email qualifies, otherwise goes
+  /// straight to onboarding. Offline or on any lookup error, the check
+  /// resolves to `false` (fails closed to the normal flow) rather than
+  /// blocking onboarding on a spinner.
+  Widget _gatedOnboarding(WidgetRef ref) {
+    final seen = ref.watch(spotAccessSeenProvider);
+    if (seen) return const OnboardingFlow();
+
+    final earlyAccessAsync = ref.watch(isEarlyAccessStudentProvider);
+    final isEarlyAccess = earlyAccessAsync.valueOrNull ?? false;
+    if (earlyAccessAsync.isLoading) {
+      return const MascotLoadingScreen(message: 'Getting home ready...');
+    }
+    if (!isEarlyAccess) return const OnboardingFlow();
+
+    return SpotAccessScreen(
+      onContinue: () => ref.read(spotAccessSeenProvider.notifier).markSeen(),
     );
   }
 }

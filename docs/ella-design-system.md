@@ -19,6 +19,8 @@ Three names appear in this codebase; they are **not** interchangeable:
 
 This document is titled "Ella Design System" to match the `Ella*` code namespace it documents. The active app is `ella_app/`; all tokens below are defined under `ella_app/lib/core/`.
 
+> ⚠️ **Known drift.** The `ZoSpeak` wordmark's casing is inconsistent in code: lowercase **`zoSpeak`** in `MaterialApp.title` (`app.dart:124`), the login wordmark (`login_screen.dart:406`), and the delete-account dialog (`profile_screen.dart:163`); capitalized **`ZoSpeak`** in the newer `spot_access_screen.dart:118`. Not yet reconciled — match whichever surface you're editing until a decision is made.
+
 ---
 
 ## Design DNA
@@ -253,15 +255,32 @@ Celestial gradient stops are `[0, 0.42, 0.72, 1]`. Each level also has its own p
 
 > ⚠️ **Known drift.** The six level specs re-declare their sky/hill hex as inline `const` lists in `garden_screen.dart:40-98` rather than referencing the `environment*` / `field*` / `BotanicalBerryGradients.gardenField` tokens — so A1's values are duplicated, not shared. If a token changes, the gardens won't follow.
 
-### The two non-level gardens
+### Shared static scene — Home / onboarding / placement / loading / conversation / error
 
-**Home garden** — [`garden_sky_background.dart`](../ella_app/lib/screens/child_view/widgets/garden_sky_background.dart). The one **token-driven** garden. Sky `environmentLight → environmentMain → surfaceVariant` (stops `0/.55/1`); **two overlapping hill domes** (`#D7F2C4→#8DD67C` back, `#8DD67C→#4E9A45` front — the field ramp); a fixed warm sun top-left using `warning` (`#FFAA00`) with a `#FFF3D4` halo; two blurred white clouds.
+**`HomeSceneBackground`** — [`home_scene_background.dart`](../ella_app/lib/screens/child_view/widgets/home_scene_background.dart). Replaced the old token-driven `garden_sky_background.dart` (deleted). It is **not** part of the colour-token system: it renders a single design-exported SVG (`assets/homescreen/new/home-background.svg` — sky→green gradient, layered hills, a soft bush, daisies and grass tufts, no sun), full-bleed (`BoxFit.cover`, bottom-aligned) behind screen content. It is the one canonical backdrop shared across Home, onboarding, placement, loading, conversation, and error views — so unlike the six level gardens below, changing its look means re-exporting the SVG asset, not editing a token.
 
-**Placement garden** — "Sunrise Seedbed" ([`placement_garden_screen.dart`](../ella_app/lib/screens/child_view/placement_garden_screen.dart)). Reuses the **A1 Morning** palette (sky `#EAFDFF/#D9FAFF/#F1FFF8`, hill `#D7F2C4/#8DD67C/#4E9A45`), a single rounded hill mass, its own sun (`#FFF1C5 · #FFD77A · …` at upper-right), and scaffold background `#DDEFE4`. Like the level gardens, its hex is inline, not token-referenced.
+> ⚠️ **Known drift.** Because the scene is a flattened SVG, it cannot follow `EllaColors` if the palette changes — it must be manually re-exported to stay in sync.
+
+### Placement garden
+
+**"Sunrise Seedbed"** ([`placement_garden_screen.dart`](../ella_app/lib/screens/child_view/placement_garden_screen.dart)). Reuses the **A1 Morning** palette (sky `#EAFDFF/#D9FAFF/#F1FFF8`, hill `#D7F2C4/#8DD67C/#4E9A45`), a single rounded hill mass, its own sun (`#FFF1C5 · #FFD77A · …` at upper-right), and scaffold background `#DDEFE4`. Like the level gardens, its hex is inline, not token-referenced.
 
 ---
 
-## 5. What not to do
+## 5. Celebration & ambient effects
+
+Small motion/glow widgets used on celebration and milestone moments (early-access welcome, garden reveals). Not full atmospheres like §4 — single-purpose decoration layered over existing screens.
+
+| Component | Source | Spec |
+|---|---|---|
+| **`MascotGlow`** | [`mascot_glow.dart`](../ella_app/lib/screens/child_view/widgets/mascot_glow.dart) | Soft radial glow behind Zoe for celebration/spotlight moments. Default size 260, `RadialGradient` `0xCCFFE066 → 0x70FFD24D → 0x00FFB84D` (stops `0 / .52 / 1`), pulses scale 0.92↔1.06 over 2600ms. Freezes to a static glow when `reducedMotion` is set. |
+| **`FloatingLeaf`** | [`floating_leaf.dart`](../ella_app/lib/screens/child_view/widgets/floating_leaf.dart) | Small decorative leaf SVGs that drift around Zoe on celebration screens (e.g. the early-access "spot" reveal). Bob ±8px and tilt ±0.12 rad over a 3400ms loop, with a configurable `phaseMs` start delay so multiple leaves desync. Purely ambient, no interaction, asset-driven (no hardcoded colour). |
+
+> ⚠️ **Known drift.** `MascotGlow`'s gradient is inline hex, not an `EllaColors` token — its own code comment says it "follows the A1 Morning Meadow sun-glow palette," but nothing actually references `EllaColors.warning`, `EllaColors.fieldLight`, or any other token. Treat this the same as the chat bubble's hardcoded pink (`ella-components.md` § Known drift): a candidate for tokenization, not a sanctioned one-off palette.
+
+---
+
+## 6. What not to do
 
 - Do not place white / `onPrimary` text on `berryMain` or `greenDark` (both fail AA) — use `berryDark` / `greenDeep`.
 - Do not cross the atmosphere mapping: **berry = action, green = growth, environment = atmosphere.**
@@ -269,6 +288,7 @@ Celestial gradient stops are `[0, 0.42, 0.72, 1]`. Each level also has its own p
 - Do not remove Baloo 2 from any surface that may show Hindi.
 - Do not show CEFR codes (A0–C1) on student-facing surfaces — students see garden names (Dawn Glade …) and unit names, never the codes.
 - Do not use gradients as default card fills — solid `surface` is the default; gradients are for scenes and highlights.
+- Do not introduce new inline hex for celebration/glow effects — extend `EllaColors` or reuse an existing family (e.g. `warning`, `greenLight`) instead. See `MascotGlow` in §5 for the drift this already caused.
 
 ---
 

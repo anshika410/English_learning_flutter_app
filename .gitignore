@@ -108,3 +108,8 @@ docs/mintlify-src/export.zip
 
 # Local MCP server config (Figma Dev Mode, points at localhost)
 .mcp.json
+
+# Generated plugin registrant / lockfiles inside vendored google_sign_in_android_patched
+google_sign_in_android_patched/**/GeneratedPluginRegistrant.java
+google_sign_in_android_patched/pubspec.lock
+google_sign_in_android_patched/example/pubspec.lock

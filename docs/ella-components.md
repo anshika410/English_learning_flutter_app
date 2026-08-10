@@ -77,6 +77,34 @@ A `DottedBorder` (color `#E91E63`, strokeWidth **2.5**, dash `[8,4]`, radius 18)
 | **Last-time card** | `home_screen.dart` | `ellaSmoothDecoration`, radius 16, side `info` 2px, fill `surface`, padding H16 / V14. |
 | **Spotlight callout bubble** | `widgets/spotlight_callout_bubble.dart` | `ellaSmoothDecoration`, radius **TL4 / others 20**, side `info` (`#5898E0`) 3px, fill `surface`. Title/body `bodySemiboldLarge` in `greenDeep`, 32px sprout icon. |
 | **Evidence / strand chips** | `widgets/garden_dialogs.dart` | Strand chip radius 6; evidence box radius 12, `track.border` 2px. |
+| **"Zoe's Pick" chip** | `widgets/topic_carousel.dart` | Pill, radius **999**, fill `berryLight`, border `berryDark` 1.5px, label in `berryDark`. Shown on the carousel's designated pick topic (defaults to the first topic), with a visibility-driven fade. |
+
+---
+
+## Navigation
+
+### `HomeShortcutHeader` — [`widgets/home_shortcut_header.dart`](../ella_app/lib/screens/child_view/widgets/home_shortcut_header.dart)
+
+Shared Garden / Profile shortcut row used by both home experiences, via two `EllaCircleIconButton`s (diameter **72**) with a labelled chip below each:
+
+| | Fill | Ring | Label / chip |
+|---|---|---|---|
+| Garden shortcut | `greenLight` | `greenDark` | `greenDeep` text, chip fill `greenLight` / border `greenDark` |
+| Profile shortcut | `surfaceVariant` | `info` | `infoDark` text, chip fill `surfaceVariant` / border `info` |
+
+Glyph SVGs (`nav-garden.svg` / `nav-profile.svg`, 56px) sway ±0.06 rad over a 2600ms loop (`_SwayingGlyph`, pivoted at the bottom center); disabled when `MediaQuery.disableAnimations` is set. Label style `buttonSmall`.
+
+---
+
+## Transitions
+
+### `TopicHandoff` — [`widgets/topic_handoff.dart`](../ella_app/lib/screens/child_view/widgets/topic_handoff.dart)
+
+Hero-animated flight from a topic card (home/carousel) into the conversation screen. Hero tag: `topic-handoff:<topic.name>:<topic.icon>`.
+
+- **Flight** `kTopicHandoffFlightDuration` = 650ms, then **settle** `kTopicHandoffSettleDuration` = 360ms.
+- Spins a full turn during flight: `rotation = -2π × forwardProgress`.
+- Flutter's Hero shuttle applies `Curves.fastOutSlowIn`, which would otherwise bunch the spin into the middle of the flight — `topicHandoffLinearFlightProgress()` recovers linear progress via a 16-step binary search against the curve so the rotation reads as constant-speed.
 
 ---
 
@@ -94,7 +122,20 @@ The current "level badge" is the garden's level switcher: height **48**, fill `s
 | **EditProfileDialog** | `widgets/edit_profile_dialog.dart` | Max width 387, backdrop blur σ8. **Wood banner** 5-stop gradient `#C49050 → #9B6828 → #B08040 → #966828 → #8A5712`, radius 8, shadow `0x33000000 offset (0,4) blur 4`. Fields height 72, radius 20, `border`. |
 | **NeedToGoSheet** | `widgets/need_to_go_sheet.dart` | `showModalBottomSheet`, barrier `black @45%`, fill `surface`, top radius 24; 40×4 drag handle; two `EllaPrimaryButton`s (primary + outline) at height 56. |
 | **Garden signpost sheets** | `widgets/garden_dialogs.dart` | `ellaSmoothDecoration` radius 20 with a wood signpost header board (radius 8, layered shadows). |
+| **`_GardenMilestoneLayer`** ("2nd conversation" milestone) | `garden_screen.dart` | One-time full-screen overlay after the student's 2nd conversation. `black @58%` scrim, centered `ZoeMascot` (idle, 96px) above an `ellaSmoothDecoration` card (radius 20, fill `surface`, shadow `black @18% offset (0,8) blur 18`) with `bodySemiboldLarge`/`ink` copy and a single `_GardenIntroButton` CTA. Reuses the same shape as `_CompletedPreviousGardenIntroLayer` — no new tokens. |
 | **App toast** | `core/app_toast.dart` | Floating `SnackBar`, elevation 3, radius 16, margin LTRB(16,0,16,20), 3 s. Error = `ink` bg / `onDark` fg; neutral = `surface` / `ink`. |
+
+---
+
+## Celebration / spot-access components
+
+### `SpotAccessScreen` — [`spot_access_screen.dart`](../ella_app/lib/screens/child_view/spot_access_screen.dart)
+
+One-time "you've got a spot" welcome screen shown to NavGurukul early-access students before onboarding. Uses existing tokens only: `borderStrong` dividers, `berryDark` accent/icon, `onPrimary` text on filled surfaces. No new colours introduced.
+
+### `MascotGlow` / `FloatingLeaf`
+
+See [`ella-design-system.md` §5](./ella-design-system.md#5-celebration--ambient-effects) for full specs — `MascotGlow` (radial pulse glow behind Zoe, ⚠️ inline hex, see Known drift below) and `FloatingLeaf` (drifting ambient leaf SVGs) are both used together on `SpotAccessScreen` and other celebration moments.
 
 ---
 
@@ -144,6 +185,7 @@ Documentation of where the code currently departs from the tokens/ideal — note
 - **`berryMain`** is flagged decorative / AA-failing in `theme_colors.dart`, yet is the live fill on the primary button, the idle mic, and the speaker dot. Acceptable per the reference design; switch to `berryDark` if flagged on-device.
 - **`EditProfileDialog._updateButton`** and the **`conversation_view` latest-turn bubbles** re-implement button/bubble styling inline instead of reusing `EllaPrimaryButton` / `ChatBubble` — a drift risk if the shared components change.
 - The retired Vivid Gouache system's **locked `4/20/4/20` diagonal button corners** were dropped for uniform pills; the 4px-tail idea survives only on the spotlight callout bubble and the chat-bubble tails.
+- **`MascotGlow`** (`widgets/mascot_glow.dart`) hardcodes its radial gradient (`0xCCFFE066 / 0x70FFD24D / 0x00FFB84D`) instead of referencing an `EllaColors` token, despite its own code comment claiming it follows the A1 Morning Meadow palette. Same category of drift as the chat bubble's hardcoded pink.
 
 ---
 
