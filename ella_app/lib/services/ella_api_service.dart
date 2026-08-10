@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'analytics_service.dart';
 import 'chucker_notifier.dart';
 import '../models/child_memory.dart';
+import '../models/conversation_feedback.dart';
 import '../models/garden.dart';
 import '../models/home_topic.dart';
 import '../models/placement.dart';
@@ -110,7 +111,11 @@ class EllaApiService {
     return token != null && token.isNotEmpty;
   }
 
-  Future<void> saveTokens(String token, String userId, {String? refreshToken}) async {
+  Future<void> saveTokens(
+    String token,
+    String userId, {
+    String? refreshToken,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userIdKey, userId);
@@ -389,6 +394,17 @@ class EllaApiService {
     return _request('GET', '/session/$sessionId');
   }
 
+  Future<void> saveConversationFeeling({
+    required String sessionId,
+    required ConversationFeeling feeling,
+  }) async {
+    await _request(
+      'PUT',
+      '/session/$sessionId/feeling',
+      body: {'feeling': feeling.apiValue},
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getMessages(String sessionId) async {
     final data = await _request('GET', '/session/$sessionId/messages');
     return [
@@ -625,7 +641,8 @@ class EllaApiService {
       }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final errorMsg = '$method $path HTTP ${response.statusCode}: ${response.body}';
+      final errorMsg =
+          '$method $path HTTP ${response.statusCode}: ${response.body}';
       AnalyticsService.logApiFailed(path, errorMsg);
       throw EllaApiException(errorMsg);
     }
@@ -764,6 +781,10 @@ class EllaApiService {
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      chatCount:
+          (j['completed_conversation_count'] as num?)?.toInt() ??
+          (j['chat_count'] as num?)?.toInt() ??
+          0,
       name: name,
       age: age,
       placement: j['placement'] is Map

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
@@ -33,7 +34,11 @@ def _compute_placement_garden(user: User) -> PlacementGardenResponse | None:
     )
 
 
-def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserMemoryResponse:
+def _to_memory_response(
+    user: User,
+    last_time_recap: str | None = None,
+    completed_conversation_count: int = 0,
+) -> UserMemoryResponse:
     persona = user.persona_memory or {}
     progress = user.skills_progress or {}
     level_code = (user.level or "A0").upper()
@@ -146,6 +151,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         profile=profile_data,
         level=user.level,
         first_session_done=user.first_session_done,
+        completed_conversation_count=completed_conversation_count,
         interests=user.interests.split(",") if user.interests else [],
         last_time_recap=last_time_recap,
         placement=placement_data,
@@ -162,6 +168,18 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
         last_topics=last_topics_list,
         persona_memory={k: v for k, v in (user.persona_memory or {}).items() if k not in ("last_topics", "units")},
     )
+
+
+async def _completed_conversation_count(user_id: str, db: AsyncSession) -> int:
+    from ..models.conversation import Conversation
+
+    result = await db.execute(
+        select(func.count(Conversation.id)).where(
+            Conversation.user_id == user_id,
+            Conversation.completed.is_(True),
+        )
+    )
+    return int(result.scalar_one() or 0)
 
 
 async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None) -> str | None:
@@ -216,7 +234,8 @@ async def get_profile(
     db: AsyncSession = Depends(get_db),
 ):
     recap = await _get_last_time_recap(user.id, db, user)
-    return _to_memory_response(user, recap)
+    completed_count = await _completed_conversation_count(user.id, db)
+    return _to_memory_response(user, recap, completed_count)
 
 
 @router.put("/me", response_model=UserMemoryResponse)
@@ -243,7 +262,8 @@ async def update_profile(
     db.add(user)
     await db.flush()
     recap = await _get_last_time_recap(user.id, db, user)
-    return _to_memory_response(user, recap)
+    completed_count = await _completed_conversation_count(user.id, db)
+    return _to_memory_response(user, recap, completed_count)
 
 
 @router.get("/me/memory", response_model=UserMemoryResponse)
@@ -256,7 +276,8 @@ async def get_user_memory(
     Combines profile, persona facts, skills progress, and next targets.
     """
     recap = await _get_last_time_recap(user.id, db, user)
-    return _to_memory_response(user, recap)
+    completed_count = await _completed_conversation_count(user.id, db)
+    return _to_memory_response(user, recap, completed_count)
 
 
 @router.put("/me/memory")
@@ -925,4 +946,3 @@ async def get_today_recap(
         super_sentence=super_sentence,
         correction_highlight=correction_highlight,
     )
-

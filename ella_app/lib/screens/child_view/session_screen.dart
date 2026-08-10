@@ -13,6 +13,7 @@ import '../../core/offline_alert_popup.dart';
 import '../../core/theme_colors.dart';
 import '../../core/topic_data.dart';
 import '../../models/child_memory.dart';
+import '../../models/conversation_feedback.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
@@ -28,7 +29,7 @@ const String _kGoodbye = 'Great talking with you. See you next time!';
 
 class SessionScreen extends ConsumerStatefulWidget {
   final String? introText;
-  final VoidCallback? onEnded;
+  final ValueChanged<ConversationEndContext>? onEnded;
 
   /// When set (a topic tapped on the home screen), overrides the engine's topic
   /// pick for this session's POST /session; otherwise the engine chooses.
@@ -57,6 +58,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _ending = false;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
+  String? _latestSessionId;
+  int _latestConversationNumber = 1;
+  int _latestTurnCount = 0;
+  ConversationEndReason _endReason = ConversationEndReason.automatic;
 
   // Back-button "Need to go?" sheet: while it's up Zoe rests (paused/sway) and
   // her in-flight speech is stopped. [_sheetOpen] guards the second back press
@@ -183,6 +188,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     _navigated = true;
     final onEnded = widget.onEnded;
     if (onEnded != null) {
+      final endContext = ConversationEndContext(
+        sessionId: _latestSessionId,
+        conversationNumber: _latestConversationNumber,
+        turnCount: _latestTurnCount,
+        reason: _endReason,
+      );
       final route = ModalRoute.of(context);
       if (route != null) {
         Navigator.of(context).removeRoute(route);
@@ -190,7 +201,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       // Call onEnded after the route is removed so the home screen context
       // is active and can push the garden route without a null context crash.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        onEnded();
+        onEnded(endContext);
       });
       return;
     }
@@ -256,6 +267,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   /// line, then return to the garden.
   Future<void> _endConversation() async {
     if (_ending) return;
+    final beforeEnding = ref.read(chatProvider).valueOrNull;
+    if (beforeEnding != null) {
+      _captureEndContext(beforeEnding);
+    }
+    _endReason = ConversationEndReason.manual;
     setState(() {
       _ending = true;
       _paused = false;
@@ -431,6 +447,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   Widget _view(ChatState s) {
+    _captureEndContext(s);
     final hasTurn = s.messages.any((m) => m.sender != MessageSender.system);
 
     final ConvPhase phase;
@@ -518,6 +535,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       highlightStart: _highlightStart,
       highlightEnd: _highlightEnd,
     );
+  }
+
+  void _captureEndContext(ChatState s) {
+    _latestSessionId = s.activeSessionId ?? _latestSessionId;
+    _latestConversationNumber = s.chatNumber;
+    _latestTurnCount = s.turnCount;
   }
 
   /// Replays a Zoe line via TTS — the speaker dot on her bubble. While TTS is

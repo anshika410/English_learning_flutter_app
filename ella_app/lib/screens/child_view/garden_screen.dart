@@ -21,6 +21,7 @@ import '../../core/ella_smooth_shape.dart';
 import '../../route_observer.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
+import '../../models/conversation_feedback.dart';
 import '../../models/garden.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/garden_provider.dart';
@@ -390,7 +391,7 @@ const String _kGardenButtonPlantIcon = 'assets/homescreen/new/Plant.svg';
 enum _FirstGardenPhase { waiting, speaking, exploreReady, settled }
 
 class GardenScreen extends ConsumerStatefulWidget {
-  final VoidCallback? onConversationEnded;
+  final ValueChanged<ConversationEndContext>? onConversationEnded;
 
   /// True when arriving from the placement bloom: shows a spotlight + Zoe's
   /// "Welcome to your garden" nudge, then unlocks the normal garden.
@@ -989,7 +990,7 @@ class _GardenMilestoneLayer extends StatelessWidget {
   });
 
   static const String _message =
-      "You're one of the first students using ZoSpeak! What we learn from "
+      "You're one of the first students using zoSpeak! What we learn from "
       'you will help make it better for many more students.';
 
   static const double _mascotSize = 72;
@@ -1019,10 +1020,18 @@ class _GardenMilestoneLayer extends StatelessWidget {
                 320.0,
                 constraints.maxWidth - _cardLeft - 16,
               );
+              final fullyCenteredLeft =
+                  (constraints.maxWidth - cardWidth) / 2;
+              // Modest inward nudge toward center — not fully centered like
+              // the growth-reveal card, since Zoe sits at the Stack's fixed
+              // left:0/top:0 corner and a full center shift would visually
+              // detach her from the card's speech-tail corner.
+              final cardLeft =
+                  _cardLeft + (fullyCenteredLeft - _cardLeft) * 0.35;
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: _cardLeft),
+                  padding: EdgeInsets.only(left: cardLeft),
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -1677,8 +1686,15 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     // as soon as this session's reveal has been queued, often before this
     // check runs, which would otherwise always look like "no conversation
     // just ended" — see _lastPostConversationChatNumber for details.
-    final liveChatNumber = ref.read(postConversationGardenRevealProvider)?.chatNumber;
-    final chatNumber = liveChatNumber ?? _lastPostConversationChatNumber;
+    final live = ref.read(postConversationGardenRevealProvider);
+    // Analysis for a just-ended conversation is still in flight — we don't
+    // yet know whether a reveal card (growth or quick-hello) is about to be
+    // queued. Bail here rather than treating a transiently empty reveal
+    // queue as "nothing to show"; this gets called again once resolve()
+    // lands (_syncRevealState) or after the user dismisses a queued reveal
+    // card (_onRevealCta).
+    if (live != null && !live.isResolved) return;
+    final chatNumber = live?.chatNumber ?? _lastPostConversationChatNumber;
     if (chatNumber != 2) return;
     if (ref.read(gardenGrowthRevealProvider).isNotEmpty) return;
     if (_activeRevealItem != null) return;

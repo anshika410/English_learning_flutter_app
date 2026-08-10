@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/topic_data.dart';
 import '../../models/child_memory.dart';
+import '../../models/conversation_feedback.dart';
 import '../../providers/chat_provider.dart';
 import '../../services/analytics_service.dart';
 import 'session_screen.dart';
@@ -20,7 +21,7 @@ Future<void> startTopic(
   BuildContext context,
   WidgetRef ref,
   TopicChoice topic, {
-  VoidCallback? onConversationEnded,
+  ValueChanged<ConversationEndContext>? onConversationEnded,
 }) async {
   AnalyticsService.logTopicSelected(topic.name);
   final chatState = ref.read(chatProvider);

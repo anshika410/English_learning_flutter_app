@@ -93,6 +93,7 @@ class UserMemoryResponse(BaseModel):
     profile: MemoryProfileSub
     level: str | None = None
     first_session_done: bool = False
+    completed_conversation_count: int = 0
     interests: list[str] = []
     last_time_recap: str | None = None
     placement: PlacementSubResponse | None = None
@@ -155,7 +156,6 @@ class TopicResponse(BaseModel):
     structure_targets: list[str]
     starters: list[str]
     isZoesPick: bool | None = False
-
 
 
 

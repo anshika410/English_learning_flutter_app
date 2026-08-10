@@ -21,6 +21,10 @@ class Conversation(Base):
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     session_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     quality: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    student_feeling: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    feeling_submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
     prompt_used: Mapped[str | None] = mapped_column(Text, nullable=True)  # The system prompt used in this session
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

@@ -29,6 +29,11 @@ enum ZoeMascotMode {
   /// Calm "paused" pose used behind the back-button sheet: eyes closed, body
   /// gently swaying left↔right, mouth closed, no thinking droplets.
   paused,
+
+  /// Post-conversation feeling-check reactions.
+  joyful,
+  affirming,
+  concerned,
 }
 
 class ZoeMascot extends StatefulWidget {
@@ -263,7 +268,8 @@ class _ZoeMascotPainter extends CustomPainter {
     _drawMouth(canvas);
     _drawLeaves(canvas, t);
     _drawStems(canvas);
-    if ((mode == ZoeMascotMode.thinking || mode == ZoeMascotMode.sleep) && !reducedMotion) {
+    if ((mode == ZoeMascotMode.thinking || mode == ZoeMascotMode.sleep) &&
+        !reducedMotion) {
       _drawDroplets(canvas, t);
     }
 
@@ -280,6 +286,19 @@ class _ZoeMascotPainter extends CustomPainter {
 
   void _drawEyes(Canvas canvas, double t) {
     final eyePaint = _fill(0xFF070E0B);
+    if (mode == ZoeMascotMode.joyful) {
+      _applyTransformScoped(
+        canvas,
+        _eyesCenter,
+        ty: 2,
+        sy: 0.34,
+        draw: () {
+          canvas.drawPath(_paths.eyeLeft, eyePaint);
+          canvas.drawPath(_paths.eyeRight, eyePaint);
+        },
+      );
+      return;
+    }
     if (mode == ZoeMascotMode.paused && !reducedMotion) {
       // Eyes closed — squash both eyes almost flat into gentle "sleeping" lines.
       _applyTransformScoped(
@@ -436,6 +455,36 @@ class _ZoeMascotPainter extends CustomPainter {
 
   ({double tx, double ty, double rot, double scale}) _bodyBreathe(double t) {
     if (reducedMotion) return (tx: 0, ty: 0, rot: 0, scale: 1);
+    if (mode == ZoeMascotMode.joyful) {
+      final p = (t % 1800) / 1800;
+      const ats = [0.0, 0.24, 0.48, 0.72, 1.0];
+      return (
+        tx: 0.0,
+        ty: _kf(p, ats, const [0, -14, 0, -7, 0]),
+        rot: _rad(_kf(p, ats, const [0, -2.2, 0, 1.2, 0])),
+        scale: _kf(p, ats, const [1, 1.035, 1, 1.018, 1]),
+      );
+    }
+    if (mode == ZoeMascotMode.affirming) {
+      final p = (t % 1500) / 1500;
+      const ats = [0.0, 0.24, 0.48, 0.72, 1.0];
+      return (
+        tx: 0.0,
+        ty: _kf(p, ats, const [0, 5, 0, 3, 0]),
+        rot: 0.0,
+        scale: _kf(p, ats, const [1, 0.985, 1, 0.992, 1]),
+      );
+    }
+    if (mode == ZoeMascotMode.concerned) {
+      final p = (t % 3600) / 3600;
+      const ats = [0.0, 0.5, 1.0];
+      return (
+        tx: 0.0,
+        ty: _kf(p, ats, const [0, 2, 0]),
+        rot: _rad(_kf(p, ats, const [0, -0.7, 0])),
+        scale: _kf(p, ats, const [1, 0.996, 1]),
+      );
+    }
     if (mode == ZoeMascotMode.paused) {
       // Gentle left↔right sway (no vertical breath) — a calm "resting" gesture
       // while the back-button sheet is up. ~3.4s cycle with a small matching
@@ -471,8 +520,29 @@ class _ZoeMascotPainter extends CustomPainter {
   }
 
   (double left, double right) _leafSway(double t) {
-    if (reducedMotion) return (0, 0);
+    if (reducedMotion) {
+      return switch (mode) {
+        ZoeMascotMode.joyful => (_rad(-7), _rad(7)),
+        ZoeMascotMode.concerned => (_rad(5), _rad(-5)),
+        _ => (0, 0),
+      };
+    }
     switch (mode) {
+      case ZoeMascotMode.joyful:
+        final p = (t % 1800) / 1800;
+        const ats = [0.0, 0.25, 0.5, 0.75, 1.0];
+        return (
+          _rad(_kf(p, ats, const [-3, -10, -5, -8, -3])),
+          _rad(_kf(p, ats, const [3, 10, 5, 8, 3])),
+        );
+      case ZoeMascotMode.affirming:
+        final p = (t % 1500) / 1500;
+        final v = _rad(_kf(p, const [0, 0.5, 1], const [0, 2, 0]));
+        return (v, v);
+      case ZoeMascotMode.concerned:
+        final p = (t % 3600) / 3600;
+        final v = _rad(_kf(p, const [0, 0.5, 1], const [4, 6, 4]));
+        return (v, -v);
       case ZoeMascotMode.speaking:
         final p = (t % 2600) / 2600;
         const ats = [0.0, 0.42, 0.72, 1.0];
@@ -511,6 +581,17 @@ class _ZoeMascotPainter extends CustomPainter {
   // Which mouth art + transform for the current pose.
   ({bool open, double tx, double ty, double rot, double sx, double sy})
   _mouthPose() {
+    if (mode == ZoeMascotMode.joyful) {
+      return (open: true, tx: 0, ty: 0, rot: 0, sx: 0.94, sy: 0.84);
+    }
+    if (mode == ZoeMascotMode.concerned) {
+      // Reuse Zoe's existing closed smile curve, flipped vertically into a
+      // sympathetic frown so the reaction stays on-model.
+      return (open: false, tx: 0, ty: 10, rot: 0, sx: 0.9, sy: -0.82);
+    }
+    if (mode == ZoeMascotMode.affirming) {
+      return (open: false, tx: 0, ty: 0, rot: 0, sx: 1, sy: 1);
+    }
     if (reducedMotion) {
       return (open: false, tx: 0, ty: 0, rot: 0, sx: 1, sy: 1);
     }
