@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import 'widgets/ella_primary_button.dart';
@@ -57,6 +58,27 @@ class SpotAccessScreen extends StatelessWidget {
                               width: 56,
                             ),
                           ),
+                          IgnorePointer(
+                            child: Container(
+                              width: 260,
+                              height: 260,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    EllaColors.greenMain.withValues(
+                                      alpha: 0.28,
+                                    ),
+                                    EllaColors.greenMain.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    EllaColors.greenMain.withValues(alpha: 0),
+                                  ],
+                                  stops: const [0.0, 0.6, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
                           MascotGlow(size: 260, reducedMotion: reducedMotion),
                           Positioned(
                             right: 30,
@@ -101,9 +123,17 @@ class SpotAccessScreen extends StatelessWidget {
                             thickness: 1,
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: _LeafCluster(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                          ),
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: SvgPicture.asset(
+                              'assets/homescreen/new/Plant.svg',
+                            ),
+                          ),
                         ),
                         Expanded(
                           child: Divider(
@@ -115,16 +145,18 @@ class SpotAccessScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'NavGurukul is providing you full access to ZoSpeak as part of your English learning',
+                      'NavGurukul has unlocked full zoSpeak access for you as part of your English learning.',
                       textAlign: TextAlign.center,
                       style: EllaTextStyles.bodyLarge,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 24),
+                    const _SpotAccessInfoStrip(),
+                    const SizedBox(height: 24),
                     Text(
                       'You are all set!',
                       textAlign: TextAlign.center,
-                      style: EllaTextStyles.bodySemiboldLarge.copyWith(
-                        color: EllaColors.berryDark,
+                      style: EllaTextStyles.bodyBase.copyWith(
+                        color: EllaColors.berryMain,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -164,42 +196,43 @@ class SpotAccessScreen extends StatelessWidget {
   }
 }
 
-/// Small static ornament for the divider row: three of the same leaf
-/// silhouettes used by [FloatingLeaf], fanned into a single cluster icon.
-class _LeafCluster extends StatelessWidget {
-  const _LeafCluster();
+/// "zoSpeak access - worth ₹499/month" info strip shown under the welcome
+/// copy — a light card pairing the security badge with the plan's value.
+class _SpotAccessInfoStrip extends StatelessWidget {
+  const _SpotAccessInfoStrip();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 22,
-      height: 22,
-      child: Stack(
-        alignment: Alignment.center,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      decoration: ellaSmoothDecoration(
+        color: EllaColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
         children: [
-          Positioned(
-            left: 0,
-            bottom: 1,
-            child: Transform.rotate(
-              angle: -0.5,
-              child: SvgPicture.asset(
-                'assets/decorations/leaf-2.svg',
-                height: 14,
-              ),
+          SvgPicture.asset('assets/auth/security-badge.svg', height: 24),
+          Text.rich(
+            TextSpan(
+              style: EllaTextStyles.bodyBase,
+              children: [
+                const TextSpan(text: 'zoSpeak access - worth '),
+                TextSpan(
+                  text: '₹499',
+                  style: EllaTextStyles.bodyBase.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: EllaColors.berryDark,
+                  ),
+                ),
+                const TextSpan(text: '/month'),
+              ],
             ),
+            textAlign: TextAlign.center,
           ),
-          Positioned(
-            right: 0,
-            bottom: 1,
-            child: Transform.rotate(
-              angle: 0.5,
-              child: SvgPicture.asset(
-                'assets/decorations/leaf-2.svg',
-                height: 14,
-              ),
-            ),
-          ),
-          SvgPicture.asset('assets/decorations/leaf-1.svg', height: 18),
         ],
       ),
     );
