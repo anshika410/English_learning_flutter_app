@@ -104,7 +104,7 @@ async def create_conversation(
             level=level,
             due_next=user.due_next,
             skills_progress=user.skills_progress,
-            persona_memory=user.persona_memory,
+            persona_memory={"profile": {"name": user.name, "age": user.age}},
             custom_prompts=body.custom_prompts,
             user_id=user.id,
         )
@@ -423,7 +423,7 @@ async def conversation_turn(
             level=level_code,
             unit_label=unit_label,
             current_turn=user_turn_number,
-            persona_memory=user.persona_memory,
+            persona_memory={"profile": {"name": user.name, "age": user.age}},
             due_next=due_next,
             skills_progress=user.skills_progress or {},
             custom_prompts=body.custom_prompts,

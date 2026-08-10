@@ -197,27 +197,7 @@ async def run_and_save_session_analysis(
     sa.skills_evidenced = scores
     sa.state_changes = changes
 
-    # Merge newly extracted memory facts
-    new_facts = analysis.get("extracted_memory_facts", [])
-    if isinstance(new_facts, list) and new_facts:
-        existing_memory = user.persona_memory or {}
-        if not isinstance(existing_memory, dict):
-            existing_memory = {}
-        existing_facts = existing_memory.get("facts", [])
-        if not isinstance(existing_facts, list):
-            existing_facts = [existing_facts] if existing_facts else []
-        
-        seen = {f.strip().lower() for f in existing_facts}
-        merged_facts = list(existing_facts)
-        for fact in new_facts:
-            if isinstance(fact, str) and fact.strip() and fact.strip().lower() not in seen:
-                merged_facts.append(fact.strip())
-                seen.add(fact.strip().lower())
-        
-        existing_memory["facts"] = merged_facts
-        user.persona_memory = dict(existing_memory)
-        flag_modified(user, "persona_memory")
-        db.add(user)
+    # Memory extraction disabled — only name+age kept as learner context
 
     # Update conversation quality
     conv_result = await db.execute(
