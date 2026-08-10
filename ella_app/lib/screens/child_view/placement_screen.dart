@@ -17,7 +17,7 @@ import '../../models/message.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/placement_provider.dart';
-import '../../providers/chat_provider.dart' show ChatStatus;
+import '../../providers/chat_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/analytics_service.dart';
 import '../../services/stt_tts_service.dart';
@@ -52,6 +52,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   // placement garden). Drives the ending phase: Zoe speaks a fixed farewell that
   // cross-fades in over the last turn, the dock disappears, then a ~2s hold.
   bool _ending = false;
+
+  // Tracks when placement started (for P0 placement_ended event).
+  DateTime? _placementStartedAt;
 
   // True while a tapped-speaker replay is speaking — drives Zoe's speaking
   // animation for manual replays (the engine status only covers auto-speech).
@@ -114,7 +117,16 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   void _maybeStart() {
     final s = ref.read(placementProvider);
-    if (!s.started) ref.read(placementProvider.notifier).start();
+    if (!s.started) {
+      _placementStartedAt = DateTime.now();
+      final userId = ref.read(chatProvider).valueOrNull?.memory.childId ?? '';
+      // P0 enriched placement_started — use a unique attempt id per start
+      AnalyticsService.logPlacementStartedP0(
+        userId: userId,
+        placementAttemptId: '${userId}_${_placementStartedAt!.millisecondsSinceEpoch}',
+      );
+      ref.read(placementProvider.notifier).start();
+    }
   }
 
   // On completion, let the closing line land for a beat, then swap to the
@@ -144,6 +156,22 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   void _goToComplete() {
     if (_navigated || !mounted) return;
     _navigated = true;
+
+    // P0 placement_ended (completed)
+    final userId = ref.read(chatProvider).valueOrNull?.memory.childId ?? '';
+    final s = ref.read(placementProvider);
+    final studentTurns =
+        s.messages.where((m) => m.sender == MessageSender.child).length;
+    final startedAt = _placementStartedAt ?? DateTime.now();
+    AnalyticsService.logPlacementEnded(
+      userId: userId,
+      placementAttemptId: '${userId}_${startedAt.millisecondsSinceEpoch}',
+      endState: 'completed',
+      studentTurns: studentTurns,
+      startedAt: startedAt,
+      endedAt: DateTime.now(),
+    );
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const PlacementGardenScreen()),
     );
@@ -192,6 +220,22 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       _highlightStart = -1;
       _highlightEnd = -1;
     });
+
+    // P0 placement_ended (manual_exit)
+    final userId = ref.read(chatProvider).valueOrNull?.memory.childId ?? '';
+    final s = ref.read(placementProvider);
+    final studentTurns =
+        s.messages.where((m) => m.sender == MessageSender.child).length;
+    final startedAt = _placementStartedAt ?? DateTime.now();
+    AnalyticsService.logPlacementEnded(
+      userId: userId,
+      placementAttemptId: '${userId}_${startedAt.millisecondsSinceEpoch}',
+      endState: 'manual_exit',
+      studentTurns: studentTurns,
+      startedAt: startedAt,
+      endedAt: DateTime.now(),
+    );
+
     try {
       await ref.read(placementProvider.notifier).endConversation();
     } catch (e) {

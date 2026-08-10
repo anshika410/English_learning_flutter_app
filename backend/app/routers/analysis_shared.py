@@ -197,6 +197,20 @@ async def run_and_save_session_analysis(
     sa.skills_evidenced = scores
     sa.state_changes = changes
 
+    # P0: log judge_completed event to backend logs (queryable via server logs)
+    import logging as _logging
+    _logging.getLogger("ella.analytics").info(
+        "judge_completed",
+        extra={
+            "event": "judge_completed",
+            "session_id": conversation_id,
+            "judge_status": "success" if scores else "empty_scores",
+            "judge_version": "v1",
+            "scores_count": len(scores),
+            "state_changes_count": len(changes),
+        }
+    )
+
     # Memory extraction disabled — only name+age kept as learner context
 
     # Update conversation quality

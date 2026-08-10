@@ -1,4 +1,5 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AnalyticsService {
   static FirebaseAnalytics? get _analytics {
@@ -8,6 +9,250 @@ class AnalyticsService {
       return null;
     }
   }
+
+  /// Cached app version string, populated lazily on first use.
+  static String? _appVersion;
+
+  /// Returns the app version (e.g. "1.2.3+4"). Caches after first call.
+  static Future<String> _getAppVersion() async {
+    if (_appVersion != null) return _appVersion!;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _appVersion = '${info.version}+${info.buildNumber}';
+    } catch (_) {
+      _appVersion = 'unknown';
+    }
+    return _appVersion!;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P0 Event Dictionary — MVP Analytics Framework
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── 1. placement_started ─────────────────────────────────────────────────
+
+  /// Fires when the placement screening begins (_maybeStart).
+  /// Required: user_id, placement_attempt_id, event_time
+  static Future<void> logPlacementStartedP0({
+    required String userId,
+    required String placementAttemptId,
+  }) async {
+    await _analytics?.logEvent(
+      name: 'placement_started',
+      parameters: {
+        'user_id': userId,
+        'placement_attempt_id': placementAttemptId,
+        'event_time': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+  }
+
+  // ── 2. placement_ended ───────────────────────────────────────────────────
+
+  /// Fires when placement ends for any reason.
+  /// end_state: completed, manual_exit, error, timeout
+  static Future<void> logPlacementEnded({
+    required String userId,
+    required String placementAttemptId,
+    required String endState,
+    required int studentTurns,
+    required DateTime startedAt,
+    required DateTime endedAt,
+  }) async {
+    await _analytics?.logEvent(
+      name: 'placement_ended',
+      parameters: {
+        'user_id': userId,
+        'placement_attempt_id': placementAttemptId,
+        'end_state': endState,
+        'student_turns': studentTurns,
+        'started_at': startedAt.toUtc().toIso8601String(),
+        'ended_at': endedAt.toUtc().toIso8601String(),
+      },
+    );
+  }
+
+  // ── 3. topic_selected ────────────────────────────────────────────────────
+
+  /// Fires when the child picks a topic on the home screen.
+  /// selection_source: recommended, alternative, catalogue, free_talk
+  static Future<void> logTopicSelectedP0({
+    required String userId,
+    required String topicId,
+    String? recommendedTopicId,
+    required String selectionSource,
+  }) async {
+    await _analytics?.logEvent(
+      name: 'topic_selected',
+      parameters: {
+        'user_id': userId,
+        'topic_id': topicId,
+        'recommended_topic_id': recommendedTopicId ?? '',
+        'selection_source': selectionSource,
+      },
+    );
+  }
+
+  // ── 4. conversation_started ──────────────────────────────────────────────
+
+  /// Fires after POST /session succeeds and a session_id is assigned.
+  static Future<void> logConversationStartedP0({
+    required String userId,
+    required String sessionId,
+    required String topicId,
+    required String topicSource,
+    required String levelAtStart,
+    String? primarySkillId,
+    String? strand,
+    String? promptVersion,
+    int? conversationIndex,
+  }) async {
+    final params = <String, Object>{
+      'user_id': userId,
+      'session_id': sessionId,
+      'event_time': DateTime.now().toUtc().toIso8601String(),
+      'topic_id': topicId,
+      'topic_source': topicSource,
+      'level_at_start': levelAtStart,
+    };
+    if (primarySkillId != null) params['primary_skill_id'] = primarySkillId;
+    if (strand != null) params['strand'] = strand;
+    if (promptVersion != null) params['prompt_version'] = promptVersion;
+    if (conversationIndex != null) {
+      params['conversation_index'] = conversationIndex;
+    }
+    await _analytics?.logEvent(
+      name: 'conversation_started',
+      parameters: params,
+    );
+  }
+
+  // ── 5. conversation_ended ────────────────────────────────────────────────
+
+  /// Fires when the conversation ends for any reason.
+  /// end_state: auto_complete, manual_end, error, crash, timeout
+  static Future<void> logConversationEnded({
+    required String userId,
+    required String sessionId,
+    required String endState,
+    required int studentTurns,
+    required DateTime startedAt,
+    required DateTime endedAt,
+    List<String>? inputModes,
+    String? appVersion,
+  }) async {
+    final params = <String, Object>{
+      'user_id': userId,
+      'session_id': sessionId,
+      'end_state': endState,
+      'student_turns': studentTurns,
+      'started_at': startedAt.toUtc().toIso8601String(),
+      'ended_at': endedAt.toUtc().toIso8601String(),
+    };
+    if (inputModes != null && inputModes.isNotEmpty) {
+      params['input_modes'] = inputModes.join(',');
+    }
+    if (appVersion != null) params['app_version'] = appVersion;
+    await _analytics?.logEvent(
+      name: 'conversation_ended',
+      parameters: params,
+    );
+  }
+
+  // ── 6. student_pulse_submitted ───────────────────────────────────────────
+
+  /// Fires after the post-session satisfaction survey is submitted.
+  static Future<void> logStudentPulseSubmitted({
+    required String userId,
+    required int conversationIndex,
+    required int understoodMe,
+    required int comfortSpeaking,
+    required int wouldTalkAgain,
+  }) async {
+    await _analytics?.logEvent(
+      name: 'student_pulse_submitted',
+      parameters: {
+        'user_id': userId,
+        'conversation_index': conversationIndex,
+        'understood_me': understoodMe,
+        'comfort_speaking': comfortSpeaking,
+        'would_talk_again': wouldTalkAgain,
+      },
+    );
+  }
+
+  // ── 7. technical_error ───────────────────────────────────────────────────
+
+  /// Consolidated error event for any user-visible failure.
+  static Future<void> logTechnicalError({
+    required String userId,
+    required String stage,
+    required String safeErrorCode,
+  }) async {
+    final version = await _getAppVersion();
+    await _analytics?.logEvent(
+      name: 'technical_error',
+      parameters: {
+        'user_id': userId,
+        'stage': stage,
+        'safe_error_code': safeErrorCode,
+        'event_time': DateTime.now().toUtc().toIso8601String(),
+        'app_version': version,
+      },
+    );
+  }
+
+  // ── 8. topic_presented ───────────────────────────────────────────────────
+
+  /// Fires when the HomeScreen renders the recommended topic.
+  static Future<void> logTopicPresented({
+    required String userId,
+    required String eventId,
+    required String recommendedTopicId,
+    required String surface,
+    List<String>? alternativeTopicIds,
+    String? primarySkillId,
+  }) async {
+    final params = <String, Object>{
+      'user_id': userId,
+      'event_id': eventId,
+      'recommended_topic_id': recommendedTopicId,
+      'surface': surface,
+    };
+    if (alternativeTopicIds != null && alternativeTopicIds.isNotEmpty) {
+      params['alternative_topic_ids'] = alternativeTopicIds.join(',');
+    }
+    if (primarySkillId != null) params['primary_skill_id'] = primarySkillId;
+    await _analytics?.logEvent(
+      name: 'topic_presented',
+      parameters: params,
+    );
+  }
+
+  // ── 9. garden_growth_reveal_completed ────────────────────────────────────
+
+  /// Fires after the garden reveal animation completes.
+  /// reveal_status: growth_shown, no_growth, render_failed
+  static Future<void> logGardenGrowthRevealCompleted({
+    required String userId,
+    required String sessionId,
+    required String revealStatus,
+    required int stateChangeCount,
+  }) async {
+    await _analytics?.logEvent(
+      name: 'garden_growth_reveal_completed',
+      parameters: {
+        'user_id': userId,
+        'session_id': sessionId,
+        'reveal_status': revealStatus,
+        'state_change_count': stateChangeCount,
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Existing methods — kept intact for backward compatibility
+  // ═══════════════════════════════════════════════════════════════════════════
 
   // Track app open
   static Future<void> logAppOpen() async {
@@ -31,7 +276,8 @@ class AnalyticsService {
   }
 
   // Track placement/screening completion with assigned CEFR level
-  static Future<void> logPlacementComplete(String level, int durationSeconds) async {
+  static Future<void> logPlacementComplete(
+      String level, int durationSeconds) async {
     await _analytics?.logEvent(
       name: 'placement_complete',
       parameters: {
@@ -85,9 +331,16 @@ class AnalyticsService {
     String? level,
   }) async {
     await _analytics?.setUserId(id: userId);
-    if (name != null) await _analytics?.setUserProperty(name: 'user_name', value: name);
-    if (age != null) await _analytics?.setUserProperty(name: 'user_age', value: age.toString());
-    if (level != null) await _analytics?.setUserProperty(name: 'user_level', value: level);
+    if (name != null) {
+      await _analytics?.setUserProperty(name: 'user_name', value: name);
+    }
+    if (age != null) {
+      await _analytics?.setUserProperty(
+          name: 'user_age', value: age.toString());
+    }
+    if (level != null) {
+      await _analytics?.setUserProperty(name: 'user_level', value: level);
+    }
   }
 
   // Track screen views
@@ -294,8 +547,14 @@ class AnalyticsService {
     String? sttEngine,
     String? ttsEngine,
   }) async {
-    if (sttEngine != null) await _analytics?.setUserProperty(name: 'stt_engine', value: sttEngine);
-    if (ttsEngine != null) await _analytics?.setUserProperty(name: 'tts_engine', value: ttsEngine);
+    if (sttEngine != null) {
+      await _analytics?.setUserProperty(
+          name: 'stt_engine', value: sttEngine);
+    }
+    if (ttsEngine != null) {
+      await _analytics?.setUserProperty(
+          name: 'tts_engine', value: ttsEngine);
+    }
   }
 
   static Future<void> logNetworkOffline() async {

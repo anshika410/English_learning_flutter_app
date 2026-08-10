@@ -157,8 +157,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
   int _activeSttSessionId = 0;
   bool _sttSessionFinalized = false;
 
+  /// Tracks when the current session started (for P0 conversation_ended).
+  DateTime? _sessionStartedAt;
+
   String get childId => _childId;
   bool get online => _online;
+  DateTime? get sessionStartedAt => _sessionStartedAt;
 
   @override
   Future<ChatState> build() async {
@@ -335,6 +339,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     if (cur.sessionEnded || cur.messages.isNotEmpty) return;
 
     ref.read(audioProvider).playSfx(Sounds.start);
+    _sessionStartedAt = DateTime.now();
 
     // A tapped home-screen topic overrides the engine's pick; otherwise the
     // engine chooses the next topic as before.
@@ -390,6 +395,20 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       for (final skill in serverAimedAt) {
         AnalyticsService.logSkillAttempted(skill);
       }
+
+      // P0 enriched conversation_started
+      final topicSource = cur.currentTopic != null ? 'user_selected' : 'engine';
+      final primarySkill =
+          serverAimedAt.isNotEmpty ? serverAimedAt.first : null;
+      AnalyticsService.logConversationStartedP0(
+        userId: _childId ?? '',
+        sessionId: backendSessionId ?? '',
+        topicId: tName,
+        topicSource: topicSource,
+        levelAtStart: cur.memory.level,
+        primarySkillId: primarySkill,
+        conversationIndex: cur.chatNumber,
+      );
     } catch (_) {}
 
     final zoeMsg = ChatMessage(
@@ -650,6 +669,17 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           );
         }
       }
+
+      // P0 enriched conversation_ended
+      final sessionEndedAt = DateTime.now();
+      await AnalyticsService.logConversationEnded(
+        userId: _childId,
+        sessionId: cur.activeSessionId ?? '',
+        endState: 'auto_complete',
+        studentTurns: cur.turnCount,
+        startedAt: _sessionStartedAt ?? sessionEndedAt,
+        endedAt: sessionEndedAt,
+      );
     } catch (_) {}
 
     state = AsyncValue.data(
