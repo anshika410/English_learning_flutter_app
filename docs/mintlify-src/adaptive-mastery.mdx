@@ -1,0 +1,971 @@
+---
+title: "Adaptive Mastery & Target Selection"
+sidebarTitle: "Adaptive Mastery"
+description: "How ELLA dynamically selects conversation targets and tracks mastery confidence."
+icon: "brain"
+---
+
+## TL;DR (The Whole System in 6 Lines)
+
+1. **Student talks to Zoe** → LLM judge scores each skill (0.0 to 1.0)
+2. **Score ≥ 0.70** → mastery increases, sighting +1, garden grows, consecutive zeros reset
+3. **Score < 0.70** → no mastery or sighting update; if the primary skill failed, its consecutive-zero counter increases
+4. **Next session** → recency and priority scoring select the next primary skill
+5. **If the last remaining skill fails twice** → the next unit opens while the stuck skill waits for another chance
+6. **When the stuck skill later scores ≥ 0.70** → it becomes owned, the unit completes, and learning continues normally
+
+<Info>
+Each level contains 4–5 units with 3–4 skills each. New units unlock as needed, so a learner is never permanently blocked by a single difficult skill.
+</Info>
+
+---
+
+## 2. Adaptive Learning Cycle
+
+```mermaid
+flowchart TD
+    A([Conversation Ends]) --> B[LLM Judge scores all skills<br/>confidence 0 to 1.0]
+    B --> C{Score ≥ 0.70?<br/>FLOOR threshold}
+    
+    C -->|YES| D[Mastery increases<br/>Sighting +1<br/>Garden grows<br/>cz resets to 0]
+    C -->|NO| E[No mastery change<br/>cz +1 if this was primary<br/>Sighting stays same]
+    
+    D --> F[Pick Next Primary Target]
+    E --> F
+    
+    F --> G{Multiple un-owned<br/>skills in unit?}
+    
+    G -->|YES: 2+ skills available| H[PRIORITY SELECTION<br/>Last practiced enters cooldown<br/>All skills rescored<br/>Highest score wins]
+    G -->|NO: only 1 skill left| I{Is cz ≥ 2?<br/>Failed same skill<br/>2x in a row?}
+    
+    I -->|NO: cz is 0 or 1| J[Same skill again<br/>No other option<br/>Try one more time]
+    I -->|YES: cz = 2 TRIGGER!| K[Open NEXT unit skills<br/>All compete together<br/>Fresh skills win]
+    
+    H --> L([New Primary Target Set<br/>Start next conversation])
+    K --> L
+    J --> L
+    
+    L --> A
+
+    style A fill:#f5f5f5,stroke:#333
+    style D fill:#c8e6c9,stroke:#2e7d32
+    style E fill:#ffcdd2,stroke:#c62828
+    style H fill:#e3f2fd,stroke:#1565c0
+    style K fill:#fff3e0,stroke:#e65100
+    style J fill:#ffcdd2,stroke:#c62828
+    style L fill:#f5f5f5,stroke:#333
+```
+
+### Logic at Each Step
+
+| Flowchart Node | Logic Used | Formula / Rule |
+|---|---|---|
+| **LLM Judge scores** | DeepSeek evaluates transcript | Confidence = 0.0 to 1.0 per skill |
+| **Score ≥ 0.70?** | FLOOR threshold | `FLOOR = 0.70` — below this, evidence is ignored |
+| **Mastery ↑** | Bounded learning rate | `new = old + 0.40 × confidence × (1 - old)` |
+| **Garden grows** | Sighting incremented | `sightings[skill] += 1` → plant stage changes at 1/2/3 |
+| **cz resets** | Consecutive zeros tracker | `consecutive_zeros[skill] = 0` |
+| **cz +1** | Consecutive zeros tracker | `consecutive_zeros[skill] += 1` |
+| **Multiple skills?** | `active_step()` finds first incomplete unit | Checks how many skills have `bucket != "owned"` |
+| **PRIORITY SELECTION** | Priority scoring with cooldown | Score = 0.35×Need + 0.20×Uncertainty + 0.20×ReviewDue + 0.15×Curriculum + 0.10×Variety **- 0.25×Recency** |
+| **Recency cooldown** | Recent primary history | `cooldown = recent_count / 4.0` (max 4 tracked) |
+| **Is cz ≥ 2?** | Stuck detection | If ALL remaining skills have `consecutive_zeros >= 2` |
+| **Open next unit** | `due_unit()` expands pool | Adds next sequential unit's un-owned skills to candidates |
+| **Same skill again** | No alternative available | Only 1 skill left + hasn't failed twice yet |
+| **New Primary = highest score** | `prioritize_skills()` | All candidates scored → sorted → top one wins |
+
+### The Two Core Behaviours
+
+ELLA's adaptive engine has two core behaviours. Most conversations follow the normal priority-based selection process, where the next skill is chosen dynamically based on its priority score. When progress becomes blocked because only one difficult skill remains, a separate recovery behaviour temporarily expands the learning pool so the learner can continue making progress before revisiting that skill.
+
+| Behaviour | Question it answers |
+|---|---|
+| **Priority-Based Selection** | "Which skill should we practice next?" |
+| **Stuck Skill Recovery** | "What should we do when progress gets blocked?" |
+
+**Priority-Based Selection** — When multiple skills are available:
+
+```mermaid
+flowchart TB
+    subgraph NORMAL["NORMAL BEHAVIOUR"]
+        direction TB
+        R1[Previous primary enters cooldown] --> R2[Recalculate all priority scores]
+        R2 --> R3[Highest priority becomes next primary]
+        R3 --> R1
+    end
+    style R1 fill:#ffcdd2
+    style R2 fill:#e3f2fd
+    style R3 fill:#c8e6c9
+```
+
+**Stuck Skill Recovery** — When only 1 skill left and it fails 2x:
+
+```mermaid
+flowchart TB
+    subgraph RECOVERY["RECOVERY BEHAVIOUR"]
+        direction TB
+        S1[Last skill fails 2x] --> S2[Open next unit]
+        S2 --> S3[Practice new skills 3-4 sessions]
+        S3 --> S4[Blocked skill becomes eligible again]
+        S4 --> S5{Scores above 0.70?}
+        S5 -->|YES| S6[Owned - Unit complete]
+        S5 -->|NO| S3
+    end
+    style S1 fill:#ffcdd2
+    style S2 fill:#fff3e0
+    style S3 fill:#e3f2fd
+    style S4 fill:#fff3e0
+    style S6 fill:#c8e6c9
+```
+
+| | **Normal Behaviour** | **Recovery Behaviour** |
+|---|---|---|
+| **When** | Multiple skills are available | One skill remains and it has failed twice |
+| **Purpose** | Select the next skill dynamically | Prevent the learner from getting stuck |
+| **What happens** | Previous primary cools down → priorities are recalculated → highest priority becomes next primary | Next unit opens → learner practices other skills → blocked skill is retried later |
+| **Result** | Different skills are practiced over time | Learning continues without one skill blocking progress |
+
+<Warning>
+**Not a fixed rotation.** The order is determined dynamically by priority score. Recently practiced skills get a temporary cooldown, allowing others to become the next primary.
+</Warning>
+
+### Candidate Pool Expansion
+
+**Before recovery** (only 1 skill left, no rotation possible):
+
+```text
+Candidate Pool:  U1-GRA-01 (only option)
+```
+
+**After recovery triggers** (next unit opens, pool expands):
+
+```text
+Candidate Pool:  U1-GRA-01  +  U2-VOC-01  +  U2-GRA-01  +  U2-GRA-02  +  U2-FLU-01
+```
+
+> Instead of replacing the blocked skill, ELLA expands the candidate pool. The blocked skill remains eligible, but now competes with newly unlocked skills. Priority scoring determines which skill becomes the next primary target. The blocked skill returns naturally as its priority rises after other skills accumulate cooldown.
+
+### How It Works (Simple Version)
+
+| What | How |
+|---|---|
+| **Picking next skill** | Every un-owned skill gets a priority score. The highest score wins. Recently practiced skills get a cooldown, giving other skills a chance. **Order is not linear** — the next skill is determined by priority scores. |
+| **When garden grows** | A skill gets a sighting when the student demonstrates it with confidence **≥ 0.70**. |
+| **When skill is "owned"** | **Mastery ≥ 0.75** and the skill has been demonstrated in **2+ different topics**. |
+| **When unit is "complete"** | All skills in the unit are owned. |
+| **When stuck** | The **last remaining un-owned skill in the unit** gets **2 consecutive sessions with no evidence** → the next unit opens. |
+| **Sequencing** | Units always progress **Unit 1 → Unit 2 → Unit 3**. Units are never skipped. |
+
+### The Three Systems
+
+| System | Where | What it does |
+|---|---|---|
+| **Recency** | Within a unit | Recently practiced skill gets a **cooldown**, giving another skill a chance next time. |
+| **Consecutive Zeros** | Between units | If the **last remaining un-owned skill in the unit** gets 2 consecutive sessions with no evidence, the next unit opens. |
+| **Mastery Scoring** | Within a unit | Combines confidence-based evidence over time with **2+ topic contexts** to determine ownership. |
+
+<Note>
+**Does the garden still grow?** Yes. Sightings still count toward garden growth, and plants still bloom at 3 sightings. **Garden growth and skill ownership are separate.**
+</Note>
+
+---
+
+## 3. Key Definitions
+
+| Term | What it is | How it updates |
+|---|---|---|
+| **Judge Confidence** | Score given by the LLM after one conversation (0.0–1.0). This is the **input** to the system. | Produced fresh after each conversation by the judge. |
+| **Mastery** | Running confidence that the learner knows a skill (0.0–1.0). This is **stored state**. Not the same as judge confidence. | Updated by the mastery formula after qualifying evidence. |
+| **Evidence Quality** | The confidence score (0.0–1.0) assigned by the LLM Judge for a specific skill demonstration. | Produced fresh after each conversation by the judge. |
+| **Sighting (Evidence Count)** | The number of qualifying demonstrations (confidence ≥ 0.70). In code: `evidence_count`. | +1 after a session where the judge gives confidence ≥ 0.70 |
+| **Recency** | A list of the last **4 primary targets**. It is used by the priority formula to give recently practiced skills a cooldown. | After each session, the current primary target is added to the list. Maximum 4 items. |
+| **Uncertainty** | "How much data do we have about this skill?" Calculated from sightings: **`1 / √(sightings + 1)`**. Not stored — recalculated when needed. | As sightings increase → uncertainty decreases → the skill becomes less urgent to investigate. |
+
+<Note>
+**Several learner-state fields update together** at the end of each session: mastery, sightings, recency, context diversity, and consecutive zeros all update in the same moment after the judge evaluates the conversation.
+</Note>
+
+### Uncertainty formula explained:
+
+The formula is `1 / √(sightings + 1)`. That's it.
+
+**What do the numbers mean?**
+
+* **`sightings`** = how many qualifying sessions have demonstrated this skill (same as `evidence_count` in code).
+* **`+ 1`** = a mathematical offset, not an additional sighting. It allows the formula to calculate uncertainty even when a skill has never been demonstrated.
+* **`√`** = square root. Makes uncertainty decrease gradually, not instantly.
+* **`1 / ...`** = makes uncertainty go down as sightings increase.
+
+**Examples:**
+
+```text
+sightings = 0 → 1 / √(0 + 1) = 1 / √1 = 1.00  (No evidence yet)
+
+sightings = 1 → 1 / √(1 + 1) = 1 / √2 ≈ 0.71  (1 piece of evidence)
+
+sightings = 3 → 1 / √(3 + 1) = 1 / √4 = 0.50  (3 pieces of evidence)
+
+sightings = 8 → 1 / √(8 + 1) = 1 / √9 ≈ 0.33  (8 pieces of evidence)
+```
+
+**In plain words:** The more times a skill has been demonstrated, the less uncertain the system is about it. Fresh skills (0 sightings) have maximum uncertainty because the system has no evidence about them, which can increase their priority when selecting the next skill.
+
+### Session-Based Evaluation
+
+<Note>
+ELLA evaluates the entire conversation as a single learning session. Individual turns are not scored independently. After the conversation ends, the LLM Judge assigns one confidence score per skill, updates learner progress, and selects the next primary target for the following conversation.
+</Note>
+
+---
+
+## 4. Adaptive Mastery
+
+### The Plain-English Version (No Formulas)
+
+Forget the formulas for a moment. Think about **one skill: `VOC-01`**.
+
+#### The existing system = "Did I see it?"
+
+ELLA still tracks **sightings**. When the student demonstrates `VOC-01` with confidence ≥ 0.70, it counts as a sighting:
+
+```text
+Conversation 1 → ✅ = 1 sighting
+Conversation 2 → ✅ = 2 sightings
+Conversation 3 → ❌ = still 2
+Conversation 4 → ✅ = 3 sightings
+```
+
+These sightings **still count toward garden growth**. Plants bloom at 3 sightings, but sightings continue increasing beyond 3 for learning and scheduling purposes.
+
+#### Adaptive mastery = "How confident am I?"
+
+The adaptive mastery system works **alongside** sightings.
+
+In addition to tracking sightings, ELLA also asks:
+
+> **"Based on the evidence I've collected, how confident am I that this student knows `VOC-01`?"**
+
+Confidence develops over time:
+
+```text
+First good demonstration     → confidence increases
+Another good demonstration   → confidence increases further
+Weaker demonstration         → smaller change
+Strong demonstration         → larger change
+```
+
+*These are driven by the mastery formula. Stronger demonstrations increase confidence faster; weaker ones increase it less.*
+
+So the two systems work together:
+
+```text
+            Student demonstrates skill
+                     │
+              confidence ≥ 0.70
+                     │
+             ┌───────┴───────┐
+             ↓               ↓
+         Sighting        Evidence
+             ↓               ↓
+      Garden growth    Mastery updates
+             ↓               ↓
+      Plant blooms     Need = 1 - Mastery
+                             ↓
+                    Priority scoring
+                             ↓
+                    Target selection
+```
+
+<Note>
+A plant can bloom before the skill is owned. This is intentional — garden growth celebrates successful demonstrations (confidence ≥ 0.70), while ownership represents demonstrated mastery across multiple conversations and contexts.
+</Note>
+
+#### And there's one more ownership check
+
+Even if ELLA reaches **75% confidence**, it asks:
+
+> "Did I see enough evidence?"
+
+and:
+
+> "Did the student use this skill in different situations?"
+
+So:
+
+```text
+75% confidence
++
+2+ pieces of evidence
++
+2 different contexts
+        ↓
+      OWNED
+```
+
+#### The easiest sentence to remember
+
+**Sighting system:**
+
+> "I saw you demonstrate it." → Garden grows.
+
+**Adaptive mastery:**
+
+> "I've collected enough evidence to become confident that you know it." → Skill becomes owned.
+
+**Both systems continue to work together.**
+
+### The Core Idea
+
+ELLA does **not** say "Conversation 1 → VOC-01, Conversation 2 → VOC-02…"
+
+After **every** conversation, ELLA recalculates the priority of all eligible skills. The highest-scoring skill becomes the next primary target. The sequence isn't predetermined — it adapts to the learner's progress.
+
+After every conversation, ELLA asks:
+
+* **Which skill needs the most practice?** *(Need / Mastery)*
+* **Which skills am I least certain about?** *(Uncertainty)*
+* **Which skills are due for review?** *(Review Due)*
+* **Which skill did I just practice?** *(Recency)*
+* **Which skill best fits the learner's current curriculum?** *(Curriculum Progression)*
+
+The answers are combined into a priority score. The skill with the highest score becomes the next primary target.
+
+### Mastery Confidence Score
+
+#### Why does ELLA need mastery if it already tracks sightings?
+
+Sightings answer:
+
+> *"Did I observe this skill?"*
+
+Mastery answers:
+
+> *"How confident am I that the learner truly knows this skill?"*
+
+Every skill has a mastery score between **0.0** and **1.0**. Unlike sightings, which simply record successful demonstrations, mastery measures the **strength and consistency** of those demonstrations over time.
+
+Mastery serves two purposes:
+
+1. **Determines learning state** — Locked → Emerging → Owned
+2. **Influences future practice** — Higher mastery reduces the skill's Need score (`Need = 1 - Mastery`) during target selection, making it less likely to become the next primary target.
+
+#### When does mastery update?
+
+```text
+Conversation ends
+        ↓
+LLM Judge evaluates the full transcript
+        ↓
+Gives confidence score (0.0–1.0)
+        ↓
+If confidence ≥ 0.70 → mastery formula updates the stored value
+```
+
+#### The Update Formula
+
+After a conversation, ELLA's grading engine evaluates the learner's responses. If a learner successfully uses a skill with confidence above the threshold, their mastery score is updated using a bounded learning rate equation:
+
+$$\text{Mastery}_{\text{new}} = \text{Mastery}_{\text{old}} + \eta \cdot \text{Evidence} \cdot (1 - \text{Mastery}_{\text{old}})$$
+
+Where:
+* **Learning Rate (0.40):** Controls how quickly mastery grows. Higher = faster progression.
+* **Evidence:** The confidence score assigned by the LLM Judge (`0.0` to `1.0`). Stronger demonstrations produce higher values.
+* **$(1 - \text{Mastery}_{\text{old}})$:** Reduces future gains as mastery increases, preventing sudden jumps to `1.0`. A skill at 0.80 mastery gains less per session than one at 0.20.
+
+#### Example: One Skill Over Multiple Conversations
+
+Suppose a skill starts at mastery `0.00` and the student demonstrates it with evidence strength `0.80` each time:
+
+| Conversation | Calculation | Mastery | Status |
+|---|---|---|---|
+| Start | — | 0.00 | LOCKED |
+| C1 | 0 + 0.40 × 0.80 × (1 − 0) | **0.32** | EMERGING |
+| C2 | 0.32 + 0.40 × 0.80 × (1 − 0.32) | **0.54** | EMERGING |
+| C3 | 0.54 + 0.40 × 0.80 × (1 − 0.54) | **0.69** | EMERGING |
+| C4 | 0.69 + 0.40 × 0.80 × (1 − 0.69) | **0.79** | EMERGING* |
+
+*Even at 0.79, the skill is **not automatically OWNED** — see the triple gate below.*
+
+#### State Transitions (Buckets)
+
+The continuous score maps directly to the discrete status buckets displayed in the user interface (such as the Conversation Garden):
+
+* **LOCKED:** $\text{Mastery} < 0.25$
+* **EMERGING:** $\text{Mastery} \ge 0.25$
+* **OWNED (Mastered):** $\text{Mastery} \ge 0.75$ AND $\text{evidence\_count} \ge 2$ AND $\text{context\_diversity} \ge 2$
+
+<Note>
+Transitioning to the `owned` state requires **all three conditions**: high mastery confidence, sufficient evidence, AND demonstration across at least 2 distinct conversation topics.
+</Note>
+
+---
+
+#### Two Important Thresholds
+
+```text
+0.70 = "This was a valid demonstration." (Evidence threshold — FLOOR)
+0.75 = "We trust that you own this skill." (Mastery threshold — for ownership)
+```
+
+| Threshold | What it means | What happens |
+|---|---|---|
+| **0.70 (FLOOR)** | Judge confidence must be ≥ 0.70 for anything to count | Below 0.70 → no sighting, no mastery update, nothing changes |
+| **0.75 (Mastery)** | Mastery must reach 0.75 for ownership | Below 0.75 → skill stays Emerging even with 3+ sightings |
+
+#### How Conversation Quality Drives Everything
+
+The LLM judge's confidence score is the **single input** that cascades through the entire system:
+
+```text
+Student demonstrates skill in conversation
+              ↓
+LLM Judge gives confidence (0.0–1.0)
+              ↓
+Is confidence ≥ 0.70?
+              ↓
+         YES: apply_merge() runs
+              ├── Mastery updated (formula)
+              ├── Sighting +1
+              ├── Context diversity updated
+              └── Recent history updated
+              ↓
+         Ownership checked:
+              mastery ≥ 0.75 + sightings ≥ 2 + contexts ≥ 2?
+              ↓
+         prioritize_skills() runs:
+              Need = 1 - Mastery
+              ↓
+         Priority Score calculated
+              ↓
+         Next Primary Target selected
+```
+
+#### Why quality matters (the key insight)
+
+| Demonstration Quality | Confidence | Mastery after 3 sessions | Need after 3 sessions | What happens |
+|---|---|---|---|---|
+| Strong | 0.90 each | 0.74 | 0.26 (low) | Skill deprioritized fast → more variety |
+| Medium | 0.80 each | 0.63 | 0.37 | Skill stays in rotation |
+| Bare minimum | 0.70 each | 0.54 | 0.46 (high) | Skill keeps coming back → more practice |
+| Below threshold | 0.40 | 0.00 (no change) | 1.00 (max) | Skill stays highest priority |
+
+**Three barely-passing demonstrations (0.70) are no longer automatically enough:**
+
+```text
+C1 (0.70): mastery → 0.28
+C2 (0.70): mastery → 0.48
+C3 (0.70): mastery → 0.63
+
+Garden: 3 sightings → Bloomed ✅
+Ownership: mastery 0.63 < 0.75 → NOT Owned ❌
+```
+
+This is the **single most important difference** from the old system: quality-sensitive ownership.
+
+---
+
+## 5. Evidence vs Context
+
+These are the two additional gates that prevent premature mastery.
+
+### What is Evidence?
+
+**Evidence = one piece of proof that the student can use the skill.**
+
+For example, suppose VOC-01 is about talking about past activities.
+
+The student says: *"Yesterday I played cricket with my friends."*
+
+ELLA's grader evaluates this and says: `VOC-01 confidence = 0.85`. That is **one piece of evidence**.
+
+Later the student says: *"Last Sunday I visited my grandmother."*
+
+ELLA sees the skill again: `VOC-01 confidence = 0.80`. Now `sightings = 2`.
+
+**Sightings answers: "How many times have I collected meaningful proof?"**
+
+### What is Context?
+
+**Context = the conversation topic in which the student demonstrates the skill.**
+
+| Conversation | Topic | Evidence for VOC-01 |
+|---|---|---|
+| C1 | Sports | ✅ |
+| C2 | Family | ✅ |
+| C3 | Travel | ✅ |
+
+Result: `sightings = 3`, `context_diversity = 3`
+
+### Why Context Matters
+
+Imagine a student memorized one sentence: *"Yesterday I played cricket."*
+
+They can say it perfectly every time. But you don't know whether they've actually **learned the underlying skill** or just memorized a phrase.
+
+If they demonstrate the same skill across different topics — sports, family, travel — that's much stronger evidence of genuine, flexible mastery.
+
+### The Critical Distinction
+
+Same topic repeated:
+
+| Conversation | Topic | Evidence | Context |
+|---|---|---|---|
+| C1 | Sports | ✅ | Sports |
+| C2 | Sports | ✅ | Sports |
+| C3 | Sports | ✅ | Sports |
+
+Result: `sightings = 3` ✅ but `context_diversity = 1` ❌ → **NOT OWNED**
+
+Different topics:
+
+| Conversation | Topic | Evidence | Context |
+|---|---|---|---|
+| C1 | Sports | ✅ | Sports |
+| C2 | Family | ✅ | Family |
+| C3 | Travel | ✅ | Travel |
+
+Result: `sightings = 3` ✅ and `context_diversity = 3` ✅ → **Can be OWNED** (if mastery ≥ 0.75)
+
+<Info>
+**In one sentence:** Evidence tells ELLA *"How much proof do I have?"* Context tells ELLA *"How broadly has the student demonstrated it?"*
+</Info>
+
+---
+
+## 6. Sightings and Mastery Working Together
+
+After every successful demonstration, both systems update in parallel:
+
+```text
+Conversation ends
+        │
+Judge confidence = 0.80
+        │
+   ┌────┴────┐
+   ↓         ↓
+Sighting   Mastery
+  +1       updates
+   ↓         ↓
+Garden    Confidence
+grows     increases
+   └────┬────┘
+        ↓
+  Ownership progresses
+```
+
+### How they complement each other
+
+| Sightings | Mastery |
+|---|---|
+| Counts successful demonstrations | Measures confidence from those demonstrations |
+| Drives garden growth (plants bloom at 3) | Tracks learning progress (locked → emerging → owned) |
+| Uses confidence ≥ 0.70 as threshold | Uses the judge's confidence score as input |
+| Visual motivation for the student | Learning state for the adaptive engine |
+| One input to ownership | One input to ownership |
+
+### One worked example
+
+Same student, same 5 conversations — both systems update together:
+
+```text
+Student demonstrates VOC-01 five times:
+  C1: confidence 0.80
+  C2: confidence 0.80
+  C3: confidence 0.40 (below 0.70 — both systems ignore it)
+  C4: confidence 0.90
+  C5: confidence 0.70
+
+Sightings:          1 → 2 → (skip) → 3 → 4
+Mastery:         0.32 → 0.54 → (skip) → 0.75 → 0.82
+Garden:        sprout → budding → — → bloomed → bloomed
+Learning state: emerging → emerging → — → emerging* → owned (if 2+ topics)
+```
+
+*At C4, the plant blooms (3 sightings) but the skill may not be owned yet — ownership also requires context diversity ≥ 2.*
+
+**These are two complementary signals that work together after every successful conversation.** Sightings celebrate effort visually. Mastery ensures the student truly knows the skill before moving on.
+
+---
+
+## 7. Dynamic Target Selection
+
+Mastery isn't what directly determines the next conversation. ELLA computes a **Priority Score** for each candidate skill:
+
+$$\text{Priority}(s) = 0.35 \cdot \text{Need} + 0.20 \cdot \text{Uncertainty} + 0.20 \cdot \text{ReviewDue} + 0.15 \cdot \text{CurriculumNeed} + 0.10 \cdot \text{Variety} - 0.25 \cdot \text{Fatigue}$$
+
+### How Recency and Recovery fit inside Target Selection
+
+Both Recency and Recovery are NOT separate systems. They are **adjustments inside** the target selection process:
+
+```text
+due_unit() runs:
+    1. Get un-owned skills from current unit
+    2. CHECK: All stuck? (RECOVERY) → if yes, add next unit skills to pool
+    3. prioritize_skills() runs on the pool:
+        - Scores each skill using Need, Uncertainty, ReviewDue, Curriculum, Variety
+        - Applies -0.25 × Recency (RECENCY) → lowers recently-practiced skills
+        - Sorts by score
+    4. Highest score = next primary
+```
+
+| Mechanism | What it does | Where in the code |
+|---|---|---|
+| **Recency** | The `-0.25 × Recency` part of the priority formula. Lowers the score of recently-practiced skills so they don't win again immediately. | Inside `prioritize_skills()` — one of the 6 scoring factors |
+| **Recovery** | The consecutive zeros check. Before scoring, checks: "Are all remaining skills stuck?" If yes, expands the pool by adding next unit's skills. | Inside `due_unit()` — runs before `prioritize_skills()` |
+
+**Recency adjusts the score.** Recovery adjusts the candidate pool. Then priority scoring picks the winner from whatever pool exists.
+
+### Guaranteed Ordering Properties
+
+Given the current priority formula and weights:
+
+* A newly introduced (fresh) skill will always outrank a skill that was just practiced in the previous session, assuming both are in the same candidate pool.
+* Recently practiced skills always receive a recency cooldown.
+* Higher mastery always reduces Need.
+* More evidence always reduces Uncertainty.
+* ReviewDue increases with time since last practice.
+
+These properties ensure that ELLA naturally rotates skills instead of repeatedly selecting the same one.
+
+### How Priority Scores Typically Behave
+
+The priority score has **no fixed threshold**. It is only used to rank candidate skills. The skill with the highest score becomes the next primary target.
+
+| Skill State | Typical Behavior |
+|---|---|
+| **Fresh skill** | Usually highest priority because Need, Uncertainty, and ReviewDue are all at maximum. |
+| **Recently practiced** | Priority drops due to lower Need, lower Uncertainty, and a Recency cooldown. |
+| **Emerging skill** | Remains competitive and continues appearing in rotation. |
+| **Well-mastered skill** | Usually lower priority because Need is small. |
+| **Review overdue** | Priority gradually rises again, allowing spaced review. |
+
+### Component Weights
+
+| Factor | Weight | Calculation | Why it exists |
+|---|---|---|---|
+| **Need** | 0.35 | `1.0 - Mastery` | Prioritizes skills with the lowest mastery. |
+| **Uncertainty** | 0.20 | `1 / √(sightings + 1)` | Prioritizes skills with little assessment data. |
+| **Review Due** | 0.20 | `1.0 - e^(-days_since / 7.0)` | Brings back older skills for spaced repetition. |
+| **Curriculum** | 0.15 | `1.0 - (index / total_skills)` | Keeps learners moving roughly in curriculum order. |
+| **Variety** | 0.10 | `1 / (sightings + 1)` | Gives more attention to skills practiced less often. |
+| **Recency** | -0.25 | `recent_primary_count / 4.0` | Prevents repeating the same primary skill in consecutive sessions. |
+
+The priority score determines `due_next.primary` — the skill the next conversation will target.
+
+### What changes per student (the variables)
+
+| Variable | What it stores | When it updates | How |
+|---|---|---|---|
+| **mastery** | A number 0.0 to 1.0 | After each conversation (if confidence ≥ 0.70) | `old + 0.40 × confidence × (1 - old)` |
+| **sightings** | A count: 0, 1, 2, 3... | After each conversation (if confidence ≥ 0.70) | +1 |
+| **last_seen** | A date (e.g. "2026-08-04") | After each conversation (if confidence ≥ 0.70) | Set to today |
+| **recent_primary_history** | Last 4 skill IDs | After EVERY conversation (regardless of evidence) | Current primary added. Max 4. |
+
+**The weights (0.35, 0.20, etc.) are fixed constants — they never change. The variables update after every conversation based on the student's performance.**
+
+### Where Each Score Comes From
+
+Every value in the formula is derived from the student's stored progress:
+
+```text
+                    DATABASE (skills_progress)
+                           │
+              ┌────────────┼────────────────┐
+              ↓            ↓                ↓
+          mastery     sightings        last_seen
+              ↓            ↓                ↓
+           Need      Uncertainty       ReviewDue
+              │        Variety              │
+              └────────────┼────────────────┘
+                           ↓
+                    recent_primary_history
+                           ↓
+                        Recency
+                           ↓
+                   ┌───────────────┐
+                   │ PRIORITY SCORE │
+                   └───────┬───────┘
+                           ↓
+                    Highest wins = Next Primary
+```
+
+| Variable | Source in DB | Formula |
+|---|---|---|
+| Need | `mastery` | `1 - mastery` |
+| Uncertainty | `sightings` (evidence_count) | `1 / √(sightings + 1)` |
+| ReviewDue | `last_seen` (date) | `1 - e^(-days_since / 7)` |
+| Curriculum | Position in skill list | `1 - (index / total_skills)` |
+| Variety | `sightings` | `1 / (sightings + 1)` |
+| Recency | `recent_primary_history` | `count_in_history / 4` |
+
+### Reference Walkthrough: How ELLA Selects the Next Primary Skill
+
+**Setup:** Unit 1 has 4 skills (all fresh, never practiced):
+- U1-VOC-01 (index 0)
+- U1-GRA-01 (index 1)
+- U1-GRA-02 (index 2)
+- U1-FLU-01 (index 3)
+
+**Initial database:** mastery = 0, sightings = 0, last_seen = never, recent_primary_history = []
+
+**Session 1 — Picking the first primary (all fresh):**
+
+| Skill | Need | Uncertainty | ReviewDue | Curriculum | Variety | Recency | **SCORE** |
+|---|---|---|---|---|---|---|---|
+| VOC-01 (idx 0) | 1.0 | 1.0 | ~1.0 | 1.00 | 1.0 | 0 | **1.00** |
+| GRA-01 (idx 1) | 1.0 | 1.0 | ~1.0 | 0.75 | 1.0 | 0 | **0.96** |
+| GRA-02 (idx 2) | 1.0 | 1.0 | ~1.0 | 0.50 | 1.0 | 0 | **0.93** |
+| FLU-01 (idx 3) | 1.0 | 1.0 | ~1.0 | 0.25 | 1.0 | 0 | **0.89** |
+
+**Winner: VOC-01** (curriculum order breaks the tie when everything else is equal)
+
+**After conversation (judge confidence = 0.80):**
+- mastery[VOC-01]: 0 → 0.32
+- sightings[VOC-01]: 0 → 1
+- last_seen[VOC-01]: today
+- recent_primary_history: [VOC-01]
+
+**Session 2 — Picking the next primary:**
+
+| Skill | Need | Uncertainty | ReviewDue | Curriculum | Variety | Recency | **SCORE** |
+|---|---|---|---|---|---|---|---|
+| VOC-01 | 0.68 | 0.71 | ~0.0 | 1.00 | 0.50 | 0.25 | **0.52** |
+| GRA-01 | 1.0 | 1.0 | ~1.0 | 0.75 | 1.0 | 0 | **0.96** |
+| GRA-02 | 1.0 | 1.0 | ~1.0 | 0.50 | 1.0 | 0 | **0.93** |
+| FLU-01 | 1.0 | 1.0 | ~1.0 | 0.25 | 1.0 | 0 | **0.89** |
+
+**Winner: GRA-01** (VOC-01 dropped from 1.00 to 0.52 because of recency + lower need + lower uncertainty)
+
+**Why VOC-01 lost:** Its mastery increased (lower Need), it was just practiced (Recency), it has data now (lower Uncertainty), and it was seen today (low ReviewDue).
+
+**Why GRA-01 won:** Still completely fresh — maximum Need, Uncertainty, ReviewDue, and zero Recency.
+
+### Detailed Input Trace: U1-VOC-01 After Being Practiced
+
+After Session 1 (VOC-01 was primary, judge gave 0.80), here's exactly where each number comes from:
+
+| Factor | Input Value | Source in Database | Calculation | Result |
+|---|---|---|---|---|
+| **Need** | mastery = 0.32 | `skills_progress.mastery["A0:U1-VOC-01"]` (updated this session) | `1 - 0.32` | 0.68 |
+| **Uncertainty** | sightings = 1 | `skills_progress.evidence_count["A0:U1-VOC-01"]` (got +1) | `1 / √(1+1)` = `1/√2` | 0.71 |
+| **ReviewDue** | last_seen = today | `skills_progress.last_seen["A0:U1-VOC-01"]` = "2026-08-04" | `1 - e^(-0/7)` = `1-1` | 0.00 |
+| **Curriculum** | index=0, total=4 | Position in the skill list from UNITS data | `1 - (0/4)` | 1.00 |
+| **Variety** | sightings = 1 | Same as Uncertainty | `1 / (1+1)` | 0.50 |
+| **Recency** | count = 1 | `recent_primary_history` = ["A0:U1-VOC-01"]. Appears 1 time. | `1/4` | 0.25 |
+
+**Score** = 0.35×0.68 + 0.20×0.71 + 0.20×0.00 + 0.15×1.00 + 0.10×0.50 - 0.25×0.25 = **0.52**
+
+Compare with U1-GRA-01 (never practiced — all values are at maximum):
+
+**Score** = 0.35×1.0 + 0.20×1.0 + 0.20×1.0 + 0.15×0.75 + 0.10×1.0 - 0.25×0.0 = **0.96**
+
+GRA-01 wins because it's completely fresh. VOC-01 lost because practicing it updated mastery (lower Need), added a sighting (lower Uncertainty), set last_seen to today (zero ReviewDue), and added it to recency history (penalty).
+
+### How Conversation Quality Affects the System
+
+The LLM judge's confidence score (0.0–1.0) is the **only input from the conversation**. Higher quality = higher confidence = faster mastery growth:
+
+| Conversation Quality | Judge Confidence | Effect on Mastery | Effect on Next Target |
+|---|---|---|---|
+| Student barely demonstrates skill | 0.70 (minimum) | Small increase: `+0.40 × 0.70 × headroom` | Need drops slightly → skill still high priority |
+| Student demonstrates well | 0.80 | Medium increase | Need drops more → other skills start winning |
+| Student demonstrates strongly | 0.90 | Large increase | Need drops significantly → skill deprioritized |
+| Student doesn't demonstrate | 0.40 (below 0.70) | **No change** (ignored) | Need stays the same → skill keeps high priority |
+
+**Example:** Same skill, different quality over 3 sessions:
+
+```text
+Strong student (0.90 each time):
+  Session 1: mastery 0 → 0.36
+  Session 2: mastery 0.36 → 0.59
+  Session 3: mastery 0.59 → 0.74  ← almost owned!
+
+Weak student (0.70 each time):
+  Session 1: mastery 0 → 0.28
+  Session 2: mastery 0.28 → 0.48
+  Session 3: mastery 0.48 → 0.63  ← still far from 0.75
+```
+
+The strong student's skill gets deprioritized faster (Need drops to 0.26 by session 3), so ELLA moves on to other skills sooner. The weak student's skill stays higher priority longer (Need = 0.37), so ELLA keeps bringing it back.
+
+**This is how quality self-regulates:** stronger demonstrations = faster progress = more variety. Weaker demonstrations = more repetition = more practice on that skill.
+
+---
+
+## 8. The Recency Cooldown Loop
+
+In a hardcoded model, if a student struggles with a skill, the system keeps serving that same skill as the primary target because they haven't met the "3 sightings" criterion. This creates frustration and engagement blockages.
+
+### How Recency Solves This
+
+```
+         Practice VOC-01
+                ↓
+         Mastery increases slightly
+                ↓
+         Recency increases (just practiced)
+                ↓
+   VOC-01 temporarily falls down the priority list
+                ↓
+   Other skills (GRA-01, FLU-01) get opportunities
+                ↓
+         Time passes (other conversations happen)
+                ↓
+      Recency decreases (hasn't been primary recently)
+                ↓
+    VOC-01 becomes high-priority again
+                ↓
+         Practice VOC-01 again
+```
+
+### 10-Conversation Simulation
+
+With 4 skills (VOC-01, VOC-02, GRA-01, FLU-01), all starting at mastery 0.00:
+
+| Conversation | Primary Target | Why? |
+|---|---|---|
+| 1 | VOC-01 | Highest initial priority (curriculum order) |
+| 2 | GRA-01 | VOC-01 now has recency cooldown, GRA-01 rises |
+| 3 | VOC-02 | GRA-01 now has recency cooldown, VOC-02 rises |
+| 4 | FLU-01 | VOC-02 now has recency cooldown, FLU-01 rises |
+| 5 | VOC-01 | Recency decayed, still has high Need |
+| 6 | GRA-01 | Returns for another opportunity |
+| 7 | VOC-02 | Returns for another opportunity |
+| 8 | VOC-01 | Need remains high, recency decayed again |
+| 9 | FLU-01 | Fluency gets another turn |
+| 10 | GRA-01 | Grammar gets another turn |
+
+<Warning>
+This sequence is **not hardcoded**. The actual result depends on how well the student performs in each conversation. Strong performance raises mastery (reducing Need), which changes the next ranking.
+</Warning>
+
+### One Conversation Can Update Many Skills
+
+The primary target guides the conversation topic, but the student's actual speech can provide evidence for **multiple skills simultaneously**.
+
+If the primary target is VOC-01 and the student says:
+
+> *"Yesterday I went to the market with my sister because we needed vegetables."*
+
+ELLA might detect evidence for:
+- **VOC-01** (vocabulary about daily activities) ✅
+- **GRA-01** (past tense usage) ✅
+- **FLU-01** (connected sentence with a reason) ✅
+
+So one conversation can advance multiple skills. This makes the system genuinely non-linear — 10 conversations don't mean 10 skills completed one-by-one.
+
+---
+
+## 9. What Happens After 10 Conversations?
+
+Don't think: *"10 conversations = 10 skills completed."*
+
+Instead, think:
+
+```
+10 conversations
+       ↓
+many pieces of evidence (some skills get evidence in multiple conversations)
+       ↓
+many mastery scores updated
+       ↓
+priority scores change continuously
+       ↓
+primary target keeps shifting based on performance
+```
+
+After 10 conversations you might see:
+
+| Skill | Mastery | Status |
+|---|---|---|
+| VOC-01 | 0.79 | OWNED (practiced in 2+ contexts) |
+| VOC-02 | 0.51 | EMERGING |
+| GRA-01 | 0.72 | EMERGING |
+| FLU-01 | 0.81 | OWNED (practiced in 2+ contexts) |
+| VOC-03 | 0.12 | LOCKED |
+
+The next conversation's target is **not** necessarily VOC-02. ELLA recalculates everything fresh and the highest priority wins.
+
+---
+
+## 10. The Complete Learning Flow
+
+```text
+Conversation
+        │
+        ↓
+LLM Judge evaluates transcript
+        │
+        ↓
+Confidence per skill (0.0–1.0)
+        │
+   ┌────┴────┐
+   ↓         ↓
+Sighting   Mastery update
+   ↓         ↓
+Garden    Learning state
+grows     (locked/emerging/owned)
+   │         │
+   └────┬────┘
+        ↓
+Updated learner model
+        ↓
+Next conversation begins
+        ↓
+Priority scoring
+(Need + Uncertainty + ReviewDue + Curriculum + Variety - Recency)
+        ↓
+Highest priority = next primary target
+```
+
+<Info>
+**ELLA uses two complementary learning signals.** Sightings record successful demonstrations for garden growth, while mastery estimates how confidently the learner knows each skill. Together they drive ownership, priority scoring, and future conversations.
+</Info>
+
+---
+
+## 11. Developer Reference
+
+### DB JSON Schema
+
+The adaptive mastery data is saved inside the user's `skills_progress` JSON payload:
+
+```json
+{
+  "owned": ["A1:U1-VOC-01", "A1:U1-FLU-01"],
+  "emerging": ["A1:U1-GRA-01"],
+  "mastery": {
+    "A1:U1-VOC-01": 0.82,
+    "A1:U1-GRA-01": 0.36
+  },
+  "sightings": {
+    "A1:U1-VOC-01": 6,
+    "A1:U1-GRA-01": 2,
+    "A1:U1-FLU-01": 4
+  },
+  "context_diversity": {
+    "A1:U1-VOC-01": ["Shopping and markets", "Celebrations", "My family"]
+  },
+  "recent_primary_history": ["A1:U1-GRA-01"]
+}
+```
+
+<Note>
+**Developer note:** In the current implementation, the code stores a field called `evidence_count` which holds the same value as `sightings`. Both increment when judge confidence is ≥ 0.70. They are the same concept with two internal names. Sightings are not capped — the garden stops visually changing at 3 (bloomed), but the count continues increasing.
+</Note>
+
+---
+
+## 12. Design Notes & FAQ
+
+<Note>
+**Why is rotation non-linear (not VOC-01 → VOC-02 → GRA-01 → FLU-01 in fixed order)?**
+
+The order isn't random and it isn't fixed. After every conversation, all eligible skills are rescored and the highest-priority skill becomes the next primary target. This allows ELLA to spend more time on weaker skills and less time on skills the learner already demonstrates confidently.
+</Note>
+
+<Note>
+**Why can a plant bloom but the skill not be owned?**
+
+The conflict isn't in the algorithm. It's that one visual state (a fully bloomed flower) represents only one milestone, while the engine has two: **successful practice** (3 sightings → bloomed) and **mastery** (mastery ≥ 0.75 + 2 topics → owned). The garden celebrates effort; ownership represents demonstrated mastery. A future UI enhancement (e.g. a star on mastered plants) could make both milestones visible without changing the learning logic.
+</Note>

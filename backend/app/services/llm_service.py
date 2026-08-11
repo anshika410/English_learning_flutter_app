@@ -165,32 +165,31 @@ async def generate_conversation_starter(
     
     level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
 
-    # Format persona memory
+    # Format learner context — only name and age (no persona_memory facts)
     memory_str = "None"
     if persona_memory:
-        facts = persona_memory.get("facts", [])
-        if not isinstance(facts, list):
-            facts = [facts] if facts else []
-        if not facts and isinstance(persona_memory, dict):
-            for k, v in persona_memory.items():
-                if isinstance(v, list):
-                    facts.extend([str(item) for item in v])
-                elif isinstance(v, str):
-                    facts.append(f"{k}: {v}")
-        
-        # Sanitize facts to only use first name
-        sanitized_facts = []
-        for fact in facts:
-            fact_str = str(fact)
-            if fact_str.lower().startswith("name:"):
-                name_val = fact_str.split(":", 1)[1].strip()
-                first_name = name_val.split()[0].strip() if name_val else ""
-                sanitized_facts.append(f"Name: {first_name}")
-            else:
-                sanitized_facts.append(fact_str)
-                
-        if sanitized_facts:
-            memory_str = "\n".join(f"- {fact}" for fact in sanitized_facts)
+        profile = persona_memory.get("profile") if isinstance(persona_memory, dict) else None
+        context_parts = []
+        if isinstance(profile, dict):
+            if profile.get("name"):
+                first_name = str(profile["name"]).split()[0].strip()
+                context_parts.append(f"Name: {first_name}")
+            if profile.get("age"):
+                context_parts.append(f"Age: {profile['age']}")
+        # Fallback: check top-level name if profile not available
+        if not context_parts and isinstance(persona_memory, dict):
+            facts = persona_memory.get("facts", [])
+            if isinstance(facts, list):
+                for fact in facts:
+                    fact_lower = str(fact).lower()
+                    if "name is" in fact_lower or fact_lower.startswith("name:"):
+                        name_val = str(fact).split("is")[-1].split(":")[-1].strip().rstrip(".")
+                        first_name = name_val.split()[0].strip() if name_val else ""
+                        if first_name:
+                            context_parts.append(f"Name: {first_name}")
+                            break
+        if context_parts:
+            memory_str = "\n".join(f"- {part}" for part in context_parts)
 
     # Get aimed IDs
     valid_due_next = validate_due_next(due_next, level_upper)
@@ -366,33 +365,19 @@ async def send_conversation_turn(
     )
     from ..core.elicitation import resolve_skill_text
 
-    # Format persona memory
+    # Format learner context — only name and age (no persona_memory facts)
     memory_str = "None"
     if persona_memory:
-        facts = persona_memory.get("facts", [])
-        if not isinstance(facts, list):
-            facts = [facts] if facts else []
-        if not facts and isinstance(persona_memory, dict):
-            for k, v in persona_memory.items():
-                if isinstance(v, list):
-                    facts.extend([str(item) for item in v])
-                elif isinstance(v, str):
-                    facts.append(f"{k}: {v}")
-        
-        # Sanitize facts to only use first name
-        sanitized_facts = []
-        for fact in facts:
-            fact_str = str(fact)
-            if fact_str.lower().startswith("name:"):
-                # Extract first name
-                name_val = fact_str.split(":", 1)[1].strip()
-                first_name = name_val.split()[0].strip() if name_val else ""
-                sanitized_facts.append(f"Name: {first_name}")
-            else:
-                sanitized_facts.append(fact_str)
-                
-        if sanitized_facts:
-            memory_str = "\n".join(f"- {fact}" for fact in sanitized_facts)
+        profile = persona_memory.get("profile") if isinstance(persona_memory, dict) else None
+        context_parts = []
+        if isinstance(profile, dict):
+            if profile.get("name"):
+                first_name = str(profile["name"]).split()[0].strip()
+                context_parts.append(f"Name: {first_name}")
+            if profile.get("age"):
+                context_parts.append(f"Age: {profile['age']}")
+        if context_parts:
+            memory_str = "\n".join(f"- {part}" for part in context_parts)
 
     level_upper = level.upper() if level else "A1"
     if level_upper not in _LEVEL_BLOCKS:

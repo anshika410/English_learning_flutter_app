@@ -17,14 +17,32 @@ import 'widgets/topic_handoff.dart';
 
 /// Starts a session for [topic]. The full name is sent to the engine/API while
 /// its short label and icon stay available to the conversation presentation.
+///
+/// [selectionSource] indicates how the topic was chosen:
+/// 'recommended', 'alternative', 'catalogue', 'free_talk'.
 Future<void> startTopic(
   BuildContext context,
   WidgetRef ref,
   TopicChoice topic, {
   ValueChanged<ConversationEndContext>? onConversationEnded,
+  String selectionSource = 'recommended',
 }) async {
   AnalyticsService.logTopicSelected(topic.name);
+
+  // P0 enriched topic_selected event
   final chatState = ref.read(chatProvider);
+  final userId = chatState.hasValue
+      ? (chatState.requireValue.memory.childId)
+      : '';
+  final recommendedName = chatState.hasValue
+      ? (chatState.requireValue.memory.nextTopics.recommended?.name ?? '')
+      : '';
+  AnalyticsService.logTopicSelectedP0(
+    userId: userId,
+    topicId: topic.name,
+    recommendedTopicId: recommendedName,
+    selectionSource: selectionSource,
+  );
   final level = chatState.hasValue ? chatState.requireValue.memory.level : 'A1';
   final engineTopic = Topic(
     level: level,

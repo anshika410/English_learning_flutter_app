@@ -285,6 +285,18 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         topic: chatState.currentTopic?.topic ?? 'Free Talk',
         turnCount: chatState.turnCount,
       );
+
+      // P0 enriched conversation_ended (manual_end)
+      final notifierRef = ref.read(chatProvider.notifier);
+      final sessionStart = notifierRef.sessionStartedAt ?? DateTime.now();
+      AnalyticsService.logConversationEnded(
+        userId: notifierRef.childId,
+        sessionId: chatState.activeSessionId ?? '',
+        endState: 'manual_end',
+        studentTurns: chatState.turnCount,
+        startedAt: sessionStart,
+        endedAt: DateTime.now(),
+      );
     }
     final notifier = ref.read(chatProvider.notifier);
     await notifier.stopListening();

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELLA Learning Path 2D Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --bg-gradient-start: #0f172a;
+      --bg-gradient-end: #090d16;
+      --bg-card: rgba(30, 41, 59, 0.4);
+      --border-color: rgba(255, 255, 255, 0.08);
+      
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      
+      /* Vibrant Strand Colors */
+      --color-voc: #3b82f6; /* Bright Blue */
+      --color-voc-rgb: 59, 130, 246;
+      
+      --color-gra: #10b981; /* Emerald Green */
+      --color-gra-rgb: 16, 185, 129;
+      
+      --color-flu: #f59e0b; /* Amber Orange */
+      --color-flu-rgb: 245, 158, 11;
+      
+      --color-u1-title: #60a5fa; /* Sky Blue */
+      --color-u2-title: #a78bfa; /* Violet */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 50%, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+
+    .container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      gap: 20px;
+      position: relative;
+    }
+
+    /* Left Sidebar - Legends and Controls */
+    .sidebar {
+      width: 270px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 10;
+    }
+
+    .glass-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-main);
+      margin-bottom: 14px;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+
+    /* Legend style */
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      box-shadow: 0 0 10px var(--glow-color, rgba(0,0,0,0));
+    }
+
+    .legend-voc { background-color: var(--color-voc); --glow-color: rgba(59, 130, 246, 0.3); }
+    .legend-gra { background-color: var(--color-gra); --glow-color: rgba(16, 185, 129, 0.3); }
+    .legend-flu { background-color: var(--color-flu); --glow-color: rgba(245, 158, 11, 0.3); }
+
+    /* Reading info panel */
+    .info-list {
+      font-size: 12.5px;
+      color: var(--text-sub);
+      line-height: 1.7;
+    }
+    .info-list li {
+      margin-bottom: 8px;
+      list-style-type: none;
+      position: relative;
+      padding-left: 14px;
+    }
+    .info-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--text-sub);
+    }
+    .info-list strong {
+      color: var(--text-main);
+    }
+
+    /* Target board / Main Graph Area */
+    .canvas-panel {
+      flex: 1;
+      position: relative;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    #svg-grid {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* Interactive skill nodes */
+    .skill-node {
+      position: absolute;
+      width: 125px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translate(-50%, -50%);
+      gap: 6px;
+    }
+
+    .skill-node:hover {
+      transform: translate(-50%, -54%) scale(1.06);
+    }
+
+    /* Strand-specific styles that respect progress state */
+    
+    /* 1. LOCKED STATE (Muted across all strands) */
+    .skill-node.state-locked {
+      background: rgba(30, 41, 59, 0.25);
+      border: 1px dashed rgba(148, 163, 184, 0.3);
+      color: #64748b;
+      opacity: 0.65;
+      box-shadow: none;
+    }
+    .skill-node.state-locked:hover {
+      opacity: 1;
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    /* 2. EMERGING STATE (Translucent background + color text/border + subtle glow) */
+    .skill-node.state-emerging.strand-voc {
+      background: rgba(var(--color-voc-rgb), 0.1);
+      border: 1.5px solid var(--color-voc);
+      color: var(--color-voc);
+      box-shadow: 0 0 14px rgba(var(--color-voc-rgb), 0.2);
+    }
+    .skill-node.state-emerging.strand-gra {
+      background: rgba(var(--color-gra-rgb), 0.1);
+      border: 1.5px solid var(--color-gra);
+      color: var(--color-gra);
+      box-shadow: 0 0 14px rgba(var(--color-gra-rgb), 0.2);
+    }
+    .skill-node.state-emerging.strand-flu {
+      background: rgba(var(--color-flu-rgb), 0.1);
+      border: 1.5px solid var(--color-flu);
+      color: var(--color-flu);
+      box-shadow: 0 0 14px rgba(var(--color-flu-rgb), 0.2);
+    }
+
+    /* 3. OWNED STATE (Vibrant background + thick border + white text + strong glow) */
+    .skill-node.state-owned.strand-voc {
+      background: rgba(var(--color-voc-rgb), 0.25);
+      border: 2.5px solid var(--color-voc);
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(var(--color-voc-rgb), 0.35);
+    }
+    .skill-node.state-owned.strand-gra {
+      background: rgba(var(--color-gra-rgb), 0.25);
+      border: 2.5px solid var(--color-gra);
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(var(--color-gra-rgb), 0.35);
+    }
+    .skill-node.state-owned.strand-flu {
+      background: rgba(var(--color-flu-rgb), 0.25);
+      border: 2.5px solid var(--color-flu);
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(var(--color-flu-rgb), 0.35);
+    }
+
+    /* Status dot indicator inside node */
+    .node-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+    .state-emerging .node-dot {
+      background-color: currentColor;
+      box-shadow: 0 0 6px currentColor;
+      animation: pulse 1.5s infinite;
+    }
+    .state-owned .node-dot::after {
+      content: "✓";
+      display: inline-block;
+      font-size: 10px;
+      transform: translate(-3px, -7px);
+      color: #ffffff;
+    }
+    .state-owned .node-dot {
+      width: 0;
+      height: 0;
+    }
+
+    /* Badge banner */
+    .status-banner {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 5;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #F59E0B;
+    }
+    .status-dot.active {
+      background: #22C55E;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.6; }
+    }
+
+    /* Unit scope box overlays */
+    .unit-scope-title {
+      position: absolute;
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--color-u1-title);
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- Legends -->
+      <div class="glass-panel">
+        <h3>Legend (Sections)</h3>
+        <div class="legend-item">
+          <div class="legend-color legend-voc"></div>
+          <span>VOC (Vocabulary)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color legend-gra"></div>
+          <span>GRA (Grammar)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color legend-flu"></div>
+          <span>FLU (Fluency)</span>
+        </div>
+      </div>
+
+      <!-- How to read -->
+      <div class="glass-panel">
+        <h3>How to Read</h3>
+        <ul class="info-list">
+          <li><strong>+X (Right):</strong> Grammar / Fluency</li>
+          <li><strong>-X (Left):</strong> Vocabulary</li>
+          <li><strong>+Y (Up):</strong> U1: Describing the world</li>
+          <li><strong>-Y (Down):</strong> U2: Talking about the past</li>
+          <li><strong>(0,0):</strong> Origin center</li>
+        </ul>
+      </div>
+
+      <!-- Toggle Mode -->
+      <div class="glass-panel" style="margin-top: auto;">
+        <h3>Controls</h3>
+        <p style="font-size: 11px; margin-bottom: 10px; line-height: 1.4;">Click any skill box on the coordinate plane to manually toggle its progress state.</p>
+        <button id="reset-toggle" style="width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 12px; cursor: pointer; font-weight: 600; transition: background 0.2s;">Reset to Live Progress</button>
+      </div>
+    </div>
+
+    <!-- Main Canvas Area -->
+    <div class="canvas-panel" id="canvas-panel">
+      <!-- Status Banner -->
+      <div class="status-banner">
+        <div class="status-dot" id="banner-dot"></div>
+        <span id="banner-text">Loading student session...</span>
+      </div>
+
+      <!-- Grid SVGs -->
+      <svg id="svg-grid">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <!-- Background Grid pattern -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+        
+        <!-- Axis Grid lines -->
+        <line id="axis-x" stroke="rgba(255,255,255,0.2)" stroke-width="1.8" />
+        <line id="axis-y" stroke="rgba(255,255,255,0.2)" stroke-width="1.8" />
+        
+        <!-- Grid markings -->
+        <g id="grid-marks" stroke="rgba(255,255,255,0.15)" stroke-width="1.2"></g>
+        <g id="grid-texts" fill="var(--text-sub)" font-size="11" font-weight="600" font-family="'JetBrains Mono', monospace"></g>
+
+        <!-- Scope dashed outline boxes -->
+        <rect id="scope-u1" fill="none" stroke="rgba(96, 165, 250, 0.25)" stroke-width="1.5" stroke-dasharray="6 4" />
+        <rect id="scope-u2" fill="none" stroke="rgba(167, 139, 250, 0.25)" stroke-width="1.5" stroke-dasharray="6 4" />
+      </svg>
+
+      <!-- Dynamic Scope text overlays -->
+      <div class="unit-scope-title" id="scope-text-u1">U1: Describing the world</div>
+      <div class="unit-scope-title" id="scope-text-u2" style="color: var(--color-u2-title);">U2: Talking about the past</div>
+
+      <!-- Origin Node -->
+      <div id="origin-node" style="position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #F59E0B; transform: translate(-50%, -50%); box-shadow: 0 0 10px #F59E0B; z-index: 3;"></div>
+      <div id="origin-label" style="position: absolute; font-size: 12px; color: #F59E0B; font-weight: 600; font-family: 'JetBrains Mono', monospace; transform: translate(-100%, 8px);">origin (0,0)</div>
+
+      <!-- Skill Nodes (Positioned absolutely via JS) -->
+      <div id="nodes-container"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // State of skills in UI: "locked", "emerging", "owned"
+    const skillStates = {
+      'U1-VOC-01': 'locked',
+      'U1-VOC-02': 'locked',
+      'U1-GRA-01': 'locked',
+      'U1-FLU-01': 'locked',
+      'U2-VOC-01': 'locked',
+      'U2-GRA-01': 'locked',
+      'U2-GRA-02': 'locked',
+      'U2-FLU-01': 'locked'
+    };
+
+    // Strand type for each skill to maintain color coding consistency
+    const skillStrands = {
+      'U1-VOC-01': 'voc',
+      'U1-VOC-02': 'voc',
+      'U1-GRA-01': 'gra',
+      'U1-FLU-01': 'flu',
+      'U2-VOC-01': 'voc',
+      'U2-GRA-01': 'gra',
+      'U2-GRA-02': 'gra',
+      'U2-FLU-01': 'flu'
+    };
+
+    // Coordinate positions in Cartesian space
+    const skillCoordinates = {
+      'U1-VOC-01': { x: -2.3, y: 2.2 },
+      'U1-VOC-02': { x: -2.3, y: 1.1 },
+      'U1-GRA-01': { x: 1.5, y: 2.2 },
+      'U1-FLU-01': { x: 1.5, y: 1.1 },
+      'U2-VOC-01': { x: -2.3, y: -1.1 },
+      'U2-GRA-01': { x: -2.3, y: -2.2 },
+      'U2-GRA-02': { x: 1.5, y: -1.1 },
+      'U2-FLU-01': { x: 1.5, y: -2.2 }
+    };
+
+    const canvas = document.getElementById('canvas-panel');
+    const nodesContainer = document.getElementById('nodes-container');
+
+    // Grid coordinate mapping calculations
+    let centerX = 0, centerY = 0;
+    let scale = 95; // Pixels per coordinate unit
+
+    function updateLayout() {
+      const rect = canvas.getBoundingClientRect();
+      centerX = rect.width / 2;
+      centerY = rect.height / 2;
+
+      // Adjust scale dynamically based on box dimensions
+      scale = Math.min(rect.width / 8, rect.height / 6.5);
+
+      // Positioning the Axis lines
+      const axisX = document.getElementById('axis-x');
+      axisX.setAttribute('x1', 0);
+      axisX.setAttribute('y1', centerY);
+      axisX.setAttribute('x2', rect.width);
+      axisX.setAttribute('y2', centerY);
+
+      const axisY = document.getElementById('axis-y');
+      axisY.setAttribute('x1', centerX);
+      axisY.setAttribute('y1', 0);
+      axisY.setAttribute('x2', centerX);
+      axisY.setAttribute('y2', rect.height);
+
+      // Positioning Origin
+      const origin = document.getElementById('origin-node');
+      origin.style.left = centerX + 'px';
+      origin.style.top = centerY + 'px';
+
+      const originLabel = document.getElementById('origin-label');
+      originLabel.style.left = (centerX - 6) + 'px';
+      originLabel.style.top = (centerY + 6) + 'px';
+
+      // Drawing Scope dashed boxes
+      // U1: top quadrant (y > 0)
+      const u1Scope = document.getElementById('scope-u1');
+      const u1X = centerX - 3.4 * scale;
+      const u1Y = centerY - 3.1 * scale;
+      u1Scope.setAttribute('x', u1X);
+      u1Scope.setAttribute('y', u1Y);
+      u1Scope.setAttribute('width', 6.8 * scale);
+      u1Scope.setAttribute('height', 2.8 * scale);
+      u1Scope.setAttribute('rx', 16);
+
+      const u1Text = document.getElementById('scope-text-u1');
+      u1Text.style.left = (u1X + 20) + 'px';
+      u1Text.style.top = (u1Y + 20) + 'px';
+
+      // U2: bottom quadrant (y < 0)
+      const u2Scope = document.getElementById('scope-u2');
+      const u2X = centerX - 3.4 * scale;
+      const u2Y = centerY + 0.3 * scale;
+      u2Scope.setAttribute('x', u2X);
+      u2Scope.setAttribute('y', u2Y);
+      u2Scope.setAttribute('width', 6.8 * scale);
+      u2Scope.setAttribute('height', 2.8 * scale);
+      u2Scope.setAttribute('rx', 16);
+
+      const u2Text = document.getElementById('scope-text-u2');
+      u2Text.style.left = (u2X + 20) + 'px';
+      u2Text.style.top = (u2Y + 2.5 * scale) + 'px';
+
+      // Draw Grid tick marks
+      const marksGroup = document.getElementById('grid-marks');
+      const textsGroup = document.getElementById('grid-texts');
+      marksGroup.innerHTML = '';
+      textsGroup.innerHTML = '';
+
+      // Draw X Tick markings (-3 to 3)
+      for (let i = -3; i <= 3; i++) {
+        if (i === 0) continue;
+        const tickX = centerX + i * scale;
+        
+        // Vertical tick lines
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute('x1', tickX);
+        line.setAttribute('y1', centerY - 6);
+        line.setAttribute('x2', tickX);
+        line.setAttribute('y2', centerY + 6);
+        marksGroup.appendChild(line);
+
+        // Numeric text label
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute('x', tickX - 8);
+        txt.setAttribute('y', centerY + 24);
+        txt.textContent = i > 0 ? '+' + i : i;
+        textsGroup.appendChild(txt);
+      }
+
+      // Draw Y Tick markings (-3 to 3)
+      for (let i = -3; i <= 3; i++) {
+        if (i === 0) continue;
+        const tickY = centerY - i * scale; // SVG y grows downwards
+
+        // Horizontal tick lines
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute('x1', centerX - 6);
+        line.setAttribute('y1', tickY);
+        line.setAttribute('x2', centerX + 6);
+        line.setAttribute('y2', tickY);
+        marksGroup.appendChild(line);
+
+        // Numeric text label
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute('x', centerX + 16);
+        txt.setAttribute('y', tickY + 4);
+        txt.textContent = i > 0 ? '+' + i : i;
+        textsGroup.appendChild(txt);
+      }
+
+      // Position Node Divs
+      renderNodes();
+    }
+
+    function renderNodes() {
+      nodesContainer.innerHTML = '';
+      Object.keys(skillCoordinates).forEach(id => {
+        const coord = skillCoordinates[id];
+        const pixelX = centerX + coord.x * scale;
+        const pixelY = centerY - coord.y * scale;
+
+        const node = document.createElement('div');
+        node.className = `skill-node state-${skillStates[id]} strand-${skillStrands[id]}`;
+        node.style.left = pixelX + 'px';
+        node.style.top = pixelY + 'px';
+        
+        // Status indicator dot
+        const dot = document.createElement('div');
+        dot.className = 'node-dot';
+        node.appendChild(dot);
+
+        // Text label
+        const textSpan = document.createElement('span');
+        textSpan.textContent = id;
+        node.appendChild(textSpan);
+        
+        // Let user click to toggle state manually
+        node.onclick = () => {
+          toggleNodeState(id);
+        };
+
+        nodesContainer.appendChild(node);
+      });
+    }
+
+    function toggleNodeState(id) {
+      const states = ['locked', 'emerging', 'owned'];
+      let idx = states.indexOf(skillStates[id]);
+      let nextState = states[(idx + 1) % 3];
+      skillStates[id] = nextState;
+      
+      const bannerDot = document.getElementById('banner-dot');
+      const bannerText = document.getElementById('banner-text');
+      bannerDot.className = 'status-dot';
+      bannerText.textContent = "Interactive Sandbox Mode";
+
+      renderNodes();
+    }
+
+    // Call API to fetch real memory data
+    async function loadRealProgress() {
+      const bannerDot = document.getElementById('banner-dot');
+      const bannerText = document.getElementById('banner-text');
+
+      try {
+        // Fetch from ELLA production memory endpoint
+        const response = await fetch('/api/users/me/memory');
+        if (!response.ok) throw new Error("Unauthorized");
+        
+        const data = await response.json();
+        
+        // Loop over the keys and map them
+        const owned = data.owned || [];
+        const emerging = data.emerging || [];
+
+        Object.keys(skillStates).forEach(sid => {
+          if (owned.includes(sid)) {
+            skillStates[sid] = 'owned';
+          } else if (emerging.includes(sid)) {
+            skillStates[sid] = 'emerging';
+          } else {
+            skillStates[sid] = 'locked';
+          }
+        });
+
+        bannerDot.className = 'status-dot active';
+        bannerText.textContent = `Live Session (${data.level || 'A1'} Active)`;
+        renderNodes();
+      } catch (err) {
+        // Fallback: load demo template
+        bannerDot.className = 'status-dot';
+        bannerText.textContent = "Demo Template Mode (Click boxes to toggle)";
+        
+        // Set mock values for demo
+        skillStates['U1-VOC-01'] = 'owned';
+        skillStates['U1-VOC-02'] = 'owned';
+        skillStates['U1-GRA-01'] = 'emerging';
+        skillStates['U1-FLU-01'] = 'emerging';
+        skillStates['U2-VOC-01'] = 'locked';
+        skillStates['U2-GRA-01'] = 'locked';
+        skillStates['U2-GRA-02'] = 'locked';
+        skillStates['U2-FLU-01'] = 'locked';
+        
+        renderNodes();
+      }
+    }
+
+    document.getElementById('reset-toggle').onclick = () => {
+      loadRealProgress();
+    };
+
+    window.addEventListener('resize', updateLayout);
+    
+    // Initial Run
+    updateLayout();
+    loadRealProgress();
+  </script>
+</body>
+</html>

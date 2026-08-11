@@ -109,6 +109,7 @@ class UserMemoryResponse(BaseModel):
     units: list[str] = []
     last_topics: list[str] = []
     persona_memory: dict = {}
+    recent_primary_history: list[str] = []
 
 
 class GardenEvidence(BaseModel):

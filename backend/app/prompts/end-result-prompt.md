@@ -30,9 +30,6 @@ Return ONLY valid JSON in this exact structure:
     "skill": "<one small actionable communicative step>",
     "example": "<one truthful adaptable example at this level>"
   },
-  "extracted_memory_facts": [
-    "<stable personal preference or fact explicitly stated by the learner>"
-  ],
   "scores": [
     {
       "id": "<COPY the skill id EXACTLY as given in the TARGET SKILLS list below — do not invent or rephrase>",
@@ -84,12 +81,6 @@ CRITICAL SCORING RULES:
 - Prefer an independent best moment over copied language.
 - `try_next_time.example` must be adaptable and must not assign the learner a false identity, feeling, possession, or preference.
 - Never use the words "wrong" or "incorrect."
-
-## Memory extraction rules
-
-- Extract only stable facts explicitly stated by the learner: preferences, recurring hobbies, family roles, pets, or broad location such as city when volunteered.
-- Do not extract temporary states, imagined details, guesses, corrections proposed by Zoe, sensitive disclosures, school names, contact details, or uncertain speech.
-- Write each fact as a short standalone sentence. Return an empty array when there are none.
 
 ## Transcript notes
 

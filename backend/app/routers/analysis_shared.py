@@ -102,7 +102,7 @@ async def run_and_save_session_analysis(
     # Apply merge & deterministic updates
     import datetime
     created_at_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    updated_progress, changes = apply_merge(progress, scores, level, topic=actual_topic, created_at=created_at_str)
+    updated_progress, changes = apply_merge(progress, scores, level, topic=actual_topic, created_at=created_at_str, primary_target=aimed[0] if aimed else None)
     
     # Increment times spoken
     if turns_total is not None:
@@ -111,29 +111,16 @@ async def run_and_save_session_analysis(
         turn_count = len([m for m in messages if m["role"] in ("user", "learner")])
     updated_progress["effort"]["times_spoken_total"] = updated_progress["effort"].get("times_spoken_total", 0) + turn_count
     
-    # Check for a single level-up before creating the next due target. Unit
-    # progress is level-scoped, so finishing A0 cannot complete A1 by collision.
-    # Ensure user.level is initialized
+    # Check for level-up: only when ALL units are complete AND no carryover remains.
     if not user.level:
         user.level = level
 
     next_level = user.level
     if progression_model == "unit":
-        level_skills = [
-            skill["id"]
-            for unit in UNITS.get(user.level, [])
-            for skill in unit.get("skills", [])
-        ]
-        owned_count = sum(
-            1 for skill_id in level_skills
-            if bucket_of(updated_progress, skill_id, user.level) == "owned"
-        )
-        reached_threshold = bool(
-            level_skills and owned_count >= len(level_skills) * 0.8
-        )
         completed_all_steps = active_step(updated_progress, user.level) is None
+        no_carryover = not updated_progress.get("carryover", [])
         levels_chain = ["A0", "A1", "A2", "B1", "B2", "C1"]
-        if reached_threshold or completed_all_steps:
+        if completed_all_steps and no_carryover:
             try:
                 current_idx = levels_chain.index(user.level)
                 if current_idx < len(levels_chain) - 1:
@@ -210,27 +197,21 @@ async def run_and_save_session_analysis(
     sa.skills_evidenced = scores
     sa.state_changes = changes
 
-    # Merge newly extracted memory facts
-    new_facts = analysis.get("extracted_memory_facts", [])
-    if isinstance(new_facts, list) and new_facts:
-        existing_memory = user.persona_memory or {}
-        if not isinstance(existing_memory, dict):
-            existing_memory = {}
-        existing_facts = existing_memory.get("facts", [])
-        if not isinstance(existing_facts, list):
-            existing_facts = [existing_facts] if existing_facts else []
-        
-        seen = {f.strip().lower() for f in existing_facts}
-        merged_facts = list(existing_facts)
-        for fact in new_facts:
-            if isinstance(fact, str) and fact.strip() and fact.strip().lower() not in seen:
-                merged_facts.append(fact.strip())
-                seen.add(fact.strip().lower())
-        
-        existing_memory["facts"] = merged_facts
-        user.persona_memory = dict(existing_memory)
-        flag_modified(user, "persona_memory")
-        db.add(user)
+    # P0: log judge_completed event to backend logs (queryable via server logs)
+    import logging as _logging
+    _logging.getLogger("ella.analytics").info(
+        "judge_completed",
+        extra={
+            "event": "judge_completed",
+            "session_id": conversation_id,
+            "judge_status": "success" if scores else "empty_scores",
+            "judge_version": "v1",
+            "scores_count": len(scores),
+            "state_changes_count": len(changes),
+        }
+    )
+
+    # Memory extraction disabled — only name+age kept as learner context
 
     # Update conversation quality
     conv_result = await db.execute(
