@@ -18,7 +18,7 @@ import 'widgets/home_scene_background.dart';
 import 'widgets/mascot_glow.dart';
 import 'widgets/zoe_mascot.dart';
 
-const String _acknowledgement = 'Thanks for telling me.';
+const String _acknowledgement = 'Thanks for telling me how you feel!';
 
 class FeelingCheckInScreen extends ConsumerStatefulWidget {
   final ConversationEndContext endContext;
@@ -114,9 +114,6 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
     );
 
     final token = ++_speechToken;
-    // Fire-and-forget: the visual pacing below is deliberately decoupled
-    // from TTS timing/success so the transition feels consistent either way.
-    unawaited(_speakAcknowledgement());
 
     // Hold the selected emoji highlighted alone for a beat before moving on.
     await Future.delayed(const Duration(milliseconds: 1000));
@@ -127,7 +124,12 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
       _showAcknowledgement = true;
     });
 
-    // Let the acknowledgement bubble be read before leaving for the garden.
+    // Wait for Zoe to actually finish saying the line before starting the
+    // post-speech hold — do not race navigation against TTS playback.
+    await _speakAcknowledgement();
+    if (!mounted || _completed || token != _speechToken) return;
+
+    // Let the acknowledgement bubble sit on screen after speech ends.
     await Future.delayed(const Duration(milliseconds: 1000));
     if (!mounted || _completed || token != _speechToken) return;
 
