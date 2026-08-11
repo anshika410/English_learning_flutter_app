@@ -25,7 +25,7 @@ import '../services/sounds.dart';
 
 enum InputMode { voice, text }
 
-enum ChatStatus { idle, zoeThinking, zoeSpeaking, userSpeaking, offline }
+enum ChatStatus { idle, zoeThinking, zoeSpeaking, userSpeaking, offline, speechError }
 
 class ChatState {
   // Core conversation
@@ -454,7 +454,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // child's committed text in one step, instead of briefly dropping to idle
     // and flashing Zoe's previous line. Reject while Zoe is thinking/speaking.
     if (cur.status != ChatStatus.idle &&
-        cur.status != ChatStatus.userSpeaking) {
+        cur.status != ChatStatus.userSpeaking &&
+        cur.status != ChatStatus.speechError) {
       return;
     }
 
@@ -843,7 +844,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
     // Allow starting from idle OR while Zoe is speaking (interrupt her)
     if (cur.status == ChatStatus.zoeSpeaking) {
       await stopSpeaking();
-    } else if (cur.status != ChatStatus.idle) {
+    } else if (cur.status != ChatStatus.idle && cur.status != ChatStatus.speechError) {
       return;
     }
 
@@ -880,13 +881,20 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
           // line between the partial clearing and the turn landing.
           sendUserTurn(trimmed);
         } else {
-          // Nothing recognised — just return to idle.
+          // Nothing recognised — transition to speechError so UI shows Try Again.
           state = AsyncValue.data(
             state.requireValue.copyWith(
-              status: ChatStatus.idle,
+              status: ChatStatus.speechError,
               clearPartialStt: true,
             ),
           );
+          Future.delayed(const Duration(seconds: 2), () {
+            if (state.hasValue && state.requireValue.status == ChatStatus.speechError) {
+              state = AsyncValue.data(
+                state.requireValue.copyWith(status: ChatStatus.idle),
+              );
+            }
+          });
         }
       },
     );
@@ -934,8 +942,15 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         sendUserTurn(partial);
       } else {
         state = AsyncValue.data(
-          s.copyWith(status: ChatStatus.idle, clearPartialStt: true),
+          s.copyWith(status: ChatStatus.speechError, clearPartialStt: true),
         );
+        Future.delayed(const Duration(seconds: 2), () {
+          if (state.hasValue && state.requireValue.status == ChatStatus.speechError) {
+            state = AsyncValue.data(
+              state.requireValue.copyWith(status: ChatStatus.idle),
+            );
+          }
+        });
       }
     });
   }

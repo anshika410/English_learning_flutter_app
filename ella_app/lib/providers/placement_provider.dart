@@ -195,7 +195,8 @@ class PlacementNotifier extends Notifier<PlacementState> {
     final trimmed = text.trim();
     if (trimmed.isEmpty || state.isComplete) return;
     if (state.status != ChatStatus.idle &&
-        state.status != ChatStatus.userSpeaking) {
+        state.status != ChatStatus.userSpeaking &&
+        state.status != ChatStatus.speechError) {
       return;
     }
     ref.read(audioProvider).playSfx(Sounds.send);
@@ -336,7 +337,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
   // ── Voice input (mirrors ChatNotifier) ────────────────────────────────────
 
   Future<void> startListening() async {
-    if (state.status != ChatStatus.idle || state.isComplete) return;
+    if ((state.status != ChatStatus.idle && state.status != ChatStatus.speechError) || state.isComplete) return;
 
     _sttSessionFinalized = false;
     final sessionId = ++_activeSttSessionId;
@@ -361,9 +362,14 @@ class PlacementNotifier extends Notifier<PlacementState> {
           sendUserTurn(trimmed);
         } else {
           state = state.copyWith(
-            status: ChatStatus.idle,
+            status: ChatStatus.speechError,
             clearPartialStt: true,
           );
+          Future.delayed(const Duration(seconds: 2), () {
+            if (state.status == ChatStatus.speechError) {
+              state = state.copyWith(status: ChatStatus.idle);
+            }
+          });
         }
       },
     );
@@ -385,7 +391,12 @@ class PlacementNotifier extends Notifier<PlacementState> {
       if (partial.isNotEmpty) {
         sendUserTurn(partial);
       } else {
-        state = state.copyWith(status: ChatStatus.idle, clearPartialStt: true);
+        state = state.copyWith(status: ChatStatus.speechError, clearPartialStt: true);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (state.status == ChatStatus.speechError) {
+            state = state.copyWith(status: ChatStatus.idle);
+          }
+        });
       }
     });
   }
@@ -407,7 +418,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
   }
 
   Future<void> replayZoeLine(String text) async {
-    if (state.status != ChatStatus.idle || state.isComplete) return;
+    if ((state.status != ChatStatus.idle && state.status != ChatStatus.speechError) || state.isComplete) return;
     state = state.copyWith(
       status: ChatStatus.zoeSpeaking,
       highlightStart: -1,

@@ -55,6 +55,7 @@ class ConversationView extends StatelessWidget {
   final bool textMode;
   final TextEditingController? textController;
   final ValueNotifier<double>? speechLevel;
+  final bool hasSpeechError;
 
   final VoidCallback? onMic;
   final VoidCallback? onToggleKeyboard;
@@ -90,6 +91,7 @@ class ConversationView extends StatelessWidget {
     this.textMode = false,
     this.textController,
     this.speechLevel,
+    this.hasSpeechError = false,
     this.onMic,
     this.onToggleKeyboard,
     this.onSend,
@@ -207,11 +209,31 @@ class ConversationView extends StatelessWidget {
                       ),
                     ),
                     if (phase == ConvPhase.talking) ...[
-                      _FeedbackContainer(
-                        micState: micState,
-                        speechLevel: speechLevel ?? _dummySpeechLevel,
-                      ),
-                      const SizedBox(height: 12),
+                      if (hasSpeechError) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: EllaColors.greenMain.withValues(alpha: 0.38), width: 2),
+                          ),
+                          child: const Text(
+                            "I didn't catch that. Let's try again.",
+                            style: TextStyle(
+                              color: EllaColors.greenDeep,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ] else ...[
+                        _FeedbackContainer(
+                          micState: micState,
+                          speechLevel: speechLevel ?? _dummySpeechLevel,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                     ],
                     if (phase == ConvPhase.talking)
                       Padding(

@@ -459,7 +459,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       ChatStatus.zoeThinking => MicState.busy,
       ChatStatus.zoeSpeaking =>
         MicState.idle, // Allow interrupt — user can tap to cut in
-      ChatStatus.idle || ChatStatus.offline => MicState.idle,
+      ChatStatus.idle || ChatStatus.offline || ChatStatus.speechError => MicState.idle,
     };
 
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
@@ -491,6 +491,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       studentLine: studentLine,
       studentLive: studentLive,
       speechLevel: speechLevel,
+      hasSpeechError: s.status == ChatStatus.speechError,
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,
