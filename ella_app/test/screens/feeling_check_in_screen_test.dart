@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _FakeTts implements TtsInterface {
   final List<String> spoken = [];
   Completer<void>? _promptCompleter;
+  Completer<void>? _acknowledgementCompleter;
+  bool holdAcknowledgement = false;
   int stopCalls = 0;
   bool failAcknowledgement = false;
   bool _isSpeaking = false;
@@ -39,6 +41,12 @@ class _FakeTts implements TtsInterface {
       _isSpeaking = false;
       throw StateError('TTS unavailable');
     }
+    if (holdAcknowledgement) {
+      _acknowledgementCompleter = Completer<void>();
+      return _acknowledgementCompleter!.future.whenComplete(
+        () => _isSpeaking = false,
+      );
+    }
     _isSpeaking = false;
     return Future.value();
   }
@@ -49,6 +57,13 @@ class _FakeTts implements TtsInterface {
     _isSpeaking = false;
     final prompt = _promptCompleter;
     if (prompt != null && !prompt.isCompleted) prompt.complete();
+    final ack = _acknowledgementCompleter;
+    if (ack != null && !ack.isCompleted) ack.complete();
+  }
+
+  void finishAcknowledgement() {
+    final ack = _acknowledgementCompleter;
+    if (ack != null && !ack.isCompleted) ack.complete();
   }
 }
 
@@ -83,6 +98,7 @@ void main() {
     Size size = const Size(390, 844),
     double textScale = 1,
     bool failAcknowledgement = false,
+    bool holdAcknowledgement = false,
     String? studentName = 'Piyush Kumar',
     Completer<http.Response>? feelingResponse,
   }) async {
@@ -111,7 +127,9 @@ void main() {
         );
       }),
     );
-    final tts = _FakeTts()..failAcknowledgement = failAcknowledgement;
+    final tts = _FakeTts()
+      ..failAcknowledgement = failAcknowledgement
+      ..holdAcknowledgement = holdAcknowledgement;
     final completions = ValueNotifier<int>(0);
 
     await tester.pumpWidget(
@@ -189,7 +207,6 @@ void main() {
           entry.value,
         );
         expect(harness.tts.stopCalls, greaterThanOrEqualTo(1));
-        expect(harness.tts.spoken.last, 'Thanks for telling me.');
 
         final choiceGestures = tester.widgetList<GestureDetector>(
           find.descendant(
@@ -216,6 +233,15 @@ void main() {
         );
         expect(harness.completions.value, 0);
 
+        // Zoe speaks the acknowledgement and returns to the reaction pose
+        // once she's done — she should never stay frozen mid-reaction while
+        // the TTS line is still the thing driving the mascot state.
+        expect(harness.tts.spoken.last, 'Thanks for telling me how you feel!');
+        expect(
+          tester.widget<ZoeMascot>(find.byType(ZoeMascot)).mode,
+          entry.value,
+        );
+
         // Bubble stays visible for ~1s more before exiting to the garden.
         await tester.pump(const Duration(milliseconds: 999));
         expect(harness.completions.value, 0);
@@ -234,6 +260,39 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'mascot shows the speaking mode while the acknowledgement plays',
+    (tester) async {
+      final harness = await pumpScreen(tester, holdAcknowledgement: true);
+
+      await tester.tap(find.byKey(const ValueKey('feeling-choice-great')));
+      await tester.pump();
+      expect(
+        tester.widget<ZoeMascot>(find.byType(ZoeMascot)).mode,
+        ZoeMascotMode.joyful,
+      );
+
+      // Acknowledgement bubble appears and TTS starts, but hasn't finished.
+      await tester.pump(const Duration(seconds: 1));
+      expect(harness.tts.spoken.last, 'Thanks for telling me how you feel!');
+      expect(
+        tester.widget<ZoeMascot>(find.byType(ZoeMascot)).mode,
+        ZoeMascotMode.speaking,
+      );
+
+      // Once Zoe finishes the line, the mascot returns to the reaction pose.
+      harness.tts.finishAcknowledgement();
+      await tester.pump();
+      expect(
+        tester.widget<ZoeMascot>(find.byType(ZoeMascot)).mode,
+        ZoeMascotMode.joyful,
+      );
+
+      // Drain the final post-speech hold so no timer outlives the test.
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
 
   testWidgets('TTS failure does not affect the visual pacing before exit', (
     tester,

@@ -96,7 +96,7 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
     ++_speechToken; // Invalidates completion from an interrupted prompt.
     setState(() {
       _selected = feeling;
-      _speaking = true;
+      _speaking = false;
     });
 
     try {
@@ -120,14 +120,15 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
     if (!mounted || token != _speechToken) return;
 
     setState(() {
-      _speaking = false;
       _showAcknowledgement = true;
+      _speaking = true;
     });
 
     // Wait for Zoe to actually finish saying the line before starting the
     // post-speech hold — do not race navigation against TTS playback.
     await _speakAcknowledgement();
     if (!mounted || _completed || token != _speechToken) return;
+    setState(() => _speaking = false);
 
     // Let the acknowledgement bubble sit on screen after speech ends.
     await Future.delayed(const Duration(milliseconds: 1000));
@@ -213,7 +214,7 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
                                       key: const ValueKey('feeling-question'),
                                       textAlign: TextAlign.center,
                                       maxLines: 2,
-                                      style: EllaTextStyles.headline.copyWith(
+                                      style: EllaTextStyles.titleMedium.copyWith(
                                         color: EllaColors.greenDeep,
                                         height: 1.2,
                                       ),
@@ -250,12 +251,15 @@ class _MascotStage extends StatelessWidget {
     required this.reducedMotion,
   });
 
-  ZoeMascotMode get _mode => switch (selected) {
-    ConversationFeeling.great => ZoeMascotMode.joyful,
-    ConversationFeeling.okay => ZoeMascotMode.affirming,
-    ConversationFeeling.notGreat => ZoeMascotMode.concerned,
-    null => speaking ? ZoeMascotMode.speaking : ZoeMascotMode.idle,
-  };
+  ZoeMascotMode get _mode {
+    if (speaking) return ZoeMascotMode.speaking;
+    return switch (selected) {
+      ConversationFeeling.great => ZoeMascotMode.joyful,
+      ConversationFeeling.okay => ZoeMascotMode.affirming,
+      ConversationFeeling.notGreat => ZoeMascotMode.concerned,
+      null => ZoeMascotMode.idle,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
