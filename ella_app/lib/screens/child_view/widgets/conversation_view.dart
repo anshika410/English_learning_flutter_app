@@ -232,7 +232,7 @@ class ConversationView extends StatelessWidget {
                           micState: micState,
                           speechLevel: speechLevel ?? _dummySpeechLevel,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 28),
                       ],
                     ],
                     if (phase == ConvPhase.talking)
