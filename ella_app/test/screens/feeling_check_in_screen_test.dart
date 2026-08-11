@@ -5,13 +5,10 @@ import 'package:ella_app/models/conversation_feedback.dart';
 import 'package:ella_app/providers/service_providers.dart';
 import 'package:ella_app/screens/child_view/feeling_check_in_screen.dart';
 import 'package:ella_app/screens/child_view/widgets/zoe_mascot.dart';
-import 'package:ella_app/services/ella_api_service.dart';
 import 'package:ella_app/services/stt_tts_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeTts implements TtsInterface {
@@ -86,47 +83,19 @@ void main() {
     expect(shouldShowFeelingCheckIn(9), isFalse);
   });
 
-  Future<
-    ({
-      _FakeTts tts,
-      List<Map<String, Object?>> requests,
-      ValueNotifier<int> completions,
-    })
-  >
-  pumpScreen(
+  Future<({_FakeTts tts, ValueNotifier<int> completions})> pumpScreen(
     WidgetTester tester, {
     Size size = const Size(390, 844),
     double textScale = 1,
     bool failAcknowledgement = false,
     bool holdAcknowledgement = false,
     String? studentName = 'Piyush Kumar',
-    Completer<http.Response>? feelingResponse,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
 
-    final requests = <Map<String, Object?>>[];
-    final api = EllaApiService(
-      baseUrl: 'https://example.test/api',
-      client: MockClient((request) async {
-        requests.add({
-          'method': request.method,
-          'path': request.url.path,
-          'body': jsonDecode(request.body),
-        });
-        return feelingResponse?.future ?? http.Response(
-          jsonEncode({
-            'session_id': 'session-3',
-            'feeling': 'great',
-            'submitted_at': '2026-08-10T12:00:00Z',
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
     final tts = _FakeTts()
       ..failAcknowledgement = failAcknowledgement
       ..holdAcknowledgement = holdAcknowledgement;
@@ -134,10 +103,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          ttsProvider.overrideWithValue(tts),
-          ellaApiServiceProvider.overrideWithValue(api),
-        ],
+        overrides: [ttsProvider.overrideWithValue(tts)],
         child: MaterialApp(
           home: MediaQuery(
             data: MediaQueryData(
@@ -160,7 +126,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 401));
-    return (tts: tts, requests: requests, completions: completions);
+    return (tts: tts, completions: completions);
   }
 
   testWidgets('speaks the personalized prompt once when mounted', (
@@ -248,15 +214,12 @@ void main() {
         await tester.pump(const Duration(milliseconds: 1));
         expect(harness.completions.value, 1);
         await tester.pump();
-        expect(harness.requests, hasLength(1));
-        expect(harness.requests.single['method'], 'PUT');
-        expect(
-          harness.requests.single['path'],
-          '/api/session/session-3/feeling',
+
+        final prefs = await SharedPreferences.getInstance();
+        final stored = jsonDecode(
+          prefs.getString('conversation_feeling.session-3')!,
         );
-        expect(harness.requests.single['body'], {
-          'feeling': entry.key.apiValue,
-        });
+        expect(stored['feeling'], entry.key.apiValue);
       },
     );
   }
@@ -311,19 +274,6 @@ void main() {
     expect(harness.completions.value, 0);
     await tester.pump(const Duration(milliseconds: 1000));
     expect(harness.completions.value, 1);
-  });
-
-  testWidgets('a pending feeling request never delays Garden', (tester) async {
-    final response = Completer<http.Response>();
-    final harness = await pumpScreen(tester, feelingResponse: response);
-
-    await tester.tap(find.byKey(const ValueKey('feeling-choice-okay')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
-
-    expect(harness.completions.value, 1);
-    response.complete(http.Response('{}', 200));
-    await tester.pump();
   });
 
   testWidgets('disposing the screen stops active speech', (tester) async {

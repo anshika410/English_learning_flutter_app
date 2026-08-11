@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -26,22 +24,8 @@ class ConversationOut(BaseModel):
     starter: str | None = None
     level: str | None = None
     aimed_at: list[str] | None = None
-    student_feeling: str | None = None
-    feeling_submitted_at: datetime | None = None
     completed: bool = False
     created_at: datetime
-
-
-class ConversationFeelingRequest(BaseModel):
-    feeling: Literal["great", "okay", "not_great"]
-
-
-class ConversationFeelingOut(BaseModel):
-    session_id: str
-    feeling: Literal["great", "okay", "not_great"]
-    submitted_at: datetime
-
-
 
 
 class MessageOut(BaseModel):

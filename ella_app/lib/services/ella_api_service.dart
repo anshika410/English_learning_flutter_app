@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'analytics_service.dart';
 import 'chucker_notifier.dart';
 import '../models/child_memory.dart';
-import '../models/conversation_feedback.dart';
 import '../models/garden.dart';
 import '../models/home_topic.dart';
 import '../models/placement.dart';
@@ -392,17 +391,6 @@ class EllaApiService {
 
   Future<Map<String, dynamic>> getConversation(String sessionId) async {
     return _request('GET', '/session/$sessionId');
-  }
-
-  Future<void> saveConversationFeeling({
-    required String sessionId,
-    required ConversationFeeling feeling,
-  }) async {
-    await _request(
-      'PUT',
-      '/session/$sessionId/feeling',
-      body: {'feeling': feeling.apiValue},
-    );
   }
 
   Future<List<Map<String, dynamic>>> getMessages(String sessionId) async {

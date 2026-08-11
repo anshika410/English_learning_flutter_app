@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
@@ -19,6 +21,10 @@ import 'widgets/mascot_glow.dart';
 import 'widgets/zoe_mascot.dart';
 
 const String _acknowledgement = 'Thanks for telling me how you feel!';
+
+/// Key prefix for the locally-stored feeling answer, namespaced per session
+/// so a later backend-sync PR can walk stored keys by session id.
+const String _feelingPrefsKeyPrefix = 'conversation_feeling.';
 
 class FeelingCheckInScreen extends ConsumerStatefulWidget {
   final ConversationEndContext endContext;
@@ -142,9 +148,14 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
     final sessionId = widget.endContext.sessionId;
     if (sessionId == null || sessionId.isEmpty) return;
     try {
-      await ref
-          .read(ellaApiServiceProvider)
-          .saveConversationFeeling(sessionId: sessionId, feeling: feeling);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        '$_feelingPrefsKeyPrefix$sessionId',
+        jsonEncode({
+          'feeling': feeling.apiValue,
+          'submitted_at': DateTime.now().toUtc().toIso8601String(),
+        }),
+      );
     } catch (error) {
       debugPrint('Conversation feeling save failed: $error');
     }

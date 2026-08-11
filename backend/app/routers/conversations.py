@@ -13,7 +13,6 @@ from ..schemas.conversation import (
     CreateConversationRequest, ConversationOut,
     StoreMessageRequest, MessageOut, SessionLogResponse,
     ConversationTurnRequest, ConversationTurnResponse,
-    ConversationFeelingRequest, ConversationFeelingOut,
 )
 
 router = APIRouter(prefix="", tags=["session"])
@@ -163,42 +162,6 @@ async def get_conversation(
 ):
     conv = await _get_owned(session_id, user.id, db)
     return _conv_out(conv)
-
-
-@router.put("/{session_id}/feeling", response_model=ConversationFeelingOut)
-async def save_conversation_feeling(
-    session_id: str,
-    body: ConversationFeelingRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Attach the student's check-in answer to an owned conversation.
-
-    Manual-end scoring intentionally runs in the background, so this endpoint
-    accepts the answer before the judge has finished marking the conversation
-    completed. Repeating the same answer returns the original submission.
-    """
-    conv = await _get_owned(session_id, user.id, db)
-    if (
-        conv.student_feeling == body.feeling
-        and conv.feeling_submitted_at is not None
-    ):
-        return ConversationFeelingOut(
-            session_id=conv.id,
-            feeling=conv.student_feeling,
-            submitted_at=conv.feeling_submitted_at,
-        )
-
-    now = datetime.now(timezone.utc)
-    conv.student_feeling = body.feeling
-    conv.feeling_submitted_at = now
-    db.add(conv)
-    await db.flush()
-    return ConversationFeelingOut(
-        session_id=conv.id,
-        feeling=body.feeling,
-        submitted_at=now,
-    )
 
 
 
@@ -535,8 +498,6 @@ def _conv_out(c: Conversation, starter: str | None = None, level: str | None = N
         starter=starter,
         level=level,
         aimed_at=aimed_at,
-        student_feeling=c.student_feeling,
-        feeling_submitted_at=c.feeling_submitted_at,
         completed=c.completed,
         created_at=c.created_at,
     )

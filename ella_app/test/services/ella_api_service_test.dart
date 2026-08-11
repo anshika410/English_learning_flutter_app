@@ -10,7 +10,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:ella_app/models/conversation_feedback.dart';
 import 'package:ella_app/services/ella_api_service.dart';
 
 void main() {
@@ -116,23 +115,4 @@ void main() {
     expect(memory.chatCount, 6);
   });
 
-  test('saveConversationFeeling sends the selected API value', () async {
-    late http.Request captured;
-    final api = EllaApiService(
-      baseUrl: 'https://ella.navgurukul.org/api',
-      client: MockClient((request) async {
-        captured = request;
-        return http.Response('{}', 200);
-      }),
-    );
-
-    await api.saveConversationFeeling(
-      sessionId: 'session-3',
-      feeling: ConversationFeeling.notGreat,
-    );
-
-    expect(captured.method, 'PUT');
-    expect(captured.url.path, '/api/session/session-3/feeling');
-    expect(jsonDecode(captured.body), {'feeling': 'not_great'});
-  });
 }
