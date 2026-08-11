@@ -403,7 +403,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   child: Column(
                     children: [
                       Text(
-                        'zoSpeak',
+                        'Ella',
                         textAlign: TextAlign.center,
                         style: EllaTextStyles.authDisplay,
                       ),

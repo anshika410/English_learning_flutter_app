@@ -126,7 +126,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
 
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'zoSpeak',
+      title: 'Ella',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
       navigatorObservers: [

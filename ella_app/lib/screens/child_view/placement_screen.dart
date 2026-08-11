@@ -181,7 +181,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     final notifier = ref.read(placementProvider.notifier);
     if (s.status == ChatStatus.userSpeaking) {
       notifier.stopListening();
-    } else if (s.status == ChatStatus.idle && !s.isComplete) {
+    } else if ((s.status == ChatStatus.idle || s.status == ChatStatus.speechError) && !s.isComplete) {
       notifier.startListening().catchError(_snack);
     }
   }
@@ -325,27 +325,18 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
       ChatStatus.zoeThinking || ChatStatus.zoeSpeaking => MicState.busy,
-      ChatStatus.offline || ChatStatus.idle => MicState.idle,
+      ChatStatus.offline || ChatStatus.idle || ChatStatus.speechError => MicState.idle,
     };
 
     // While ending, Zoe speaks the fixed farewell (which cross-fades in over the
     // last turn); otherwise show her latest line.
     final zoeLine = _ending ? _closingLine() : _lastFrom(s, MessageSender.zoe);
 
-    String? studentLine;
-    bool studentLive = false;
-    if (!_ending) {
-      if (s.status == ChatStatus.userSpeaking) {
-        final p = s.partialStt?.trim() ?? '';
-        studentLine = p.isEmpty ? null : p;
-        studentLive = true;
-      } else {
-        final last = s.messages.isNotEmpty ? s.messages.last : null;
-        if (last != null && last.sender == MessageSender.child) {
-          studentLine = last.text;
-        }
-      }
-    }
+    // In this voice-first flow, student transcription bubbles are hidden fully at all times.
+    const String? studentLine = null;
+    const bool studentLive = false;
+
+    final speechLevel = ref.watch(sttLevelProvider);
 
     return PopScope(
       canPop: true,
@@ -374,6 +365,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 zoeLine: zoeLine,
                 studentLine: studentLine,
                 studentLive: studentLive,
+                speechLevel: speechLevel,
+                hasSpeechError: s.status == ChatStatus.speechError,
                 micState: micState,
                 textMode: _keyboardMode,
                 textController: _textController,

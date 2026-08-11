@@ -46,7 +46,7 @@ void main() {
   ) async {
     await _pumpLogin(tester, _FakeEllaApiService());
 
-    expect(find.text('ZoSpeak'), findsOneWidget);
+    expect(find.text('Ella'), findsOneWidget);
     expect(find.text('Continue With Google'), findsOneWidget);
     expect(find.text('Continue With Email'), findsOneWidget);
     expect(

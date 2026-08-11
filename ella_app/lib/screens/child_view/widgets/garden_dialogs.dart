@@ -697,7 +697,7 @@ class _EvidenceBox extends StatelessWidget {
 
 String _evidenceTopicLabel(GardenEvidence evidence) {
   if (evidence.topic.isEmpty) {
-    return evidence.prompted ? 'Zoe asked' : 'On your own';
+    return evidence.prompted ? 'Ella asked' : 'On your own';
   }
   if (evidence.topic.toLowerCase().startsWith('talking about')) {
     return evidence.topic;
@@ -717,7 +717,7 @@ class _EmptySkillState extends StatelessWidget {
           SvgPicture.asset(_tileAsset, width: 63, height: 48),
           const SizedBox(height: 16),
           Text(
-            'Talk with Zoe to grow this skill.',
+            'Talk with Ella to grow this skill.',
             key: const ValueKey('garden-empty-skill-message'),
             textAlign: TextAlign.center,
             style: EllaFonts.body(
