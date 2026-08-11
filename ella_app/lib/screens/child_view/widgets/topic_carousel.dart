@@ -143,7 +143,7 @@ class _TopicCarouselState extends State<TopicCarousel> {
             return Opacity(
               opacity: labelOpacity,
               child: Text(
-                "Zoe's Pick",
+                "Ella's Pick",
                 key: const ValueKey('home-topic-carousel-pick-label'),
                 style: EllaTextStyles.bodySmall.copyWith(
                   fontSize: 14,

@@ -476,7 +476,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       ChatStatus.zoeThinking => MicState.busy,
       ChatStatus.zoeSpeaking =>
         MicState.idle, // Allow interrupt — user can tap to cut in
-      ChatStatus.idle || ChatStatus.offline => MicState.idle,
+      ChatStatus.idle || ChatStatus.offline || ChatStatus.speechError => MicState.idle,
     };
 
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
@@ -486,23 +486,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         ? _kGoodbye
         : (_lastFrom(s, MessageSender.zoe) ?? widget.introText);
 
-    String? studentLine;
-    bool studentLive = false;
-    if (!_ending) {
-      if (s.status == ChatStatus.userSpeaking) {
-        // Show live partial while user is actively speaking.
-        final p = s.partialStt?.trim() ?? '';
-        studentLine = p.isEmpty ? null : p;
-        studentLive = true;
-      } else {
-        // Show student's last message until the user starts speaking next turn.
-        // This keeps the bubble visible while Zoe is thinking/speaking.
-        final last = s.messages.isNotEmpty ? s.messages.last : null;
-        if (last != null && last.sender == MessageSender.child) {
-          studentLine = last.text;
-        }
-      }
-    }
+    // In this voice-first flow, student transcription bubbles are hidden fully at all times.
+    const String? studentLine = null;
+    const bool studentLive = false;
+
+    final speechLevel = ref.watch(sttLevelProvider);
 
     return ConversationView(
       phase: phase,
@@ -519,6 +507,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       zoeLine: zoeLine,
       studentLine: studentLine,
       studentLive: studentLive,
+      speechLevel: speechLevel,
+      hasSpeechError: s.status == ChatStatus.speechError,
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,

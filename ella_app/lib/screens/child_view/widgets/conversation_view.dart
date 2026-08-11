@@ -30,6 +30,8 @@ enum ConvPhase { prepare, talking, ending }
 
 enum MicState { idle, listening, busy }
 
+final _dummySpeechLevel = ValueNotifier<double>(0.0);
+
 class ConversationView extends StatelessWidget {
   final ConvPhase phase;
   final TopicChoice? topic;
@@ -52,6 +54,8 @@ class ConversationView extends StatelessWidget {
   final MicState micState;
   final bool textMode;
   final TextEditingController? textController;
+  final ValueNotifier<double>? speechLevel;
+  final bool hasSpeechError;
 
   final VoidCallback? onMic;
   final VoidCallback? onToggleKeyboard;
@@ -86,6 +90,8 @@ class ConversationView extends StatelessWidget {
     this.micState = MicState.idle,
     this.textMode = false,
     this.textController,
+    this.speechLevel,
+    this.hasSpeechError = false,
     this.onMic,
     this.onToggleKeyboard,
     this.onSend,
@@ -101,7 +107,7 @@ class ConversationView extends StatelessWidget {
     final w = MediaQuery.of(context).size.width;
     // Figma: 150.55 x 180, sitting a touch below the top.
     final mascotSize = (w * 0.35).clamp(140.0, 158.0);
-    final bubbleMaxWidth = w * 0.78;
+    final bubbleMaxWidth = w * 0.86;
 
     final mascot = ZoeMascot(
       key: const ValueKey('conversation-zoe-mascot'),
@@ -134,7 +140,7 @@ class ConversationView extends StatelessWidget {
                       ? 'conversation-prepare-content'
                       : 'conversation-active-content',
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -202,6 +208,33 @@ class ConversationView extends StatelessWidget {
                             ),
                       ),
                     ),
+                    if (phase == ConvPhase.talking) ...[
+                      if (hasSpeechError) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: EllaColors.greenMain.withValues(alpha: 0.38), width: 2),
+                          ),
+                          child: const Text(
+                            "I didn't catch that. Let's try again.",
+                            style: TextStyle(
+                              color: EllaColors.greenDeep,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ] else ...[
+                        _FeedbackContainer(
+                          micState: micState,
+                          speechLevel: speechLevel ?? _dummySpeechLevel,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ],
                     if (phase == ConvPhase.talking)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 18),
@@ -213,6 +246,7 @@ class ConversationView extends StatelessWidget {
                               )
                             : _VoiceDock(
                                 micState: micState,
+                                mascotThinking: mascotThinking,
                                 onMic: onMic,
                                 onKeyboard: onToggleKeyboard,
                                 onEnd: onEnd,
@@ -228,8 +262,8 @@ class ConversationView extends StatelessWidget {
           if (topic != null)
             Positioned(
               top: 8,
-              left: 20,
-              right: 20,
+              left: 16,
+              right: 16,
               child: ConversationTopicHeader(
                 key: ValueKey(topicHandoffHeroTag(topic!)),
                 topic: topic!,
@@ -320,7 +354,7 @@ class _Bubbles extends StatelessWidget {
         // the line text, so a changed line fades the old bubble out and the new
         // one in (~250ms). An empty box for null keeps the layout stable.
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: Alignment.center,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: AnimatedSwitcher(
@@ -568,12 +602,14 @@ class _PrepareCard extends StatelessWidget {
 
 class _VoiceDock extends StatelessWidget {
   final MicState micState;
+  final bool mascotThinking;
   final VoidCallback? onMic;
   final VoidCallback? onKeyboard;
   final VoidCallback? onEnd;
 
   const _VoiceDock({
     required this.micState,
+    required this.mascotThinking,
     required this.onMic,
     required this.onKeyboard,
     required this.onEnd,
@@ -586,7 +622,7 @@ class _VoiceDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = switch (micState) {
       MicState.listening => 'Listening…',
-      MicState.busy => 'Zoe is speaking…',
+      MicState.busy => mascotThinking ? 'Sending…' : 'Ella is speaking…',
       MicState.idle => 'Tap to Speak',
     };
 
@@ -811,6 +847,117 @@ class _TextDock extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FeedbackContainer extends StatelessWidget {
+  final MicState micState;
+  final ValueNotifier<double> speechLevel;
+
+  const _FeedbackContainer({
+    required this.micState,
+    required this.speechLevel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 280),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: micState == MicState.listening
+          ? _ListeningWave(key: const ValueKey('listening-wave'), levelNotifier: speechLevel)
+          : const SizedBox(
+              key: ValueKey('turn-feedback-empty'),
+              height: 48,
+            ),
+    );
+  }
+}
+
+class _ListeningWave extends StatefulWidget {
+  const _ListeningWave({
+    super.key,
+    required this.levelNotifier,
+  });
+  final ValueNotifier<double> levelNotifier;
+
+  static const _colors = [
+    Color(0xffe4457c),
+    Color(0xffa86fd4),
+    Color(0xff5f9de8),
+    Color(0xffffc93d),
+    Color(0xff59a84c),
+    Color(0xffff8a5b),
+    Color(0xffe4457c),
+  ];
+
+  @override
+  State<_ListeningWave> createState() => _ListeningWaveState();
+}
+
+class _ListeningWaveState extends State<_ListeningWave> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_controller, widget.levelNotifier]),
+      builder: (context, _) {
+        final level = widget.levelNotifier.value;
+        return Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0x66a86fd4), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xffe4457c).withValues(alpha: 0.08 + level * 0.18),
+                blurRadius: 8 + level * 12,
+                spreadRadius: level * 3,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: List.generate(7, (i) {
+              final idleWave = (math.sin(_controller.value * math.pi * 2 + i * 0.85) + 1) / 2;
+              final centerBoost = 1 - ((i - 3).abs() / 5);
+              final height = 8 + idleWave * 6 + level * (15 + centerBoost * 16);
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 90),
+                curve: Curves.easeOut,
+                width: 5,
+                height: height,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: _ListeningWave._colors[i],
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              );
+            }),
+          ),
+        );
+      },
     );
   }
 }

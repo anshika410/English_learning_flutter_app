@@ -158,7 +158,8 @@ class _TypewriterTextState extends State<TypewriterText> {
   void initState() {
     super.initState();
     _cleanText = stripMarkdown(widget.text);
-    _words = _cleanText.split(' ');
+    final regex = RegExp(r'\S+|\n');
+    _words = regex.allMatches(_cleanText).map((m) => m.group(0)!).toList();
     if (widget.animate && widget.highlightStart < 0) {
       _animate();
     } else {
@@ -184,7 +185,8 @@ class _TypewriterTextState extends State<TypewriterText> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text) {
       _cleanText = stripMarkdown(widget.text);
-      _words = _cleanText.split(' ');
+      final regex = RegExp(r'\S+|\n');
+      _words = regex.allMatches(_cleanText).map((m) => m.group(0)!).toList();
       if (widget.animate && widget.highlightStart < 0) {
         _visibleWords = 0;
         _done = false;
@@ -205,10 +207,6 @@ class _TypewriterTextState extends State<TypewriterText> {
 
   @override
   Widget build(BuildContext context) {
-    final displayed = _done
-        ? _cleanText
-        : _words.take(_visibleWords).join(' ');
-
     final baseStyle = widget.style ??
         EllaTextStyles.bodyBase.copyWith(
           color: EllaColors.ink,
@@ -220,39 +218,42 @@ class _TypewriterTextState extends State<TypewriterText> {
           color: const Color(0xFFE91E63),
         );
 
-    // Karaoke style: current spoken word lights up in pink, no background pill.
-    // Always use RichText to avoid widget-type switching (Text↔RichText) which
-    // causes layout recalculation and the karaoke "jitter" bug #87.
-    if (_done &&
-        widget.highlightStart >= 0 &&
-        widget.highlightEnd > widget.highlightStart &&
-        widget.highlightEnd <= _cleanText.length) {
-      return RichText(
-        text: TextSpan(
-          style: baseStyle,
-          children: [
-            TextSpan(text: _cleanText.substring(0, widget.highlightStart)),
-            TextSpan(
-              text: _cleanText.substring(
-                widget.highlightStart,
-                widget.highlightEnd,
-              ),
-              style: highlightStyle,
-            ),
-            TextSpan(text: _cleanText.substring(widget.highlightEnd)),
-          ],
-        ),
-      );
-    }
+    final showCount = _done ? _words.length : _visibleWords;
+    if (showCount == 0) return const SizedBox.shrink();
 
-    // No highlight active — still use RichText with a single span so the
-    // widget type never changes and there is no layout jump when highlight
-    // starts or ends.
-    return RichText(
-      text: TextSpan(
-        style: baseStyle,
-        text: displayed,
-      ),
+    final regex = RegExp(r'\S+|\n');
+    final tokens = regex.allMatches(_cleanText).toList();
+
+    return Wrap(
+      spacing: 0,
+      runSpacing: 4,
+      children: List.generate(showCount, (index) {
+        final match = tokens[index];
+        final tokenText = match.group(0)!;
+
+        if (tokenText == '\n') {
+          return const SizedBox(
+            width: double.infinity,
+            height: 12,
+          );
+        }
+
+        final wordStart = match.start;
+        final wordEnd = match.end;
+
+        final isHighlighted = widget.highlightStart >= 0 &&
+            widget.highlightEnd > widget.highlightStart &&
+            ((wordStart >= widget.highlightStart && wordStart < widget.highlightEnd) ||
+             (wordEnd > widget.highlightStart && wordEnd <= widget.highlightEnd) ||
+             (widget.highlightStart >= wordStart && widget.highlightStart < wordEnd));
+
+        return AnimatedWord(
+          key: ValueKey('${index}_$tokenText'),
+          word: tokenText,
+          style: isHighlighted ? highlightStyle : baseStyle,
+          isHighlighted: isHighlighted,
+        );
+      }),
     );
   }
 }
@@ -376,11 +377,13 @@ class SpokenTextFlow extends StatelessWidget {
 class AnimatedWord extends StatefulWidget {
   final String word;
   final TextStyle? style;
+  final bool isHighlighted;
 
   const AnimatedWord({
     super.key,
     required this.word,
     this.style,
+    this.isHighlighted = false,
   });
 
   @override
@@ -389,7 +392,6 @@ class AnimatedWord extends StatefulWidget {
 
 class _AnimatedWordState extends State<AnimatedWord> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _scale;
   late final Animation<Offset> _slide;
 
   @override
@@ -406,7 +408,6 @@ class _AnimatedWordState extends State<AnimatedWord> with SingleTickerProviderSt
       curve: const Cubic(0.34, 1.56, 0.64, 1.0),
     );
 
-    _scale = Tween<double>(begin: 0.3, end: 1.0).animate(curve);
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
@@ -425,8 +426,10 @@ class _AnimatedWordState extends State<AnimatedWord> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return SlideTransition(
       position: _slide,
-      child: ScaleTransition(
-        scale: _scale,
+      child: AnimatedRotation(
+        turns: widget.isHighlighted ? -0.005 : 0.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         child: Text(
           '${widget.word} ',
           style: widget.style,

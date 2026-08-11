@@ -145,7 +145,7 @@ class SpotAccessScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'NavGurukul has unlocked full zoSpeak access for you as part of your English learning.',
+                      'NavGurukul has unlocked full Ella access for you as part of your English learning.',
                       textAlign: TextAlign.center,
                       style: EllaTextStyles.bodyLarge,
                     ),
@@ -164,14 +164,14 @@ class SpotAccessScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: EllaPrimaryButton(
-                        label: 'Meet Zoe',
+                        label: 'Meet Ella',
                         height: 56,
                         onTap: onContinue,
                         labelChild: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Meet Zoe',
+                              'Meet Ella',
                               style: EllaTextStyles.button.copyWith(
                                 color: EllaColors.onPrimary,
                               ),
@@ -220,7 +220,7 @@ class _SpotAccessInfoStrip extends StatelessWidget {
             TextSpan(
               style: EllaTextStyles.bodyBase,
               children: [
-                const TextSpan(text: 'zoSpeak access - worth '),
+                const TextSpan(text: 'Ella access - worth '),
                 TextSpan(
                   text: '₹499',
                   style: EllaTextStyles.bodyBase.copyWith(

@@ -1160,7 +1160,7 @@ void main() {
       );
       expect(find.text(skill.displayText), findsNothing);
       expect(
-        find.textContaining('You practiced this skill with Zoe'),
+        find.textContaining('You practiced this skill with Ella'),
         findsNothing,
       );
     },
@@ -1270,7 +1270,7 @@ void main() {
       expect(find.text(growthCase.title), findsOneWidget);
       expect(find.text(growthCase.from.label), findsOneWidget);
       expect(find.text(growthCase.to.label), findsOneWidget);
-      expect(find.text('What You Said'), findsOneWidget);
+      expect(find.text('You Said'), findsOneWidget);
       expect(
         find.text('I am very happy talking to my family.'),
         findsOneWidget,
@@ -2235,10 +2235,10 @@ void main() {
     );
     expect(find.text('Bloomed'), findsOneWidget);
     // Real API evidence is shown for previous gardens.
-    expect(find.text('What You Said'), findsOneWidget);
+    expect(find.text('You Said'), findsOneWidget);
     expect(find.textContaining('My friend is tall and happy.'), findsWidgets);
     expect(
-      find.text('Talk with Zoe to start growing this skill'),
+      find.text('Talk with Ella to grow this skill.'),
       findsNothing,
     );
   });

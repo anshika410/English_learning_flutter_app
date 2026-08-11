@@ -160,7 +160,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete zoSpeak Account?'),
+        title: const Text('Delete Ella Account?'),
         content: const Text(
           "This permanently deletes your profile, learning progress, conversations, and garden. This can't be undone",
         ),

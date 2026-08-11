@@ -989,7 +989,7 @@ class _GardenMilestoneLayer extends StatelessWidget {
   });
 
   static const String _message =
-      "You're one of the first students using zoSpeak! What we learn from "
+      "You're one of the first students using Ella! What we learn from "
       'you will help make it better for many more students.';
 
   static const double _mascotSize = 72;
@@ -4942,7 +4942,7 @@ class _GardenScoringWaitCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Zoe is checking what grew…',
+                    'Ella is checking what grew…',
                     maxLines: 2,
                     style: EllaFonts.body(
                       const TextStyle(
@@ -5370,7 +5370,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
               ] else
                 Text(
                   key: const ValueKey('garden-watering-reveal-note'),
-                  'You practiced this skill with Zoe. Keep watering it — it '
+                  'You practiced this skill with Ella. Keep watering it — it '
                   'will grow soon!',
                   style: EllaFonts.body(
                     const TextStyle(
@@ -5442,7 +5442,7 @@ class _GardenGrowthRevealCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         quote == null || quote.isEmpty
-                            ? 'I practiced this with Zoe.'
+                            ? 'I practiced this with Ella.'
                             : quote,
                         style: EllaFonts.body(
                           TextStyle(
