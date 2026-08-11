@@ -36,12 +36,12 @@ def send_magic_link_email(to_email: str, token: str):
     </head>
     <body>
       <div class="container">
-        <div class="logo">ZoSpeak</div>
+        <div class="logo">Ella</div>
         <div class="subtitle">Talk More. Grow Your English</div>
         <div class="title">Log in to your account</div>
         <div class="text">Click the button below to securely log into your account. No password needed.</div>
         <div class="button-container">
-          <a href="{magic_url}" class="button">Log In to ZoSpeak</a>
+          <a href="{magic_url}" class="button">Log In to Ella</a>
         </div>
         <div class="footer">
           If you did not request this email, you can safely ignore it.<br><br>
@@ -57,7 +57,7 @@ def send_magic_link_email(to_email: str, token: str):
         r = resend.Emails.send({
             "from": SENDER_EMAIL,
             "to": to_email,
-            "subject": "Log in to ZoSpeak",
+            "subject": "Log in to Ella",
             "html": html_content
         })
         print(f"Sent email to {to_email}: {r}")
