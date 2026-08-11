@@ -213,7 +213,7 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
                                       key: const ValueKey('feeling-question'),
                                       textAlign: TextAlign.center,
                                       maxLines: 2,
-                                      style: EllaTextStyles.titleSmall.copyWith(
+                                      style: EllaTextStyles.headline.copyWith(
                                         color: EllaColors.greenDeep,
                                         height: 1.2,
                                       ),

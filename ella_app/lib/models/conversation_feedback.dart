@@ -1,7 +1,7 @@
 enum ConversationFeeling {
-  great('great'),
+  notGreat('not_great'),
   okay('okay'),
-  notGreat('not_great');
+  great('great');
 
   final String apiValue;
 
@@ -32,4 +32,4 @@ class ConversationEndContext {
 }
 
 bool shouldShowFeelingCheckIn(int conversationNumber) =>
-    conversationNumber >= 3 && conversationNumber % 3 == 0;
+    conversationNumber >= 2 && conversationNumber % 2 == 0;

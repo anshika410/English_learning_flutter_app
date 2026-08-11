@@ -62,14 +62,13 @@ void main() {
     });
   });
 
-  test('check-in cadence starts at three and repeats every three', () {
+  test('check-in cadence starts at two and repeats every two', () {
     expect(shouldShowFeelingCheckIn(1), isFalse);
-    expect(shouldShowFeelingCheckIn(2), isFalse);
-    expect(shouldShowFeelingCheckIn(3), isTrue);
-    expect(shouldShowFeelingCheckIn(4), isFalse);
-    expect(shouldShowFeelingCheckIn(5), isFalse);
+    expect(shouldShowFeelingCheckIn(2), isTrue);
+    expect(shouldShowFeelingCheckIn(3), isFalse);
+    expect(shouldShowFeelingCheckIn(4), isTrue);
     expect(shouldShowFeelingCheckIn(6), isTrue);
-    expect(shouldShowFeelingCheckIn(9), isTrue);
+    expect(shouldShowFeelingCheckIn(9), isFalse);
   });
 
   Future<
