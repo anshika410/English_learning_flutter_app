@@ -77,7 +77,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // ── Zoe's script (Figma copy) ───────────────────────────────────────────────
 
   static const String _introText =
-      "Hi, I'm Zoe 👋\nI'll help you practise speaking English. "
+      "Hi, I'm Ella 👋\nI'll help you practise speaking English. "
       'What should I call you?';
   String get _ageText =>
       'Nice to meet you, $_name! How old are you? This helps me choose practice that fits you';
