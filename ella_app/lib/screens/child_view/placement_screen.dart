@@ -332,20 +332,11 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     // last turn); otherwise show her latest line.
     final zoeLine = _ending ? _closingLine() : _lastFrom(s, MessageSender.zoe);
 
-    String? studentLine;
-    bool studentLive = false;
-    if (!_ending) {
-      if (s.status == ChatStatus.userSpeaking) {
-        final p = s.partialStt?.trim() ?? '';
-        studentLine = p.isEmpty ? null : p;
-        studentLive = true;
-      } else {
-        final last = s.messages.isNotEmpty ? s.messages.last : null;
-        if (last != null && last.sender == MessageSender.child) {
-          studentLine = last.text;
-        }
-      }
-    }
+    // In this voice-first flow, student transcription bubbles are hidden fully at all times.
+    const String? studentLine = null;
+    const bool studentLive = false;
+
+    final speechLevel = ref.watch(sttLevelProvider);
 
     return PopScope(
       canPop: true,
@@ -374,6 +365,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 zoeLine: zoeLine,
                 studentLine: studentLine,
                 studentLive: studentLive,
+                speechLevel: speechLevel,
                 micState: micState,
                 textMode: _keyboardMode,
                 textController: _textController,

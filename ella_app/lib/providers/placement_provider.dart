@@ -116,7 +116,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
     final doneSub = nativeTts.doneStream.listen((_) {
       final wasSpeaking = state.currentlySpeakingMessageId != null;
       state = state.copyWith(
-        status: ChatStatus.idle,
+        status: state.status == ChatStatus.zoeSpeaking ? ChatStatus.idle : state.status,
         clearCurrentlySpeaking: true,
         highlightStart: -1,
         highlightEnd: -1,

@@ -9,6 +9,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:speech_to_text/speech_recognition_result.dart'
     show SpeechRecognitionResult;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/foundation.dart';
 import 'analytics_service.dart';
 
 // ── Shared emoji / non-speech unicode stripping ──────────────────────────────
@@ -55,6 +56,7 @@ abstract class SttInterface {
   });
   Future<void> stopListening();
   bool get isListening;
+  ValueNotifier<double> get speechLevel;
 }
 
 /// Continuous STT.
@@ -77,6 +79,9 @@ abstract class SttInterface {
 class SpeechToTextService implements SttInterface {
   final _stt = stt.SpeechToText();
   bool _ready = false;
+
+  @override
+  final ValueNotifier<double> speechLevel = ValueNotifier<double>(0.0);
 
   // Child intent: true between startListening() and stopListening().
   bool _sessionActive = false;
@@ -150,6 +155,7 @@ class SpeechToTextService implements SttInterface {
       // restart so listening continues instead of ending the turn.
       if (status == 'notListening' || status == 'done') {
         _recognizerRunning = false;
+        speechLevel.value = 0.0;
         if (_sessionActive) {
           _foldPartial();
           _scheduleRestart();
@@ -167,6 +173,9 @@ class SpeechToTextService implements SttInterface {
     try {
       await _stt.listen(
         onResult: _handleResult,
+        onSoundLevelChange: (level) {
+          speechLevel.value = ((level + 2) / 12).clamp(0.0, 1.0);
+        },
         listenOptions: stt.SpeechListenOptions(
           // Each segment caps at 60s; a longer pauseFor tolerates natural
           // thinking pauses before the recognizer ends the segment (we restart
@@ -245,6 +254,7 @@ class SpeechToTextService implements SttInterface {
     _sessionActive = false;
     _recognizerRunning = false;
     _restartTimer?.cancel();
+    speechLevel.value = 0.0;
     _foldPartial();
     final finalText = _displayText.trim();
     final cb = _onFinal;
@@ -266,6 +276,7 @@ class SpeechToTextService implements SttInterface {
     _sessionActive = false;
     _recognizerRunning = false;
     _restartTimer?.cancel();
+    speechLevel.value = 0.0;
     final cb = _onFinal;
     _onFinal = null;
     _onPartial = null;
@@ -282,6 +293,7 @@ class SpeechToTextService implements SttInterface {
     if (!_sessionActive) return;
     _sessionActive = false;
     _restartTimer?.cancel();
+    speechLevel.value = 0.0;
     try {
       await _stt.stop();
     } catch (_) {}

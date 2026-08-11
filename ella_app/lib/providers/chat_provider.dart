@@ -220,7 +220,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
         final wasSpeaking = cur.currentlySpeakingMessageId != null;
         state = AsyncValue.data(
           cur.copyWith(
-            status: ChatStatus.idle,
+            status: cur.status == ChatStatus.zoeSpeaking ? ChatStatus.idle : cur.status,
             clearCurrentlySpeaking: true,
             highlightStart: -1,
             highlightEnd: -1,
