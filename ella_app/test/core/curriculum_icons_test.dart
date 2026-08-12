@@ -6,18 +6,18 @@ void main() {
   group('CurriculumIcons', () {
     test('maps representative and boundary skills for every transition', () {
       final cases = [
-        ('A0', 1, 'U1-VOC-01', 'a0-a1/01-rainbow.svg'),
-        ('A0', 5, 'U5-FLU-02', 'a0-a1/20-sparkle.svg'),
+        ('A0', 1, 'U1-VOC-01', 'a0-a1/01-colour-orb.svg'),
+        ('A0', 5, 'U5-FLU-02', 'a0-a1/20-ear-loop.svg'),
         ('A1', 1, 'U1-VOC-01', 'a1-a2/01-two-faces.svg'),
-        ('A1', 5, 'U5-FLU-02', 'a1-a2/19-strong-arm.svg'),
+        ('A1', 5, 'U5-FLU-02', 'a1-a2/19-fork-paths.svg'),
         ('A2', 1, 'U1-VOC-01', 'a2-b1/01-palette.svg'),
-        ('A2', 5, 'U5-FLU-02', 'a2-b1/20-join-in.svg'),
+        ('A2', 5, 'U5-FLU-02', 'a2-b1/20-group-join.svg'),
         ('B1', 1, 'U1-VOC-01', 'b1-b2/01-gem.svg'),
-        ('B1', 5, 'U5-FLU-02', 'b1-b2/20-heart-key.svg'),
+        ('B1', 5, 'U5-FLU-02', 'b1-b2/20-smiley-check.svg'),
         ('B2', 1, 'U1-VOC-01', 'b2-c1/01-grad-cap.svg'),
-        ('B2', 5, 'U5-FLU-02', 'b2-c1/19-sailboat.svg'),
+        ('B2', 5, 'U5-FLU-02', 'b2-c1/19-compass-star.svg'),
         ('C1', 1, 'U1-VOC-01', 'c1-c2/01-pen-nib.svg'),
-        ('C1', 5, 'U5-FLU-02', 'c1-c2/19-golden-bridge.svg'),
+        ('C1', 5, 'U5-FLU-02', 'c1-c2/20-four-paths.svg'),
       ];
 
       for (final item in cases) {

@@ -1,0 +1,5 @@
+# Ignore everything in docs/ from being committed going forward.
+# Already-tracked docs remain versioned; only new/untracked files are ignored.
+# This file itself is kept so the rule travels with the repo.
+*
+!.gitignore
