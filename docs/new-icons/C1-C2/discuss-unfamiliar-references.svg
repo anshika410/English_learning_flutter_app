@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+<rect x="10" y="4" width="28" height="8" rx="4" fill="#8B6914"></rect>
+<rect x="10" y="40" width="28" height="8" rx="4" fill="#8B6914"></rect>
+<rect x="12" y="10" width="24" height="32" fill="#FFFDF4"></rect>
+<rect x="16" y="18" width="16" height="5" rx="1" fill="#FFC13B"></rect>
+<path d="M16 27 H32 M16 33 H26" stroke="#D5E7DF" stroke-width="2.4" stroke-linecap="round"></path>
+<circle cx="36" cy="16" r="6" fill="#ED6A5A"></circle>
+<text x="36" y="19" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="8" font-weight="800" fill="#FFFDF4">?</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+<rect x="4" y="4" width="27" height="18" rx="8" fill="#5B9BE0"></rect>
+<path d="M10 22 L8 28 L16 22 Z" fill="#5B9BE0"></path>
+<text x="17.5" y="16.5" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="13" font-weight="800" fill="#FFFDF4">?</text>
+<rect x="17" y="26" width="27" height="18" rx="8" fill="#57C785"></rect>
+<path d="M38 26 L40 20 L32 26 Z" fill="#57C785"></path>
+<text x="30.5" y="38.5" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="13" font-weight="800" fill="#FFFDF4">!</text>
+</svg>
