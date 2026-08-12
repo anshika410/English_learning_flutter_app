@@ -769,10 +769,7 @@ class EllaApiService {
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
-      chatCount:
-          (j['completed_conversation_count'] as num?)?.toInt() ??
-          (j['chat_count'] as num?)?.toInt() ??
-          0,
+      chatCount: (j['chat_count'] as num?)?.toInt() ?? 0,
       name: name,
       age: age,
       placement: j['placement'] is Map
