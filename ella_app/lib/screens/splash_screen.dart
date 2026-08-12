@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/ella_api_service.dart';
 import '../services/update_service.dart';
+import '../services/analytics_service.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -40,6 +41,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!mounted) return;
 
     if (isAuthenticated) {
+      final userId = await api.getCachedUserId();
+      if (userId != null) {
+        await AnalyticsService.setUserProfile(userId: userId);
+      }
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
       Navigator.of(context).pushReplacementNamed('/login');
