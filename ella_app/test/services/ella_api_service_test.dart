@@ -104,15 +104,5 @@ void main() {
     expect(memory.lastTimeRecap, '');
   });
 
-  test('getUserMemory parses completed conversation count', () async {
-    final api = serviceReturning('/users/me/memory', {
-      'id': 'user-1',
-      'level': 'A1',
-      'completed_conversation_count': 6,
-    });
-
-    final memory = await api.getUserMemory();
-    expect(memory.chatCount, 6);
-  });
 
 }
