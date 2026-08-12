@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
@@ -943,4 +944,3 @@ async def get_today_recap(
         super_sentence=super_sentence,
         correction_highlight=correction_highlight,
     )
-

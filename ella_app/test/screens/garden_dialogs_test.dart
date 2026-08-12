@@ -266,7 +266,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text('Talk with Zoe to start growing this skill'),
+      find.text('Talk with Ella to grow this skill.'),
       findsOneWidget,
     );
     expect(find.text('Waiting to be planted!'), findsNothing);
@@ -296,7 +296,7 @@ void main() {
 
     await _openSkillSheet(tester, skill);
 
-    expect(find.text('What You Said'), findsOneWidget);
+    expect(find.text('You Said'), findsOneWidget);
     for (var i = 0; i < 3; i++) {
       expect(find.byKey(ValueKey('garden-evidence-card-$i')), findsOneWidget);
     }
@@ -325,10 +325,10 @@ void main() {
 
       await _openSkillSheet(tester, skill, step: step, isPreviousGarden: true);
 
-      expect(find.text('What You Said'), findsOneWidget);
+      expect(find.text('You Said'), findsOneWidget);
       expect(find.text('My friend is tall and happy.'), findsOneWidget);
       expect(
-        find.text('Talk with Zoe to start growing this skill'),
+        find.text('Talk with Ella to grow this skill.'),
         findsNothing,
       );
     },
@@ -361,10 +361,10 @@ void main() {
 
       // No empty-state block: no divider tile icon, no Talk-with-Zoe prompt.
       expect(
-        find.text('Talk with Zoe to start growing this skill'),
+        find.text('Talk with Ella to grow this skill.'),
         findsNothing,
       );
-      expect(find.text('What You Said'), findsNothing);
+      expect(find.text('You Said'), findsNothing);
     },
   );
 
@@ -380,7 +380,7 @@ void main() {
       await _openSkillSheet(tester, skill);
 
       expect(
-        find.text('Talk with Zoe to start growing this skill'),
+        find.text('Talk with Ella to grow this skill.'),
         findsOneWidget,
       );
     },

@@ -18,6 +18,7 @@ import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
+import '../../models/conversation_feedback.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
@@ -47,7 +48,7 @@ const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg'; // CTA
 const double _kMascotWidthFactor = 150.55 / 430;
 
 class HomeScreen extends ConsumerWidget {
-  final VoidCallback? onConversationEnded;
+  final ValueChanged<ConversationEndContext>? onConversationEnded;
   final VoidCallback? onOpenGarden;
   final VoidCallback? onOpenProfile;
 
@@ -82,7 +83,7 @@ class HomeScreen extends ConsumerWidget {
 
 class _HomeBody extends ConsumerStatefulWidget {
   final MemoryState? memory;
-  final VoidCallback? onConversationEnded;
+  final ValueChanged<ConversationEndContext>? onConversationEnded;
   final VoidCallback? onOpenGarden;
   final VoidCallback? onOpenProfile;
 

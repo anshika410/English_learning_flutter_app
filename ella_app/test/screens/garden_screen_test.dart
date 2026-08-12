@@ -1160,7 +1160,7 @@ void main() {
       );
       expect(find.text(skill.displayText), findsNothing);
       expect(
-        find.textContaining('You practiced this skill with Zoe'),
+        find.textContaining('You practiced this skill with Ella'),
         findsNothing,
       );
     },
@@ -1270,7 +1270,7 @@ void main() {
       expect(find.text(growthCase.title), findsOneWidget);
       expect(find.text(growthCase.from.label), findsOneWidget);
       expect(find.text(growthCase.to.label), findsOneWidget);
-      expect(find.text('What You Said'), findsOneWidget);
+      expect(find.text('You Said'), findsOneWidget);
       expect(
         find.text('I am very happy talking to my family.'),
         findsOneWidget,
@@ -1329,7 +1329,9 @@ void main() {
     final plantCenter = tester.getCenter(
       find.byKey(const ValueKey('garden-plant-slot-display-copy-growth')),
     );
-    expect(cardTop.dy, lessThan(plantCenter.dy));
+    // The spotlit plant is scrolled near the top of the viewport before the
+    // card shows, so the card now places below the plant by default.
+    expect(cardTop.dy, greaterThan(plantCenter.dy));
     expect(zoeTop.dx, lessThan(cardTop.dx + 8));
     expect(zoeTop.dy, lessThan(cardTop.dy));
   });
@@ -2233,10 +2235,10 @@ void main() {
     );
     expect(find.text('Bloomed'), findsOneWidget);
     // Real API evidence is shown for previous gardens.
-    expect(find.text('What You Said'), findsOneWidget);
+    expect(find.text('You Said'), findsOneWidget);
     expect(find.textContaining('My friend is tall and happy.'), findsWidgets);
     expect(
-      find.text('Talk with Zoe to start growing this skill'),
+      find.text('Talk with Ella to grow this skill.'),
       findsNothing,
     );
   });
@@ -2367,6 +2369,68 @@ void main() {
         find.byKey(const ValueKey('garden-growth-spotlight-layer')),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'deep-unit growth reveal scrolls plant near top and keeps card clear of CTA',
+    (tester) async {
+      final steps = List.generate(6, (i) {
+        final skill = _skill(
+          id: 'deep-skill-$i',
+          text: 'Skill statement $i',
+          displayText: 'Display copy for skill $i',
+          sightings: 1,
+          evidence: [_evidence('A short example sentence $i.')],
+        );
+        return _stepWithSkills(step: i + 1, skills: [skill]);
+      });
+      final targetSkill = steps.last.skills.first;
+
+      await tester.pumpWidget(
+        _harness(
+          _gardenData(level: 'A1', steps: steps),
+          disableAnimations: true,
+        ),
+      );
+      await tester.pump();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(GardenScreen)),
+      );
+      container.read(gardenGrowthRevealProvider.notifier).setQueue([
+        _revealItem(
+          step: steps.last,
+          skill: targetSkill,
+          from: GardenGrowthStage.seed,
+          to: GardenGrowthStage.sprout,
+        ),
+      ]);
+      await tester.pump();
+      await _pumpUntilRevealCard(tester);
+
+      final cardTopLeft = tester.getTopLeft(
+        find.byKey(const ValueKey('garden-growth-reveal-card')),
+      );
+      final cardBottomLeft = tester.getBottomLeft(
+        find.byKey(const ValueKey('garden-growth-reveal-card')),
+      );
+      final plantCenter = tester.getCenter(
+        find.byKey(const ValueKey('garden-plant-slot-deep-skill-5')),
+      );
+      final ctaTop = tester
+          .getTopLeft(find.byKey(const ValueKey('garden-growth-reveal-cta')))
+          .dy;
+
+      // The 6th unit's plant requires real scrolling to reach; it should
+      // still land near the top of the viewport rather than wherever the
+      // scroll happened to leave it.
+      expect(plantCenter.dy, lessThan(932 * 0.45));
+      // The card sits close below the plant (no large empty gap) and never
+      // overlaps the reveal CTA button.
+      expect(cardTopLeft.dy - plantCenter.dy, greaterThan(0));
+      expect(cardTopLeft.dy - plantCenter.dy, lessThan(80));
+      expect(cardBottomLeft.dy, lessThan(ctaTop));
     },
   );
 }

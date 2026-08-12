@@ -622,7 +622,7 @@ class _VoiceDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = switch (micState) {
       MicState.listening => 'Listening…',
-      MicState.busy => mascotThinking ? 'Sending…' : 'Zoe is speaking…',
+      MicState.busy => mascotThinking ? 'Sending…' : 'Ella is speaking…',
       MicState.idle => 'Tap to Speak',
     };
 

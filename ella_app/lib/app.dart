@@ -17,8 +17,9 @@ import 'core/text_styles.dart';
 import 'providers/chat_provider.dart';
 import 'providers/garden_provider.dart';
 import 'providers/onboarding_provider.dart';
+import 'models/conversation_feedback.dart';
+import 'screens/child_view/feeling_check_in_screen.dart';
 import 'providers/placement_provider.dart';
-import 'providers/garden_provider.dart';
 import 'screens/child_view/home_screen.dart';
 import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
@@ -126,7 +127,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
 
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      title: 'zoSpeak',
+      title: 'Ella',
       debugShowCheckedModeBanner: false,
       theme: _botanicalBerryTheme(),
       navigatorObservers: [
@@ -378,6 +379,32 @@ class _EllaHomeState extends State<_EllaHome> {
     );
   }
 
+  void _handleConversationEnded(ConversationEndContext endContext) {
+    if (!mounted) return;
+    if (!shouldShowFeelingCheckIn(endContext.conversationNumber)) {
+      _openGarden();
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (feelingContext) => FeelingCheckInScreen(
+          endContext: endContext,
+          onComplete: () {
+            Navigator.of(feelingContext).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const Scaffold(
+                  backgroundColor: Colors.transparent,
+                  body: GardenScreen(),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   void _openProfile() {
     AnalyticsService.logSettingsOpened();
     Navigator.of(context).push(
@@ -395,7 +422,7 @@ class _EllaHomeState extends State<_EllaHome> {
     return Scaffold(
       backgroundColor: EllaColors.bg,
       body: HomeScreen(
-        onConversationEnded: _openGarden,
+        onConversationEnded: _handleConversationEnded,
         onOpenGarden: _openGarden,
         onOpenProfile: _openProfile,
       ),

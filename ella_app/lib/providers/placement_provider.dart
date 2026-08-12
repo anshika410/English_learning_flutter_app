@@ -283,7 +283,7 @@ class PlacementNotifier extends Notifier<PlacementState> {
       AnalyticsService.logPlacementFailed(e.toString());
       state = state.copyWith(
         status: ChatStatus.idle,
-        error: "Zoe couldn't connect. Check your internet and try again",
+        error: "Ella couldn't connect. Check your internet and try again",
       );
       return;
     }

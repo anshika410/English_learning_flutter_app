@@ -28,8 +28,6 @@ class ConversationOut(BaseModel):
     created_at: datetime
 
 
-
-
 class MessageOut(BaseModel):
     id: str
     role: str

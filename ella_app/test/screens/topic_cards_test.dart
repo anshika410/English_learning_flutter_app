@@ -279,7 +279,7 @@ void main() {
     final pickLabel = tester.widget<Text>(
       find.byKey(const ValueKey('home-topic-carousel-pick-label')),
     );
-    expect(pickLabel.data, "Zoe's Pick");
+    expect(pickLabel.data, "Ella's Pick");
     expect(pickLabel.style?.fontSize, 14);
 
     final artworkFinder = find.byWidgetPredicate(

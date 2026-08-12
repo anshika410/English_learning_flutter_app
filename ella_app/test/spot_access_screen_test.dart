@@ -47,7 +47,7 @@ void main() {
     expect(heading.style?.fontSize, 32);
     expect(
       find.text(
-        'NavGurukul has unlocked full zoSpeak access for you as part of your English learning.',
+        'NavGurukul has unlocked full Ella access for you as part of your English learning.',
       ),
       findsOneWidget,
     );
@@ -59,9 +59,9 @@ void main() {
       isTrue,
     );
 
-    await tester.ensureVisible(find.text('Meet Zoe'));
+    await tester.ensureVisible(find.text('Meet Ella'));
     await tester.pump();
-    await tester.tap(find.text('Meet Zoe'));
+    await tester.tap(find.text('Meet Ella'));
     await tester.pump();
 
     expect(continued, isTrue);
@@ -84,7 +84,7 @@ void main() {
       expect(rightCloud.right, lessThanOrEqualTo(size.width));
       expect(tester.takeException(), isNull);
 
-      await tester.ensureVisible(find.text('Meet Zoe'));
+      await tester.ensureVisible(find.text('Meet Ella'));
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
