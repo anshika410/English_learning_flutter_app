@@ -1019,10 +1019,17 @@ class _GardenMilestoneLayer extends StatelessWidget {
                 320.0,
                 constraints.maxWidth - _cardLeft - 16,
               );
+              final fullyCenteredLeft = (constraints.maxWidth - cardWidth) / 2;
+              // Modest inward nudge toward center — not fully centered like
+              // the growth-reveal card, since Zoe sits at the Stack's fixed
+              // left:0/top:0 corner and a full center shift would visually
+              // detach her from the card's speech-tail corner.
+              final cardLeft =
+                  _cardLeft + (fullyCenteredLeft - _cardLeft) * 0.35;
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: _cardLeft),
+                  padding: EdgeInsets.only(left: cardLeft),
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -1048,10 +1055,7 @@ class _GardenMilestoneLayer extends StatelessWidget {
                               width: 3,
                             ),
                           ),
-                          child: Text(
-                            _message,
-                            style: textStyle,
-                          ),
+                          child: Text(_message, style: textStyle),
                         ),
                       ),
                       Positioned(
@@ -1463,9 +1467,13 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     final anchorContext = focusKey?.currentContext;
     final reducedMotion = MediaQuery.of(context).disableAnimations;
     if (anchorContext != null) {
+      // Pin the spotlit plant near the top of the visible hill (just below
+      // the pinned header and the hill's top fade) so there's always
+      // consistent, predictable space below it for the reveal card,
+      // regardless of where the plant sits in the scrollable garden.
       await Scrollable.ensureVisible(
         anchorContext,
-        alignment: item.wateringOnly ? 0.30 : 0.48,
+        alignment: 0.10,
         duration: Duration(milliseconds: reducedMotion ? 0 : 400),
         curve: Curves.easeInOutCubic,
       );
@@ -1677,8 +1685,15 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     // as soon as this session's reveal has been queued, often before this
     // check runs, which would otherwise always look like "no conversation
     // just ended" — see _lastPostConversationChatNumber for details.
-    final liveChatNumber = ref.read(postConversationGardenRevealProvider)?.chatNumber;
-    final chatNumber = liveChatNumber ?? _lastPostConversationChatNumber;
+    final live = ref.read(postConversationGardenRevealProvider);
+    // Analysis for a just-ended conversation is still in flight — we don't
+    // yet know whether a reveal card (growth or quick-hello) is about to be
+    // queued. Bail here rather than treating a transiently empty reveal
+    // queue as "nothing to show"; this gets called again once resolve()
+    // lands (_syncRevealState) or after the user dismisses a queued reveal
+    // card (_onRevealCta).
+    if (live != null && !live.isResolved) return;
+    final chatNumber = live?.chatNumber ?? _lastPostConversationChatNumber;
     if (chatNumber != 2) return;
     if (ref.read(gardenGrowthRevealProvider).isNotEmpty) return;
     if (_activeRevealItem != null) return;
@@ -3047,10 +3062,7 @@ class _ZoeGardenBubble extends StatelessWidget {
   final AnimationController controller;
   final double maxWidth;
 
-  const _ZoeGardenBubble({
-    required this.controller,
-    required this.maxWidth,
-  });
+  const _ZoeGardenBubble({required this.controller, required this.maxWidth});
 
   @override
   Widget build(BuildContext context) {
@@ -3080,9 +3092,7 @@ class _ZoeGardenBubble extends StatelessWidget {
             border: Border.all(color: _bubbleBorder, width: 2),
           ),
           child: Text.rich(
-            const TextSpan(
-              text: 'Keep practising to unlock the next garden.',
-            ),
+            const TextSpan(text: 'Keep practising to unlock the next garden.'),
             textAlign: TextAlign.center,
             style: EllaFonts.body(
               const TextStyle(
@@ -5037,16 +5047,24 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
                 math.max(248.0, height - minTop - media.padding.bottom - 132),
               );
         final focusY = spotlightCenter?.dy ?? height * 0.56;
+        // The reveal CTA is a 56px-tall button anchored
+        // `media.padding.bottom + 22` above the bottom edge, so its real top
+        // sits `media.padding.bottom + 78` up from the bottom — reserve that
+        // full zone so the card never overlaps it.
+        const ctaZoneHeight = 78.0;
         final maxTop = math.max(
           minTop,
-          height - media.padding.bottom - 56 - 324,
+          height - media.padding.bottom - ctaZoneHeight - 324,
         );
         final mascotSize = 72 * scale;
 
-        // Adaptive placement: prefer above the spotlit plant, but if the card
-        // plus Zoe's overhang won't fit above it (top garden / top-most plant),
-        // drop the card below the plant so it never covers the spotlight.
-        const plantClearance = 96.0; // clears the spotlight bright hole
+        // The spotlit plant is scrolled to near the top of the viewport
+        // before this layer shows (see _focusRevealPlant's ensureVisible
+        // alignment), so there's normally not enough room above it and the
+        // card places below by default. The above-plant branch remains as a
+        // defensive fallback for unusually short viewports where focusY still
+        // ends up low.
+        const plantClearance = 56.0; // clears the spotlight bright hole
         final zoeOverhang = 58 * scale;
         final desiredAboveTop = focusY - estimatedCardHeight - plantClearance;
         final fitsAbove = desiredAboveTop - zoeOverhang >= minTop;
@@ -5057,12 +5075,15 @@ class _GardenGrowthRevealLayer extends StatelessWidget {
           final belowTop = focusY + plantClearance;
           cardTop = math.min(
             belowTop,
-            math.max(minTop, height - media.padding.bottom - 56 - 220),
+            math.max(
+              minTop,
+              height - media.padding.bottom - ctaZoneHeight - 232,
+            ),
           );
         }
         final cardMaxHeight = math.max(
           220.0,
-          height - cardTop - media.padding.bottom - 112,
+          height - cardTop - media.padding.bottom - ctaZoneHeight - 34,
         );
 
         return Stack(

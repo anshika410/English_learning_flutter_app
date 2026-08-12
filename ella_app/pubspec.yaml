@@ -96,6 +96,7 @@ flutter:
     - assets/auth/
     - assets/chillax/
     - assets/decorations/
+    - assets/feedback/
     - assets/homescreen/
     - assets/homescreen/new/
     - assets/gardent-view/

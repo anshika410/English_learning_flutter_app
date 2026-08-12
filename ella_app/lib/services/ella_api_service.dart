@@ -110,7 +110,11 @@ class EllaApiService {
     return token != null && token.isNotEmpty;
   }
 
-  Future<void> saveTokens(String token, String userId, {String? refreshToken}) async {
+  Future<void> saveTokens(
+    String token,
+    String userId, {
+    String? refreshToken,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_userIdKey, userId);
@@ -625,7 +629,8 @@ class EllaApiService {
       }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final errorMsg = '$method $path HTTP ${response.statusCode}: ${response.body}';
+      final errorMsg =
+          '$method $path HTTP ${response.statusCode}: ${response.body}';
       AnalyticsService.logApiFailed(path, errorMsg);
       throw EllaApiException(errorMsg);
     }
@@ -764,6 +769,7 @@ class EllaApiService {
           : NextTopics.empty,
       effortTimesSpoken: (effort['times_spoken_total'] as num?)?.toInt() ?? 0,
       updatedAfterChat: (j['updated_after_chat'] as num?)?.toInt() ?? 0,
+      chatCount: (j['chat_count'] as num?)?.toInt() ?? 0,
       name: name,
       age: age,
       placement: j['placement'] is Map

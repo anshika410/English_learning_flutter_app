@@ -1,6 +1,8 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../models/conversation_feedback.dart';
+
 class AnalyticsService {
   static FirebaseAnalytics? get _analytics {
     try {
@@ -602,5 +604,20 @@ class AnalyticsService {
 
   static Future<void> logFeedbackSubmitted() async {
     await _analytics?.logEvent(name: 'feedback_submitted');
+  }
+
+  static Future<void> logConversationFeelingSubmitted({
+    required ConversationFeeling feeling,
+    required int conversationNumber,
+    required ConversationEndReason endReason,
+  }) async {
+    await _analytics?.logEvent(
+      name: 'conversation_feeling_submitted',
+      parameters: {
+        'answer': feeling.apiValue,
+        'conversation_number': conversationNumber,
+        'end_reason': endReason.analyticsValue,
+      },
+    );
   }
 }
