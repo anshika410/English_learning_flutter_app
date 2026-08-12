@@ -10,10 +10,18 @@ class UpdateService {
     try {
       final info = await InAppUpdate.checkForUpdate().timeout(const Duration(seconds: 3));
       
-      // If an update is available, trigger an immediate update.
-      // (Can also use InAppUpdate.startFlexibleUpdate() if desired)
-      if (info.updateAvailability == UpdateAvailability.updateAvailable) {
-        await InAppUpdate.performImmediateUpdate();
+      // If a flexible update has already been downloaded and is ready to install,
+      // apply it now (which will restart the app).
+      if (info.installStatus == InstallStatus.downloaded) {
+        await InAppUpdate.completeFlexibleUpdate();
+        return;
+      }
+
+      // If a new update is available on the Play Store, trigger a flexible update
+      if (info.updateAvailability == UpdateAvailability.updateAvailable && info.flexibleUpdateAllowed) {
+        // Prompts the user to update. If they accept, the download starts in the background.
+        // This future resolves once the user makes a choice (accept/decline), NOT when download finishes.
+        await InAppUpdate.startFlexibleUpdate();
       }
     } catch (e) {
       // It's normal for this to throw exceptions during local development 

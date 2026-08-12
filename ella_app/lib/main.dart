@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'services/analytics_service.dart';
 import 'services/chucker_notifier.dart';
 import 'app.dart';
@@ -29,8 +30,15 @@ Future<void> main() async {
     await ChuckerNotifier.instance.init();
   }
 
+  bool isFirebaseInitialized = false;
   try {
     await Firebase.initializeApp();
+    isFirebaseInitialized = true;
+    
+    // Enable Crashlytics collection (enabled by default, but explicitly set here).
+    // You can set this to `!kDebugMode` if you want to avoid recording crashes during local development.
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    
     await AnalyticsService.logAppOpen();
   } catch (e) {
     debugPrint('⚠️ Firebase initialization failed: $e');
@@ -44,11 +52,18 @@ Future<void> main() async {
   FlutterError.onError = (FlutterErrorDetails details) {
     debugPrint('🔥🔥🔥 FLUTTER ERROR: ${details.exception}');
     debugPrint('🔥🔥🔥 STACK TRACE: ${details.stack}');
-    FlutterError.presentError(details);
+    if (isFirebaseInitialized) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    } else {
+      FlutterError.presentError(details);
+    }
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('🔥🔥🔥 ASYNC ERROR: $error');
     debugPrint('🔥🔥🔥 ASYNC STACK: $stack');
+    if (isFirebaseInitialized) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
     return true;
   };
 

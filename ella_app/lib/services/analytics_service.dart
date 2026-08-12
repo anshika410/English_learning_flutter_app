@@ -1,4 +1,5 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../models/conversation_feedback.dart';
@@ -333,6 +334,9 @@ class AnalyticsService {
     String? level,
   }) async {
     await _analytics?.setUserId(id: userId);
+    try {
+      await FirebaseCrashlytics.instance.setUserIdentifier(userId);
+    } catch (_) {}
     if (name != null) {
       await _analytics?.setUserProperty(name: 'user_name', value: name);
     }
