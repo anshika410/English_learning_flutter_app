@@ -169,7 +169,7 @@ def run_tests():
     assert ret_data["overall"] == "excellent"
     assert ret_data["aimed_at"] == data["aimed_at"]
     assert ret_data["hit_targets"] == data["hit_targets"]
-    assert len(ret_data["skills_evidenced"]) == 3
+    assert len(ret_data["skills_evidenced"]) == 4
     print("✓ GET /conversations/{id}/analysis returned grading checklist fields successfully")
 
     # 8. Test Consolidated Completion API
