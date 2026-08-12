@@ -103,6 +103,4 @@ void main() {
     final memory = await api.getUserMemory();
     expect(memory.lastTimeRecap, '');
   });
-
-
 }
