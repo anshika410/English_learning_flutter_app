@@ -34,10 +34,7 @@ def _compute_placement_garden(user: User) -> PlacementGardenResponse | None:
     )
 
 
-def _to_memory_response(
-    user: User,
-    last_time_recap: str | None = None,
-) -> UserMemoryResponse:
+def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserMemoryResponse:
     persona = user.persona_memory or {}
     progress = user.skills_progress or {}
     level_code = (user.level or "A0").upper()
