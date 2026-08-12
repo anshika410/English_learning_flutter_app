@@ -265,10 +265,7 @@ void main() {
       find.byKey(const ValueKey('garden-empty-skill-message')),
       findsOneWidget,
     );
-    expect(
-      find.text('Talk with Ella to grow this skill.'),
-      findsOneWidget,
-    );
+    expect(find.text('Talk with Ella to grow this skill.'), findsOneWidget);
     expect(find.text('Waiting to be planted!'), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('garden-sheet-card'))).width,
@@ -276,7 +273,7 @@ void main() {
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('garden-sheet-board'))).height,
-      48,
+      56,
     );
   });
 
@@ -327,10 +324,7 @@ void main() {
 
       expect(find.text('You Said'), findsOneWidget);
       expect(find.text('My friend is tall and happy.'), findsOneWidget);
-      expect(
-        find.text('Talk with Ella to grow this skill.'),
-        findsNothing,
-      );
+      expect(find.text('Talk with Ella to grow this skill.'), findsNothing);
     },
   );
 
@@ -360,10 +354,7 @@ void main() {
       );
 
       // No empty-state block: no divider tile icon, no Talk-with-Zoe prompt.
-      expect(
-        find.text('Talk with Ella to grow this skill.'),
-        findsNothing,
-      );
+      expect(find.text('Talk with Ella to grow this skill.'), findsNothing);
       expect(find.text('You Said'), findsNothing);
     },
   );
@@ -379,10 +370,7 @@ void main() {
 
       await _openSkillSheet(tester, skill);
 
-      expect(
-        find.text('Talk with Ella to grow this skill.'),
-        findsOneWidget,
-      );
+      expect(find.text('Talk with Ella to grow this skill.'), findsOneWidget);
     },
   );
 
@@ -410,7 +398,7 @@ void main() {
     );
   });
 
-  testWidgets('unit sheet shows two skills then expands with Show more', (
+  testWidgets('unit sheet shows every skill without a Show more control', (
     tester,
   ) async {
     await _setPhoneSurface(tester);
@@ -430,22 +418,23 @@ void main() {
     expect(find.text('Describing the World'), findsOneWidget);
     expect(find.text('Skill 0'), findsOneWidget);
     expect(find.text('Skill 1'), findsOneWidget);
-    expect(find.text('Skill 2'), findsNothing);
-    expect(find.text('Skill 3'), findsNothing);
-    expect(find.byKey(const ValueKey('garden-unit-show-more')), findsOneWidget);
-
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('garden-unit-show-more')),
-    );
-    await tester.tap(find.byKey(const ValueKey('garden-unit-show-more')));
-    await tester.pumpAndSettle();
-
     expect(find.text('Skill 2'), findsOneWidget);
     expect(find.text('Skill 3'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-unit-show-more')), findsNothing);
+    final fourSkillHeight = tester
+        .getSize(find.byKey(const ValueKey('garden-sheet-card')))
+        .height;
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _openUnitSheet(tester, _step(skills: step.skills.take(2).toList()));
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('garden-sheet-card'))).height,
+      lessThan(fourSkillHeight),
+    );
   });
 
-  testWidgets('unit sheet renders refreshed unit description and skill rows', (
+  testWidgets('unit sheet renders the revised heading and refreshed skill rows', (
     tester,
   ) async {
     await _setPhoneSurface(tester);
@@ -471,8 +460,13 @@ void main() {
       find.text(
         'Build up to a full minute of connected speech — linking ideas clearly, without losing the thread.',
       ),
-      findsOneWidget,
+      findsNothing,
     );
+    final heading = tester.widget<Text>(
+      find.byKey(const ValueKey('garden-unit-sheet-heading')),
+    );
+    expect(heading.data, "When this garden blooms, you'll be able to");
+    expect(heading.style?.fontSize, 16);
     expect(
       find.text('Speak for a full minute without running out'),
       findsOneWidget,
@@ -505,14 +499,71 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await _openUnitSheet(tester, step);
     expect(
-      tester.getSize(find.byKey(const ValueKey('garden-unit-sheet-icon-1'))),
-      const Size(48, 48),
-    );
-    expect(
       tester.getSize(
         find.byKey(const ValueKey('garden-unit-skill-icon-U1-VOC-01')),
       ),
       const Size(48, 48),
+    );
+  });
+
+  testWidgets('shared sheet board keeps normal titles on one line', (
+    tester,
+  ) async {
+    await _setPhoneSurface(tester);
+    final shortStep = _step(displayName: 'First Words');
+
+    await _openUnitSheet(tester, shortStep);
+
+    final board = find.byKey(const ValueKey('garden-sheet-board'));
+    final card = find.byKey(const ValueKey('garden-sheet-card'));
+    final title = find.byKey(const ValueKey('garden-sheet-board-title'));
+    final leftNail = find.byKey(const ValueKey('garden-sheet-left-nail'));
+    final rightNail = find.byKey(const ValueKey('garden-sheet-right-nail'));
+    final shortWidth = tester.getSize(board).width;
+    final boardRect = tester.getRect(board);
+    final titleRect = tester.getRect(title);
+    final leftNailRect = tester.getRect(leftNail);
+    final rightNailRect = tester.getRect(rightNail);
+
+    expect(tester.getSize(board).height, 56);
+    expect(
+      tester.getCenter(board).dx,
+      closeTo(tester.getCenter(card).dx, 0.01),
+    );
+    expect(leftNailRect.left - boardRect.left, closeTo(16, 0.01));
+    expect(boardRect.right - rightNailRect.right, closeTo(16, 0.01));
+    expect(titleRect.left - leftNailRect.right, greaterThanOrEqualTo(24));
+    expect(rightNailRect.left - titleRect.right, greaterThanOrEqualTo(24));
+    expect(tester.getSize(title).height, lessThanOrEqualTo(22));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    final mediumStep = _step(displayName: 'Likes & Dislikes');
+    await _openUnitSheet(tester, mediumStep);
+
+    final mediumWidth = tester.getSize(board).width;
+    expect(mediumWidth, greaterThan(shortWidth));
+    expect(mediumWidth, lessThanOrEqualTo(tester.getSize(card).width - 32));
+    expect(tester.getSize(board).height, 56);
+    expect(tester.getSize(title).height, lessThanOrEqualTo(22));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    final longStep = _step(
+      displayName: 'A deliberately long garden unit title that must wrap',
+    );
+    await _openUnitSheet(tester, longStep);
+
+    expect(tester.getSize(board).height, 56);
+    expect(tester.getSize(board).width, greaterThan(shortWidth));
+    expect(tester.getSize(board).width, tester.getSize(card).width - 32);
+    expect(tester.getSize(title).height, greaterThan(22));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _openSkillSheet(tester, shortStep.skills.single, step: shortStep);
+
+    expect(tester.getSize(board).height, 56);
+    expect(
+      tester.getCenter(board).dx,
+      closeTo(tester.getCenter(card).dx, 0.01),
     );
   });
 }
