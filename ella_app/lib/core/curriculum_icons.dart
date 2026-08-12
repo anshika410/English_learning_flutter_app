@@ -16,18 +16,23 @@ class CurriculumIcons {
     'C1': 'c1-c2',
   };
 
-  // The icon files are ordered by the numbered prefixes supplied with each
-  // curriculum transition. Skill order is VOC, GRA, then FLU within a unit.
+  // The icon files are ordered to match how [skillAsset] packs each unit's
+  // skills: VOC, then GRA, then FLU. For most units the numbered file prefixes
+  // already follow that order. The one exception is a0-a1 Unit 2, whose files
+  // were numbered in curriculum/display order (FLU, VOC, GRA, GRA); its four
+  // entries are intentionally reordered below to the VOC/GRA/FLU packing so the
+  // icons line up. Do not restore them to numeric prefix order.
   static const Map<String, List<String>> _skillFiles = {
     'a0-a1': [
       '01-colour-orb.svg',
       '02-number-bars.svg',
       '03-bag-tag.svg',
       '04-answer-bubbles.svg',
-      '05-person.svg',
-      '06-family-trio.svg',
-      '07-backpack.svg',
-      '08-wave.svg',
+      // Unit 2 — reordered to VOC, GRA, GRA, FLU (see note above).
+      '06-family-trio.svg', // U2-VOC-01 Name people in your family
+      '08-wave.svg', // U2-GRA-01 Use I am, I'm not
+      '07-backpack.svg', // U2-GRA-02 Say what you have
+      '05-person.svg', // U2-FLU-01 Say your name and age
       '09-star.svg',
       '10-heart.svg',
       '11-plus.svg',

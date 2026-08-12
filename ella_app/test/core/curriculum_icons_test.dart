@@ -7,6 +7,12 @@ void main() {
     test('maps representative and boundary skills for every transition', () {
       final cases = [
         ('A0', 1, 'U1-VOC-01', 'a0-a1/01-colour-orb.svg'),
+        // Unit 2 files were numbered in display order (FLU, VOC, GRA, GRA), so
+        // every skill in this unit must be pinned to guard the reordering.
+        ('A0', 2, 'U2-VOC-01', 'a0-a1/06-family-trio.svg'),
+        ('A0', 2, 'U2-GRA-01', 'a0-a1/08-wave.svg'),
+        ('A0', 2, 'U2-GRA-02', 'a0-a1/07-backpack.svg'),
+        ('A0', 2, 'U2-FLU-01', 'a0-a1/05-person.svg'),
         ('A0', 5, 'U5-FLU-02', 'a0-a1/20-ear-loop.svg'),
         ('A1', 1, 'U1-VOC-01', 'a1-a2/01-two-faces.svg'),
         ('A1', 5, 'U5-FLU-02', 'a1-a2/19-fork-paths.svg'),
