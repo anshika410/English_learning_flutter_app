@@ -509,7 +509,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "describing",
                 "routine",
-                "preference"
+                "preference",
+                "present_action"
             ]
         },
         {
@@ -627,7 +628,8 @@ LEVEL_TOPICS = {
             "shortName": "Things I Can Do",
             "affordances": [
                 "describing",
-                "preference"
+                "preference",
+                "present_action"
             ],
             "isNew": True
         },
@@ -651,7 +653,9 @@ LEVEL_TOPICS = {
             "affordances": [
                 "preference",
                 "describing",
-                "routine"
+                "routine",
+                "past_event",
+                "future_plan"
             ]
         },
         {
@@ -671,7 +675,9 @@ LEVEL_TOPICS = {
             "shortName": "My Week",
             "affordances": [
                 "routine",
-                "describing"
+                "describing",
+                "past_event",
+                "future_plan"
             ]
         },
         {
@@ -691,7 +697,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "preference",
                 "describing",
-                "comparison"
+                "comparison",
+                "opinion"
             ]
         },
         {
@@ -711,7 +718,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "describing",
                 "comparison",
-                "routine"
+                "routine",
+                "opinion"
             ]
         },
         {
@@ -731,7 +739,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "past_event",
                 "narrative",
-                "describing"
+                "describing",
+                "future_plan"
             ]
         },
         {
@@ -762,7 +771,9 @@ LEVEL_TOPICS = {
             "affordances": [
                 "preference",
                 "opinion",
-                "comparison"
+                "comparison",
+                "future_plan",
+                "narrative"
             ]
         },
         {
@@ -838,7 +849,9 @@ LEVEL_TOPICS = {
             "affordances": [
                 "opinion",
                 "comparison",
-                "explanation"
+                "explanation",
+                "past_event",
+                "hypothetical"
             ]
         },
         {
@@ -848,7 +861,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "opinion",
                 "comparison",
-                "explanation"
+                "explanation",
+                "hypothetical"
             ]
         },
         {
@@ -858,7 +872,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "comparison",
                 "opinion",
-                "describing"
+                "describing",
+                "past_event"
             ]
         },
         {
@@ -878,7 +893,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "opinion",
                 "explanation",
-                "abstract"
+                "abstract",
+                "hypothetical"
             ]
         },
         {
@@ -888,7 +904,9 @@ LEVEL_TOPICS = {
             "affordances": [
                 "opinion",
                 "comparison",
-                "explanation"
+                "explanation",
+                "past_event",
+                "hypothetical"
             ]
         },
         {
@@ -919,7 +937,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "opinion",
                 "explanation",
-                "narrative"
+                "narrative",
+                "describing"
             ]
         },
         {
@@ -1020,7 +1039,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "opinion",
                 "argumentation",
-                "abstract"
+                "abstract",
+                "explanation"
             ]
         },
         {
@@ -1030,7 +1050,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "opinion",
                 "abstract",
-                "comparison"
+                "comparison",
+                "hypothetical"
             ]
         },
         {
@@ -1040,7 +1061,9 @@ LEVEL_TOPICS = {
             "affordances": [
                 "abstract",
                 "opinion",
-                "hypothetical"
+                "hypothetical",
+                "explanation",
+                "argumentation"
             ]
         },
         {
@@ -1080,7 +1103,9 @@ LEVEL_TOPICS = {
             "affordances": [
                 "comparison",
                 "abstract",
-                "opinion"
+                "opinion",
+                "hypothetical",
+                "argumentation"
             ]
         },
         {
@@ -1120,7 +1145,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "abstract",
                 "argumentation",
-                "opinion"
+                "opinion",
+                "explanation"
             ]
         },
         {
@@ -1225,7 +1251,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "abstract",
                 "opinion",
-                "narrative"
+                "narrative",
+                "hypothetical"
             ]
         },
         {
@@ -1315,7 +1342,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "abstract",
                 "opinion",
-                "narrative"
+                "narrative",
+                "hypothetical"
             ]
         },
         {
@@ -1356,7 +1384,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "argumentation",
                 "abstract",
-                "comparison"
+                "comparison",
+                "hypothetical"
             ],
             "isNew": True
         },
@@ -1378,7 +1407,8 @@ LEVEL_TOPICS = {
             "affordances": [
                 "abstract",
                 "opinion",
-                "narrative"
+                "narrative",
+                "hypothetical"
             ],
             "isNew": True
         },

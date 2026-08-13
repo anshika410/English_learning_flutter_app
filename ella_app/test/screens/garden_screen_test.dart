@@ -1582,7 +1582,7 @@ void main() {
     }
   });
 
-  testWidgets('garden sheet board grows and keeps content below it', (
+  testWidgets('garden sheet board stays 56px and preserves one-line titles', (
     tester,
   ) async {
     await _pumpGarden(
@@ -1593,7 +1593,7 @@ void main() {
           _step(
             level: 'A0',
             step: 1,
-            name: 'Finding Better Words',
+            name: 'First Words',
             displayDescription: 'Short unit description',
             count: 3,
           ),
@@ -1607,12 +1607,15 @@ void main() {
 
     final shortBoard = find.byKey(const ValueKey('garden-sheet-board'));
     final shortCard = find.byKey(const ValueKey('garden-sheet-card'));
-    final shortDescription = find.text('Short unit description');
-    expect(tester.getSize(shortBoard).width, greaterThan(268));
-    expect(tester.getSize(shortBoard).height, 48);
-    final shortContentGap =
-        tester.getTopLeft(shortDescription).dy -
-        tester.getTopLeft(shortCard).dy;
+    final heading = find.byKey(const ValueKey('garden-unit-sheet-heading'));
+    final shortWidth = tester.getSize(shortBoard).width;
+    expect(tester.getSize(shortBoard).height, 56);
+    expect(tester.getCenter(shortBoard).dx, tester.getCenter(shortCard).dx);
+    expect(
+      tester.getTopLeft(heading).dy,
+      greaterThan(tester.getTopLeft(shortCard).dy),
+    );
+    expect(find.text('Short unit description'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(
@@ -1623,7 +1626,7 @@ void main() {
             _step(
               level: 'A0',
               step: 1,
-              name: 'Saying what I can do',
+              name: 'A much longer unit title that needs more room',
               displayDescription: 'Tall unit description',
               count: 3,
             ),
@@ -1639,12 +1642,10 @@ void main() {
 
     final tallBoard = find.byKey(const ValueKey('garden-sheet-board'));
     final tallCard = find.byKey(const ValueKey('garden-sheet-card'));
-    final tallDescription = find.text('Tall unit description');
-    expect(tester.getSize(tallBoard).height, 64);
-    expect(
-      tester.getTopLeft(tallDescription).dy - tester.getTopLeft(tallCard).dy,
-      greaterThan(shortContentGap),
-    );
+    expect(tester.getSize(tallBoard).height, 56);
+    expect(tester.getSize(tallBoard).width, greaterThan(shortWidth));
+    expect(tester.getCenter(tallBoard).dx, tester.getCenter(tallCard).dx);
+    expect(find.text('Tall unit description'), findsNothing);
   });
 
   testWidgets(
@@ -1668,8 +1669,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('On Mastery, You Will Be Able To'), findsOneWidget);
-      expect(find.text('ON MASTERY, YOU WILL BE ABLE TO'), findsNothing);
+      expect(
+        find.text("When this garden blooms, you'll be able to"),
+        findsOneWidget,
+      );
       expect(
         tester.getSize(
           find.byKey(const ValueKey('garden-unit-skill-icon-voc-skill')),
@@ -1685,11 +1688,8 @@ void main() {
       expect(skillName.style?.fontWeight, FontWeight.w600);
       expect(find.text('Vocabulary'), findsOneWidget);
       expect(find.text('Grammar'), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('garden-unit-show-more')));
-      await tester.pump();
-
       expect(find.text('Fluency'), findsOneWidget);
+      expect(find.byKey(const ValueKey('garden-unit-show-more')), findsNothing);
     },
   );
 
@@ -2237,10 +2237,7 @@ void main() {
     // Real API evidence is shown for previous gardens.
     expect(find.text('You Said'), findsOneWidget);
     expect(find.textContaining('My friend is tall and happy.'), findsWidgets);
-    expect(
-      find.text('Talk with Ella to grow this skill.'),
-      findsNothing,
-    );
+    expect(find.text('Talk with Ella to grow this skill.'), findsNothing);
   });
 
   testWidgets(

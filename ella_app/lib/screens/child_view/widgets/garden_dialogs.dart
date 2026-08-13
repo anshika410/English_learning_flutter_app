@@ -20,6 +20,18 @@ const Color _woodNail = Color(0xFF3A2010);
 const Color _sectionTitle = Color(0xFF8C725B);
 const Color _emptyPrompt = Color(0xFF7A4400);
 
+const double _sheetBoardHeight = 56;
+const double _sheetBoardMinWidth = 268;
+const double _sheetBoardSheetInset = 16;
+const double _sheetBoardNailEdgeInset = 16;
+const double _sheetBoardNailSize = 6;
+const double _sheetBoardNailTitleClearance = 24;
+const double _sheetBoardPreferredTitleInset =
+    _sheetBoardNailEdgeInset +
+    _sheetBoardNailSize +
+    _sheetBoardNailTitleClearance;
+const double _sheetBoardMinTitleInset = 24;
+
 const String _tileAsset = 'assets/gardent-view/tiles.svg';
 const String _talkIconAsset = 'assets/information-box/talk-svgrepo-com.svg';
 const String _quoteIconAsset = 'assets/information-box/quote-mark.svg';
@@ -67,11 +79,7 @@ void showUnitSheet(
   _showGardenSheet(
     context,
     boardTitle: step.displayName,
-    child: _UnitSheetBody(
-      data: data,
-      step: step,
-      isPreviousGarden: isPreviousGarden,
-    ),
+    child: _UnitSheetBody(step: step, isPreviousGarden: isPreviousGarden),
   );
 }
 
@@ -88,9 +96,6 @@ void _showGardenSheet(
     builder: (ctx) {
       final mediaSize = MediaQuery.sizeOf(ctx);
       final maxSheetHeight = mediaSize.height * 0.78;
-      final sheetWidth = math.min(430.0, mediaSize.width - 48);
-      final boardWidth = _sheetBoardWidthFor(boardTitle, sheetWidth);
-      final boardHeight = _sheetBoardHeightFor(boardTitle);
       return Material(
         type: MaterialType.transparency,
         child: Center(
@@ -100,30 +105,41 @@ void _showGardenSheet(
               constraints: const BoxConstraints(maxWidth: 430),
               child: SizedBox(
                 width: double.infinity,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.topCenter,
-                  children: [
-                    Container(
-                      key: const ValueKey('garden-sheet-card'),
-                      width: double.infinity,
-                      constraints: BoxConstraints(maxHeight: maxSheetHeight),
-                      margin: EdgeInsets.only(top: boardHeight / 2),
-                      padding: EdgeInsets.fromLTRB(16, boardHeight + 8, 16, 24),
-                      clipBehavior: Clip.antiAlias,
-                      decoration: ellaSmoothDecoration(
-                        color: _sheetSurface,
-                        borderRadius: BorderRadius.circular(20),
-                        side: const BorderSide(color: _sheetBorder),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      Container(
+                        key: const ValueKey('garden-sheet-card'),
+                        width: double.infinity,
+                        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+                        margin: const EdgeInsets.only(
+                          top: _sheetBoardHeight / 2,
+                        ),
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          _sheetBoardHeight + 8,
+                          16,
+                          24,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        decoration: ellaSmoothDecoration(
+                          color: _sheetSurface,
+                          borderRadius: BorderRadius.circular(20),
+                          side: const BorderSide(color: _sheetBorder),
+                        ),
+                        child: SingleChildScrollView(child: child),
                       ),
-                      child: SingleChildScrollView(child: child),
-                    ),
-                    _SheetBoard(
-                      title: boardTitle,
-                      width: boardWidth,
-                      height: boardHeight,
-                    ),
-                  ],
+                      _SheetBoard(
+                        title: boardTitle,
+                        maxWidth: math.max(
+                          0.0,
+                          constraints.maxWidth - (_sheetBoardSheetInset * 2),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -134,37 +150,47 @@ void _showGardenSheet(
   );
 }
 
-int _titleWordCount(String title) =>
-    title.trim().split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
-
-double _sheetBoardWidthFor(String title, double sheetWidth) {
-  final maxWidth = math.max(0.0, sheetWidth);
-  final words = _titleWordCount(title);
-  if (words <= 2) return math.min(268.0, maxWidth);
-  if (words <= 3) return math.min(334.0, maxWidth);
-  return math.min(358.0, maxWidth);
-}
-
-double _sheetBoardHeightFor(String title) =>
-    _titleWordCount(title) <= 3 ? 48.0 : 64.0;
-
 class _SheetBoard extends StatelessWidget {
   final String title;
-  final double width;
-  final double height;
-  const _SheetBoard({
-    required this.title,
-    required this.width,
-    required this.height,
-  });
+  final double maxWidth;
+  const _SheetBoard({required this.title, required this.maxWidth});
 
   @override
   Widget build(BuildContext context) {
+    final titleStyle = EllaFonts.body(
+      const TextStyle(
+        fontSize: 18,
+        height: 1.2,
+        fontWeight: FontWeight.w600,
+        color: _woodText,
+      ),
+    );
+    final titlePainter = TextPainter(
+      text: TextSpan(text: title, style: titleStyle),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    // The board grows for the title while preserving a normal baseline width.
+    // At its maximum width, the title can use the flexible space between nails
+    // rather than wrapping because of fixed interior padding.
+    final width = math.min(
+      math.max(0.0, maxWidth),
+      math.max(
+        _sheetBoardMinWidth,
+        titlePainter.width + _sheetBoardPreferredTitleInset * 2,
+      ),
+    );
+    final titleInset = math.min(
+      _sheetBoardPreferredTitleInset,
+      math.max(_sheetBoardMinTitleInset, (width - titlePainter.width) / 2),
+    );
+    final titleFitsOnOneLine = titlePainter.width <= width - (titleInset * 2);
+
     return Container(
       key: const ValueKey('garden-sheet-board'),
       width: width,
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: _sheetBoardHeight,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: const LinearGradient(
@@ -199,27 +225,32 @@ class _SheetBoard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          const _NailDot(),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              maxLines: height > 48 ? 2 : 1,
-              textAlign: TextAlign.center,
-              style: EllaFonts.body(
-                const TextStyle(
-                  fontSize: 18,
-                  height: 1.6,
-                  fontWeight: FontWeight.w600,
-                  color: _woodText,
-                ),
+          const Positioned(
+            left: _sheetBoardNailEdgeInset,
+            top: (_sheetBoardHeight - _sheetBoardNailSize) / 2,
+            child: _NailDot(key: ValueKey('garden-sheet-left-nail')),
+          ),
+          const Positioned(
+            right: _sheetBoardNailEdgeInset,
+            top: (_sheetBoardHeight - _sheetBoardNailSize) / 2,
+            child: _NailDot(key: ValueKey('garden-sheet-right-nail')),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: titleInset),
+            child: Center(
+              child: Text(
+                title,
+                key: const ValueKey('garden-sheet-board-title'),
+                maxLines: titleFitsOnOneLine ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: titleStyle,
               ),
             ),
           ),
-          const SizedBox(width: 16),
-          const _NailDot(),
         ],
       ),
     );
@@ -227,13 +258,13 @@ class _SheetBoard extends StatelessWidget {
 }
 
 class _NailDot extends StatelessWidget {
-  const _NailDot();
+  const _NailDot({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 6,
-      height: 6,
+      width: _sheetBoardNailSize,
+      height: _sheetBoardNailSize,
       decoration: BoxDecoration(
         color: _woodNail,
         shape: BoxShape.circle,
@@ -737,38 +768,23 @@ class _EmptySkillState extends StatelessWidget {
 
 // ── Unit sheet body ────────────────────────────────────────────────────────
 
-class _UnitSheetBody extends StatefulWidget {
-  final GardenData data;
+class _UnitSheetBody extends StatelessWidget {
   final GardenStep step;
   final bool isPreviousGarden;
-  const _UnitSheetBody({
-    required this.data,
-    required this.step,
-    this.isPreviousGarden = false,
-  });
-
-  @override
-  State<_UnitSheetBody> createState() => _UnitSheetBodyState();
-}
-
-class _UnitSheetBodyState extends State<_UnitSheetBody> {
-  bool _expanded = false;
+  const _UnitSheetBody({required this.step, this.isPreviousGarden = false});
 
   @override
   Widget build(BuildContext context) {
-    final step = widget.step;
-    final visibleSkills = _expanded ? step.skills : step.skills.take(2);
-    final hasMore = step.skills.length > 2 && !_expanded;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          "When this blooms, you'll be able to",
+          "When this garden blooms, you'll be able to",
+          key: const ValueKey('garden-unit-sheet-heading'),
           style: EllaFonts.body(
             const TextStyle(
-              fontSize: 14,
+              fontSize: 16,
               height: 1.6,
               fontWeight: FontWeight.w600,
               color: _sectionTitle,
@@ -776,7 +792,7 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
           ),
         ),
         const SizedBox(height: 16),
-        for (final skill in visibleSkills) ...[
+        for (final skill in step.skills) ...[
           _SkillRow(
             skill: skill,
             onTap: () {
@@ -785,33 +801,11 @@ class _UnitSheetBodyState extends State<_UnitSheetBody> {
                 context,
                 step,
                 skill,
-                isPreviousGarden: widget.isPreviousGarden,
+                isPreviousGarden: isPreviousGarden,
               );
             },
           ),
-          if (skill != visibleSkills.last) const SizedBox(height: 16),
-        ],
-        if (hasMore) ...[
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.center,
-            child: TextButton.icon(
-              key: const ValueKey('garden-unit-show-more'),
-              onPressed: withTapClick(() => setState(() => _expanded = true)),
-              style: TextButton.styleFrom(
-                foregroundColor: EllaColors.soil,
-                textStyle: EllaFonts.body(
-                  const TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-              label: const Text('Show more'),
-            ),
-          ),
+          if (skill != step.skills.last) const SizedBox(height: 16),
         ],
       ],
     );

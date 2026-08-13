@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+<rect x="10" y="4.5" width="28" height="11" rx="3" fill="#FFC13B"></rect>
+<text x="24" y="13.2" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="10" font-weight="800" fill="#FFFDF4">1</text>
+<rect x="10" y="18.5" width="28" height="11" rx="3" fill="#ED6A5A"></rect>
+<text x="24" y="27.2" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="10" font-weight="800" fill="#FFFDF4">2</text>
+<rect x="10" y="32.5" width="28" height="11" rx="3" fill="#57C785"></rect>
+<text x="24" y="41.2" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="10" font-weight="800" fill="#FFFDF4">3</text>
+</svg>

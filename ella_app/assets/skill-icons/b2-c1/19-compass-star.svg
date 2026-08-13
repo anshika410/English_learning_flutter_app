@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+<circle cx="24" cy="25" r="19" fill="#57C785"></circle>
+<circle cx="24" cy="25" r="15" fill="#8FD9AE"></circle>
+<path d="M24 13 L28 25 L24 37 L20 25 Z" fill="#ED6A5A"></path>
+<circle cx="24" cy="25" r="2.6" fill="#FFFDF4"></circle>
+<text x="24" y="10" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="8" font-weight="800" fill="#3E8F63">?</text>
+</svg>
