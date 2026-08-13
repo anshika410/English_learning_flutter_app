@@ -35,9 +35,8 @@ Future<void> main() async {
     await Firebase.initializeApp();
     isFirebaseInitialized = true;
     
-    // Enable Crashlytics collection (enabled by default, but explicitly set here).
-    // You can set this to `!kDebugMode` if you want to avoid recording crashes during local development.
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    // Enable Crashlytics collection based on release mode.
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
     
     await AnalyticsService.logAppOpen();
   } catch (e) {
@@ -68,11 +67,6 @@ Future<void> main() async {
   };
 
   await dotenv.load(fileName: '.env');
-
-  await GoogleSignIn.instance.initialize(
-    clientId: kIsWeb ? dotenv.env['GOOGLE_CLIENT_ID'] : null,
-    serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_CLIENT_ID'],
-  );
   
   try {
     await GoogleSignIn.instance.initialize(

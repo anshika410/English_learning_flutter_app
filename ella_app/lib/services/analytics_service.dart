@@ -203,6 +203,13 @@ class AnalyticsService {
         'app_version': version,
       },
     );
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        'Technical Error: Stage=$stage, Code=$safeErrorCode',
+        StackTrace.current,
+        fatal: false,
+      );
+    } catch (_) {}
   }
 
   // ── 8. topic_presented ───────────────────────────────────────────────────
@@ -373,6 +380,13 @@ class AnalyticsService {
         'error_message': errorMessage,
       },
     );
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        'STT Error: $errorCode - $errorMessage',
+        StackTrace.current,
+        fatal: false,
+      );
+    } catch (_) {}
   }
 
   // Track keyboard toggle events
@@ -521,6 +535,13 @@ class AnalyticsService {
       name: 'tts_failed',
       parameters: {'error': error},
     );
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        'TTS Failure: $error',
+        StackTrace.current,
+        fatal: false,
+      );
+    } catch (_) {}
   }
 
   static Future<void> logMicPermissionDenied() async {
@@ -536,6 +557,13 @@ class AnalyticsService {
         'error': error,
       },
     );
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        'API Failure: $endpoint - $error',
+        StackTrace.current,
+        fatal: false,
+      );
+    } catch (_) {}
   }
 
   static Future<void> logApiRetry(String endpoint, int attempt) async {
@@ -580,6 +608,13 @@ class AnalyticsService {
       name: 'conversation_crashed',
       parameters: {'error': error},
     );
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        'Conversation Crashed: $error',
+        StackTrace.current,
+        fatal: false,
+      );
+    } catch (_) {}
   }
 
   static Future<void> logPlacementFailed(String error) async {
@@ -587,6 +622,13 @@ class AnalyticsService {
       name: 'placement_failed',
       parameters: {'error': error},
     );
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        'Placement Failed: $error',
+        StackTrace.current,
+        fatal: false,
+      );
+    } catch (_) {}
   }
 
   // === Layer 5: Engagement Analytics ===
