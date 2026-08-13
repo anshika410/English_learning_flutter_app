@@ -45,836 +45,713 @@ class UnitStep {
 // ── 124 flat CEFR skills ────────────────────────────────────────────────────
 
 const List<SkillDef> kFlatSkills = [
-  // A1: 7 VOC + 7 GRA + 6 FLU = 20
+  SkillDef(
+    id: 'A0-VOC-01',
+    level: 'A0',
+    strand: 'VOC',
+    text: "I can name familiar objects, animals, or colours when they come up in conversation.",
+  ),
+  SkillDef(
+    id: 'A0-VOC-02',
+    level: 'A0',
+    strand: 'VOC',
+    text: "I can use basic numbers when they come up in a simple conversation.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-01',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can use a, an, or the when naming a familiar object.",
+  ),
+  SkillDef(
+    id: 'A0-FLU-01',
+    level: 'A0',
+    strand: 'FLU',
+    text: "I can respond to a simple question with a familiar word or short phrase.",
+  ),
+  SkillDef(
+    id: 'A0-FLU-02',
+    level: 'A0',
+    strand: 'FLU',
+    text: "I can give a simple introduction with a name and age.",
+  ),
+  SkillDef(
+    id: 'A0-VOC-03',
+    level: 'A0',
+    strand: 'VOC',
+    text: "I can say who someone is in a family.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-02',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can use I am or I am not to describe myself or a character.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-03',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can say what I or another person has.",
+  ),
+  SkillDef(
+    id: 'A0-VOC-04',
+    level: 'A0',
+    strand: 'VOC',
+    text: "I can use familiar food, activity, animal, or colour words when they come up in conversation.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-04',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can use I like or I don't like to express a preference.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-05',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can use and to add another word or idea.",
+  ),
+  SkillDef(
+    id: 'A0-FLU-03',
+    level: 'A0',
+    strand: 'FLU',
+    text: "I can take part in a simple conversation about likes and dislikes.",
+  ),
+  SkillDef(
+    id: 'A0-VOC-05',
+    level: 'A0',
+    strand: 'VOC',
+    text: "I can use familiar action or position words when describing a simple situation.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-06',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can use can or can't to talk about ability.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-07',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can use a simple location sentence to say where something is.",
+  ),
+  SkillDef(
+    id: 'A0-FLU-04',
+    level: 'A0',
+    strand: 'FLU',
+    text: "I can take part in a simple exchange about abilities or locations.",
+  ),
+  SkillDef(
+    id: 'A0-VOC-06',
+    level: 'A0',
+    strand: 'VOC',
+    text: "I can use familiar action words when talking about what someone is doing.",
+  ),
+  SkillDef(
+    id: 'A0-GRA-08',
+    level: 'A0',
+    strand: 'GRA',
+    text: "I can use the present continuous to say what is happening now.",
+  ),
+  SkillDef(
+    id: 'A0-FLU-05',
+    level: 'A0',
+    strand: 'FLU',
+    text: "I can take part in a short exchange about a current activity.",
+  ),
+  SkillDef(
+    id: 'A0-FLU-06',
+    level: 'A0',
+    strand: 'FLU',
+    text: "I can ask for repetition when I do not understand.",
+  ),
   SkillDef(
     id: 'A1-VOC-01',
     level: 'A1',
     strand: 'VOC',
-    text: "I can say my name, age, and where I'm from.",
-  ),
-  SkillDef(
-    id: 'A1-VOC-02',
-    level: 'A1',
-    strand: 'VOC',
-    text: 'I can name everyday objects at home and school.',
-  ),
-  SkillDef(
-    id: 'A1-VOC-03',
-    level: 'A1',
-    strand: 'VOC',
-    text: 'I can say numbers, colours, and days of the week.',
-  ),
-  SkillDef(
-    id: 'A1-VOC-04',
-    level: 'A1',
-    strand: 'VOC',
-    text: 'I can name family members, common animals, and basic foods.',
-  ),
-  SkillDef(
-    id: 'A1-VOC-05',
-    level: 'A1',
-    strand: 'VOC',
-    text: 'I can use simple action words — eat, sleep, run, sit, write.',
-  ),
-  SkillDef(
-    id: 'A1-VOC-06',
-    level: 'A1',
-    strand: 'VOC',
-    text: 'I can describe how I feel — happy, sad, tired, hungry.',
-  ),
-  SkillDef(
-    id: 'A1-VOC-07',
-    level: 'A1',
-    strand: 'VOC',
-    text:
-        'I can use the words I know to make myself understood in everyday situations.',
+    text: "I can use simple adjectives to describe how a person looks or feels.",
   ),
   SkillDef(
     id: 'A1-GRA-01',
     level: 'A1',
     strand: 'GRA',
-    text: "I can say 'I am' and 'I am not' to describe myself.",
-  ),
-  SkillDef(
-    id: 'A1-GRA-02',
-    level: 'A1',
-    strand: 'GRA',
-    text: 'I can make simple sentences — I like dogs. I have a pen.',
-  ),
-  SkillDef(
-    id: 'A1-GRA-03',
-    level: 'A1',
-    strand: 'GRA',
-    text:
-        'I can talk about what I do every day using present simple — I go, I eat.',
-  ),
-  SkillDef(
-    id: 'A1-GRA-04',
-    level: 'A1',
-    strand: 'GRA',
-    text: "I can make negative sentences — I don't like, I don't have.",
-  ),
-  SkillDef(
-    id: 'A1-GRA-05',
-    level: 'A1',
-    strand: 'GRA',
-    text: 'I can ask simple questions — Do you like cricket? What is this?',
-  ),
-  SkillDef(
-    id: 'A1-GRA-06',
-    level: 'A1',
-    strand: 'GRA',
-    text: "I can use 'and' to join two ideas.",
-  ),
-  SkillDef(
-    id: 'A1-GRA-07',
-    level: 'A1',
-    strand: 'GRA',
-    text:
-        "I am starting to use 'a', 'an', and 'the' — and I'm learning when to use which one.",
+    text: "I can use the present continuous throughout a brief description of a scene.",
   ),
   SkillDef(
     id: 'A1-FLU-01',
     level: 'A1',
     strand: 'FLU',
-    text: 'I can speak in short sentences on very familiar topics.',
+    text: "I can give a short, connected description of a person, place, or scene.",
   ),
   SkillDef(
     id: 'A1-FLU-02',
     level: 'A1',
     strand: 'FLU',
-    text: 'I can keep a simple exchange going for 2–3 turns.',
+    text: "I can answer a follow-up question by adding a relevant detail.",
+  ),
+  SkillDef(
+    id: 'A1-VOC-02',
+    level: 'A1',
+    strand: 'VOC',
+    text: "I can use familiar past-time words when talking about an event.",
+  ),
+  SkillDef(
+    id: 'A1-GRA-02',
+    level: 'A1',
+    strand: 'GRA',
+    text: "I can use common past-simple verbs to talk about completed actions.",
   ),
   SkillDef(
     id: 'A1-FLU-03',
     level: 'A1',
     strand: 'FLU',
-    text: 'I can understand someone if they speak slowly and clearly.',
+    text: "I can recount a short event in a clear order.",
   ),
   SkillDef(
     id: 'A1-FLU-04',
     level: 'A1',
     strand: 'FLU',
-    text: "I can ask someone to repeat when I don't understand.",
+    text: "I can answer a simple question about a short spoken story.",
+  ),
+  SkillDef(
+    id: 'A1-VOC-03',
+    level: 'A1',
+    strand: 'VOC',
+    text: "I can use familiar phrases to introduce an opinion.",
+  ),
+  SkillDef(
+    id: 'A1-GRA-03',
+    level: 'A1',
+    strand: 'GRA',
+    text: "I can use because to connect an opinion to a reason.",
+  ),
+  SkillDef(
+    id: 'A1-GRA-04',
+    level: 'A1',
+    strand: 'GRA',
+    text: "I can use but to contrast two simple ideas.",
   ),
   SkillDef(
     id: 'A1-FLU-05',
     level: 'A1',
     strand: 'FLU',
-    text:
-        "I can get my meaning across even when I only have a word or two — and I keep trying even when it's difficult.",
+    text: "I can explain a simple opinion and respond to a related follow-up.",
+  ),
+  SkillDef(
+    id: 'A1-VOC-04',
+    level: 'A1',
+    strand: 'VOC',
+    text: "I can use familiar time words when talking about routines or plans.",
+  ),
+  SkillDef(
+    id: 'A1-GRA-05',
+    level: 'A1',
+    strand: 'GRA',
+    text: "I can use going to to talk about a plan.",
   ),
   SkillDef(
     id: 'A1-FLU-06',
     level: 'A1',
     strand: 'FLU',
-    text:
-        "I can introduce myself to someone new in English and keep going even when it's hard.",
+    text: "I can discuss a simple plan and respond to a question about it.",
   ),
-
-  // A2: 7 VOC + 7 GRA + 6 FLU = 20
+  SkillDef(
+    id: 'A1-VOC-05',
+    level: 'A1',
+    strand: 'VOC',
+    text: "I can use simple sequence words to organise what I say.",
+  ),
+  SkillDef(
+    id: 'A1-GRA-06',
+    level: 'A1',
+    strand: 'GRA',
+    text: "I can move between present and past forms when the meaning requires it.",
+  ),
+  SkillDef(
+    id: 'A1-FLU-07',
+    level: 'A1',
+    strand: 'FLU',
+    text: "I can stay in a familiar-topic conversation as it develops.",
+  ),
+  SkillDef(
+    id: 'A1-FLU-08',
+    level: 'A1',
+    strand: 'FLU',
+    text: "I can ask for repetition or say something another way after a communication problem.",
+  ),
   SkillDef(
     id: 'A2-VOC-01',
     level: 'A2',
     strand: 'VOC',
-    text:
-        'I can talk about topics like food, travel, weather, shopping, and school.',
+    text: "I can replace a general word with a more precise descriptive word.",
   ),
   SkillDef(
     id: 'A2-VOC-02',
     level: 'A2',
     strand: 'VOC',
-    text: 'I can use words to describe past events and experiences.',
-  ),
-  SkillDef(
-    id: 'A2-VOC-03',
-    level: 'A2',
-    strand: 'VOC',
-    text:
-        'I can use opinion words — I think, I feel, I believe, in my opinion.',
-  ),
-  SkillDef(
-    id: 'A2-VOC-04',
-    level: 'A2',
-    strand: 'VOC',
-    text: 'I can use linking words — and, but, because, so, then.',
-  ),
-  SkillDef(
-    id: 'A2-VOC-05',
-    level: 'A2',
-    strand: 'VOC',
-    text: 'I can understand and use common phrases in conversation.',
-  ),
-  SkillDef(
-    id: 'A2-VOC-06',
-    level: 'A2',
-    strand: 'VOC',
-    text:
-        'I have enough words to talk about everyday topics and express how I feel.',
-  ),
-  SkillDef(
-    id: 'A2-VOC-07',
-    level: 'A2',
-    strand: 'VOC',
-    text: 'I can use words for feelings — excited, nervous, proud, bored.',
+    text: "I can use a familiar fixed expression appropriately in conversation.",
   ),
   SkillDef(
     id: 'A2-GRA-01',
     level: 'A2',
     strand: 'GRA',
-    text: 'I can talk about the past using past simple — I went, I ate, I saw.',
-  ),
-  SkillDef(
-    id: 'A2-GRA-02',
-    level: 'A2',
-    strand: 'GRA',
-    text: "I can use 'going to' to talk about future plans.",
-  ),
-  SkillDef(
-    id: 'A2-GRA-03',
-    level: 'A2',
-    strand: 'GRA',
-    text:
-        'I can use comparative adjectives — bigger, faster, more interesting.',
-  ),
-  SkillDef(
-    id: 'A2-GRA-04',
-    level: 'A2',
-    strand: 'GRA',
-    text: "I can use 'can' and 'can't' to talk about ability.",
-  ),
-  SkillDef(
-    id: 'A2-GRA-05',
-    level: 'A2',
-    strand: 'GRA',
-    text: "I can use 'should' to give simple advice.",
-  ),
-  SkillDef(
-    id: 'A2-GRA-06',
-    level: 'A2',
-    strand: 'GRA',
-    text: "I can use 'there is' and 'there are' to describe places.",
-  ),
-  SkillDef(
-    id: 'A2-GRA-07',
-    level: 'A2',
-    strand: 'GRA',
-    text: 'I can ask questions using who, what, where, when, and why.',
+    text: "I can use the present perfect when a past experience or continuing situation is connected to now.",
   ),
   SkillDef(
     id: 'A2-FLU-01',
     level: 'A2',
     strand: 'FLU',
-    text:
-        'I can hold a short conversation on familiar topics without long silences.',
+    text: "I can explain an idea another way when a word is missing.",
+  ),
+  SkillDef(
+    id: 'A2-VOC-03',
+    level: 'A2',
+    strand: 'VOC',
+    text: "I can use contrast words to connect differing ideas.",
+  ),
+  SkillDef(
+    id: 'A2-GRA-02',
+    level: 'A2',
+    strand: 'GRA',
+    text: "I can combine past continuous background with a past-simple event.",
+  ),
+  SkillDef(
+    id: 'A2-GRA-03',
+    level: 'A2',
+    strand: 'GRA',
+    text: "I can use used to to contrast a past habit or state with the present.",
   ),
   SkillDef(
     id: 'A2-FLU-02',
     level: 'A2',
     strand: 'FLU',
-    text: "I can understand the main point even when I don't catch every word.",
+    text: "I can tell a past story with background, a main event, and a clear ending.",
+  ),
+  SkillDef(
+    id: 'A2-VOC-04',
+    level: 'A2',
+    strand: 'VOC',
+    text: "I can use stance phrases to show that a claim is my opinion.",
+  ),
+  SkillDef(
+    id: 'A2-GRA-04',
+    level: 'A2',
+    strand: 'GRA',
+    text: "I can use a first conditional to explain a realistic consequence.",
+  ),
+  SkillDef(
+    id: 'A2-GRA-05',
+    level: 'A2',
+    strand: 'GRA',
+    text: "I can choose a suitable modal for advice, possibility, or obligation.",
   ),
   SkillDef(
     id: 'A2-FLU-03',
     level: 'A2',
     strand: 'FLU',
-    text: "I can use simple phrases to buy time — 'let me think', 'I mean'.",
+    text: "I can develop and defend a simple opinion in conversation.",
+  ),
+  SkillDef(
+    id: 'A2-VOC-05',
+    level: 'A2',
+    strand: 'VOC',
+    text: "I can use linking expressions to show addition, contrast, or result.",
+  ),
+  SkillDef(
+    id: 'A2-GRA-06',
+    level: 'A2',
+    strand: 'GRA',
+    text: "I can use a relative clause to identify or describe something more precisely.",
   ),
   SkillDef(
     id: 'A2-FLU-04',
     level: 'A2',
     strand: 'FLU',
-    text: 'I can repair a conversation when I make a mistake.',
+    text: "I can organise an extended response so the main line is easy to follow.",
   ),
   SkillDef(
     id: 'A2-FLU-05',
     level: 'A2',
     strand: 'FLU',
-    text: 'I can speak at a slow but steady pace on topics I know well.',
+    text: "I can return to my main point after a clarification question.",
+  ),
+  SkillDef(
+    id: 'A2-VOC-06',
+    level: 'A2',
+    strand: 'VOC',
+    text: "I can adjust familiar wording for a more casual or formal situation.",
+  ),
+  SkillDef(
+    id: 'A2-GRA-07',
+    level: 'A2',
+    strand: 'GRA',
+    text: "I can maintain understandable tense control across a story or explanation.",
   ),
   SkillDef(
     id: 'A2-FLU-06',
     level: 'A2',
     strand: 'FLU',
-    text:
-        "I can talk about my daily life, interests, and opinions — and it feels like a real conversation.",
+    text: "I can respond to a related topic shift without losing the main thread.",
   ),
-
-  // B1: 7 VOC + 7 GRA + 7 FLU = 21
+  SkillDef(
+    id: 'A2-FLU-07',
+    level: 'A2',
+    strand: 'FLU',
+    text: "I can enter a simulated group discussion with a relevant contribution.",
+  ),
   SkillDef(
     id: 'B1-VOC-01',
     level: 'B1',
     strand: 'VOC',
-    text:
-        'I can discuss topics like health, education, and technology in simple terms.',
+    text: "I can replace vague wording with a more precise expression while preserving meaning.",
   ),
   SkillDef(
     id: 'B1-VOC-02',
     level: 'B1',
     strand: 'VOC',
-    text:
-        "I can use more specific words to make my ideas clearer — not just 'nice' but 'generous', not just 'said' but 'explained'.",
-  ),
-  SkillDef(
-    id: 'B1-VOC-03',
-    level: 'B1',
-    strand: 'VOC',
-    text: 'I can understand and use common idioms and fixed phrases.',
-  ),
-  SkillDef(
-    id: 'B1-VOC-04',
-    level: 'B1',
-    strand: 'VOC',
-    text: 'I can use contrast words — however, on the other hand, although.',
-  ),
-  SkillDef(
-    id: 'B1-VOC-05',
-    level: 'B1',
-    strand: 'VOC',
-    text: 'I can use sequence words — first, then, after that, finally.',
-  ),
-  SkillDef(
-    id: 'B1-VOC-06',
-    level: 'B1',
-    strand: 'VOC',
-    text:
-        'I have enough vocabulary to discuss a range of topics and organise my ideas clearly.',
-  ),
-  SkillDef(
-    id: 'B1-VOC-07',
-    level: 'B1',
-    strand: 'VOC',
-    text:
-        'I can use formal and informal vocabulary depending on the situation.',
+    text: "I can use common collocations appropriately in spontaneous speech.",
   ),
   SkillDef(
     id: 'B1-GRA-01',
     level: 'B1',
     strand: 'GRA',
-    text:
-        'I can use present perfect to talk about experiences — I have visited, I have tried.',
-  ),
-  SkillDef(
-    id: 'B1-GRA-02',
-    level: 'B1',
-    strand: 'GRA',
-    text:
-        "I can use 'will' and 'going to' to talk about the future in different ways.",
-  ),
-  SkillDef(
-    id: 'B1-GRA-03',
-    level: 'B1',
-    strand: 'GRA',
-    text: 'I can use first conditional — If I study, I will pass.',
-  ),
-  SkillDef(
-    id: 'B1-GRA-04',
-    level: 'B1',
-    strand: 'GRA',
-    text:
-        'I can use modal verbs — might, should, could, must — with reasonable accuracy.',
-  ),
-  SkillDef(
-    id: 'B1-GRA-05',
-    level: 'B1',
-    strand: 'GRA',
-    text: 'I can use relative clauses — the person who, the place where.',
-  ),
-  SkillDef(
-    id: 'B1-GRA-06',
-    level: 'B1',
-    strand: 'GRA',
-    text: 'I can use a range of tenses together in a story or description.',
-  ),
-  SkillDef(
-    id: 'B1-GRA-07',
-    level: 'B1',
-    strand: 'GRA',
-    text: 'I can use passive sentences — It was made, It is used.',
+    text: "I can use a second conditional to explore an unreal or unlikely situation.",
   ),
   SkillDef(
     id: 'B1-FLU-01',
     level: 'B1',
     strand: 'FLU',
-    text:
-        'I can speak for about a minute on a familiar topic without stopping.',
+    text: "I can explain a complex familiar idea without removing important qualifications.",
+  ),
+  SkillDef(
+    id: 'B1-VOC-03',
+    level: 'B1',
+    strand: 'VOC',
+    text: "I can choose language that shows an appropriate degree of certainty.",
+  ),
+  SkillDef(
+    id: 'B1-GRA-02',
+    level: 'B1',
+    strand: 'GRA',
+    text: "I can use a third conditional to explain an unreal past cause and consequence.",
+  ),
+  SkillDef(
+    id: 'B1-GRA-03',
+    level: 'B1',
+    strand: 'GRA',
+    text: "I can report a statement or question while preserving its meaning.",
   ),
   SkillDef(
     id: 'B1-FLU-02',
     level: 'B1',
     strand: 'FLU',
-    text: 'I can keep a conversation going even when I make grammar mistakes.',
+    text: "I can use complex sentences while keeping the main point clear.",
+  ),
+  SkillDef(
+    id: 'B1-VOC-04',
+    level: 'B1',
+    strand: 'VOC',
+    text: "I can use conversational markers to open, redirect, resume, or close a point.",
+  ),
+  SkillDef(
+    id: 'B1-GRA-04',
+    level: 'B1',
+    strand: 'GRA',
+    text: "I can choose active or passive voice according to what I want to emphasise.",
   ),
   SkillDef(
     id: 'B1-FLU-03',
     level: 'B1',
     strand: 'FLU',
-    text: 'I can switch between topics naturally in a conversation.',
+    text: "I can sustain a structured response across connected turns and follow-up questions.",
   ),
   SkillDef(
     id: 'B1-FLU-04',
     level: 'B1',
     strand: 'FLU',
-    text: "I can understand most of what someone says even at a normal pace.",
+    text: "I can keep a clear main thread when the conversation moves to a related topic.",
+  ),
+  SkillDef(
+    id: 'B1-VOC-05',
+    level: 'B1',
+    strand: 'VOC',
+    text: "I can use language for claims, evidence, and counterarguments in a discussion.",
+  ),
+  SkillDef(
+    id: 'B1-GRA-05',
+    level: 'B1',
+    strand: 'GRA',
+    text: "I can use linking or emphasis structures to make an argument easier to follow.",
   ),
   SkillDef(
     id: 'B1-FLU-05',
     level: 'B1',
     strand: 'FLU',
-    text:
-        'I can express and explain my opinions clearly enough to be understood.',
+    text: "I can support a position and address an opposing point.",
   ),
   SkillDef(
     id: 'B1-FLU-06',
     level: 'B1',
     strand: 'FLU',
-    text:
-        "I can join a conversation, add my ideas, and keep things going — even on topics I didn't prepare for.",
+    text: "I can challenge an idea respectfully and respond to the reply.",
+  ),
+  SkillDef(
+    id: 'B1-VOC-06',
+    level: 'B1',
+    strand: 'VOC',
+    text: "I can adapt my wording for casual, formal, or persuasive speaking.",
+  ),
+  SkillDef(
+    id: 'B1-GRA-06',
+    level: 'B1',
+    strand: 'GRA',
+    text: "I can maintain generally reliable control of B2 grammar across spontaneous tasks.",
   ),
   SkillDef(
     id: 'B1-FLU-07',
     level: 'B1',
     strand: 'FLU',
-    text: 'I can tell a story or describe an event with a clear structure.',
+    text: "I can respond spontaneously to familiar and moderately abstract questions.",
   ),
-
-  // B2: 7 VOC + 7 GRA + 7 FLU = 21
+  SkillDef(
+    id: 'B1-FLU-08',
+    level: 'B1',
+    strand: 'FLU',
+    text: "I can convey a personal stance and appropriate humour or emphasis while remaining clear.",
+  ),
   SkillDef(
     id: 'B2-VOC-01',
     level: 'B2',
     strand: 'VOC',
-    text:
-        'I can discuss abstract and complex topics — justice, identity, progress, culture.',
+    text: "I can choose words for precise meaning, connotation, and context.",
   ),
   SkillDef(
     id: 'B2-VOC-02',
     level: 'B2',
     strand: 'VOC',
-    text: 'I can use a wide range of vocabulary including less common words.',
-  ),
-  SkillDef(
-    id: 'B2-VOC-03',
-    level: 'B2',
-    strand: 'VOC',
-    text: 'I can use idiomatic language naturally without it sounding forced.',
-  ),
-  SkillDef(
-    id: 'B2-VOC-04',
-    level: 'B2',
-    strand: 'VOC',
-    text: 'I can choose precise words to say exactly what I mean.',
-  ),
-  SkillDef(
-    id: 'B2-VOC-05',
-    level: 'B2',
-    strand: 'VOC',
-    text:
-        "I can understand vocabulary in context even if I haven't seen it before.",
-  ),
-  SkillDef(
-    id: 'B2-VOC-06',
-    level: 'B2',
-    strand: 'VOC',
-    text:
-        "I have a wide vocabulary that lets me say what I mean, even on complex topics.",
-  ),
-  SkillDef(
-    id: 'B2-VOC-07',
-    level: 'B2',
-    strand: 'VOC',
-    text:
-        'I can use different registers — casual with friends, formal in a debate.',
+    text: "I can explain an abstract concept and distinguish it from a related concept.",
   ),
   SkillDef(
     id: 'B2-GRA-01',
     level: 'B2',
     strand: 'GRA',
-    text: 'I can use a wide range of tenses accurately in extended speech.',
-  ),
-  SkillDef(
-    id: 'B2-GRA-02',
-    level: 'B2',
-    strand: 'GRA',
-    text:
-        'I can use complex conditionals — If I had studied, I would have passed.',
-  ),
-  SkillDef(
-    id: 'B2-GRA-03',
-    level: 'B2',
-    strand: 'GRA',
-    text: 'I can use reported speech — She said that she would come.',
-  ),
-  SkillDef(
-    id: 'B2-GRA-04',
-    level: 'B2',
-    strand: 'GRA',
-    text:
-        'I can use a range of linking devices to build clear, structured arguments.',
-  ),
-  SkillDef(
-    id: 'B2-GRA-05',
-    level: 'B2',
-    strand: 'GRA',
-    text: 'I can use passive and active voice flexibly depending on emphasis.',
-  ),
-  SkillDef(
-    id: 'B2-GRA-06',
-    level: 'B2',
-    strand: 'GRA',
-    text:
-        'I can use cleft sentences for emphasis — What I mean is… It was she who…',
-  ),
-  SkillDef(
-    id: 'B2-GRA-07',
-    level: 'B2',
-    strand: 'GRA',
-    text:
-        "I make grammar mistakes occasionally but they rarely affect understanding.",
+    text: "I can use an emphasis structure when it suits the spoken purpose.",
   ),
   SkillDef(
     id: 'B2-FLU-01',
     level: 'B2',
     strand: 'FLU',
-    text:
-        'I can speak naturally and at a comfortable pace without noticeable effort.',
+    text: "I can express a nuanced position with its qualifications and implications intact.",
+  ),
+  SkillDef(
+    id: 'B2-VOC-03',
+    level: 'B2',
+    strand: 'VOC',
+    text: "I can express a complex idea concisely and unpack it when clarification is needed.",
+  ),
+  SkillDef(
+    id: 'B2-GRA-02',
+    level: 'B2',
+    strand: 'GRA',
+    text: "I can use modal-perfect forms to evaluate or speculate about past actions.",
+  ),
+  SkillDef(
+    id: 'B2-GRA-03',
+    level: 'B2',
+    strand: 'GRA',
+    text: "I can use layered clauses while keeping the sentence understandable.",
   ),
   SkillDef(
     id: 'B2-FLU-02',
     level: 'B2',
     strand: 'FLU',
-    text:
-        'I can handle interruptions and unexpected questions without losing my thread.',
+    text: "I can reformulate a complex answer for a listener without losing its meaning.",
+  ),
+  SkillDef(
+    id: 'B2-VOC-04',
+    level: 'B2',
+    strand: 'VOC',
+    text: "I can use discourse markers to signal consequence, concession, movement, or conclusion.",
+  ),
+  SkillDef(
+    id: 'B2-GRA-04',
+    level: 'B2',
+    strand: 'GRA',
+    text: "I can use reference and substitution to maintain cohesion without confusing repetition.",
   ),
   SkillDef(
     id: 'B2-FLU-03',
     level: 'B2',
     strand: 'FLU',
-    text: 'I can argue, persuade, and negotiate in English with confidence.',
+    text: "I can sustain and organise a complex discussion across connected turns.",
   ),
   SkillDef(
     id: 'B2-FLU-04',
     level: 'B2',
     strand: 'FLU',
-    text: 'I can understand fast, natural speech including different accents.',
+    text: "I can contribute effectively to an academic or professional discussion.",
+  ),
+  SkillDef(
+    id: 'B2-VOC-05',
+    level: 'B2',
+    strand: 'VOC',
+    text: "I can adapt vocabulary and register when the audience, relationship, or purpose changes.",
+  ),
+  SkillDef(
+    id: 'B2-GRA-05',
+    level: 'B2',
+    strand: 'GRA',
+    text: "I can choose among neutral, emphatic, and elliptical structures according to purpose.",
   ),
   SkillDef(
     id: 'B2-FLU-05',
     level: 'B2',
     strand: 'FLU',
-    text:
-        'I can pick up on tone and emotion — sarcasm, humour, frustration — in conversation.',
+    text: "I can shift speaking style when the audience or purpose changes.",
+  ),
+  SkillDef(
+    id: 'B2-VOC-06',
+    level: 'B2',
+    strand: 'VOC',
+    text: "I can convey attitude, irony, or humour in a way that makes my intended stance clear.",
+  ),
+  SkillDef(
+    id: 'B2-GRA-06',
+    level: 'B2',
+    strand: 'GRA',
+    text: "I can maintain high grammatical control and self-correct without disrupting the exchange.",
   ),
   SkillDef(
     id: 'B2-FLU-06',
     level: 'B2',
     strand: 'FLU',
-    text:
-        "I can recover from mistakes smoothly without the conversation breaking down.",
+    text: "I can present a complex idea, respond to challenge, and refine it for the listener.",
   ),
   SkillDef(
     id: 'B2-FLU-07',
     level: 'B2',
     strand: 'FLU',
-    text:
-        'I can express who I am in English — my personality, my opinions, my sense of humour.',
+    text: "I can handle an unfamiliar high-level speaking task by clarifying and structuring my response.",
   ),
-
-  // C1: 7 VOC + 7 GRA + 7 FLU = 21
   SkillDef(
     id: 'C1-VOC-01',
     level: 'C1',
     strand: 'VOC',
-    text:
-        'I can use a wide range of vocabulary to give and exchange views — on familiar topics and unfamiliar ones.',
+    text: "I can select words for precision, connotation, and rhetorical effect.",
   ),
   SkillDef(
     id: 'C1-VOC-02',
     level: 'C1',
     strand: 'VOC',
-    text:
-        "I can use abstract and less common vocabulary naturally — words like 'empathetic', 'burden', 'asset', 'cycle of life' come up in my speech without effort.",
-  ),
-  SkillDef(
-    id: 'C1-VOC-03',
-    level: 'C1',
-    strand: 'VOC',
-    text:
-        "I can choose words precisely — I know the difference between near-synonyms and pick the one that fits the moment.",
-  ),
-  SkillDef(
-    id: 'C1-VOC-04',
-    level: 'C1',
-    strand: 'VOC',
-    text:
-        "I can use vocabulary to convey my attitude and point of view, not just the facts — my word choice reflects how I feel about what I'm saying.",
-  ),
-  SkillDef(
-    id: 'C1-VOC-05',
-    level: 'C1',
-    strand: 'VOC',
-    text:
-        "I can shift between formal and informal language naturally, depending on who I'm speaking to and what the situation calls for.",
-  ),
-  SkillDef(
-    id: 'C1-VOC-06',
-    level: 'C1',
-    strand: 'VOC',
-    text:
-        "I have the vocabulary I need for any topic I want to talk about — and I can always find a way to say exactly what I mean.",
-  ),
-  SkillDef(
-    id: 'C1-VOC-07',
-    level: 'C1',
-    strand: 'VOC',
-    text:
-        "I sometimes choose a word that isn't quite right, but it rarely gets in the way — I always find a way to get my meaning across.",
+    text: "I can adapt language sensitively to audience, relationship, and purpose.",
   ),
   SkillDef(
     id: 'C1-GRA-01',
     level: 'C1',
     strand: 'GRA',
-    text:
-        'I can use a wide range of grammatical structures with confidence — complex sentences, passive forms, participle clauses, and more.',
-  ),
-  SkillDef(
-    id: 'C1-GRA-02',
-    level: 'C1',
-    strand: 'GRA',
-    text:
-        "I can use modal verbs accurately to speculate, deduce, and express criticism — 'it must have been', 'she could have known', 'they should have acted'.",
-  ),
-  SkillDef(
-    id: 'C1-GRA-03',
-    level: 'C1',
-    strand: 'GRA',
-    text:
-        'I can use discourse markers and cohesive devices to organise and connect what I say — my speech flows naturally and is easy for the listener to follow.',
-  ),
-  SkillDef(
-    id: 'C1-GRA-04',
-    level: 'C1',
-    strand: 'GRA',
-    text:
-        "I can express complex ideas concisely — I don't just describe things, I can name them precisely and build on them.",
-  ),
-  SkillDef(
-    id: 'C1-GRA-05',
-    level: 'C1',
-    strand: 'GRA',
-    text:
-        'I can use conditional and hypothetical structures accurately across different tenses — I make occasional minor errors but they don\'t change my meaning.',
-  ),
-  SkillDef(
-    id: 'C1-GRA-06',
-    level: 'C1',
-    strand: 'GRA',
-    text:
-        'I can produce extended, coherent responses that are easy to follow — my ideas connect and build on each other naturally.',
-  ),
-  SkillDef(
-    id: 'C1-GRA-07',
-    level: 'C1',
-    strand: 'GRA',
-    text:
-        "I make occasional errors — especially in complex structures — but they rarely affect understanding and don't interrupt the flow of what I'm saying.",
+    text: "I can use formal or literary-style structures selectively when they suit the occasion.",
   ),
   SkillDef(
     id: 'C1-FLU-01',
     level: 'C1',
     strand: 'FLU',
-    text:
-        'I can speak at length with very little hesitation — on familiar topics and on abstract or unfamiliar ones too.',
+    text: "I can communicate complex, emotional, abstract, or creative content and clarify it when challenged.",
+  ),
+  SkillDef(
+    id: 'C1-VOC-03',
+    level: 'C1',
+    strand: 'VOC',
+    text: "I can create and interpret figurative language that fits the conversational context.",
+  ),
+  SkillDef(
+    id: 'C1-GRA-02',
+    level: 'C1',
+    strand: 'GRA',
+    text: "I can use syntax, rhythm, emphasis, and contrast deliberately to shape a spoken message.",
+  ),
+  SkillDef(
+    id: 'C1-GRA-03',
+    level: 'C1',
+    strand: 'GRA',
+    text: "I can draw on a very wide grammatical repertoire without making marked forms sound inappropriate.",
   ),
   SkillDef(
     id: 'C1-FLU-02',
     level: 'C1',
     strand: 'FLU',
-    text:
-        'I can understand and engage with complex ideas, abstract concepts, and unfamiliar subjects in conversation.',
+    text: "I can produce an extended, well-structured response to an unseen complex prompt.",
+  ),
+  SkillDef(
+    id: 'C1-VOC-04',
+    level: 'C1',
+    strand: 'VOC',
+    text: "I can infer and discuss an unfamiliar allusion or historically marked expression when context is provided.",
+  ),
+  SkillDef(
+    id: 'C1-GRA-04',
+    level: 'C1',
+    strand: 'GRA',
+    text: "I can flexibly report, hypothesise, and shift emphasis across an extended exchange.",
   ),
   SkillDef(
     id: 'C1-FLU-03',
     level: 'C1',
     strand: 'FLU',
-    text:
-        'I can contribute effectively to discussions — I develop my own ideas, respond to others, and widen the conversation rather than just answering questions.',
+    text: "I can engage with proficient speakers who use varied speaking styles and clarify when necessary.",
   ),
   SkillDef(
     id: 'C1-FLU-04',
     level: 'C1',
     strand: 'FLU',
-    text:
-        'I can adjust how I speak depending on the situation — a casual conversation and a more formal discussion feel equally natural to me.',
+    text: "I can enter, hold, yield, and regain the floor in a simulated multiparty discussion.",
+  ),
+  SkillDef(
+    id: 'C1-VOC-05',
+    level: 'C1',
+    strand: 'VOC',
+    text: "I can retrieve, replace, and reformulate precise vocabulary under conversational pressure.",
+  ),
+  SkillDef(
+    id: 'C1-GRA-05',
+    level: 'C1',
+    strand: 'GRA',
+    text: "I can maintain grammatical control while planning, responding to challenge, and changing register.",
   ),
   SkillDef(
     id: 'C1-FLU-05',
     level: 'C1',
     strand: 'FLU',
-    text:
-        'My responses are always relevant and coherent — I stay on topic, develop ideas clearly, and use varied language to keep the listener engaged.',
+    text: "I can repair a rare language problem unobtrusively while preserving the flow.",
   ),
   SkillDef(
     id: 'C1-FLU-06',
     level: 'C1',
     strand: 'FLU',
-    text:
-        'I can interact with ease — I link what I say to what others have said, help move the conversation forward, and negotiate towards a shared understanding.',
+    text: "I can sustain a recognisable personal voice across different speaking purposes.",
+  ),
+  SkillDef(
+    id: 'C1-VOC-06',
+    level: 'C1',
+    strand: 'VOC',
+    text: "I can use exceptionally precise and flexible vocabulary across demanding speaking contexts.",
+  ),
+  SkillDef(
+    id: 'C1-GRA-06',
+    level: 'C1',
+    strand: 'GRA',
+    text: "I can use a very broad grammatical repertoire accurately and appropriately across contexts.",
   ),
   SkillDef(
     id: 'C1-FLU-07',
     level: 'C1',
     strand: 'FLU',
-    text:
-        "I can talk about anything that comes up — even topics I haven't prepared for — with confidence and very little hesitation.",
-  ),
-
-  // C2: 7 VOC + 7 GRA + 7 FLU = 21
-  SkillDef(
-    id: 'C2-VOC-01',
-    level: 'C2',
-    strand: 'VOC',
-    text:
-        'I can use vocabulary flexibly and naturally across any topic — my word choices feel appropriate and precise without effort.',
+    text: "I can deliberately vary warmth, authority, creativity, and restraint while remaining precise.",
   ),
   SkillDef(
-    id: 'C2-VOC-02',
-    level: 'C2',
-    strand: 'VOC',
-    text:
-        "I can use less common words and phrases naturally — expressions like 'a detriment to', 'especially in this day and age', 'carry forward', and 'strive for' appear in my speech without sounding forced.",
-  ),
-  SkillDef(
-    id: 'C2-VOC-03',
-    level: 'C2',
-    strand: 'VOC',
-    text:
-        "I can use idiomatic language, phrasal verbs, and figurative expressions as a natural part of how I speak — not as things I've memorised but as things I've genuinely absorbed.",
-  ),
-  SkillDef(
-    id: 'C2-VOC-04',
-    level: 'C2',
-    strand: 'VOC',
-    text:
-        'My vocabulary is flexible enough to allow me to reformulate, paraphrase, and express the same idea in different ways depending on what the moment requires.',
-  ),
-  SkillDef(
-    id: 'C2-VOC-05',
-    level: 'C2',
-    strand: 'VOC',
-    text:
-        'I can discuss abstract ideas and complex concepts with the same ease I use to talk about everyday topics.',
-  ),
-  SkillDef(
-    id: 'C2-VOC-06',
-    level: 'C2',
-    strand: 'VOC',
-    text:
-        "I can use less common and sophisticated words without sounding unnatural — they feel like a genuine part of how I speak.",
-  ),
-  SkillDef(
-    id: 'C2-VOC-07',
-    level: 'C2',
-    strand: 'VOC',
-    text:
-        'My vocabulary feels like mine — precise, flexible, and natural across every topic and situation.',
-  ),
-  SkillDef(
-    id: 'C2-GRA-01',
-    level: 'C2',
-    strand: 'GRA',
-    text:
-        'I use a wide range of grammatical forms with flexibility and accuracy — my language feels natural, not constructed.',
-  ),
-  SkillDef(
-    id: 'C2-GRA-02',
-    level: 'C2',
-    strand: 'GRA',
-    text:
-        'I can use complex structures — complex conditionals, passive forms, embedded clauses — accurately and naturally in extended speech.',
-  ),
-  SkillDef(
-    id: 'C2-GRA-03',
-    level: 'C2',
-    strand: 'GRA',
-    text:
-        "My grammar supports my meaning rather than getting in the way of it — I can say exactly what I mean, even when the idea is complex or abstract.",
-  ),
-  SkillDef(
-    id: 'C2-GRA-04',
-    level: 'C2',
-    strand: 'GRA',
-    text:
-        "I can use stress, intonation, and grammatical emphasis to highlight what matters most in what I'm saying.",
-  ),
-  SkillDef(
-    id: 'C2-GRA-05',
-    level: 'C2',
-    strand: 'GRA',
-    text:
-        "I make very few errors — and when I do, they are minor and do not affect understanding or the natural flow of my speech.",
-  ),
-  SkillDef(
-    id: 'C2-GRA-06',
-    level: 'C2',
-    strand: 'GRA',
-    text:
-        'I can handle any grammatical demand a conversation places on me — from quick casual responses to extended, structured arguments.',
-  ),
-  SkillDef(
-    id: 'C2-GRA-07',
-    level: 'C2',
-    strand: 'GRA',
-    text:
-        'My grammar is flexible — I can vary my structures to add emphasis, adjust formality, or make my speech more engaging.',
-  ),
-  SkillDef(
-    id: 'C2-FLU-01',
-    level: 'C2',
+    id: 'C1-FLU-08',
+    level: 'C1',
     strand: 'FLU',
-    text:
-        'I can communicate on any topic — familiar, unfamiliar, abstract, or complex — with no hesitation.',
-  ),
-  SkillDef(
-    id: 'C2-FLU-02',
-    level: 'C2',
-    strand: 'FLU',
-    text:
-        "I don't just respond to what others say, I extend ideas, introduce new angles, and help move the conversation forward.",
-  ),
-  SkillDef(
-    id: 'C2-FLU-03',
-    level: 'C2',
-    strand: 'FLU',
-    text:
-        'I can produce extended, coherent stretches of language with flexibility and ease — my speech is organised, varied, and clear even in complex exchanges.',
-  ),
-  SkillDef(
-    id: 'C2-FLU-04',
-    level: 'C2',
-    strand: 'FLU',
-    text:
-        'I can interact with ease — linking my contributions to others, interweaving my ideas into the conversation, and leading discussions towards a conclusion.',
-  ),
-  SkillDef(
-    id: 'C2-FLU-05',
-    level: 'C2',
-    strand: 'FLU',
-    text:
-        'I can adapt the language I use to give emphasis, fit the situation, or be more precise — reformulating and paraphrasing naturally when it helps.',
-  ),
-  SkillDef(
-    id: 'C2-FLU-06',
-    level: 'C2',
-    strand: 'FLU',
-    text:
-        'I can discuss abstract ideas, unfamiliar topics, and complex concepts with accuracy and flexibility — this is what English at its highest level feels like.',
-  ),
-  SkillDef(
-    id: 'C2-FLU-07',
-    level: 'C2',
-    strand: 'FLU',
-    text:
-        "English at this level feels effortless — not because it's easy, but because I've made it my own.",
+    text: "I can adapt to unfamiliar, complex speaking purposes without losing precision.",
   ),
 ];
 
@@ -890,19 +767,25 @@ const List<UnitStep> kUnitSteps = [
         id: 'U1-VOC-01',
         strand: 'VOC',
         text:
-            'I can describe what people look like and how they feel using simple adjectives.',
+            'I can use simple adjectives to describe how a person looks or feels.',
       ),
       UnitSkillRef(
         id: 'U1-GRA-01',
         strand: 'GRA',
         text:
-            'I can use the present continuous to describe what is happening now — She is running.',
+            'I can use the present continuous throughout a brief description of a scene.',
       ),
       UnitSkillRef(
         id: 'U1-FLU-01',
         strand: 'FLU',
         text:
-            'I can describe a picture or a place using 3–4 connected sentences.',
+            'I can give a short, connected description of a person, place, or scene.',
+      ),
+      UnitSkillRef(
+        id: 'U1-FLU-02',
+        strand: 'FLU',
+        text:
+            'I can answer a follow-up question by adding a relevant detail.',
       ),
     ],
   ),
@@ -915,25 +798,25 @@ const List<UnitStep> kUnitSteps = [
         id: 'U2-VOC-01',
         strand: 'VOC',
         text:
-            'I can use past time expressions — yesterday, last week, a long time ago.',
+            'I can use familiar past-time words when talking about an event.',
       ),
       UnitSkillRef(
         id: 'U2-GRA-01',
         strand: 'GRA',
         text:
-            'I can use past simple with regular verbs — I walked, I watched, I played.',
-      ),
-      UnitSkillRef(
-        id: 'U2-GRA-02',
-        strand: 'GRA',
-        text:
-            'I can use some irregular past verbs — I went, I saw, I ate, I had.',
+            'I can use common past-simple verbs to talk about completed actions.',
       ),
       UnitSkillRef(
         id: 'U2-FLU-01',
         strand: 'FLU',
         text:
-            'I can talk about something I did recently in a few connected sentences.',
+            'I can recount a short event in a clear order.',
+      ),
+      UnitSkillRef(
+        id: 'U2-FLU-02',
+        strand: 'FLU',
+        text:
+            'I can answer a simple question about a short spoken story.',
       ),
     ],
   ),
@@ -946,25 +829,25 @@ const List<UnitStep> kUnitSteps = [
         id: 'U3-VOC-01',
         strand: 'VOC',
         text:
-            'I can use simple opinion words — I think, I feel, I prefer, I love, I hate.',
+            'I can use familiar phrases to introduce an opinion.',
       ),
       UnitSkillRef(
         id: 'U3-GRA-01',
         strand: 'GRA',
         text:
-            "I can use 'because' to give a reason — I like cricket because it's exciting.",
+            'I can use because to connect an opinion to a reason.',
       ),
       UnitSkillRef(
         id: 'U3-GRA-02',
         strand: 'GRA',
         text:
-            "I can use 'but' to show contrast — I like football but not swimming.",
+            'I can use but to contrast two simple ideas.',
       ),
       UnitSkillRef(
         id: 'U3-FLU-01',
         strand: 'FLU',
         text:
-            'I can share a simple opinion and give at least one reason for it.',
+            'I can explain a simple opinion and respond to a related follow-up.',
       ),
     ],
   ),
@@ -977,25 +860,19 @@ const List<UnitStep> kUnitSteps = [
         id: 'U4-VOC-01',
         strand: 'VOC',
         text:
-            'I can use frequency words — always, usually, sometimes, never, often.',
-      ),
-      UnitSkillRef(
-        id: 'U4-VOC-02',
-        strand: 'VOC',
-        text:
-            'I can use future time expressions — tomorrow, next week, soon, one day.',
+            'I can use familiar time words when talking about routines or plans.',
       ),
       UnitSkillRef(
         id: 'U4-GRA-01',
         strand: 'GRA',
         text:
-            "I can use 'going to' to talk about a plan — I'm going to study tonight.",
+            'I can use going to to talk about a plan.',
       ),
       UnitSkillRef(
         id: 'U4-FLU-01',
         strand: 'FLU',
         text:
-            'I can talk about what I am going to do and give a simple reason why.',
+            'I can discuss a simple plan and respond to a question about it.',
       ),
     ],
   ),
@@ -1008,24 +885,25 @@ const List<UnitStep> kUnitSteps = [
         id: 'U5-VOC-01',
         strand: 'VOC',
         text:
-            'I can use connecting phrases — first, then, after that, in the end.',
+            'I can use simple sequence words to organise what I say.',
       ),
       UnitSkillRef(
         id: 'U5-GRA-01',
         strand: 'GRA',
         text:
-            'I can use present simple, present continuous, and past simple together in a story.',
+            'I can move between present and past forms when the meaning requires it.',
       ),
       UnitSkillRef(
         id: 'U5-FLU-01',
         strand: 'FLU',
         text:
-            'I can hold a short back-and-forth conversation on a familiar topic without long pauses.',
+            'I can stay in a familiar-topic conversation as it develops.',
       ),
       UnitSkillRef(
         id: 'U5-FLU-02',
         strand: 'FLU',
-        text: "I can keep going even when I'm not 100% sure of every word.",
+        text:
+            'I can ask for repetition or say something another way after a communication problem.',
       ),
     ],
   ),
