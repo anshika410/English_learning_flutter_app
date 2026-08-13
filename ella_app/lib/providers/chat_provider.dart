@@ -8,6 +8,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants.dart';
 import '../core/engine.dart';
@@ -148,7 +149,7 @@ class ChatState {
 // reject it, which is exactly why we ALSO skip Supabase writes when offline.
 const String _kOfflineChildId = '00000000-0000-0000-0000-000000000000';
 
-class ChatNotifier extends AsyncNotifier<ChatState> {
+class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver {
   // Resolved at build() time. Equals the Supabase auth uid when sign-in
   // succeeds; equals _kOfflineChildId otherwise.
   late String _childId;
@@ -166,6 +167,12 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
 
   @override
   Future<ChatState> build() async {
+    // Register app lifecycle observer to stop recording when app goes to background
+    WidgetsBinding.instance.addObserver(this);
+    ref.onDispose(() {
+      WidgetsBinding.instance.removeObserver(this);
+    });
+
     // Init TTS eagerly (no permission needed). STT initialize() triggers the OS
     // mic-permission prompt, so it is deferred to the first listen (see
     // startListening) to avoid blocking screen load / prompting at launch.
@@ -292,6 +299,41 @@ class ChatNotifier extends AsyncNotifier<ChatState> {
       chatNumber: nextChatNumber,
       lastSyncError: syncError,
     );
+  }
+
+  // ── App Lifecycle Observer ────────────────────────────────────────────────
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    switch (lifecycleState) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // App going to background - stop recording immediately if active
+        if (state.hasValue) {
+          final cur = state.requireValue;
+          if (cur.status == ChatStatus.userSpeaking) {
+            // Stop the microphone and finalize whatever was captured
+            stopListening();
+            
+            // Update state to idle with clear message
+            if (state.hasValue) {
+              state = AsyncValue.data(
+                state.requireValue.copyWith(
+                  status: ChatStatus.idle,
+                  clearPartialStt: true,
+                ),
+              );
+            }
+          }
+        }
+        break;
+      case AppLifecycleState.resumed:
+        // App back in foreground - no action needed
+        // User must tap the mic button again to start recording
+        break;
+    }
   }
 
   // ── Placement completion ──────────────────────────────────────────────────
