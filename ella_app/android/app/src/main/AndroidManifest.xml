@@ -1,8 +1,12 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
     <!-- Network (Supabase + LLM proxy) -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Microphone (speech_to_text STT) — built-in mic; no Bluetooth needed. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+    <!-- Remove merged AD_ID permission introduced by Firebase Analytics dependency -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
     <application
         android:label="Ella"
