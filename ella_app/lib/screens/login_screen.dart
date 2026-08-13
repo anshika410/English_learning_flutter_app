@@ -300,7 +300,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void _showError(String debug) {
     if (!mounted) return;
     debugPrint('[Login] $debug');
-    showEllaErrorToast(context);
+    showEllaErrorToast(context, debug);
   }
 
   void _resetToButtons() {
