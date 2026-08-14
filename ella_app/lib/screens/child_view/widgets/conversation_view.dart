@@ -54,6 +54,7 @@ class ConversationView extends StatelessWidget {
   final MicState micState;
   final bool textMode;
   final TextEditingController? textController;
+  final FocusNode? focusNode;
   final ValueNotifier<double>? speechLevel;
   final bool hasSpeechError;
 
@@ -90,6 +91,7 @@ class ConversationView extends StatelessWidget {
     this.micState = MicState.idle,
     this.textMode = false,
     this.textController,
+    this.focusNode,
     this.speechLevel,
     this.hasSpeechError = false,
     this.onMic,
@@ -241,6 +243,7 @@ class ConversationView extends StatelessWidget {
                         child: textMode
                             ? _TextDock(
                                 controller: textController,
+                                focusNode: focusNode,
                                 onSend: onSend,
                                 onSwitchToSpeaking: onToggleKeyboard,
                               )
@@ -802,11 +805,13 @@ class _MicButton extends StatelessWidget {
 
 class _TextDock extends StatelessWidget {
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final VoidCallback? onSend;
   final VoidCallback? onSwitchToSpeaking;
 
   const _TextDock({
     required this.controller,
+    required this.focusNode,
     required this.onSend,
     required this.onSwitchToSpeaking,
   });
@@ -821,6 +826,7 @@ class _TextDock extends StatelessWidget {
         // name/age onboarding step.
         ChatReplyComposer(
           controller: controller,
+          focusNode: focusNode,
           autofocus: true,
           onSend: onSend,
         ),

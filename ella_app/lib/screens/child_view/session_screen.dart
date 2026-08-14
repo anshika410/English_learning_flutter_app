@@ -53,6 +53,7 @@ class SessionScreen extends ConsumerStatefulWidget {
 
 class _SessionScreenState extends ConsumerState<SessionScreen> {
   final _textController = TextEditingController();
+  final _focusNode = FocusNode();
   bool _sessionStarted = false;
   bool _keyboardMode = false;
   bool _ending = false;
@@ -98,6 +99,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     AnalyticsService.logConversationStarted(topicName);
     _tts = ref.read(ttsProvider);
     _chatNotifier = ref.read(chatProvider.notifier);
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _stopAllTts();
+      }
+    });
     final nativeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = nativeTts.progressStream.listen((event) {
       if (mounted) {
@@ -168,6 +174,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       _tts.stop();
     } catch (_) {}
     _textController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -235,16 +242,32 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
+  void _stopAllTts() {
+    _tts.stop();
+    ref.read(nativeTtsProvider).stop();
+    ref.read(chatProvider.notifier).stopSpeaking();
+    if (mounted) {
+      setState(() {
+        _speaking = false;
+        _replaying = false;
+        _highlightStart = -1;
+        _highlightEnd = -1;
+      });
+    }
+  }
+
   void _onMic(ChatState s) {
     final notifier = ref.read(chatProvider.notifier);
     if (s.status == ChatStatus.userSpeaking) {
       notifier.stopListening();
     } else if (s.status == ChatStatus.zoeSpeaking && !s.sessionEnded) {
       // Interrupt Zoe — stop her speech, then start listening
-      _tts.stop();
-      notifier.markStarterSpoken(); // reset status to idle
+      _stopAllTts();
       notifier.startListening().catchError(_snack);
     } else if (s.status == ChatStatus.idle && !s.sessionEnded) {
+      if (_replaying || _speaking) {
+        _stopAllTts();
+      }
       notifier.startListening().catchError(_snack);
     }
   }
@@ -252,6 +275,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   void _toggleKeyboard() {
     setState(() => _keyboardMode = !_keyboardMode);
     AnalyticsService.logKeyboardToggled(_keyboardMode);
+    _stopAllTts();
   }
 
   void _sendTyped() {
@@ -512,6 +536,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       micState: micState,
       textMode: _keyboardMode,
       textController: _textController,
+      focusNode: _focusNode,
       onMic: isOnline
           ? () => _onMic(s)
           : () {
