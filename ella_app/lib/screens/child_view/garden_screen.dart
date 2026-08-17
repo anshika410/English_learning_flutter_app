@@ -382,7 +382,7 @@ String _gardenDisplayName(GardenData data, _GardenLevelVisualSpec spec) {
 
 // First-time welcome copy (Figma "Shift to new garden and nudge to start
 // talking") — shown under a spotlight when arriving from placement.
-const String _kWelcomeTitle = "Here's your first plant";
+const String _kWelcomeTitle = 'Your garden is ready';
 const String _kWelcomeBody = 'Every conversation helps your garden grow.';
 const String _kWelcomeText = '$_kWelcomeTitle. $_kWelcomeBody';
 const String _kGardenButtonPlantIcon = 'assets/homescreen/new/Plant.svg';
