@@ -232,7 +232,7 @@
                 <th>Age</th>
                 <th>Level</th>
                 <th>Skill Progress</th>
-                <th>Joined</th>
+                <th onclick="toggleSort('joined')" style="cursor:pointer;user-select:none;">Joined <span id="sort-joined-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -395,6 +395,8 @@
   let BASE_URL = '';
   let ADMIN_KEY = '';
   let CURRICULUM = null;
+  let currentSortCol = null;
+  let currentSortOrder = 'desc';
 
   const LEVEL_COLORS = { A1: '#f59e0b', A2: '#3b82f6', B1: '#10b981', B2: '#8b5cf6', C1: '#ec4899' };
 
@@ -575,20 +577,59 @@
     document.getElementById('level-bar').innerHTML = levelBar || '<span style="color:#888;font-size:13px">No placement data yet</span>';
 
     window.USERS = data.users;
+    renderUsers();
 
-    const sorted = [...data.users].sort((a, b) => {
-      // Users with both name AND email come first
-      const aFull = (a.name && a.email) ? 0 : (a.name || a.email) ? 1 : 2;
-      const bFull = (b.name && b.email) ? 0 : (b.name || b.email) ? 1 : 2;
-      if (aFull !== bFull) return aFull - bFull;
-      if (a.level && !b.level) return -1;
-      if (!a.level && b.level) return 1;
-      const order = ['A1','A2','B1','B2','C1'];
-      return order.indexOf(a.level) - order.indexOf(b.level);
-    }).filter(u => u.name || u.email);
+    document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
+      <tr data-user-id="${c.user_id || ''}">
+        <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
+        <td>${c.header_title || c.topic || '—'}</td>
+        <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
+        <td>${c.message_count}</td>
+        <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
+        <td><span class="badge ${c.completed ? (c.message_count <= 1 ? 'badge-aborted' : 'badge-done') : 'badge-pending'}">${c.completed ? (c.message_count <= 1 ? 'No interaction' : 'Done') : 'In progress'}</span></td>
+        <td>${formatDate(c.created_at)}</td>
+        <td><button class="transcript-btn" onclick="viewSessionAnalysis('${c.id}', '${(c.user_name || 'Student').replace(/'/g, "\\'")}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
+
+    document.getElementById('content').style.display = 'block';
+  }
+
+  function renderUsers() {
+    let sorted = [...window.USERS].filter(u => u.name || u.email);
+
+    if (currentSortCol === 'joined') {
+      sorted.sort((a, b) => {
+        const da = a.created_at ? new Date(a.created_at) : new Date(0);
+        const db = b.created_at ? new Date(b.created_at) : new Date(0);
+        return currentSortOrder === 'desc' ? db - da : da - db;
+      });
+    } else {
+      // Default custom sort logic: full profile first, then sorted by level
+      sorted.sort((a, b) => {
+        const aFull = (a.name && a.email) ? 0 : (a.name || a.email) ? 1 : 2;
+        const bFull = (b.name && b.email) ? 0 : (b.name || b.email) ? 1 : 2;
+        if (aFull !== bFull) return aFull - bFull;
+        if (a.level && !b.level) return -1;
+        if (!a.level && b.level) return 1;
+        const order = ['A1','A2','B1','B2','C1'];
+        return order.indexOf(a.level) - order.indexOf(b.level);
+      });
+    }
+
+    // Update the Arrow indicators in the headers
+    const joinedArrow = document.getElementById('sort-joined-arrow');
+    if (joinedArrow) {
+      if (currentSortCol === 'joined') {
+        joinedArrow.textContent = currentSortOrder === 'desc' ? ' ⬇️' : ' ⬆️';
+        joinedArrow.style.opacity = '1';
+      } else {
+        joinedArrow.textContent = ' ↕️';
+        joinedArrow.style.opacity = '0.4';
+      }
+    }
 
     document.getElementById('users-table').innerHTML = sorted.map(u => {
-      // v2 = has email (signed in with Google/email); v1 = anonymous device only
       const isV2 = !!u.email;
       return `
       <tr>
@@ -610,20 +651,18 @@
         </td>`
     }).join('') + (sorted.length === 0 ? '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
 
-    document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
-      <tr data-user-id="${c.user_id || ''}">
-        <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
-        <td>${c.header_title || c.topic || '—'}</td>
-        <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
-        <td>${c.message_count}</td>
-        <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
-        <td><span class="badge ${c.completed ? (c.message_count <= 1 ? 'badge-aborted' : 'badge-done') : 'badge-pending'}">${c.completed ? (c.message_count <= 1 ? 'No interaction' : 'Done') : 'In progress'}</span></td>
-        <td>${formatDate(c.created_at)}</td>
-        <td><button class="transcript-btn" onclick="viewSessionAnalysis('${c.id}', '${(c.user_name || 'Student').replace(/'/g, "\\'")}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
-      </tr>
-    `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
+    // Re-apply search filter if any
+    filterUsers();
+  }
 
-    document.getElementById('content').style.display = 'block';
+  function toggleSort(col) {
+    if (currentSortCol === col) {
+      currentSortOrder = (currentSortOrder === 'desc') ? 'asc' : 'desc';
+    } else {
+      currentSortCol = col;
+      currentSortOrder = 'desc';
+    }
+    renderUsers();
   }
 
   function renderMetrics(data) {
