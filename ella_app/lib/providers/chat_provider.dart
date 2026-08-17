@@ -1033,7 +1033,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
             final tts = ref.read(ttsProvider);
             await tts.speak(zoeMsg.text);
           } catch (_) {}
-          if (state.hasValue) {
+          if (state.hasValue && state.requireValue.status == ChatStatus.zoeSpeaking) {
             state = AsyncValue.data(
               state.requireValue.copyWith(
                 status: ChatStatus.idle,
@@ -1088,7 +1088,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
       // TTS failure is non-fatal — message is on screen already.
     }
 
-    if (state.hasValue) {
+    if (state.hasValue && state.requireValue.status == ChatStatus.zoeSpeaking) {
       state = AsyncValue.data(
         state.requireValue.copyWith(status: ChatStatus.idle),
       );

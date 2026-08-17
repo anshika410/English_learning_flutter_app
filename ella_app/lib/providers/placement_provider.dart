@@ -330,14 +330,21 @@ class PlacementNotifier extends Notifier<PlacementState> {
       await ref.read(chatProvider.notifier).refreshAfterPlacement();
       _resolveLevelAssigned();
     } else {
-      state = state.copyWith(status: ChatStatus.idle);
+      if (state.status == ChatStatus.zoeSpeaking) {
+        state = state.copyWith(status: ChatStatus.idle);
+      }
     }
   }
 
   // ── Voice input (mirrors ChatNotifier) ────────────────────────────────────
 
   Future<void> startListening() async {
-    if ((state.status != ChatStatus.idle && state.status != ChatStatus.speechError) || state.isComplete) return;
+    if (state.isComplete) return;
+    if (state.status == ChatStatus.zoeSpeaking) {
+      await stopSpeaking();
+    } else if (state.status != ChatStatus.idle && state.status != ChatStatus.speechError) {
+      return;
+    }
 
     _sttSessionFinalized = false;
     final sessionId = ++_activeSttSessionId;
@@ -427,11 +434,13 @@ class PlacementNotifier extends Notifier<PlacementState> {
     try {
       await ref.read(ttsProvider).speak(text);
     } catch (_) {}
-    state = state.copyWith(
-      status: ChatStatus.idle,
-      highlightStart: -1,
-      highlightEnd: -1,
-    );
+    if (state.status == ChatStatus.zoeSpeaking) {
+      state = state.copyWith(
+        status: ChatStatus.idle,
+        highlightStart: -1,
+        highlightEnd: -1,
+      );
+    }
   }
 }
 
