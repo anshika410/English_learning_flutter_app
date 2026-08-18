@@ -17,7 +17,7 @@
     header { background: #2C1E0F; color: white; padding: 20px 32px; display: flex; align-items: center; gap: 16px; border-bottom: 3px solid #FF9500; }
     header h1 { font-size: 22px; font-weight: 700; }
     header span { font-size: 13px; opacity: 0.6; }
-    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 32px 24px; }
     .login-box { background: white; border-radius: 16px; padding: 40px; max-width: 400px; margin: 80px auto; box-shadow: 0 4px 0 #F0E4CC, 0 2px 16px rgba(44,30,15,0.08); border: 1px solid #F0E4CC; }
     .login-box h2 { margin-bottom: 8px; font-size: 22px; color: #2C1E0F; }
     .login-box p { color: #6B5740; font-size: 13px; margin-bottom: 20px; }
@@ -224,21 +224,23 @@
             <h2 style="margin-bottom:0;">Placement Results</h2>
             <input id="user-search" type="text" placeholder="🔍 Search by name..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Age</th>
-                <th>Level</th>
-                <th>Skill Progress</th>
-                <th onclick="toggleSort('joined')" style="cursor:pointer;user-select:none;">Joined <span id="sort-joined-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
-                <th onclick="toggleSort('last_active')" style="cursor:pointer;user-select:none;">Last Active <span id="sort-active-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="users-table"></tbody>
-          </table>
+          <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Age</th>
+                  <th>Level</th>
+                  <th>Skill Progress</th>
+                  <th onclick="toggleSort('joined')" style="cursor:pointer;user-select:none;">Joined <span id="sort-joined-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
+                  <th onclick="toggleSort('last_active')" style="cursor:pointer;user-select:none;">Last Active <span id="sort-active-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table"></tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Recent conversations -->
@@ -247,21 +249,23 @@
             <h2 style="margin-bottom:0;">Recent Conversations <span id="convs-filter-label" style="font-size:12px;color:#FF9500;font-weight:600;"></span></h2>
             <button id="convs-clear-filter" onclick="clearConvsFilter()" style="display:none;background:none;border:1.5px solid #FF9500;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;color:#FF9500;font-weight:600;">✕ Show all</button>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Topic</th>
-                <th>Level</th>
-                <th>Messages</th>
-                <th>Duration</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Transcript</th>
-              </tr>
-            </thead>
-            <tbody id="convs-table"></tbody>
-          </table>
+          <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Topic</th>
+                  <th>Level</th>
+                  <th>Messages</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Transcript</th>
+                </tr>
+              </thead>
+              <tbody id="convs-table"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
