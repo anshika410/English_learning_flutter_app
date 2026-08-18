@@ -233,6 +233,7 @@
                 <th>Level</th>
                 <th>Skill Progress</th>
                 <th onclick="toggleSort('joined')" style="cursor:pointer;user-select:none;">Joined <span id="sort-joined-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
+                <th onclick="toggleSort('last_active')" style="cursor:pointer;user-select:none;">Last Active <span id="sort-active-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -604,6 +605,12 @@
         const db = b.created_at ? new Date(b.created_at) : new Date(0);
         return currentSortOrder === 'desc' ? db - da : da - db;
       });
+    } else if (currentSortCol === 'last_active') {
+      sorted.sort((a, b) => {
+        const da = a.last_active_at ? new Date(a.last_active_at) : new Date(0);
+        const db = b.last_active_at ? new Date(b.last_active_at) : new Date(0);
+        return currentSortOrder === 'desc' ? db - da : da - db;
+      });
     } else {
       // Default custom sort logic: full profile first, then sorted by level
       sorted.sort((a, b) => {
@@ -628,6 +635,16 @@
         joinedArrow.style.opacity = '0.4';
       }
     }
+    const activeArrow = document.getElementById('sort-active-arrow');
+    if (activeArrow) {
+      if (currentSortCol === 'last_active') {
+        activeArrow.textContent = currentSortOrder === 'desc' ? ' ⬇️' : ' ⬆️';
+        activeArrow.style.opacity = '1';
+      } else {
+        activeArrow.textContent = ' ↕️';
+        activeArrow.style.opacity = '0.4';
+      }
+    }
 
     document.getElementById('users-table').innerHTML = sorted.map(u => {
       const isV2 = !!u.email;
@@ -641,6 +658,7 @@
           '<span style="color:#aaa;font-size:12px">Not started</span>'}</td>
         <td>${getUserProgressHTML(u)}</td>
         <td>${formatDate(u.created_at)}</td>
+        <td>${formatDate(u.last_active_at)}</td>
         <td>
           <div style="display: flex; gap: 6px;">
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
@@ -649,7 +667,7 @@
             <button class="transcript-btn" style="border-color: #8b5cf6; color: #8b5cf6;" onclick="viewStudentMemory('${u.id}')">Memory</button>
           </div>
         </td>`
-    }).join('') + (sorted.length === 0 ? '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
+    }).join('') + (sorted.length === 0 ? '<tr><td colspan="9" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
 
     // Re-apply search filter if any
     filterUsers();
