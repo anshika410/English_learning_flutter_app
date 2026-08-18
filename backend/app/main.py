@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_redoc_html
 from .core.database import engine, Base
-from .core.config import get_settings
+from .core.config import get_settings, preferred_model_var
 from .routers import auth, users, llm, conversations, placements, progress
 from .routers.admin import router as admin_router
 from .routers.admin_metrics import router as admin_metrics_router
@@ -73,6 +73,16 @@ if not settings.disable_cors:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+@app.middleware("http")
+async def preferred_model_middleware(request: Request, call_next):
+    preferred_model = request.headers.get("X-Preferred-Model")
+    token = preferred_model_var.set(preferred_model)
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        preferred_model_var.reset(token)
 
 app.include_router(auth.router)
 app.include_router(users.router)

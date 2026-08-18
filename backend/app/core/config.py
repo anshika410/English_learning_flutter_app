@@ -1,5 +1,8 @@
+import contextvars
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+preferred_model_var = contextvars.ContextVar("preferred_model", default=None)
 
 
 class Settings(BaseSettings):

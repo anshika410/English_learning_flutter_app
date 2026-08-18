@@ -76,6 +76,7 @@ class EllaApiService {
   static const _childAgeKey = 'ella_child_age';
   static const _placementDoneKey = 'ella_api_placement_done';
   static const _refreshTokenKey = 'ella_api_refresh_token';
+  static const _preferredModelKey = 'ella_api_preferred_model';
 
   static Future<bool>? _currentRefreshFuture;
 
@@ -203,6 +204,16 @@ class EllaApiService {
   Future<bool> isPlacementDone() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_placementDoneKey) ?? false;
+  }
+
+  Future<String?> getPreferredModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_preferredModelKey);
+  }
+
+  Future<void> setPreferredModel(String model) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_preferredModelKey, model);
   }
 
   Future<MemoryState> getUserMemory() async {
@@ -570,9 +581,12 @@ class EllaApiService {
     Map<String, dynamic>? body,
   }) async {
     final uri = Uri.parse(path.startsWith('http') ? path : '$baseUrl$path');
+    final prefs = await SharedPreferences.getInstance();
+    final preferredModel = prefs.getString(_preferredModelKey);
     final headers = <String, String>{
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
+      if (preferredModel != null && preferredModel.isNotEmpty) 'X-Preferred-Model': preferredModel,
     };
     if (auth) {
       var token = await getToken();
