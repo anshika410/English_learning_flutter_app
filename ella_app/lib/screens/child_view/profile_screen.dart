@@ -928,7 +928,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               const SizedBox(width: 32),
                               InkWell(
-                                onTap: () {},
+                                onTap: () {
+                                  Navigator.of(
+                                    context,
+                                  ).pushNamed('/privacy-policy');
+                                },
                                 borderRadius: BorderRadius.circular(8),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
