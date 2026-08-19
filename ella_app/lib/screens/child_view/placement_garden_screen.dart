@@ -44,7 +44,7 @@ const String _kFlowerIcon = 'assets/information-box/flower.svg';
 const String _kRevealText =
     "Here's your first plant\nEvery conversation helps your garden grow.";
 const String _kPlacementBloomText =
-    'Your plant is blooming!\nYour new garden is ready—with room for more plants.';
+    "You grew your first plant.\nLet's go to your bigger garden.";
 // Spoken when the child ends the screening early (no level determined): the
 // sprout-spotlight nudge that encourages them to talk again.
 const String _kPlacementSproutText =
@@ -1092,7 +1092,7 @@ class _PlacementBloomBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = 'Your plant is blooming!';
+    final title = 'You grew your first plant!';
     return Container(
       key: const ValueKey('placement-garden-bloom-bubble'),
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
@@ -1128,8 +1128,7 @@ class _PlacementBloomBubble extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           TypewriterText(
-            text:
-                'Your new garden is ready—\nwith room for more plants.',
+            text: "Let's go to your bigger garden.",
             style: EllaTextStyles.bodySemiboldLarge.copyWith(
               color: EllaColors.ink,
             ),

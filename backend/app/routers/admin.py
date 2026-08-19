@@ -61,6 +61,7 @@ class AdminUserOut(BaseModel):
     completed_sessions: int
     total_speaking_seconds: int
     created_at: datetime
+    last_active_at: datetime | None = None
     skills_progress: dict | None = None
     persona_memory: dict | None = None
     interests: str | None = None
@@ -129,6 +130,15 @@ async def admin_stats(
     )
     completed_map = {row.user_id: row.cnt for row in completed_counts}
 
+    # Last active times per user (max conversation created_at)
+    last_active_times = await db.execute(
+        select(
+            Conversation.user_id,
+            func.max(Conversation.created_at).label("last_active"),
+        ).group_by(Conversation.user_id)
+    )
+    last_active_map = {row.user_id: row.last_active for row in last_active_times}
+
     # Build user list
     user_list = []
     level_dist: dict[str, int] = {}
@@ -156,6 +166,7 @@ async def admin_stats(
             completed_sessions=completed,
             total_speaking_seconds=stats["speaking_secs"],
             created_at=u.created_at,
+            last_active_at=last_active_map.get(u.id) or u.created_at,
             skills_progress=u.skills_progress,
             persona_memory=u.persona_memory,
             interests=u.interests,

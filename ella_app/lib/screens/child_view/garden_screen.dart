@@ -382,7 +382,7 @@ String _gardenDisplayName(GardenData data, _GardenLevelVisualSpec spec) {
 
 // First-time welcome copy (Figma "Shift to new garden and nudge to start
 // talking") — shown under a spotlight when arriving from placement.
-const String _kWelcomeTitle = "Here's your first plant";
+const String _kWelcomeTitle = 'Your garden is ready';
 const String _kWelcomeBody = 'Every conversation helps your garden grow.';
 const String _kWelcomeText = '$_kWelcomeTitle. $_kWelcomeBody';
 const String _kGardenButtonPlantIcon = 'assets/homescreen/new/Plant.svg';
@@ -1659,7 +1659,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       _cardVisible = false;
       _revealCtaReady = false;
       _wateringVisible = false;
-      _poppingSkillId = null;
     });
     _afterReveal(reducedMotion ? 0 : 240, () {
       final controller = ref.read(gardenGrowthRevealProvider.notifier);
@@ -1668,6 +1667,11 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       } else {
         controller.consumeCurrent();
       }
+      // Un-mark the just-revealed skill in the same turn the queue is
+      // updated. Nulling _poppingSkillId earlier (on tap) while the item is
+      // still queued would re-add it to pendingDisplayStage at its fromStage,
+      // flickering the grown plant back to its plain tile for ~240ms.
+      if (mounted) setState(() => _poppingSkillId = null);
       _maybeShowSecondChatMilestone();
     });
   }
@@ -1824,6 +1828,16 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     final modalLayerActive =
         revealLayerActive || completedIntroPending || completedIntroActive;
     final activeGrownSkillIds = <String>{?_poppingSkillId};
+    // Each skill still waiting in the reveal queue holds at its pre-reveal
+    // stage (fromStage) so the scene doesn't jump straight to the final,
+    // already-persisted sightings on first frame. A skill drops out of this
+    // map the moment its own reveal pops (_poppingSkillId), letting it read
+    // its live sightings and letting _Plant animate the fromStage→toStage
+    // growth. Once the queue empties, everyone reads live sightings again.
+    final pendingDisplayStage = <String, int>{
+      for (final item in revealQueue)
+        if (item.skillId != _poppingSkillId) item.skillId: item.fromStage.index,
+    };
 
     return Stack(
       children: [
@@ -1862,6 +1876,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
                               index: i,
                               spec: spec,
                               grownSkillIds: activeGrownSkillIds,
+                              pendingDisplayStage: pendingDisplayStage,
                               skillAnchorFor: _skillAnchorKeyFor,
                               plotAnchorKey: _plotAnchorKeyFor(
                                 displayData.steps[i],
@@ -3209,6 +3224,7 @@ class _GardenUnitRow extends StatelessWidget {
   final int index;
   final _GardenLevelVisualSpec spec;
   final Set<String> grownSkillIds;
+  final Map<String, int> pendingDisplayStage;
   final GlobalKey Function(String skillId) skillAnchorFor;
   final GlobalKey plotAnchorKey;
   final bool isPreviousGarden;
@@ -3218,6 +3234,7 @@ class _GardenUnitRow extends StatelessWidget {
     required this.index,
     required this.spec,
     required this.grownSkillIds,
+    this.pendingDisplayStage = const {},
     required this.skillAnchorFor,
     required this.plotAnchorKey,
     this.isPreviousGarden = false,
@@ -3304,6 +3321,7 @@ class _GardenUnitRow extends StatelessWidget {
                             step: step,
                             spec: spec,
                             grownSkillIds: grownSkillIds,
+                            pendingDisplayStage: pendingDisplayStage,
                             skillAnchorFor: skillAnchorFor,
                             plotAnchorKey: plotAnchorKey,
                             isPreviousGarden: isPreviousGarden,
@@ -3877,6 +3895,7 @@ class _Plot extends StatefulWidget {
   final GardenStep step;
   final _GardenLevelVisualSpec spec;
   final Set<String> grownSkillIds;
+  final Map<String, int> pendingDisplayStage;
   final GlobalKey Function(String skillId) skillAnchorFor;
   final GlobalKey plotAnchorKey;
   final bool isPreviousGarden;
@@ -3886,6 +3905,7 @@ class _Plot extends StatefulWidget {
     required this.step,
     required this.spec,
     required this.grownSkillIds,
+    this.pendingDisplayStage = const {},
     required this.skillAnchorFor,
     required this.plotAnchorKey,
     this.isPreviousGarden = false,
@@ -3973,6 +3993,10 @@ class _PlotState extends State<_Plot> {
           for (final i in order)
             _SkillTile(
               skill: skills[i],
+              displaySightings: _displaySightings(
+                skills[i],
+                widget.pendingDisplayStage,
+              ),
               spot: tileSpots[i],
               pressed: _pressedSkillId == skills[i].id,
               onPressChanged: (pressed) => _setPressed(skills[i].id, pressed),
@@ -3986,10 +4010,19 @@ class _PlotState extends State<_Plot> {
                 ),
               ),
             ),
+          // Mount the plant whenever its *live* sightings say it exists, so its
+          // anchor key (used to scroll/spotlight the reveal) is always present
+          // even while the plant is held at an earlier display stage. The inner
+          // art + growth pop follow the display stage; the slot geometry follows
+          // the live stage so the anchor never jumps as the plant grows.
           for (final i in order)
             if (skills[i].sightings >= 1)
               _SkillPlant(
                 skill: skills[i],
+                displaySightings: _displaySightings(
+                  skills[i],
+                  widget.pendingDisplayStage,
+                ),
                 spot: tileSpots[i],
                 swayDelayMs: ((i % cols) + (i ~/ cols)) * 400,
                 animateGrowth: widget.grownSkillIds.contains(skills[i].id),
@@ -4159,12 +4192,15 @@ class _RenderTileFootprintHitBox extends RenderProxyBox {
 
 class _SkillTile extends StatelessWidget {
   final GardenSkill skill;
+  // Sightings to render *now* — reveal-queue override or live value.
+  final int displaySightings;
   final _TileSpot spot;
   final bool pressed;
   final ValueChanged<bool> onPressChanged;
   final VoidCallback onTap;
   const _SkillTile({
     required this.skill,
+    required this.displaySightings,
     required this.spot,
     required this.pressed,
     required this.onPressChanged,
@@ -4174,7 +4210,7 @@ class _SkillTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // No sightings yet → plain (normal) tile; once seen → tilled turf tile.
-    final tileAsset = skill.sightings == 0
+    final tileAsset = displaySightings == 0
         ? 'assets/gardent-view/tiles.svg'
         : 'assets/gardent-view/tiles-turf.svg';
 
@@ -4210,6 +4246,8 @@ class _SkillTile extends StatelessWidget {
 
 class _SkillPlant extends StatelessWidget {
   final GardenSkill skill;
+  // Sightings to render *now* — reveal-queue override or live value.
+  final int displaySightings;
   final _TileSpot spot;
   final int swayDelayMs;
   final bool animateGrowth;
@@ -4217,6 +4255,7 @@ class _SkillPlant extends StatelessWidget {
   final bool pressed;
   const _SkillPlant({
     required this.skill,
+    required this.displaySightings,
     required this.spot,
     required this.swayDelayMs,
     required this.animateGrowth,
@@ -4226,7 +4265,10 @@ class _SkillPlant extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final plantHeight = _plantHeightFor(skill);
+    // Slot geometry follows the *live* stage so the anchor (used to scroll and
+    // spotlight this plant during its reveal) stays put as the plant grows into
+    // it; only the inner _Plant art + pop follow the display stage.
+    final plantHeight = _plantHeightFor(skill.sightings);
     return Positioned(
       // Anchor by the art's visual base (at _plantBaseYFrac down the box), then
       // apply a small per-stage nudge so each stage reads centered on its tile:
@@ -4236,7 +4278,7 @@ class _SkillPlant extends StatelessWidget {
           spot.top +
           _tileH * _plantBaseFactor -
           plantHeight * _plantBaseYFrac +
-          _plantVerticalNudgeFor(skill),
+          _plantVerticalNudgeFor(skill.sightings),
       left: spot.left + _tileW / 2 - _plantSlotW / 2,
       // The plant is invisible to hit testing: every tap falls through to the
       // tile beneath it, so a planted tile is exactly as clickable as an empty
@@ -4255,6 +4297,7 @@ class _SkillPlant extends StatelessWidget {
               child: Center(
                 child: _Plant(
                   skill: skill,
+                  displaySightings: displaySightings,
                   swayDelayMs: swayDelayMs,
                   animateGrowth: animateGrowth,
                 ),
@@ -4267,7 +4310,12 @@ class _SkillPlant extends StatelessWidget {
   }
 }
 
-double _plantHeightFor(GardenSkill skill) => switch (skill.sightings) {
+// Sightings a skill should render *right now*: its reveal-queue override
+// (pre-reveal stage) if it's still waiting to be revealed, else its live value.
+int _displaySightings(GardenSkill skill, Map<String, int> pendingStage) =>
+    pendingStage[skill.id] ?? skill.sightings;
+
+double _plantHeightFor(int sightings) => switch (sightings) {
   <= 0 => 0,
   1 => 82.5,
   2 => 116.6,
@@ -4277,7 +4325,7 @@ double _plantHeightFor(GardenSkill skill) => switch (skill.sightings) {
 // Small per-stage vertical nudge so each growth stage reads centered on its
 // tile (taller stages pulled down, shorter pushed up). Bases intentionally no
 // longer align across stages — this matches the desired per-stage centering.
-double _plantVerticalNudgeFor(GardenSkill skill) => switch (skill.sightings) {
+double _plantVerticalNudgeFor(int sightings) => switch (sightings) {
   <= 0 => 0,
   1 => -12, // sprout: raise
   2 => 0, // bud: centered baseline
@@ -4535,10 +4583,16 @@ const double _swayMaxRad = 4.0 * math.pi / 180;
 
 class _Plant extends StatefulWidget {
   final GardenSkill skill;
+  // Sightings to render *now*: the reveal-queue override (pre-reveal stage)
+  // while this skill is still waiting its turn, or the live value once its
+  // reveal pops. Growth is animated off changes to this, not skill.sightings,
+  // so the pop plays at reveal time instead of on first frame.
+  final int displaySightings;
   final int swayDelayMs;
   final bool animateGrowth;
   const _Plant({
     required this.skill,
+    required this.displaySightings,
     required this.swayDelayMs,
     required this.animateGrowth,
   });
@@ -4611,7 +4665,7 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
     final grew =
         widget.animateGrowth &&
         (!oldWidget.animateGrowth ||
-            widget.skill.sightings > oldWidget.skill.sightings);
+            widget.displaySightings > oldWidget.displaySightings);
     if (grew) _pop.forward(from: 0);
   }
 
@@ -4626,8 +4680,8 @@ class _PlantState extends State<_Plant> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     // Growth stage follows sightings: 1 → seedling, 2 → young, ≥3 → bloom.
-    final height = _plantHeightFor(widget.skill);
-    final asset = switch (widget.skill.sightings) {
+    final height = _plantHeightFor(widget.displaySightings);
+    final asset = switch (widget.displaySightings) {
       <= 0 => '',
       1 => widget.skill.strand.seedlingAsset,
       2 => widget.skill.strand.youngAsset,

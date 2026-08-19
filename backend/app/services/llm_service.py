@@ -62,6 +62,27 @@ async def _chat_completion(
     temperature: float = 0.75,
 ) -> str:
     settings = get_settings()
+    from ..core.config import preferred_model_var
+    preferred = preferred_model_var.get()
+    
+    # Map friendly model tags to actual OpenRouter/DeepSeek IDs
+    model_mapping = {
+        "luna": "openai/gpt-5.6-luna",
+        "gemini": "google/gemini-3.5-flash-lite",
+        "deepseek": "deepseek/deepseek-v4-flash",
+        "openai/gpt-5.6-luna": "openai/gpt-5.6-luna",
+        "google/gemini-3.5-flash-lite": "google/gemini-3.5-flash-lite",
+        "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
+    }
+    
+    model = settings.deepseek_model
+    if preferred:
+        preferred_lower = preferred.lower()
+        for key, mapped_val in model_mapping.items():
+            if key in preferred_lower:
+                model = mapped_val
+                break
+
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
             f"{settings.deepseek_base_url}/chat/completions",
@@ -70,7 +91,7 @@ async def _chat_completion(
                 "Authorization": f"Bearer {settings.deepseek_api_key}",
             },
             json={
-                "model": settings.deepseek_model,
+                "model": model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
