@@ -300,7 +300,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void _showError(String debug) {
     if (!mounted) return;
     debugPrint('[Login] $debug');
-    showEllaErrorToast(context, debug);
+    final userMessage = debug.toLowerCase().contains('magic link')
+        ? 'Failed to send magic link. Please try again.'
+        : 'Failed to log in. Please try again.';
+    showEllaErrorToast(context, userMessage);
   }
 
   void _resetToButtons() {
