@@ -235,6 +235,7 @@
                   <th>Skill Progress</th>
                   <th onclick="toggleSort('joined')" style="cursor:pointer;user-select:none;">Joined <span id="sort-joined-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
                   <th onclick="toggleSort('last_active')" style="cursor:pointer;user-select:none;">Last Active <span id="sort-active-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
+                  <th>App</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -663,6 +664,7 @@
         <td>${getUserProgressHTML(u)}</td>
         <td>${formatDate(u.created_at)}</td>
         <td>${formatDate(u.last_active_at)}</td>
+        <td><span style="font-family: monospace; font-size: 12px; color: #6B5740;">${u.app_version || '—'}</span></td>
         <td>
           <div style="display: flex; gap: 6px;">
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
@@ -671,7 +673,7 @@
             <button class="transcript-btn" style="border-color: #8b5cf6; color: #8b5cf6;" onclick="viewStudentMemory('${u.id}')">Memory</button>
           </div>
         </td>`
-    }).join('') + (sorted.length === 0 ? '<tr><td colspan="9" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
+    }).join('') + (sorted.length === 0 ? '<tr><td colspan="10" style="color:#aaa;text-align:center;padding:20px">No students yet</td></tr>' : '');
 
     // Re-apply search filter if any
     filterUsers();

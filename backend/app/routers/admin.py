@@ -62,6 +62,7 @@ class AdminUserOut(BaseModel):
     total_speaking_seconds: int
     created_at: datetime
     last_active_at: datetime | None = None
+    app_version: str | None = None
     skills_progress: dict | None = None
     persona_memory: dict | None = None
     interests: str | None = None
@@ -167,6 +168,7 @@ async def admin_stats(
             total_speaking_seconds=stats["speaking_secs"],
             created_at=u.created_at,
             last_active_at=last_active_map.get(u.id) or u.created_at,
+            app_version=u.app_version,
             skills_progress=u.skills_progress,
             persona_memory=u.persona_memory,
             interests=u.interests,
