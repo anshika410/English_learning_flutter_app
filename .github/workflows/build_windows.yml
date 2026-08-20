@@ -26,6 +26,11 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Create dummy .env file
+        run: |
+          cd ella_app
+          Copy-Item .env.example .env
+
       - name: Get dependencies
         run: |
           cd ella_app
