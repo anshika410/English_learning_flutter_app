@@ -226,11 +226,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
           } catch (e) {
             // Fallback to standard sign-in if Android lightweight auth fails
-            googleUser = await gsi.GoogleSignIn.instance.signIn();
+            googleUser = await gsi.GoogleSignIn.instance.authenticate();
           }
         } else {
           // Cross-platform standard Google sign-in (iOS, macOS, Web)
-          googleUser = await gsi.GoogleSignIn.instance.signIn();
+          googleUser = await gsi.GoogleSignIn.instance.authenticate();
         }
 
         if (googleUser == null) {
