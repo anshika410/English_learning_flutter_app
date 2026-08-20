@@ -69,7 +69,7 @@ Before reading any code, start here:
 
 ```
 ella_flutter/
-├── frontend/              # Flutter app (Android-first)
+├── ella_app/              # Current active Flutter app (started after first release)
 │   ├── lib/
 │   │   ├── screens/       # One file per screen
 │   │   ├── widgets/       # Shared UI components
@@ -84,12 +84,13 @@ ella_flutter/
 │   │   ├── whisper/             # Whisper STT model
 │   │   └── prompts/             # LLM prompt markdown files
 │   └── android/                 # Android-specific config
+├── frontend/              # Legacy Flutter app (v1, not actively used)
 ├── backend/               # FastAPI backend
 │   ├── app/
 │   │   ├── core/          # Config, DB, auth, deps
 │   │   ├── models/        # SQLAlchemy ORM models
 │   │   ├── schemas/       # Pydantic request/response schemas
-│   │   ├── routers/       # Route handlers (18 endpoints)
+│   │   ├── routers/       # Route handlers (26 endpoints)
 │   │   └── services/      # LLM service
 │   ├── migrations/        # Alembic migrations
 │   ├── Dockerfile
@@ -99,18 +100,18 @@ ella_flutter/
 
 ---
 
-## Running the Frontend
+## Running the App
 
 ```bash
-cd frontend
+cd ella_app
 flutter pub get
 flutter run
 ```
 
-Requires a `.env` file inside `frontend/` with LLM API keys. Copy from `.env.example`:
+Requires a `.env` file inside `ella_app/` with LLM API keys. Copy from `.env.example`:
 
 ```bash
-cp frontend/.env.example frontend/.env
+cp ella_app/.env.example ella_app/.env
 # Fill in DEEPSEEK_API_KEY
 ```
 
