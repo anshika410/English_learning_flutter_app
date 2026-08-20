@@ -70,7 +70,7 @@ async def _chat_completion(
         model_mapping = {
             "luna": "meta-llama/Llama-3.1-8B-Instruct",
             "gemini": "meta-llama/Llama-3.1-8B-Instruct",
-            "deepseek": "meta-llama/Llama-3.1-8B-Instruct",
+            "deepseek": "deepseek-ai/DeepSeek-V4-Flash",
         }
         model = settings.huggingface_model
         if preferred:
