@@ -68,9 +68,9 @@ async def _chat_completion(
     # If Hugging Face is configured, use Hugging Face settings
     if settings.huggingface_api_key:
         model_mapping = {
-            "luna": "meta-llama/Meta-Llama-3-8B-Instruct",
-            "gemini": "mistralai/Mistral-7B-Instruct-v0.3",
-            "deepseek": "microsoft/Phi-3-mini-4k-instruct",
+            "luna": "meta-llama/Llama-3.1-8B-Instruct",
+            "gemini": "meta-llama/Llama-3.1-8B-Instruct",
+            "deepseek": "meta-llama/Llama-3.1-8B-Instruct",
         }
         model = settings.huggingface_model
         if preferred:
