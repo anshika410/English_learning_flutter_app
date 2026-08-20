@@ -7,7 +7,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -206,6 +206,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      showEllaErrorToast(context, 'Google Sign-In is not supported on Windows. Please log in via Email.');
+      return;
+    }
+
     final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
     if (!isOnline) {
       OfflineAlertPopup.show(context);

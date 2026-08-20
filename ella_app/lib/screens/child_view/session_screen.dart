@@ -6,6 +6,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -55,7 +56,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   final _textController = TextEditingController();
   final _focusNode = FocusNode();
   bool _sessionStarted = false;
-  bool _keyboardMode = false;
+  bool _keyboardMode = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
   bool _ending = false;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
