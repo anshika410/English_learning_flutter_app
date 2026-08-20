@@ -195,3 +195,4 @@ msix_config:
   publisher: CN=Navgurukul
   logo_path: assets/zoe_splash_padded.png
   capabilities: internetClient, microphone
+  install_certificate: false
