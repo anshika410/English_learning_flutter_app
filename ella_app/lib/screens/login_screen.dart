@@ -137,6 +137,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           _isSigningIn = false;
         }
       }
+    }, onError: (error, stackTrace) {
+      debugPrint('[Login] authenticationEvents stream error ignored: $error');
     });
 
     // Automatically prompt Google One Tap / FedCM when visiting the site (Web only)
@@ -148,7 +150,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           if (lightweightAuth != null) {
             final googleUser = await lightweightAuth;
             if (googleUser != null) {
-              final auth = await googleUser.authentication;
+              final auth = googleUser.authentication;
               final idToken = auth.idToken;
               if (idToken != null) {
                 if (_isSigningIn) return;
@@ -225,13 +227,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         if (googleUser == null) {
           // The user dismissed the bottom sheet (swiped down or went back).
           // Cancel the login flow silently.
-          setState(() {
-            _isLoading = false;
-          });
+          if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;
         }
       } catch (e) {
+        if (e is gsi.GoogleSignInException &&
+            (e.code == gsi.GoogleSignInExceptionCode.canceled ||
+             e.code == gsi.GoogleSignInExceptionCode.interrupted)) {
+          // User cancelled the login prompt. Quietly return.
+          if (mounted) setState(() => _isLoading = false);
+          _isSigningIn = false;
+          return;
+        }
         final errorStr = e.toString().toLowerCase();
         if (errorStr.contains('cancel') || errorStr.contains('interrupted')) {
           // User cancelled the standard account picker. Quietly return.
@@ -257,7 +265,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         }
       }
     } catch (e) {
-      _showError('Google Sign In Error: $e');
+      if (e is gsi.GoogleSignInException &&
+          (e.code == gsi.GoogleSignInExceptionCode.canceled ||
+           e.code == gsi.GoogleSignInExceptionCode.interrupted)) {
+        // User cancelled sign in. Quietly ignore.
+      } else {
+        final errorStr = e.toString().toLowerCase();
+        if (!errorStr.contains('cancel') && !errorStr.contains('interrupted')) {
+          _showError('Google Sign In Error: $e');
+        }
+      }
     } finally {
       _isSigningIn = false;
       if (mounted) setState(() => _isLoading = false);
