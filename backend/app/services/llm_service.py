@@ -622,6 +622,10 @@ async def send_placement_turn(
             if "level" in data or "level_code" in data:
                 return _build_placement_result(data)
         except Exception as e:
+            # Fallback to loose parser
+            loose_data = _parse_loose_placement_output(text)
+            if loose_data:
+                return _build_placement_result(loose_data)
             import logging
             logging.warning(f"Failed parsing forced placement assessment: {e}. Raw text: {text}")
         # Absolute fallback if the LLM still refuses: start conservatively
@@ -652,10 +656,16 @@ async def send_placement_turn(
         return {"reply": reply or text, "is_complete": False}
 
     # Try parsing as final JSON assessment
+    data = None
     try:
         json_str = _extract_json(text)
         data = json.loads(json_str)
-        if "level" in data or "level_code" in data:
+    except Exception:
+        # Fallback to loose parser
+        data = _parse_loose_placement_output(text)
+
+    if data and ("level" in data or "level_code" in data):
+        try:
             confidence = data.get("confidence", "low")
 
             # ── TURN-BASED CONFIDENCE GATES ───────────────────────────────────
@@ -687,11 +697,20 @@ async def send_placement_turn(
             # Turn 9+: handled by the forced-completion branch above.
             else:
                 return _build_placement_result(data)
-
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     # Fallback: treat as plain reply
+    # If the reply contains technical keys, extract zoe_recap or show a friendly fallback
+    marker_words = ["evidence_summary", "possible_higher", "zoe_recap", "level_description"]
+    if any(word in text.lower() for word in marker_words):
+        recap_match = re.search(r"[\"']?(?:zoe_recap|level_description)[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+        if recap_match:
+            friendly_text = recap_match.group(1).strip()
+            if friendly_text:
+                return {"reply": friendly_text, "is_complete": False}
+        return {"reply": "Awesome job! We've completed our conversation. Let's find your level!", "is_complete": False}
+
     return {"reply": text, "is_complete": False}
 
 
@@ -728,6 +747,50 @@ def _build_placement_result(data: dict) -> dict:
         "interests": data.get("interests", []),
         "notes_for_first_session": data.get("notes_for_first_session"),
     }
+
+
+def _parse_loose_placement_output(text: str) -> dict | None:
+    """Fallback parser for malformed, unquoted, or prefixed placement outputs from LLM."""
+    marker_words = ["level", "confidence", "evidence_summary", "zoe_recap"]
+    matches_markers = any(word in text.lower() for word in marker_words)
+    if not matches_markers:
+        return None
+
+    data = {}
+    
+    # Extract level (A0-C1)
+    level_match = re.search(r"[\"']?(?:level|level_code)[\"']?\s*[:=]\s*[\"']?([A-C][0-2])[\"']?", text, re.IGNORECASE)
+    if level_match:
+        data["level"] = level_match.group(1).upper()
+        
+    # Extract confidence
+    conf_match = re.search(r"[\"']?confidence[\"']?\s*[:=]\s*[\"']?(\w+)[\"']?", text, re.IGNORECASE)
+    if conf_match:
+        data["confidence"] = conf_match.group(1).lower()
+
+    # Extract zoe_recap / level_description
+    recap_match = re.search(r"[\"']?zoe_recap[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if recap_match:
+        data["zoe_recap"] = recap_match.group(1).strip()
+        
+    desc_match = re.search(r"[\"']?level_description[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if desc_match:
+        data["level_description"] = desc_match.group(1).strip()
+
+    # Extract evidence_summary
+    ev_match = re.search(r"[\"']?evidence_summary[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if ev_match:
+        data["evidence_summary"] = ev_match.group(1).strip()
+
+    # If we found at least a level, we can reconstruct the assessment!
+    if "level" in data:
+        data["confidence"] = data.get("confidence") or "medium"
+        data["zoe_recap"] = data.get("zoe_recap") or data.get("level_description") or "You enjoy talking and practicing your English!"
+        data["level_description"] = data.get("level_description") or data.get("zoe_recap") or "We'll find your perfect pace."
+        data["evidence_summary"] = data.get("evidence_summary") or "Assessment completed using fallback loose parsing."
+        return data
+
+    return None
 
 
 async def _continue_placement(
