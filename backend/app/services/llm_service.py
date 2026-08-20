@@ -65,30 +65,50 @@ async def _chat_completion(
     from ..core.config import preferred_model_var
     preferred = preferred_model_var.get()
     
-    # Map friendly model tags to actual OpenRouter/DeepSeek IDs
-    model_mapping = {
-        "luna": "openai/gpt-5.6-luna",
-        "gemini": "google/gemini-3.5-flash-lite",
-        "deepseek": "deepseek/deepseek-v4-flash",
-        "openai/gpt-5.6-luna": "openai/gpt-5.6-luna",
-        "google/gemini-3.5-flash-lite": "google/gemini-3.5-flash-lite",
-        "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-    }
-    
-    model = settings.deepseek_model
-    if preferred:
-        preferred_lower = preferred.lower()
-        for key, mapped_val in model_mapping.items():
-            if key in preferred_lower:
-                model = mapped_val
-                break
+    # If Hugging Face is configured, use Hugging Face settings
+    if settings.huggingface_api_key:
+        model_mapping = {
+            "luna": "meta-llama/Meta-Llama-3-8B-Instruct",
+            "gemini": "mistralai/Mistral-7B-Instruct-v0.3",
+            "deepseek": "microsoft/Phi-3-mini-4k-instruct",
+        }
+        model = settings.huggingface_model
+        if preferred:
+            preferred_lower = preferred.lower()
+            for key, mapped_val in model_mapping.items():
+                if key in preferred_lower:
+                    model = mapped_val
+                    break
+        base_url = settings.huggingface_base_url
+        api_key = settings.huggingface_api_key
+    else:
+        # Fallback maps to actual OpenRouter/DeepSeek IDs
+        model_mapping = {
+            "luna": "openai/gpt-5.6-luna",
+            "gemini": "google/gemini-3.5-flash-lite",
+            "deepseek": "deepseek/deepseek-v4-flash",
+            "openai/gpt-5.6-luna": "openai/gpt-5.6-luna",
+            "google/gemini-3.5-flash-lite": "google/gemini-3.5-flash-lite",
+            "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
+        }
+        model = settings.deepseek_model
+        if preferred:
+            preferred_lower = preferred.lower()
+            for key, mapped_val in model_mapping.items():
+                if key in preferred_lower:
+                    model = mapped_val
+                    break
+        base_url = settings.deepseek_base_url
+        api_key = settings.deepseek_api_key
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
-            f"{settings.deepseek_base_url}/chat/completions",
+            url,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {settings.deepseek_api_key}",
+                "Authorization": f"Bearer {api_key}",
             },
             json={
                 "model": model,
