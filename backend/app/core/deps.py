@@ -1,5 +1,5 @@
 """Shared FastAPI dependencies."""
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -17,6 +17,7 @@ async def get_current_user_id(
 
 
 async def get_current_user(
+    request: Request,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
@@ -27,4 +28,10 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    app_version = request.headers.get("x-app-version")
+    if app_version and user.app_version != app_version:
+        user.app_version = app_version
+        await db.commit()
+
     return user

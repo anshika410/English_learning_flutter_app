@@ -5,6 +5,7 @@ import 'package:chucker_flutter/chucker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'analytics_service.dart';
@@ -79,6 +80,7 @@ class EllaApiService {
   static const _preferredModelKey = 'ella_api_preferred_model';
 
   static Future<bool>? _currentRefreshFuture;
+  static String? _appVersionCached;
 
   final String baseUrl;
   final http.Client _client;
@@ -583,10 +585,19 @@ class EllaApiService {
     final uri = Uri.parse(path.startsWith('http') ? path : '$baseUrl$path');
     final prefs = await SharedPreferences.getInstance();
     final preferredModel = prefs.getString(_preferredModelKey);
+    if (_appVersionCached == null) {
+      try {
+        final info = await PackageInfo.fromPlatform();
+        _appVersionCached = "${info.version}+${info.buildNumber}";
+      } catch (_) {
+        _appVersionCached = "";
+      }
+    }
     final headers = <String, String>{
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
       if (preferredModel != null && preferredModel.isNotEmpty) 'X-Preferred-Model': preferredModel,
+      if (_appVersionCached!.isNotEmpty) 'X-App-Version': _appVersionCached!,
     };
     if (auth) {
       var token = await getToken();

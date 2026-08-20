@@ -39,6 +39,9 @@ class User(Base):
     # Auth Email (for magic link / google)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
 
+    # App version (from X-App-Version client header)
+    app_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     # Profile — filled in during/after placement
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     
