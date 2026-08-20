@@ -32,5 +32,16 @@
 	<string>Ella needs microphone access to listen to your responses during the English learning conversation sessions.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Ella needs speech recognition access to transcribe your voice input into text for Zoe.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.778575174037-tg76ia7gf961rrqh8g2s3ptnnr5gkos4</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

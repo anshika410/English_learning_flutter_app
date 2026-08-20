@@ -91,9 +91,12 @@ Future<void> main() async {
   await dotenv.load(fileName: '.env');
   
   try {
+    final googleClientId = dotenv.env['GOOGLE_CLIENT_ID'];
+    final isApplePlatform = !kIsWeb && 
+        (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS);
     await GoogleSignIn.instance.initialize(
-      clientId: kIsWeb ? dotenv.env['GOOGLE_CLIENT_ID'] : null,
-      serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_CLIENT_ID'],
+      clientId: (kIsWeb || isApplePlatform) ? googleClientId : null,
+      serverClientId: kIsWeb ? null : googleClientId,
     );
   } catch (e) {
     debugPrint('⚠️ Google Sign-In failed to initialize: $e');

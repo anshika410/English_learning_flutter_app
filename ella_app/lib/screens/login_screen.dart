@@ -7,7 +7,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -219,14 +219,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       gsi.GoogleSignInAccount? googleUser;
 
       try {
-        // In google_sign_in v7+, attemptLightweightAuthentication() triggers the
-        // Android Credential Manager's "One-Tap" bottom sheet UI (useButtonFlow: false).
-        googleUser =
-            await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
-        
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          try {
+            // Android Credential Manager "One-Tap" bottom sheet
+            googleUser =
+                await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+          } catch (e) {
+            // Fallback to standard sign-in if Android lightweight auth fails
+            googleUser = await gsi.GoogleSignIn.instance.signIn();
+          }
+        } else {
+          // Cross-platform standard Google sign-in (iOS, macOS, Web)
+          googleUser = await gsi.GoogleSignIn.instance.signIn();
+        }
+
         if (googleUser == null) {
-          // The user dismissed the bottom sheet (swiped down or went back).
-          // Cancel the login flow silently.
+          // User cancelled or dismissed the sign-in prompt.
           if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;
@@ -235,14 +243,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         if (e is gsi.GoogleSignInException &&
             (e.code == gsi.GoogleSignInExceptionCode.canceled ||
              e.code == gsi.GoogleSignInExceptionCode.interrupted)) {
-          // User cancelled the login prompt. Quietly return.
           if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;
         }
         final errorStr = e.toString().toLowerCase();
         if (errorStr.contains('cancel') || errorStr.contains('interrupted')) {
-          // User cancelled the standard account picker. Quietly return.
           if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;

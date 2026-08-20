@@ -2,9 +2,12 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   remove_alpha_ios: true
+  macos:
+    generate: true
+    image_path: "assets/zoe_splash_padded.png"
   web:
     generate: true
-    image_path: "assets/image.png"
+    image_path: "assets/zoe_splash_padded.png"
     background_color: "#FFFFFF"
     theme_color: "#FFFFFF"
-  image_path: "assets/image.png"
+  image_path: "assets/zoe_splash_padded.png"
