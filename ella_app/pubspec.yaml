@@ -81,6 +81,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  msix: ^3.16.5
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -185,3 +186,12 @@ flutter:
 dependency_overrides:
   google_sign_in_android:
     path: ../google_sign_in_android_patched
+
+msix_config:
+  display_name: Ella
+  publisher_display_name: Navgurukul
+  title: Ella
+  identity_name: org.navgurukul.ella
+  publisher: CN=Navgurukul
+  logo_path: assets/zoe_splash_padded.png
+  capabilities: internetClient, microphone
