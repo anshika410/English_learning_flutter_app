@@ -35,7 +35,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _name = '';
   int _age = 0;
   String _email = '';
-  String _selectedModel = 'openai/gpt-5.6-luna';
+  String _selectedModel = 'deepseek/deepseek-v4-flash';
 
   String _appVersion = '';
 
@@ -100,7 +100,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final model = await EllaApiService().getPreferredModel();
       if (mounted) {
         setState(() {
-          _selectedModel = model ?? 'openai/gpt-5.6-luna';
+          _selectedModel = model ?? 'deepseek/deepseek-v4-flash';
           _isLoading = false;
         });
       }
@@ -118,7 +118,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final model = await EllaApiService().getPreferredModel();
       if (mounted) {
         setState(() {
-          _selectedModel = model ?? 'openai/gpt-5.6-luna';
+          _selectedModel = model ?? 'deepseek/deepseek-v4-flash';
           _isLoading = false;
         });
       }
@@ -126,8 +126,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   String _friendlyModelName(String modelId) {
-    if (modelId.contains('deepseek')) return 'DeepSeek V4 Flash';
-    return 'GPT-5.6 Luna';
+    if (modelId.contains('luna')) return 'GPT-5.6 Luna';
+    return 'DeepSeek V4 Flash';
   }
 
   void _showModelPicker() {
@@ -140,14 +140,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (context) {
         final models = [
           {
-            'id': 'openai/gpt-5.6-luna',
-            'name': 'GPT-5.6 Luna',
-            'desc': 'Experimental advanced tutor model (Default)',
-          },
-          {
             'id': 'deepseek/deepseek-v4-flash',
             'name': 'DeepSeek V4 Flash',
-            'desc': 'Highly responsive dialogue model',
+            'desc': 'Highly responsive dialogue model (Default)',
+          },
+          {
+            'id': 'openai/gpt-5.6-luna',
+            'name': 'GPT-5.6 Luna',
+            'desc': 'Experimental advanced tutor model',
           },
         ];
 
