@@ -65,12 +65,12 @@ async def _chat_completion(
     from ..core.config import preferred_model_var
     preferred = preferred_model_var.get()
     
-    # Route Luna (OpenAI GPT) requests directly to OpenRouter, even when Hugging Face is active
+    # Route Luna (OpenAI GPT) requests directly to OpenAI's official API, even when Hugging Face is active
     preferred_lower = preferred.lower() if preferred else ""
     if "luna" in preferred_lower:
-        model = "openai/gpt-5.6-luna"
-        base_url = settings.deepseek_base_url
-        api_key = settings.deepseek_api_key
+        model = "gpt-4o-mini"
+        base_url = "https://api.openai.com/v1"
+        api_key = settings.openai_api_key or settings.deepseek_api_key  # Use direct OpenAI key with fallback to OpenRouter key if present
     # If Hugging Face is configured, use Hugging Face settings for other models (e.g. DeepSeek)
     elif settings.huggingface_api_key:
         model_mapping = {
