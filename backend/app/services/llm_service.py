@@ -71,11 +71,15 @@ async def _chat_completion(
         model = "gpt-4o-mini"
         base_url = "https://api.openai.com/v1"
         api_key = settings.openai_api_key or settings.deepseek_api_key  # Use direct OpenAI key with fallback to OpenRouter key if present
-    # If Hugging Face is configured, use Hugging Face settings for other models (e.g. DeepSeek)
+    # Route DeepSeek requests directly to OpenRouter / DeepSeek API (bypassing Hugging Face)
+    elif "deepseek" in preferred_lower:
+        model = "deepseek/deepseek-v4-flash"
+        base_url = settings.deepseek_base_url
+        api_key = settings.deepseek_api_key
+    # If Hugging Face is configured, use Hugging Face settings for other models (e.g. Gemini / default)
     elif settings.huggingface_api_key:
         model_mapping = {
             "gemini": "meta-llama/Llama-3.1-8B-Instruct",
-            "deepseek": "deepseek-ai/DeepSeek-V4-Flash",
         }
         model = settings.huggingface_model
         for key, mapped_val in model_mapping.items():
@@ -88,9 +92,7 @@ async def _chat_completion(
         # Fallback maps to actual OpenRouter/DeepSeek IDs
         model_mapping = {
             "gemini": "google/gemini-3.5-flash-lite",
-            "deepseek": "deepseek/deepseek-v4-flash",
             "google/gemini-3.5-flash-lite": "google/gemini-3.5-flash-lite",
-            "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
         }
         model = settings.deepseek_model
         for key, mapped_val in model_mapping.items():

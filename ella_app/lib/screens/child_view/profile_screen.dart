@@ -35,7 +35,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _name = '';
   int _age = 0;
   String _email = '';
-  String _selectedModel = 'google/gemini-3.5-flash-lite';
+  String _selectedModel = 'openai/gpt-5.6-luna';
 
   String _appVersion = '';
 
@@ -100,7 +100,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final model = await EllaApiService().getPreferredModel();
       if (mounted) {
         setState(() {
-          _selectedModel = model ?? 'google/gemini-3.5-flash-lite';
+          _selectedModel = model ?? 'openai/gpt-5.6-luna';
           _isLoading = false;
         });
       }
@@ -118,7 +118,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final model = await EllaApiService().getPreferredModel();
       if (mounted) {
         setState(() {
-          _selectedModel = model ?? 'google/gemini-3.5-flash-lite';
+          _selectedModel = model ?? 'openai/gpt-5.6-luna';
           _isLoading = false;
         });
       }
@@ -126,9 +126,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   String _friendlyModelName(String modelId) {
-    if (modelId.contains('luna')) return 'GPT-5.6 Luna';
     if (modelId.contains('deepseek')) return 'DeepSeek V4 Flash';
-    return 'Gemini 3.5 Flash Lite';
+    return 'GPT-5.6 Luna';
   }
 
   void _showModelPicker() {
@@ -141,14 +140,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (context) {
         final models = [
           {
-            'id': 'google/gemini-3.5-flash-lite',
-            'name': 'Gemini 3.5 Flash Lite',
-            'desc': 'Fast, balanced, and smart (Default)',
-          },
-          {
             'id': 'openai/gpt-5.6-luna',
             'name': 'GPT-5.6 Luna',
-            'desc': 'Experimental advanced tutor model',
+            'desc': 'Experimental advanced tutor model (Default)',
           },
           {
             'id': 'deepseek/deepseek-v4-flash',
