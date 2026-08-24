@@ -305,7 +305,7 @@ async def get_conversation_analysis(
         from pathlib import Path
         import json
         from ..services.llm_service import resolve_prompt
-        template = resolve_prompt("end-result-prompt.md", user_id=conv.user_id)
+        template = resolve_prompt("end-result-prompt.md", user_id=f"{user.id}:{user.email}" if user and user.email else conv.user_id)
         
         # Format transcript
         formatted_transcript = "\n".join(
@@ -473,24 +473,28 @@ async def get_admin_prompts(
     from ..services.llm_service import PROMPTS_DIR, resolve_prompt
     try:
         user_id = user.id if user else None
+        user_email = user.email if user else None
         
-        # Check if sandbox exists for this user
+        # Check if sandbox exists for this user (by UUID or Email)
         is_sandbox = False
         if user_id:
             sandbox_dir = PROMPTS_DIR / "sandboxes" / user_id
-            if sandbox_dir.exists() and any(sandbox_dir.iterdir()):
+            email_dir = PROMPTS_DIR / "sandboxes" / user_email if user_email else None
+            if (sandbox_dir.exists() and any(sandbox_dir.iterdir())) or (email_dir and email_dir.exists() and any(email_dir.iterdir())):
                 is_sandbox = True
 
-        judge = resolve_prompt("end-result-prompt.md", user_id=user_id)
-        placement = resolve_prompt("placement-check-prompt.md", user_id=user_id)
-        base = resolve_prompt("base-prompt.md", user_id=user_id)
-        conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=user_id)
-        correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=user_id)
+        resolve_id = f"{user_id}:{user_email}" if user_id and user_email else user_id
+
+        judge = resolve_prompt("end-result-prompt.md", user_id=resolve_id)
+        placement = resolve_prompt("placement-check-prompt.md", user_id=resolve_id)
+        base = resolve_prompt("base-prompt.md", user_id=resolve_id)
+        conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=resolve_id)
+        correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=resolve_id)
         
         # Read level profiles
         level_profiles = {}
         for lvl in ["A0", "A1", "A2", "B1", "B2", "C1"]:
-            level_profiles[lvl] = resolve_prompt(f"profile-{lvl}.md", user_id=user_id)
+            level_profiles[lvl] = resolve_prompt(f"profile-{lvl}.md", user_id=resolve_id)
 
         return AdminPromptsResponse(
             conversation="",

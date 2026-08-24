@@ -48,9 +48,23 @@ def resolve_prompt(
             return custom_prompts[key]
 
     if user_id:
-        sandbox_path = PROMPTS_DIR / "sandboxes" / user_id / filename
+        uuid_part = user_id
+        email_part = None
+        if ":" in user_id:
+            parts = user_id.split(":", 1)
+            uuid_part = parts[0]
+            email_part = parts[1]
+
+        # 1. Try UUID sandbox
+        sandbox_path = PROMPTS_DIR / "sandboxes" / uuid_part / filename
         if sandbox_path.exists():
             return sandbox_path.read_text().strip()
+
+        # 2. Try Email sandbox
+        if email_part:
+            sandbox_path = PROMPTS_DIR / "sandboxes" / email_part / filename
+            if sandbox_path.exists():
+                return sandbox_path.read_text().strip()
 
     return (PROMPTS_DIR / filename).read_text().strip()
 
