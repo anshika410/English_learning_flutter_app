@@ -14,11 +14,19 @@ sandbox before falling back to production, and the existing `.replace()`
 chain in `llm_service.py` will substitute the tokens below into whatever
 `conv-unit-framing.md` resolves to.
 
-Tokens marked "live" below are already substituted by current code
-(`llm_service.py` around line 495-510). `{{LEVEL}}` is not live yet — it
-needs one added `.replace("{{LEVEL}}", level_upper)` line in
-`send_conversation_turn()`, since today the level only selects which
-`profile-*.md` file loads and is never injected as text.
+Live tokens (substituted by `llm_service.py`'s `unit_block` chain in both
+`send_conversation_turn()` and `generate_conversation_starter()`):
+`{{LEARNER_CONTEXT}}`, `{{LEVEL}}`, `{{UNIT}}`, `{{PRIMARY_STRAND}}`,
+`{{PRIMARY_SKILL}}`, `{{WATCH_LIST}}`, `{{CONVERSATION_TOPIC}}`,
+`{{ALL_LEVEL_SKILLS}}` (every "I Can" statement for the level, via
+`_all_level_skills_text()`), `{{LAST_CONVERSATION}}` (full transcript of the
+user's most recently completed conversation, fetched in `routers/llm.py`'s
+`_fetch_last_conversation_transcript()` and passed through).
+
+`{{ALL_LEVEL_SKILLS}}` can be long — every unit's skills for the whole
+level, not just the current one — worth watching for prompt-size/cost if
+a level has many units. "Recent Mistakes & Insights" still has no backing
+data anywhere in the codebase.
 
 ## Role
 
@@ -47,7 +55,11 @@ Other "I Can" statements in this unit (watch list — use naturally, do not test
 
 Chosen Conversation Topic: {{CONVERSATION_TOPIC}}
 
-Last Conversation Summary: not yet available — no backend field currently stores this. Do not reference a previous session unless the learner brings it up.
+All "I Can" statements at this level (vocabulary pool, grammar scope, and fluency framework — the entire level, not just this unit):
+{{ALL_LEVEL_SKILLS}}
+
+Last conversation (full transcript — continue from where the learner left off if it's relevant; if it says "this is the learner's first conversation," there is no prior session):
+{{LAST_CONVERSATION}}
 
 Recent Mistakes & Insights: not yet available — no backend field currently tracks this. Rely on what the learner says in this conversation only.
 

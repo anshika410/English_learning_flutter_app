@@ -54,6 +54,18 @@ def resolve_prompt(
 
     return (PROMPTS_DIR / filename).read_text().strip()
 
+
+def _all_level_skills_text(level_upper: str) -> str:
+    """Every "I Can" statement for a CEFR level, across all its curriculum units, in sequence."""
+    from ..core.curriculum_data import UNITS
+
+    lines = [
+        f"- [{skill['id']}] {skill['text']}"
+        for unit in UNITS.get(level_upper, [])
+        for skill in unit.get("skills", [])
+    ]
+    return "\n".join(lines) if lines else "None"
+
 # ── Shared HTTP helper ────────────────────────────────────────────────────────
 
 async def _chat_completion(
@@ -174,6 +186,7 @@ async def generate_conversation_starter(
     persona_memory: dict | None = None,
     custom_prompts: dict | None = None,
     user_id: str | None = None,
+    last_conversation_transcript: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -308,6 +321,8 @@ async def generate_conversation_starter(
         .replace("{{LEARNER_CONTEXT}}", memory_str)
         .replace("{{WATCH_LIST}}", watch_list_str)
         .replace("{{LEVEL}}", level_upper)
+        .replace("{{ALL_LEVEL_SKILLS}}", _all_level_skills_text(level_upper))
+        .replace("{{LAST_CONVERSATION}}", last_conversation_transcript or "None — this is the learner's first conversation.")
         .strip()
     )
 
@@ -402,6 +417,7 @@ async def send_conversation_turn(
     skills_progress: dict | None = None,
     custom_prompts: dict | None = None,
     user_id: str | None = None,
+    last_conversation_transcript: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -530,6 +546,8 @@ async def send_conversation_turn(
         .replace("{{LEARNER_CONTEXT}}", memory_str)
         .replace("{{WATCH_LIST}}", watch_list_str)
         .replace("{{LEVEL}}", level_upper)
+        .replace("{{ALL_LEVEL_SKILLS}}", _all_level_skills_text(level_upper))
+        .replace("{{LAST_CONVERSATION}}", last_conversation_transcript or "None — this is the learner's first conversation.")
         .strip()
     )
 

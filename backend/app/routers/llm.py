@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.orm.attributes import flag_modified
 from ..core.database import get_db
 from ..core.deps import get_current_user
 from ..models.user import User
 from ..models.conversation import Conversation
+from ..models.message import Message
 from ..models.session_analysis import SessionAnalysis
 from ..schemas.llm import (
     StarterRequest, StarterResponse,
@@ -40,18 +41,54 @@ def _generate_placement_recap(result: dict) -> str | None:
     return None
 
 
+async def _fetch_last_conversation_transcript(
+    db: AsyncSession, user_id: str, exclude_session_id: str | None = None
+) -> str | None:
+    """Full turn-by-turn transcript of the user's most recently completed conversation."""
+    query = select(Conversation).where(
+        Conversation.user_id == user_id,
+        Conversation.completed == True,  # noqa: E712
+    )
+    if exclude_session_id:
+        query = query.where(Conversation.id != exclude_session_id)
+    query = query.order_by(desc(Conversation.completed_at)).limit(1)
+
+    result = await db.execute(query)
+    last_conv = result.scalar_one_or_none()
+    if not last_conv:
+        return None
+
+    msg_result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == last_conv.id)
+        .order_by(Message.turn_number, Message.created_at)
+    )
+    messages = msg_result.scalars().all()
+    if not messages:
+        return None
+
+    return "\n".join(f"{m.role}: {m.content}" for m in messages)
+
+
 @router.post("/conversation-starter", response_model=StarterResponse)
 async def conversation_starter(
     body: StarterRequest,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Generates a friendly opening question/starter from the AI tutor matching a selected topic.
-    
+
     Acts as a proxy call to the LLM (DeepSeek) using prompt rendering configured server-side.
     """
     try:
-        result = await llm_service.generate_conversation_starter(body.unit, level=user.level or "A1", user_id=user.id)
+        last_conversation_transcript = await _fetch_last_conversation_transcript(db, user.id)
+        result = await llm_service.generate_conversation_starter(
+            body.unit,
+            level=user.level or "A1",
+            user_id=user.id,
+            last_conversation_transcript=last_conversation_transcript,
+        )
         return StarterResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
@@ -83,6 +120,9 @@ async def conversation_turn(
 
     try:
         messages = [m.model_dump() for m in body.messages]
+        last_conversation_transcript = await _fetch_last_conversation_transcript(
+            db, user.id, exclude_session_id=body.session_id
+        )
         result = await llm_service.send_conversation_turn(
             messages=messages,
             topic=body.unit or "Free conversation",
@@ -93,6 +133,7 @@ async def conversation_turn(
             due_next=user.due_next,
             skills_progress=user.skills_progress or {},
             user_id=user.id,
+            last_conversation_transcript=last_conversation_transcript,
         )
         return ConversationTurnResponse(**result)
     except Exception as e:
