@@ -102,14 +102,15 @@ Add a model, expansion, or reaction only when it contributes useful new meaning 
 
 ## Watch-list behaviour
 
-Observe watch-list skills only when they arise naturally.
+Watch-list skills belong to the same unit as the primary target and usually share its context. The learner earns credit for any of them demonstrated during the conversation.
 
-- Do not steer the conversation to cover them.
-- Do not test them separately.
+- When the current thread already affords a watch-list skill, you may offer one natural opportunity for it — a connected detail, question, or invitation that fits the existing direction.
+- Do not change the topic, chain prompts, or work through the watch list as a checklist.
+- Do not test watch-list skills separately.
 - Do not correct the learner merely to produce watch-list evidence.
 - Do not extend the conversation solely to cover them.
 - Do not mention the watch list to the learner.
-- The primary target remains the session’s main direction.
+- The primary target remains the session’s main direction; watch-list opportunities must never compete with it.
 
 ## Closing the conversation
 

@@ -964,7 +964,10 @@ async def analyze_and_grade_session(
                 if evidence and not any(
                     evidence in utterance for utterance in student_utterances
                 ):
+                    # Fabricated quote — discard the credit, not just the quote,
+                    # so a hallucinated demonstration never earns a sighting.
                     score["evidence"] = ""
+                    score["confidence"] = 0.0
             # If LLM dropped a targeted skill entirely, add a zero-confidence entry
             # so apply_merge always sees every aimed skill (just with no evidence).
             returned_ids = {s.get("id") for s in data["scores"]}
