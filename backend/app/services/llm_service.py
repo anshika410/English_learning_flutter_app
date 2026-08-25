@@ -277,6 +277,20 @@ async def generate_conversation_starter(
     # Build elicitation plan (using plan_text(target_ids)) - Deprecated
     # elicitation_str = plan_text(target_ids, level_upper)
 
+    primary_id = target_ids[0] if target_ids else None
+    primary_strand = "VOC"
+    if primary_id:
+        from ..core.curriculum_data import get_skill_strand
+        primary_strand = get_skill_strand(primary_id)
+    primary_skill_text = resolve_skill_text(primary_id, level_upper) if primary_id else "General conversation practice"
+
+    watching_ids = target_ids[1:] if len(target_ids) > 1 else []
+    watch_list_str = "\n".join(
+        f"- [{wid}] {resolve_skill_text(wid, level_upper)}"
+        for wid in watching_ids
+        if resolve_skill_text(wid, level_upper)
+    ) if watching_ids else "None"
+
     unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
     unit_block = (
         unit_template
@@ -286,6 +300,14 @@ async def generate_conversation_starter(
         # .replace("{{ELICITATION}}", elicitation_str) # Deprecated
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", "1")
+        # Support new pk_1.1 placeholders
+        .replace("{{UNIT}}", str(unit_name))
+        .replace("{{CONVERSATION_TOPIC}}", topic or "Free conversation")
+        .replace("{{PRIMARY_STRAND}}", primary_strand)
+        .replace("{{PRIMARY_SKILL}}", primary_skill_text)
+        .replace("{{LEARNER_CONTEXT}}", memory_str)
+        .replace("{{WATCH_LIST}}", watch_list_str)
+        .replace("{{LEVEL}}", level_upper)
         .strip()
     )
 
@@ -507,6 +529,7 @@ async def send_conversation_turn(
         .replace("{{PRIMARY_SKILL}}", primary_skill_text)
         .replace("{{LEARNER_CONTEXT}}", memory_str)
         .replace("{{WATCH_LIST}}", watch_list_str)
+        .replace("{{LEVEL}}", level_upper)
         .strip()
     )
 
