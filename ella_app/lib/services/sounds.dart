@@ -39,7 +39,7 @@ class Sounds {
   static const bloom = AudioClip('new-sounds/bloom__playful-gamey.wav');
   static const level = AudioClip('new-sounds/level__playful-gamey.wav');
   static const newGarden = AudioClip('new-sounds/new-garden__playful-gamey.wav');
-  static const topic = AudioClip('new-sounds/topic__playful-gamey.wav');
+  static const topic = AudioClip('music/tapclick.wav');
   static const nudge = AudioClip('new-sounds/nudge__playful-gamey.wav');
   static const error = AudioClip('new-sounds/error__playful-gamey.wav');
 

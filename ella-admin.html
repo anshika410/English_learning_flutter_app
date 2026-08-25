@@ -520,6 +520,7 @@
       const statsData = await statsRes.json();
       const metricsData = await metricsRes.json();
       CURRICULUM = await curriculumRes.json();
+      window.STATS_DATA = statsData;
 
       renderDashboard(statsData);
       renderMetrics(metricsData);
@@ -664,7 +665,7 @@
         <td>${getUserProgressHTML(u)}</td>
         <td>${formatDate(u.created_at)}</td>
         <td>${formatDate(u.last_active_at)}</td>
-        <td><span style="font-family: monospace; font-size: 12px; color: #6B5740;">${u.app_version || '—'}</span></td>
+        <td><span style="font-family: monospace; font-size: 12px; color: #6B5740;" title="${u.app_version || ''}">${u.app_version ? u.app_version.split('+')[0] : '—'}</span></td>
         <td>
           <div style="display: flex; gap: 6px;">
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
@@ -1083,18 +1084,36 @@
   let _convsFilterUserId = null;
   let _allConvRows = [];
 
-  function filterConvsByUser(userId, name) {
+  async function filterConvsByUser(userId, name) {
     _convsFilterUserId = userId;
     document.getElementById('convs-filter-label').textContent = `· showing ${name}'s sessions`;
     document.getElementById('convs-clear-filter').style.display = 'inline-block';
     // Scroll to conversations section
     document.getElementById('convs-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // Filter rows
-    const rows = document.querySelectorAll('#convs-table tr');
-    rows.forEach(row => {
-      const uid = row.getAttribute('data-user-id');
-      row.style.display = (!uid || uid === userId) ? '' : 'none';
-    });
+    
+    const tableBody = document.getElementById('convs-table');
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888;">Loading sessions...</td></tr>';
+    
+    try {
+      const res = await fetch(`${BASE_URL}/admin/users/${userId}/conversations?key=${encodeURIComponent(ADMIN_KEY)}`);
+      if (!res.ok) throw new Error('Failed to fetch user conversations');
+      const convs = await res.json();
+      
+      tableBody.innerHTML = convs.map(c => `
+        <tr data-user-id="${c.user_id || ''}">
+          <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
+          <td>${c.header_title || c.topic || '—'}</td>
+          <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
+          <td>${c.message_count}</td>
+          <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
+          <td><span class="badge ${c.completed ? (c.message_count <= 1 ? 'badge-aborted' : 'badge-done') : 'badge-pending'}">${c.completed ? (c.message_count <= 1 ? 'No interaction' : 'Done') : 'In progress'}</span></td>
+          <td>${formatDate(c.created_at)}</td>
+          <td><button class="transcript-btn" onclick="viewSessionAnalysis('${c.id}', '${(c.user_name || 'Student').replace(/'/g, "\\'")}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
+        </tr>
+      `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
+    } catch (e) {
+      tableBody.innerHTML = `<tr><td colspan="8" style="color:#dc2626;text-align:center;padding:20px">Error: ${e.message}</td></tr>`;
+    }
   }
 
   function clearConvsFilter() {
@@ -1102,8 +1121,21 @@
     document.getElementById('convs-filter-label').textContent = '';
     document.getElementById('convs-clear-filter').style.display = 'none';
     document.getElementById('user-search').value = '';
-    const rows = document.querySelectorAll('#convs-table tr');
-    rows.forEach(row => row.style.display = '');
+    
+    if (window.STATS_DATA && window.STATS_DATA.recent_conversations) {
+      document.getElementById('convs-table').innerHTML = window.STATS_DATA.recent_conversations.map(c => `
+        <tr data-user-id="${c.user_id || ''}">
+          <td>${c.user_name || '<span style="color:#aaa">Anonymous</span>'}</td>
+          <td>${c.header_title || c.topic || '—'}</td>
+          <td>${c.user_level ? `<span class="badge badge-${c.user_level.toLowerCase()}">${c.user_level}</span>` : '—'}</td>
+          <td>${c.message_count}</td>
+          <td>${c.duration_seconds ? Math.round(c.duration_seconds / 60) + ' min' : '—'}</td>
+          <td><span class="badge ${c.completed ? (c.message_count <= 1 ? 'badge-aborted' : 'badge-done') : 'badge-pending'}">${c.completed ? (c.message_count <= 1 ? 'No interaction' : 'Done') : 'In progress'}</span></td>
+          <td>${formatDate(c.created_at)}</td>
+          <td><button class="transcript-btn" onclick="viewSessionAnalysis('${c.id}', '${(c.user_name || 'Student').replace(/'/g, "\\'")}', '${(c.header_title || c.topic || 'Conversation').replace(/'/g, "\\'")}')">View</button></td>
+        </tr>
+      `).join('') || '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:20px">No conversations yet</td></tr>';
+    }
     filterUsers();
   }
 
