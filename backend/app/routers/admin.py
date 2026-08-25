@@ -1090,6 +1090,58 @@ async def reset_user(
         "message": "All placements deleted. Level, skills, memory reset to fresh state."
     }
 
+@router.get("/users/{user_id}/conversations")
+async def list_user_conversations(
+    user_id: str,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetches all conversations for a specific user, ordered by creation date."""
+    from ..models.message import Message
+    from sqlalchemy import select, desc, func
+
+    # Verify user exists
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    convs_result = await db.execute(
+        select(Conversation)
+        .where(Conversation.user_id == user_id)
+        .order_by(desc(Conversation.created_at))
+    )
+    convs = convs_result.scalars().all()
+
+    # Message counts
+    msg_counts = await db.execute(
+        select(
+            Message.conversation_id,
+            func.count().label("cnt"),
+        )
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(Conversation.user_id == user_id)
+        .group_by(Message.conversation_id)
+    )
+    msg_map = {row.conversation_id: row.cnt for row in msg_counts}
+
+    conv_list = []
+    for c in convs:
+        conv_list.append({
+            "id": c.id,
+            "user_id": c.user_id,
+            "user_name": user.name,
+            "user_level": user.level,
+            "topic": c.topic,
+            "header_title": c.header_title,
+            "duration_seconds": c.duration_seconds,
+            "completed": c.completed,
+            "message_count": msg_map.get(c.id, 0),
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        })
+
+    return conv_list
+
 
 @router.get("/curriculum")
 async def get_admin_curriculum(
