@@ -80,7 +80,7 @@ async def run_and_save_session_analysis(
             unit_label=unit_label,
             target_skill_ids=primary_ids,
             custom_prompts=custom_prompts,
-            user_id=user.id,
+            user_id=f"{user.id}:{user.email}" if user.email else user.id,
         )
         scores = analysis.get("scores", [])
     except Exception as e:
@@ -184,7 +184,7 @@ async def run_and_save_session_analysis(
             messages,
             level=level,
             custom_prompts=custom_prompts,
-            user_id=user.id,
+            user_id=f"{user.id}:{user.email}" if user.email else user.id,
         )
         sa.correction_highlight = correction_hl
     except Exception:

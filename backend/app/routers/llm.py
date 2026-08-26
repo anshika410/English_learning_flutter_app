@@ -82,13 +82,7 @@ async def conversation_starter(
     Acts as a proxy call to the LLM (DeepSeek) using prompt rendering configured server-side.
     """
     try:
-        last_conversation_transcript = await _fetch_last_conversation_transcript(db, user.id)
-        result = await llm_service.generate_conversation_starter(
-            body.unit,
-            level=user.level or "A1",
-            user_id=user.id,
-            last_conversation_transcript=last_conversation_transcript,
-        )
+        result = await llm_service.generate_conversation_starter(body.unit, level=user.level or "A1", user_id=f"{user.id}:{user.email}" if user.email else user.id)
         return StarterResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")
@@ -132,8 +126,7 @@ async def conversation_turn(
             persona_memory=user.persona_memory,
             due_next=user.due_next,
             skills_progress=user.skills_progress or {},
-            user_id=user.id,
-            last_conversation_transcript=last_conversation_transcript,
+            user_id=f"{user.id}:{user.email}" if user.email else user.id,
         )
         return ConversationTurnResponse(**result)
     except Exception as e:
@@ -185,7 +178,7 @@ async def placement_turn(
             name=first_name,
             age=body.age or (int(user.age) if user.age and user.age.isdigit() else None),
             custom_prompts=body.custom_prompts,
-            user_id=user.id,
+            user_id=f"{user.id}:{user.email}" if user.email else user.id,
         )
         
         # Ensure the first name is in the result so PlacementTurnResponse includes it

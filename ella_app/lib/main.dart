@@ -48,9 +48,28 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  bool isGoogleSignInCancellation(Object? error) {
+    if (error == null) return false;
+    if (error is GoogleSignInException) {
+      if (error.code == GoogleSignInExceptionCode.canceled ||
+          error.code == GoogleSignInExceptionCode.interrupted) {
+        return true;
+      }
+    }
+    final errStr = error.toString().toLowerCase();
+    if (errStr.contains('googlesigninexception') &&
+        (errStr.contains('cancel') || errStr.contains('interrupted'))) {
+      return true;
+    }
+    return false;
+  }
+
   FlutterError.onError = (FlutterErrorDetails details) {
     debugPrint('🔥🔥🔥 FLUTTER ERROR: ${details.exception}');
     debugPrint('🔥🔥🔥 STACK TRACE: ${details.stack}');
+    if (isGoogleSignInCancellation(details.exception)) {
+      return;
+    }
     if (isFirebaseInitialized) {
       FirebaseCrashlytics.instance.recordFlutterFatalError(details);
     } else {
@@ -60,6 +79,9 @@ Future<void> main() async {
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('🔥🔥🔥 ASYNC ERROR: $error');
     debugPrint('🔥🔥🔥 ASYNC STACK: $stack');
+    if (isGoogleSignInCancellation(error)) {
+      return true;
+    }
     if (isFirebaseInitialized) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     }
@@ -69,9 +91,12 @@ Future<void> main() async {
   await dotenv.load(fileName: '.env');
   
   try {
+    final googleClientId = dotenv.env['GOOGLE_CLIENT_ID'];
+    final isApplePlatform = !kIsWeb && 
+        (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS);
     await GoogleSignIn.instance.initialize(
-      clientId: kIsWeb ? dotenv.env['GOOGLE_CLIENT_ID'] : null,
-      serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_CLIENT_ID'],
+      clientId: (kIsWeb || isApplePlatform) ? googleClientId : null,
+      serverClientId: kIsWeb ? null : googleClientId,
     );
   } catch (e) {
     debugPrint('⚠️ Google Sign-In failed to initialize: $e');

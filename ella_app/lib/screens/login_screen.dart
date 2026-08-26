@@ -7,7 +7,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -137,6 +137,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           _isSigningIn = false;
         }
       }
+    }, onError: (error, stackTrace) {
+      debugPrint('[Login] authenticationEvents stream error ignored: $error');
     });
 
     // Automatically prompt Google One Tap / FedCM when visiting the site (Web only)
@@ -148,7 +150,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           if (lightweightAuth != null) {
             final googleUser = await lightweightAuth;
             if (googleUser != null) {
-              final auth = await googleUser.authentication;
+              final auth = googleUser.authentication;
               final idToken = auth.idToken;
               if (idToken != null) {
                 if (_isSigningIn) return;
@@ -217,24 +219,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       gsi.GoogleSignInAccount? googleUser;
 
       try {
-        // In google_sign_in v7+, attemptLightweightAuthentication() triggers the
-        // Android Credential Manager's "One-Tap" bottom sheet UI (useButtonFlow: false).
-        googleUser =
-            await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
-        
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          try {
+            // Android Credential Manager "One-Tap" bottom sheet
+            googleUser =
+                await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+          } catch (e) {
+            // Fallback to standard sign-in if Android lightweight auth fails
+            googleUser = await gsi.GoogleSignIn.instance.authenticate();
+          }
+        } else {
+          // Cross-platform standard Google sign-in (iOS, macOS, Web)
+          googleUser = await gsi.GoogleSignIn.instance.authenticate();
+        }
+
         if (googleUser == null) {
-          // The user dismissed the bottom sheet (swiped down or went back).
-          // Cancel the login flow silently.
-          setState(() {
-            _isLoading = false;
-          });
+          // User cancelled or dismissed the sign-in prompt.
+          if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;
         }
       } catch (e) {
+        if (e is gsi.GoogleSignInException &&
+            (e.code == gsi.GoogleSignInExceptionCode.canceled ||
+             e.code == gsi.GoogleSignInExceptionCode.interrupted)) {
+          if (mounted) setState(() => _isLoading = false);
+          _isSigningIn = false;
+          return;
+        }
         final errorStr = e.toString().toLowerCase();
         if (errorStr.contains('cancel') || errorStr.contains('interrupted')) {
-          // User cancelled the standard account picker. Quietly return.
           if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;
@@ -257,7 +271,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         }
       }
     } catch (e) {
-      _showError('Google Sign In Error: $e');
+      if (e is gsi.GoogleSignInException &&
+          (e.code == gsi.GoogleSignInExceptionCode.canceled ||
+           e.code == gsi.GoogleSignInExceptionCode.interrupted)) {
+        // User cancelled sign in. Quietly ignore.
+      } else {
+        final errorStr = e.toString().toLowerCase();
+        if (!errorStr.contains('cancel') && !errorStr.contains('interrupted')) {
+          _showError('Google Sign In Error: $e');
+        }
+      }
     } finally {
       _isSigningIn = false;
       if (mounted) setState(() => _isLoading = false);

@@ -48,9 +48,23 @@ def resolve_prompt(
             return custom_prompts[key]
 
     if user_id:
-        sandbox_path = PROMPTS_DIR / "sandboxes" / user_id / filename
+        uuid_part = user_id
+        email_part = None
+        if ":" in user_id:
+            parts = user_id.split(":", 1)
+            uuid_part = parts[0]
+            email_part = parts[1]
+
+        # 1. Try UUID sandbox
+        sandbox_path = PROMPTS_DIR / "sandboxes" / uuid_part / filename
         if sandbox_path.exists():
             return sandbox_path.read_text().strip()
+
+        # 2. Try Email sandbox
+        if email_part:
+            sandbox_path = PROMPTS_DIR / "sandboxes" / email_part / filename
+            if sandbox_path.exists():
+                return sandbox_path.read_text().strip()
 
     return (PROMPTS_DIR / filename).read_text().strip()
 
@@ -77,30 +91,42 @@ async def _chat_completion(
     from ..core.config import preferred_model_var
     preferred = preferred_model_var.get()
     
-    # Map friendly model tags to actual OpenRouter/DeepSeek IDs
-    model_mapping = {
-        "luna": "openai/gpt-5.6-luna",
-        "gemini": "google/gemini-3.5-flash-lite",
-        "deepseek": "deepseek/deepseek-v4-flash",
-        "openai/gpt-5.6-luna": "openai/gpt-5.6-luna",
-        "google/gemini-3.5-flash-lite": "google/gemini-3.5-flash-lite",
-        "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-    }
-    
-    model = settings.deepseek_model
-    if preferred:
-        preferred_lower = preferred.lower()
-        for key, mapped_val in model_mapping.items():
-            if key in preferred_lower:
-                model = mapped_val
-                break
+    # Route Luna (OpenAI GPT) requests directly to OpenAI's official API
+    preferred_lower = preferred.lower() if preferred else ""
+    if "luna" in preferred_lower:
+        model = "gpt-4o-mini"
+        base_url = "https://api.openai.com/v1"
+        api_key = settings.openai_api_key or settings.deepseek_api_key  # Use direct OpenAI key with fallback to OpenRouter key if present
+    # Route DeepSeek requests to Hugging Face if configured, otherwise fallback to OpenRouter
+    elif "deepseek" in preferred_lower:
+        if settings.huggingface_api_key:
+            model = "deepseek-ai/DeepSeek-V3"
+            base_url = settings.huggingface_base_url
+            api_key = settings.huggingface_api_key
+        else:
+            model = "deepseek/deepseek-v4-flash"
+            base_url = settings.deepseek_base_url
+            api_key = settings.deepseek_api_key
+    # Default fallback for any other requests (like Gemini or others)
+    else:
+        # Since Gemini/others are removed, default to gpt-4o-mini if OpenAI API key is present
+        if settings.openai_api_key:
+            model = "gpt-4o-mini"
+            base_url = "https://api.openai.com/v1"
+            api_key = settings.openai_api_key
+        else:
+            model = settings.deepseek_model
+            base_url = settings.deepseek_base_url
+            api_key = settings.deepseek_api_key
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
-            f"{settings.deepseek_base_url}/chat/completions",
+            url,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {settings.deepseek_api_key}",
+                "Authorization": f"Bearer {api_key}",
             },
             json={
                 "model": model,
@@ -637,6 +663,10 @@ async def send_placement_turn(
             if "level" in data or "level_code" in data:
                 return _build_placement_result(data)
         except Exception as e:
+            # Fallback to loose parser
+            loose_data = _parse_loose_placement_output(text)
+            if loose_data:
+                return _build_placement_result(loose_data)
             import logging
             logging.warning(f"Failed parsing forced placement assessment: {e}. Raw text: {text}")
         # Absolute fallback if the LLM still refuses: start conservatively
@@ -667,10 +697,16 @@ async def send_placement_turn(
         return {"reply": reply or text, "is_complete": False}
 
     # Try parsing as final JSON assessment
+    data = None
     try:
         json_str = _extract_json(text)
         data = json.loads(json_str)
-        if "level" in data or "level_code" in data:
+    except Exception:
+        # Fallback to loose parser
+        data = _parse_loose_placement_output(text)
+
+    if data and ("level" in data or "level_code" in data):
+        try:
             confidence = data.get("confidence", "low")
 
             # ── TURN-BASED CONFIDENCE GATES ───────────────────────────────────
@@ -702,11 +738,20 @@ async def send_placement_turn(
             # Turn 9+: handled by the forced-completion branch above.
             else:
                 return _build_placement_result(data)
-
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     # Fallback: treat as plain reply
+    # If the reply contains technical keys, extract zoe_recap or show a friendly fallback
+    marker_words = ["evidence_summary", "possible_higher", "zoe_recap", "level_description"]
+    if any(word in text.lower() for word in marker_words):
+        recap_match = re.search(r"[\"']?(?:zoe_recap|level_description)[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+        if recap_match:
+            friendly_text = recap_match.group(1).strip()
+            if friendly_text:
+                return {"reply": friendly_text, "is_complete": False}
+        return {"reply": "Awesome job! We've completed our conversation. Let's find your level!", "is_complete": False}
+
     return {"reply": text, "is_complete": False}
 
 
@@ -743,6 +788,50 @@ def _build_placement_result(data: dict) -> dict:
         "interests": data.get("interests", []),
         "notes_for_first_session": data.get("notes_for_first_session"),
     }
+
+
+def _parse_loose_placement_output(text: str) -> dict | None:
+    """Fallback parser for malformed, unquoted, or prefixed placement outputs from LLM."""
+    marker_words = ["level", "confidence", "evidence_summary", "zoe_recap"]
+    matches_markers = any(word in text.lower() for word in marker_words)
+    if not matches_markers:
+        return None
+
+    data = {}
+    
+    # Extract level (A0-C1)
+    level_match = re.search(r"[\"']?(?:level|level_code)[\"']?\s*[:=]\s*[\"']?([A-C][0-2])[\"']?", text, re.IGNORECASE)
+    if level_match:
+        data["level"] = level_match.group(1).upper()
+        
+    # Extract confidence
+    conf_match = re.search(r"[\"']?confidence[\"']?\s*[:=]\s*[\"']?(\w+)[\"']?", text, re.IGNORECASE)
+    if conf_match:
+        data["confidence"] = conf_match.group(1).lower()
+
+    # Extract zoe_recap / level_description
+    recap_match = re.search(r"[\"']?zoe_recap[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if recap_match:
+        data["zoe_recap"] = recap_match.group(1).strip()
+        
+    desc_match = re.search(r"[\"']?level_description[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if desc_match:
+        data["level_description"] = desc_match.group(1).strip()
+
+    # Extract evidence_summary
+    ev_match = re.search(r"[\"']?evidence_summary[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if ev_match:
+        data["evidence_summary"] = ev_match.group(1).strip()
+
+    # If we found at least a level, we can reconstruct the assessment!
+    if "level" in data:
+        data["confidence"] = data.get("confidence") or "medium"
+        data["zoe_recap"] = data.get("zoe_recap") or data.get("level_description") or "You enjoy talking and practicing your English!"
+        data["level_description"] = data.get("level_description") or data.get("zoe_recap") or "We'll find your perfect pace."
+        data["evidence_summary"] = data.get("evidence_summary") or "Assessment completed using fallback loose parsing."
+        return data
+
+    return None
 
 
 async def _continue_placement(
@@ -910,7 +999,10 @@ async def analyze_and_grade_session(
                 if evidence and not any(
                     evidence in utterance for utterance in student_utterances
                 ):
+                    # Fabricated quote — discard the credit, not just the quote,
+                    # so a hallucinated demonstration never earns a sighting.
                     score["evidence"] = ""
+                    score["confidence"] = 0.0
             # If LLM dropped a targeted skill entirely, add a zero-confidence entry
             # so apply_merge always sees every aimed skill (just with no evidence).
             returned_ids = {s.get("id") for s in data["scores"]}

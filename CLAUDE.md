@@ -40,21 +40,20 @@ Requires a `.env` file in the project root with LLM API keys (Gemini or OpenAI).
 
 ## Project Structure
 
-```
-lib/
-  screens/       # One file per screen
-  widgets/       # Shared UI components
-  services/      # TTS, STT, LLM abstractions
-  providers/     # ChatProvider (conversation state)
-  models/        # ChatMessage, PlacementResult, LatencyInfo
-  theme/         # EllaColors + EllaTheme
+ella_app/
+  lib/
+    screens/       # One file per screen
+    widgets/       # Shared UI components
+    services/      # TTS, STT, LLM abstractions
+    providers/     # ChatProvider (conversation state)
+    models/        # ChatMessage, PlacementResult, LatencyInfo
+    theme/         # EllaColors + EllaTheme
+  assets/
+    mascot-animations/   # Zoe .webp animations
+    chillax/             # Chillax font files
+    piper_voices/        # Piper TTS models
+    whisper/             # Whisper STT model
 docs/
   project-summary.md
   ella-design-system.md   # Botanical Berry foundations (colour, type, gardens)
   ella-components.md      # per-component style specs
-assets/
-  mascot-animations/   # Zoe .webp animations
-  chillax/             # Chillax font files
-  piper_voices/        # Piper TTS models
-  whisper/             # Whisper STT model
-```

@@ -37,29 +37,29 @@ WelcomeScreen
 
 | File | Role |
 |---|---|
-| `lib/main.dart` | Entry point — Firebase init, `.env` load, `runApp` |
-| `lib/theme/ella_theme.dart` | All colour tokens (`EllaColors`) + Material theme (`EllaTheme`) |
-| `lib/screens/welcome_screen.dart` | Intro with TTS, letter-by-letter animation, corner block decorations |
-| `lib/screens/placement_screen.dart` | 3-turn placement test; local state, TTS+STT loop |
-| `lib/screens/result_screen.dart` | CEFR result display; Mango level badge, Kalam feedback text |
-| `lib/screens/home_screen.dart` | Topic chip hub; navigates to ConversationScreen with topic |
-| `lib/screens/conversation_screen.dart` | Main conversation UI; consumes ChatProvider |
-| `lib/screens/end_screen.dart` | Session summary; draggable transcript sheet |
-| `lib/screens/focus_discovery_screen.dart` | Focus/interest selection after first conversation |
-| `lib/screens/profile_screen.dart` | User profile screen |
-| `lib/widgets/ella_primary_button.dart` | Stamp-shadow CTA button with press-depth animation |
-| `lib/widgets/chat_bubble.dart` | Message bubble (used in ChatScreen) |
-| `lib/widgets/waveform_icon.dart` | Animated waveform icon widget |
-| `lib/providers/chat_provider.dart` | Conversation state — messages, STT/TTS/LLM orchestration |
-| `lib/services/tts_manager.dart` | TTS abstraction — selects System vs Piper engine |
-| `lib/services/stt_service.dart` | System STT wrapper (`speech_to_text`) |
-| `lib/services/whisper_stt_service.dart` | On-device Whisper STT |
-| `lib/services/llm_service.dart` | LLM API calls — Gemini/OpenAI, latency tracking |
-| `lib/models/chat_message.dart` | Message model with role, content, correction, latency |
-| `lib/models/placement_result.dart` | CEFR level, label, highlight text |
-| `lib/models/end_result_analysis.dart` | End-of-session analysis data model |
-| `lib/models/focus_settings.dart` | User focus/interest settings model |
-| `assets/prompts/` | LLM prompt files |
+| `ella_app/lib/main.dart` | Entry point — Firebase init, `.env` load, `runApp` |
+| `ella_app/lib/theme/ella_theme.dart` | All colour tokens (`EllaColors`) + Material theme (`EllaTheme`) |
+| `ella_app/lib/screens/welcome_screen.dart` | Intro with TTS, letter-by-letter animation, corner block decorations |
+| `ella_app/lib/screens/placement_screen.dart` | 3-turn placement test; local state, TTS+STT loop |
+| `ella_app/lib/screens/result_screen.dart` | CEFR result display; Mango level badge, Kalam feedback text |
+| `ella_app/lib/screens/home_screen.dart` | Topic chip hub; navigates to ConversationScreen with topic |
+| `ella_app/lib/screens/conversation_screen.dart` | Main conversation UI; consumes ChatProvider |
+| `ella_app/lib/screens/end_screen.dart` | Session summary; draggable transcript sheet |
+| `ella_app/lib/screens/focus_discovery_screen.dart` | Focus/interest selection after first conversation |
+| `ella_app/lib/screens/profile_screen.dart` | User profile screen |
+| `ella_app/lib/widgets/ella_primary_button.dart` | Stamp-shadow CTA button with press-depth animation |
+| `ella_app/lib/widgets/chat_bubble.dart` | Message bubble (used in ChatScreen) |
+| `ella_app/lib/widgets/waveform_icon.dart` | Animated waveform icon widget |
+| `ella_app/lib/providers/chat_provider.dart` | Conversation state — messages, STT/TTS/LLM orchestration |
+| `ella_app/lib/services/tts_manager.dart` | TTS abstraction — selects System vs Piper engine |
+| `ella_app/lib/services/stt_service.dart` | System STT wrapper (`speech_to_text`) |
+| `ella_app/lib/services/whisper_stt_service.dart` | On-device Whisper STT |
+| `ella_app/lib/services/llm_service.dart` | LLM API calls — Gemini/OpenAI, latency tracking |
+| `ella_app/lib/models/chat_message.dart` | Message model with role, content, correction, latency |
+| `ella_app/lib/models/placement_result.dart` | CEFR level, label, highlight text |
+| `ella_app/lib/models/end_result_analysis.dart` | End-of-session analysis data model |
+| `ella_app/lib/models/focus_settings.dart` | User focus/interest settings model |
+| `ella_app/assets/prompts/` | LLM prompt files |
 
 ---
 
