@@ -196,8 +196,6 @@ async def generate_conversation_starter(
     level_upper = str(level or "A1").upper()
     if level_upper not in _LEVEL_BLOCKS:
         level_upper = "A1"
-    
-    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
 
     # Format learner context — only name and age (no persona_memory facts)
     memory_str = "None"
@@ -304,9 +302,13 @@ async def generate_conversation_starter(
         if resolve_skill_text(wid, level_upper)
     ) if watching_ids else "None"
 
-    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
-    unit_block = (
-        unit_template
+    # Conversation now uses a single monolithic prompt (candidate-ella-prompt.md)
+    # instead of concatenating base-prompt.md + profile-{level}.md + conv-unit-framing.md.
+    # Those three files are intentionally left untouched on disk and unused here —
+    # they still back other flows (placement, etc.) and nothing is deleted.
+    prompt_template = resolve_prompt("candidate-ella-prompt.md", custom_prompts, user_id)
+    prompt_block = (
+        prompt_template
         .replace("{{UNITNAME}}", str(unit_name))
         .replace("{{UNITFOCUS}}", str(unit_focus))
         .replace("{{TARGETS}}", targets_str)
@@ -326,14 +328,8 @@ async def generate_conversation_starter(
         .strip()
     )
 
-    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
-
     system_prompt = (
-        f"{base_block}\n\n"
-        f"---\n\n"
-        f"{level_block}\n\n"
-        f"---\n\n"
-        f"{unit_block}\n\n"
+        f"{prompt_block}\n\n"
         f"---\n\n"
         f"The user message supplies the topic and may include sample starters.\n\n"
         f"After generating Zoe's first spoken turn, output on a new line:\n"
@@ -524,14 +520,14 @@ async def send_conversation_turn(
         if resolve_skill_text(wid, level_upper)
     ) if watching_ids else "None"
 
-    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
+    # Conversation now uses a single monolithic prompt (candidate-ella-prompt.md)
+    # instead of concatenating base-prompt.md + profile-{level}.md + conv-unit-framing.md.
+    # Those three files are intentionally left untouched on disk and unused here —
+    # they still back other flows (placement, etc.) and nothing is deleted.
+    prompt_template = resolve_prompt("candidate-ella-prompt.md", custom_prompts, user_id)
 
-    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
-
-    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
-
-    unit_block = (
-        unit_template
+    system_prompt = (
+        prompt_template
         .replace("{{UNITNAME}}", unit_name)
         .replace("{{UNITFOCUS}}", unit_focus)
         .replace("{{TARGETS}}", targets_str)
@@ -550,8 +546,6 @@ async def send_conversation_turn(
         .replace("{{LAST_CONVERSATION}}", last_conversation_transcript or "None — this is the learner's first conversation.")
         .strip()
     )
-
-    system_prompt = f"{base_block}\n\n---\n\n{level_block}\n\n---\n\n{unit_block}"
 
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": m["role"], "content": m["content"]} for m in messages
