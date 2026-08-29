@@ -70,6 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   StreamSubscription<gsi.GoogleSignInAuthenticationEvent>?
   _googleSignInSubscription;
+  Timer? _magicLinkPollTimer;
 
   @override
   void initState() {
@@ -197,6 +198,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   void dispose() {
+    _magicLinkPollTimer?.cancel();
     _introController.dispose();
     _googleSignInSubscription?.cancel();
     _emailFocusNode.dispose();
@@ -311,9 +313,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       _isLoading = false;
       _magicLinkSent = success;
     });
-    if (!success) {
+    if (success) {
+      _startMagicLinkPolling(email);
+    } else {
       _showError('Failed to send magic link. Please try again.');
     }
+  }
+
+  void _startMagicLinkPolling(String email) {
+    _magicLinkPollTimer?.cancel();
+    _magicLinkPollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted || !_magicLinkSent) {
+        timer.cancel();
+        return;
+      }
+      final success = await _api.checkMagicLinkStatus(email);
+      if (success && mounted) {
+        timer.cancel();
+        ref.invalidate(chatProvider);
+        Navigator.of(context).pushReplacementNamed('/');
+      }
+    });
   }
 
   // Any Google / One-Tap / magic-link backend or network failure surfaces the
@@ -329,6 +349,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _resetToButtons() {
+    _magicLinkPollTimer?.cancel();
     setState(() {
       _magicLinkSent = false;
       _showEmailInput = false;
@@ -338,6 +359,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _resetToEmailInput() {
+    _magicLinkPollTimer?.cancel();
     setState(() {
       _magicLinkSent = false;
       _emailController.clear();
