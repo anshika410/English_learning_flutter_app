@@ -406,25 +406,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return SingleChildScrollView(
       controller: _scrollController,
       padding: EdgeInsets.symmetric(horizontal: metrics.horizontalPadding),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: metrics.safeHeight),
-        child: Column(
-          children: [
-            SizedBox(height: metrics.topMascotInset),
-            FadeTransition(
-              opacity: _mascotFade,
-              child: SlideTransition(
-                position: _mascotSlide,
-                child: _buildMascot(metrics),
+      child: Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: metrics.safeHeight,
+            maxWidth: metrics.contentWidth,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: metrics.topMascotInset),
+              FadeTransition(
+                opacity: _mascotFade,
+                child: SlideTransition(
+                  position: _mascotSlide,
+                  child: _buildMascot(metrics),
+                ),
               ),
-            ),
-            SizedBox(height: metrics.loginTitleGap),
-            FadeTransition(
-              opacity: _contentFade,
-              child: SlideTransition(
-                position: _contentSlide,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: metrics.contentWidth),
+              SizedBox(height: metrics.loginTitleGap),
+              FadeTransition(
+                opacity: _contentFade,
+                child: SlideTransition(
+                  position: _contentSlide,
                   child: Column(
                     children: [
                       Text(
@@ -446,9 +451,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ),
                 ),
               ),
-            ),
-            SizedBox(height: metrics.backdropReserve),
-          ],
+              SizedBox(height: metrics.backdropReserve),
+            ],
+          ),
         ),
       ),
     );
@@ -459,23 +464,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     required _AuthLayoutMetrics metrics,
     required Widget child,
   }) {
-    // Non-scrolling email / magic-link stage: the mascot is pinned near the top
-    // and the form is centred in the available height. With the keyboard up,
-    // resizeToAvoidBottomInset shrinks this area so the form re-centres above the
-    // keyboard — the page itself never scrolls off-screen.
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: metrics.horizontalPadding),
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          Positioned(top: metrics.topMascotInset, child: _buildMascot(metrics)),
-          Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: metrics.contentWidth),
-              child: child,
-            ),
+      child: Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: metrics.safeHeight,
+            maxWidth: metrics.contentWidth,
           ),
-        ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: metrics.topMascotInset),
+              _buildMascot(metrics),
+              SizedBox(height: metrics.loginTitleGap),
+              child,
+              SizedBox(height: metrics.backdropReserve),
+            ],
+          ),
+        ),
       ),
     );
   }
