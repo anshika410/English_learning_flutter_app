@@ -347,6 +347,7 @@ GardenEvidence _evidence(String quote) => GardenEvidence(
 PostConversationGardenReveal _postConversationResult({
   required int turnCount,
   required String skillId,
+  int chatNumber = 7,
   int beforeSightings = 0,
   int afterSightings = 0,
   Set<String> beforeOwned = const {},
@@ -358,7 +359,7 @@ PostConversationGardenReveal _postConversationResult({
       PostConversationGardenRevealStatus.resolved,
 }) => PostConversationGardenReveal(
   status: status,
-  chatNumber: 7,
+  chatNumber: chatNumber,
   turnCount: turnCount,
   targetSkillIds: [skillId],
   beforeSightings: {skillId: beforeSightings},
@@ -964,6 +965,41 @@ void main() {
       find.byKey(const ValueKey('garden-quick-hello-title')),
     );
     expect(quickTitle.style?.fontSize, 16);
+  });
+
+  testWidgets('second conversation does not show the removed milestone', (
+    tester,
+  ) async {
+    const skillId = 'target';
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [_skill(id: skillId)]),
+      ],
+    );
+    final resolved = _postConversationResult(
+      chatNumber: 2,
+      turnCount: 1,
+      skillId: skillId,
+    );
+
+    await tester.pumpWidget(_harness(data, postConversationReveal: resolved));
+    await tester.pump();
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey('garden-quick-hello-card')),
+    );
+
+    expect(
+      find.text(
+        "You're one of the first students using Ella! What we learn from you will help make it better for many more students.",
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('garden-second-chat-milestone-cta')),
+      findsNothing,
+    );
   });
 
   testWidgets('resolved growth takes precedence over watering on first load', (

@@ -232,13 +232,6 @@ final spotAccessSeenProvider =
       (ref) => OneShotSeenController('ella_spot_access_seen_v1'),
     );
 
-/// Gates the one-time "you're one of the first students" milestone message
-/// shown on GardenScreen after the student's 2nd conversation.
-final secondConversationMilestoneSeenProvider =
-    StateNotifierProvider<OneShotSeenController, bool>(
-      (ref) => OneShotSeenController('ella_second_chat_milestone_seen_v1'),
-    );
-
 String _canonicalGardenLevel(String level) {
   final upper = level.trim().toUpperCase();
   return gardenSequence.any((entry) => entry.code == upper)
@@ -699,4 +692,3 @@ final previousGardenProvider = FutureProvider.autoDispose
       }
       return garden;
     });
-

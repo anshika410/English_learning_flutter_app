@@ -974,125 +974,6 @@ class _CompletedPreviousGardenBubble extends StatelessWidget {
   }
 }
 
-/// One-time "you're one of the first students" message shown in place on the
-/// garden after the 2nd conversation, once the usual growth reveal has
-/// finished. Styled to match the quick-hello growth-reveal card: Zoe
-/// overlapping the bubble's top-left corner, no modal scrim, with the CTA
-/// pinned to the bottom of the screen instead of living inside the bubble.
-class _GardenMilestoneLayer extends StatelessWidget {
-  final bool reducedMotion;
-  final VoidCallback onDismiss;
-
-  const _GardenMilestoneLayer({
-    required this.reducedMotion,
-    required this.onDismiss,
-  });
-
-  static const String _message =
-      "You're one of the first students using Ella! What we learn from "
-      'you will help make it better for many more students.';
-
-  static const double _mascotSize = 72;
-  static const double _cardLeft = 16;
-
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final textStyle = EllaFonts.body(
-      const TextStyle(
-        fontSize: 14,
-        height: 1.6,
-        fontWeight: FontWeight.w600,
-        color: EllaColors.ink,
-      ),
-    );
-    return GestureDetector(
-      key: const ValueKey('garden-second-chat-milestone'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () {},
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cardWidth = math.min(
-                320.0,
-                constraints.maxWidth - _cardLeft - 16,
-              );
-              final fullyCenteredLeft = (constraints.maxWidth - cardWidth) / 2;
-              // Modest inward nudge toward center — not fully centered like
-              // the growth-reveal card, since Zoe sits at the Stack's fixed
-              // left:0/top:0 corner and a full center shift would visually
-              // detach her from the card's speech-tail corner.
-              final cardLeft =
-                  _cardLeft + (fullyCenteredLeft - _cardLeft) * 0.35;
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.only(left: cardLeft),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: _mascotSize - 14),
-                        child: Container(
-                          key: const ValueKey(
-                            'garden-second-chat-milestone-card',
-                          ),
-                          width: cardWidth,
-                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
-                          clipBehavior: Clip.antiAlias,
-                          decoration: ellaSmoothDecoration(
-                            color: _growthRevealSurface,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(20),
-                              bottomLeft: Radius.circular(20),
-                              bottomRight: Radius.circular(20),
-                            ),
-                            side: const BorderSide(
-                              color: _growthRevealBorder,
-                              width: 3,
-                            ),
-                          ),
-                          child: Text(_message, style: textStyle),
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        child: ZoeMascot(
-                          key: const ValueKey(
-                            'garden-second-chat-milestone-zoe',
-                          ),
-                          mode: ZoeMascotMode.idle,
-                          size: _mascotSize,
-                          reducedMotion: reducedMotion,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: media.padding.bottom + 22),
-              child: _GardenIntroButton(
-                key: const ValueKey('garden-second-chat-milestone-cta'),
-                label: 'Got it',
-                onTap: onDismiss,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _GardenIntroButton extends StatelessWidget {
   final String label;
   final double? width;
@@ -1222,12 +1103,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
   ZoeMascotMode _revealZoeMode = ZoeMascotMode.listening;
   String? _poppingSkillId;
   int _revealToken = 0;
-  bool _showSecondChatMilestone = false;
-  // Captured as soon as a conversation's reveal state is observed, since the
-  // parent screen consumes (nulls) postConversationGardenRevealProvider as
-  // soon as this session's growth/watering reveal has been queued — often
-  // before this widget's own milestone check gets a chance to read it.
-  int? _lastPostConversationChatNumber;
 
   @override
   void initState() {
@@ -1329,9 +1204,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
         );
         if (pendingItem != null) _startPendingWatering(pendingItem);
       }
-      // Nothing was queued to reveal this session (e.g. a quick hello) —
-      // the milestone check in _onRevealCta never runs, so check here too.
-      _maybeShowSecondChatMilestone();
       return;
     }
     final item = queue.first;
@@ -1672,41 +1544,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       // still queued would re-add it to pendingDisplayStage at its fromStage,
       // flickering the grown plant back to its plain tile for ~240ms.
       if (mounted) setState(() => _poppingSkillId = null);
-      _maybeShowSecondChatMilestone();
     });
-  }
-
-  /// Shows a one-time "you're one of the first students" message right on
-  /// the garden (no navigation) after the student's 2nd conversation, once
-  /// the usual plant-growth reveal has finished (or immediately if there was
-  /// nothing to reveal that session). Independent of the growth-reveal state
-  /// machine above so it can't get tangled in its timers/tokens.
-  void _maybeShowSecondChatMilestone() {
-    if (_showSecondChatMilestone) return;
-    if (ref.read(secondConversationMilestoneSeenProvider)) return;
-    // Read live state first, but fall back to the last-observed chat number:
-    // the parent screen consumes (nulls) postConversationGardenRevealProvider
-    // as soon as this session's reveal has been queued, often before this
-    // check runs, which would otherwise always look like "no conversation
-    // just ended" — see _lastPostConversationChatNumber for details.
-    final live = ref.read(postConversationGardenRevealProvider);
-    // Analysis for a just-ended conversation is still in flight — we don't
-    // yet know whether a reveal card (growth or quick-hello) is about to be
-    // queued. Bail here rather than treating a transiently empty reveal
-    // queue as "nothing to show"; this gets called again once resolve()
-    // lands (_syncRevealState) or after the user dismisses a queued reveal
-    // card (_onRevealCta).
-    if (live != null && !live.isResolved) return;
-    final chatNumber = live?.chatNumber ?? _lastPostConversationChatNumber;
-    if (chatNumber != 2) return;
-    if (ref.read(gardenGrowthRevealProvider).isNotEmpty) return;
-    if (_activeRevealItem != null) return;
-    setState(() => _showSecondChatMilestone = true);
-  }
-
-  void _dismissSecondChatMilestone() {
-    ref.read(secondConversationMilestoneSeenProvider.notifier).markSeen();
-    setState(() => _showSecondChatMilestone = false);
   }
 
   void _onExploreCompletedPreviousGarden(String viewedLevel) {
@@ -1755,9 +1593,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     final data = widget.data;
     final revealQueue = ref.watch(gardenGrowthRevealProvider);
     final postConversation = ref.watch(postConversationGardenRevealProvider);
-    if (postConversation != null) {
-      _lastPostConversationChatNumber = postConversation.chatNumber;
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncRevealState(revealQueue, postConversation);
     });
@@ -2025,13 +1860,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
             child: _CompletedPreviousGardenIntroLayer(
               levelLabel: levelName,
               onExplore: () => _onExploreCompletedPreviousGarden(viewedLevel),
-            ),
-          ),
-        if (_showSecondChatMilestone)
-          Positioned.fill(
-            child: _GardenMilestoneLayer(
-              reducedMotion: media.disableAnimations,
-              onDismiss: _dismissSecondChatMilestone,
             ),
           ),
       ],
