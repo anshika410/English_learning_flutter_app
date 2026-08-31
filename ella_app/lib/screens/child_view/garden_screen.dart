@@ -2561,6 +2561,10 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
     Navigator.of(context).pop();
   }
 
+  void _dismissSheet() {
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -2603,23 +2607,57 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
           ),
           const SizedBox(height: 16),
         ],
+        _GardenSwitcherCloseButton(onTap: _dismissSheet),
       ],
     );
 
-    return SafeArea(
+    return SizedBox.expand(
       child: GestureDetector(
-        // Tapping anywhere in the sheet (outside the bubble/cards) dismisses
-        // the bubble, matching the "tap elsewhere" spec.
+        key: const ValueKey('garden-switcher-backdrop'),
         behavior: HitTestBehavior.opaque,
-        onTap: _dismissBubble,
-        // Centered vertically; a scroll view inside Center only actually
-        // scrolls when the content exceeds the viewport (tiny screens),
-        // otherwise all gardens show centered without scrolling.
-        child: Center(
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            padding: EdgeInsets.only(bottom: 20 + media.padding.bottom),
-            child: content,
+        onTap: _dismissSheet,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              padding: EdgeInsets.only(bottom: 20 + media.padding.bottom),
+              child: content,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GardenSwitcherCloseButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _GardenSwitcherCloseButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Dismiss garden switcher',
+      child: GestureDetector(
+        key: const ValueKey('garden-switcher-close-btn'),
+        behavior: HitTestBehavior.opaque,
+        onTap: withTapClick(onTap),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: EllaColors.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: _switcherCardBorder, width: 1),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.close_rounded,
+              size: 24,
+              color: EllaColors.ink,
+            ),
           ),
         ),
       ),

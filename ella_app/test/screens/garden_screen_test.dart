@@ -2080,17 +2080,61 @@ void main() {
     pending.complete(_apiPreviousGarden('A1'));
   });
 
-  testWidgets('tapping pill opens the garden switcher sheet', (tester) async {
+  testWidgets('tapping pill opens the garden switcher sheet with centered bottom close button', (tester) async {
     await _pumpGarden(tester, _gardenData(level: 'A2'));
     await openSwitcher(tester);
 
     expect(find.byKey(const ValueKey('garden-switcher-sheet')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-switcher-close-btn')), findsOneWidget);
     expect(find.text("Narendra's Gardens"), findsOneWidget);
+
+    final closeBtn = find.byKey(const ValueKey('garden-switcher-close-btn'));
+    final closeBtnSize = tester.getSize(closeBtn);
+    expect(closeBtnSize.width, 48);
+    expect(closeBtnSize.height, 48);
+
     final board = find.byKey(const ValueKey('garden-switcher-sign-board'));
     final screenWidth = tester.getSize(find.byType(GardenScreen)).width;
     expect(tester.getSize(board).height, 48);
     expect(tester.getSize(board).width, lessThan(screenWidth - 48));
     expect(tester.getCenter(board).dx, closeTo(screenWidth / 2, 0.5));
+    expect(tester.getCenter(closeBtn).dx, closeTo(screenWidth / 2, 0.5));
+  });
+
+  testWidgets('tapping bottom close button dismisses the garden switcher sheet', (
+    tester,
+  ) async {
+    await _pumpGarden(tester, _gardenData(level: 'A2'));
+    await openSwitcher(tester);
+
+    expect(find.byKey(const ValueKey('garden-switcher-sheet')), findsOneWidget);
+    final closeBtn = find.byKey(const ValueKey('garden-switcher-close-btn'));
+    expect(closeBtn, findsOneWidget);
+
+    await tester.ensureVisible(closeBtn);
+    await tester.tap(closeBtn);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const ValueKey('garden-switcher-sheet')), findsNothing);
+  });
+
+  testWidgets('tapping backdrop behind sheet dismisses the garden switcher sheet', (
+    tester,
+  ) async {
+    await _pumpGarden(tester, _gardenData(level: 'A2'));
+    await openSwitcher(tester);
+
+    expect(find.byKey(const ValueKey('garden-switcher-sheet')), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('garden-switcher-backdrop')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const ValueKey('garden-switcher-sheet')), findsNothing);
   });
 
   testWidgets('early A0 switcher: one unlocked current + one fog card', (
