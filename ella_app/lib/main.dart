@@ -10,6 +10,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'services/analytics_service.dart';
 import 'services/chucker_notifier.dart';
+import 'services/piper_model_service.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
 
@@ -42,6 +43,15 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('⚠️ Firebase initialization failed: $e');
   }
+
+  // Try to initialize Piper on-device TTS (best-effort, non-blocking).
+  // If model not downloaded yet, it initializes silently as no-op.
+  // Model download happens lazily on first conversation start.
+  unawaited(() async {
+    try {
+      await PiperModelService.instance.checkIfDownloaded();
+    } catch (_) {}
+  }());
   // Lock app to portrait mode only
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

@@ -10,6 +10,8 @@ import '../services/ella_api_service.dart';
 import '../services/supabase_service.dart';
 import '../services/stt_tts_service.dart';
 import '../services/native_tts_service.dart';
+import '../services/piper_tts_service.dart';
+import '../services/piper_model_service.dart';
 
 final supabaseServiceProvider = Provider<SupabaseService>((ref) {
   return SupabaseService(Supabase.instance.client);
@@ -30,7 +32,23 @@ final sttLevelProvider = Provider<ValueNotifier<double>>((ref) {
   return ref.watch(sttProvider).speechLevel;
 });
 
-final ttsProvider = Provider<TtsInterface>((ref) => ref.read(nativeTtsProvider));
+/// Piper on-device TTS (Indian accent model).
+/// Used as primary TTS if model is downloaded, falls back to native otherwise.
+final piperTtsProvider = Provider<PiperTtsService>((ref) {
+  final service = PiperTtsService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// ttsProvider: uses Piper if model is ready, otherwise NativeTts.
+/// Both implement TtsInterface so all consumers are unaffected.
+final ttsProvider = Provider<TtsInterface>((ref) {
+  final modelReady = PiperModelService.instance.isReady;
+  if (modelReady) {
+    return ref.read(piperTtsProvider);
+  }
+  return ref.read(nativeTtsProvider);
+});
 
 /// Native Android TTS with karaoke word-highlight support.
 final nativeTtsProvider = Provider<NativeTtsService>((ref) {
