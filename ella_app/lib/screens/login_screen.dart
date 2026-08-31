@@ -218,7 +218,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _isSigningIn = true;
     setState(() => _isLoading = true);
     try {
-      if (defaultTargetPlatform == TargetPlatform.windows) {
+      if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS) {
         final clientId = dotenv.env['GOOGLE_CLIENT_ID'];
         final clientSecret = dotenv.env['GOOGLE_CLIENT_SECRET'];
         if (clientId == null || clientSecret == null) {
