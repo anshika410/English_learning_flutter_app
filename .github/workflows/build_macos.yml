@@ -1,0 +1,53 @@
+name: Build macOS App
+
+on:
+  push:
+    branches:
+      - macos
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Create dummy .env file
+        run: |
+          cd ella_app
+          cp .env.example .env
+
+      - name: Get dependencies
+        run: |
+          cd ella_app
+          flutter pub get
+
+      - name: Build macOS Release
+        run: |
+          cd ella_app
+          flutter build macos --release
+
+      - name: Compress App Bundle
+        run: |
+          cd ella_app/build/macos/Build/Products/Release
+          zip -r ella_app-macos.zip ella_app.app
+
+      - name: Upload Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ella-macos-bundle
+          path: ella_app/build/macos/Build/Products/Release/ella_app-macos.zip

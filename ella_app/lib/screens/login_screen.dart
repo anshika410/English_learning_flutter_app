@@ -8,10 +8,13 @@ import 'dart:math' as math;
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'package:google_sign_in_all_platforms/google_sign_in_all_platforms.dart' as gsi_all;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:android_intent_plus/android_intent.dart';
 
@@ -223,17 +226,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _isSigningIn = true;
     setState(() => _isLoading = true);
     try {
+      if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS) {
+        final clientId = dotenv.env['GOOGLE_CLIENT_ID'];
+        final clientSecret = dotenv.env['GOOGLE_CLIENT_SECRET'];
+        if (clientId == null || clientSecret == null) {
+          throw Exception('Google Client ID/Secret not found in .env');
+        }
+        final googleSignIn = gsi_all.GoogleSignIn(
+          params: gsi_all.GoogleSignInParams(
+            clientId: clientId,
+            clientSecret: clientSecret,
+            redirectPort: 3000,
+          ),
+        );
+        final credentials = await googleSignIn.signIn();
+        if (credentials == null) {
+          if (mounted) setState(() => _isLoading = false);
+          _isSigningIn = false;
+          return;
+        }
+        final success = await _api.loginWithGoogle(credentials.accessToken);
+        if (success && mounted) {
+          ref.invalidate(chatProvider);
+          Navigator.of(context).pushReplacementNamed('/');
+        } else {
+          _showError('Google login failed on backend.');
+        }
+        return;
+      }
+
       gsi.GoogleSignInAccount? googleUser;
 
       try {
-        // In google_sign_in v7+, attemptLightweightAuthentication() triggers the
-        // Android Credential Manager's "One-Tap" bottom sheet UI (useButtonFlow: false).
-        googleUser =
-            await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
-        
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          try {
+            // Android Credential Manager "One-Tap" bottom sheet
+            googleUser =
+                await gsi.GoogleSignIn.instance.attemptLightweightAuthentication();
+          } catch (e) {
+            // Fallback to standard sign-in if Android lightweight auth fails
+            googleUser = await gsi.GoogleSignIn.instance.authenticate();
+          }
+        } else {
+          // Cross-platform standard Google sign-in (iOS, macOS, Web)
+          googleUser = await gsi.GoogleSignIn.instance.authenticate();
+        }
+
         if (googleUser == null) {
-          // The user dismissed the bottom sheet (swiped down or went back).
-          // Cancel the login flow silently.
+          // User cancelled or dismissed the sign-in prompt.
           if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;
@@ -242,14 +282,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         if (e is gsi.GoogleSignInException &&
             (e.code == gsi.GoogleSignInExceptionCode.canceled ||
              e.code == gsi.GoogleSignInExceptionCode.interrupted)) {
-          // User cancelled the login prompt. Quietly return.
           if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;
         }
         final errorStr = e.toString().toLowerCase();
         if (errorStr.contains('cancel') || errorStr.contains('interrupted')) {
-          // User cancelled the standard account picker. Quietly return.
           if (mounted) setState(() => _isLoading = false);
           _isSigningIn = false;
           return;

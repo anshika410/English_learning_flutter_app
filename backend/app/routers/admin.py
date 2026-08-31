@@ -305,7 +305,7 @@ async def get_conversation_analysis(
         from pathlib import Path
         import json
         from ..services.llm_service import resolve_prompt
-        template = resolve_prompt("end-result-prompt.md", user_id=conv.user_id)
+        template = resolve_prompt("end-result-prompt.md", user_id=f"{user.id}:{user.email}" if user and user.email else conv.user_id)
         
         # Format transcript
         formatted_transcript = "\n".join(
@@ -473,24 +473,28 @@ async def get_admin_prompts(
     from ..services.llm_service import PROMPTS_DIR, resolve_prompt
     try:
         user_id = user.id if user else None
+        user_email = user.email if user else None
         
-        # Check if sandbox exists for this user
+        # Check if sandbox exists for this user (by UUID or Email)
         is_sandbox = False
         if user_id:
             sandbox_dir = PROMPTS_DIR / "sandboxes" / user_id
-            if sandbox_dir.exists() and any(sandbox_dir.iterdir()):
+            email_dir = PROMPTS_DIR / "sandboxes" / user_email if user_email else None
+            if (sandbox_dir.exists() and any(sandbox_dir.iterdir())) or (email_dir and email_dir.exists() and any(email_dir.iterdir())):
                 is_sandbox = True
 
-        judge = resolve_prompt("end-result-prompt.md", user_id=user_id)
-        placement = resolve_prompt("placement-check-prompt.md", user_id=user_id)
-        base = resolve_prompt("base-prompt.md", user_id=user_id)
-        conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=user_id)
-        correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=user_id)
+        resolve_id = f"{user_id}:{user_email}" if user_id and user_email else user_id
+
+        judge = resolve_prompt("end-result-prompt.md", user_id=resolve_id)
+        placement = resolve_prompt("placement-check-prompt.md", user_id=resolve_id)
+        base = resolve_prompt("base-prompt.md", user_id=resolve_id)
+        conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=resolve_id)
+        correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=resolve_id)
         
         # Read level profiles
         level_profiles = {}
         for lvl in ["A0", "A1", "A2", "B1", "B2", "C1"]:
-            level_profiles[lvl] = resolve_prompt(f"profile-{lvl}.md", user_id=user_id)
+            level_profiles[lvl] = resolve_prompt(f"profile-{lvl}.md", user_id=resolve_id)
 
         return AdminPromptsResponse(
             conversation="",
@@ -1085,6 +1089,58 @@ async def reset_user(
         "user_id": user.id,
         "message": "All placements deleted. Level, skills, memory reset to fresh state."
     }
+
+@router.get("/users/{user_id}/conversations")
+async def list_user_conversations(
+    user_id: str,
+    _: None = Depends(_check_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetches all conversations for a specific user, ordered by creation date."""
+    from ..models.message import Message
+    from sqlalchemy import select, desc, func
+
+    # Verify user exists
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    convs_result = await db.execute(
+        select(Conversation)
+        .where(Conversation.user_id == user_id)
+        .order_by(desc(Conversation.created_at))
+    )
+    convs = convs_result.scalars().all()
+
+    # Message counts
+    msg_counts = await db.execute(
+        select(
+            Message.conversation_id,
+            func.count().label("cnt"),
+        )
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .where(Conversation.user_id == user_id)
+        .group_by(Message.conversation_id)
+    )
+    msg_map = {row.conversation_id: row.cnt for row in msg_counts}
+
+    conv_list = []
+    for c in convs:
+        conv_list.append({
+            "id": c.id,
+            "user_id": c.user_id,
+            "user_name": user.name,
+            "user_level": user.level,
+            "topic": c.topic,
+            "header_title": c.header_title,
+            "duration_seconds": c.duration_seconds,
+            "completed": c.completed,
+            "message_count": msg_map.get(c.id, 0),
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        })
+
+    return conv_list
 
 
 @router.get("/curriculum")
