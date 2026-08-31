@@ -107,6 +107,10 @@ class SpeechToTextService implements SttInterface {
 
   @override
   Future<void> initialize() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      _ready = false;
+      return;
+    }
     // Idempotent: the first call triggers the OS mic-permission prompt via the
     // speech_to_text plugin; later calls are no-ops so we don't re-prompt.
     if (_ready) return;

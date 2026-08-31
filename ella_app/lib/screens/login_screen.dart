@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -72,6 +73,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   StreamSubscription<gsi.GoogleSignInAuthenticationEvent>?
   _googleSignInSubscription;
+  Timer? _magicLinkPollTimer;
 
   @override
   void initState() {
@@ -199,6 +201,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   void dispose() {
+    _magicLinkPollTimer?.cancel();
     _introController.dispose();
     _googleSignInSubscription?.cancel();
     _emailFocusNode.dispose();
@@ -208,6 +211,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      showEllaErrorToast(context, 'Google Sign-In is not supported on Windows. Please log in via Email.');
+      return;
+    }
+
     final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
     if (!isOnline) {
       OfflineAlertPopup.show(context);
@@ -343,9 +351,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       _isLoading = false;
       _magicLinkSent = success;
     });
-    if (!success) {
+    if (success) {
+      _startMagicLinkPolling(email);
+    } else {
       _showError('Failed to send magic link. Please try again.');
     }
+  }
+
+  void _startMagicLinkPolling(String email) {
+    _magicLinkPollTimer?.cancel();
+    _magicLinkPollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted || !_magicLinkSent) {
+        timer.cancel();
+        return;
+      }
+      final success = await _api.checkMagicLinkStatus(email);
+      if (success && mounted) {
+        timer.cancel();
+        ref.invalidate(chatProvider);
+        Navigator.of(context).pushReplacementNamed('/');
+      }
+    });
   }
 
   // Any Google / One-Tap / magic-link backend or network failure surfaces the
@@ -361,6 +387,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _resetToButtons() {
+    _magicLinkPollTimer?.cancel();
     setState(() {
       _magicLinkSent = false;
       _showEmailInput = false;
@@ -370,6 +397,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _resetToEmailInput() {
+    _magicLinkPollTimer?.cancel();
     setState(() {
       _magicLinkSent = false;
       _emailController.clear();
@@ -438,25 +466,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return SingleChildScrollView(
       controller: _scrollController,
       padding: EdgeInsets.symmetric(horizontal: metrics.horizontalPadding),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: metrics.safeHeight),
-        child: Column(
-          children: [
-            SizedBox(height: metrics.topMascotInset),
-            FadeTransition(
-              opacity: _mascotFade,
-              child: SlideTransition(
-                position: _mascotSlide,
-                child: _buildMascot(metrics),
+      child: Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: metrics.safeHeight,
+            maxWidth: metrics.contentWidth,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: metrics.topMascotInset),
+              FadeTransition(
+                opacity: _mascotFade,
+                child: SlideTransition(
+                  position: _mascotSlide,
+                  child: _buildMascot(metrics),
+                ),
               ),
-            ),
-            SizedBox(height: metrics.loginTitleGap),
-            FadeTransition(
-              opacity: _contentFade,
-              child: SlideTransition(
-                position: _contentSlide,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: metrics.contentWidth),
+              SizedBox(height: metrics.loginTitleGap),
+              FadeTransition(
+                opacity: _contentFade,
+                child: SlideTransition(
+                  position: _contentSlide,
                   child: Column(
                     children: [
                       Text(
@@ -478,9 +511,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ),
                 ),
               ),
-            ),
-            SizedBox(height: metrics.backdropReserve),
-          ],
+              SizedBox(height: metrics.backdropReserve),
+            ],
+          ),
         ),
       ),
     );
@@ -491,23 +524,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     required _AuthLayoutMetrics metrics,
     required Widget child,
   }) {
-    // Non-scrolling email / magic-link stage: the mascot is pinned near the top
-    // and the form is centred in the available height. With the keyboard up,
-    // resizeToAvoidBottomInset shrinks this area so the form re-centres above the
-    // keyboard — the page itself never scrolls off-screen.
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: metrics.horizontalPadding),
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          Positioned(top: metrics.topMascotInset, child: _buildMascot(metrics)),
-          Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: metrics.contentWidth),
-              child: child,
-            ),
+      child: Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: metrics.safeHeight,
+            maxWidth: metrics.contentWidth,
           ),
-        ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: metrics.topMascotInset),
+              _buildMascot(metrics),
+              SizedBox(height: metrics.loginTitleGap),
+              child,
+              SizedBox(height: metrics.backdropReserve),
+            ],
+          ),
+        ),
       ),
     );
   }
