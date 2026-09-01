@@ -34,8 +34,8 @@ class PiperTtsService implements TtsInterface {
           vits: sherpa.OfflineTtsVitsModelConfig(
             model: modelService.modelOnnxPath!,
             lexicon: '',
-            tokens: '',
-            dataDir: '',
+            tokens: modelService.tokensPath!,
+            dataDir: modelService.espeakDataDir!,
             noiseScale: 0.667,
             noiseScaleW: 0.8,
             lengthScale: 1.0,

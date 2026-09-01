@@ -2,76 +2,137 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:archive/archive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Manages downloading and caching the Piper TTS model files on-device.
-/// Model is downloaded once from HuggingFace and stored in app documents dir.
+///
+/// Required files:
+///   - model.onnx       — NavGurukul Indian accent VITS model (sherpa metadata patched in)
+///   - tokens.txt       — phoneme→id map for the model
+///   - espeak-ng-data/  — eSpeak-NG language data for Piper phonemization
 class PiperModelService {
-  static const _modelDownloadedKey = 'piper_model_downloaded';
+  static const _modelDownloadedKey = 'piper_model_downloaded_v2';
 
-  // NavGurukul Indian accent model on HuggingFace
-  static const _modelOnnxUrl =
-      'https://huggingface.co/navgurukul-ai/Indian_accent_60/resolve/main/model.onnx';
-  static const _modelJsonUrl =
-      'https://huggingface.co/navgurukul-ai/Indian_accent_60/resolve/main/model.json';
+  // Patched ONNX + tokens served from ella.navgurukul.org (model has sherpa-onnx ONNX metadata)
+  static const _modelOnnxUrl = 'https://ella.navgurukul.org/piper/model.onnx';
+  static const _tokensUrl = 'https://ella.navgurukul.org/piper/tokens.txt';
+
+  // espeak-ng-data — shared across all Piper models (~10MB tar.bz2)
+  static const _espeakDataUrl =
+      'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/espeak-ng-data.tar.bz2';
 
   static PiperModelService? _instance;
   static PiperModelService get instance => _instance ??= PiperModelService._();
   PiperModelService._();
 
   String? _modelOnnxPath;
-  String? _modelJsonPath;
+  String? _tokensPath;
+  String? _espeakDataDir;
 
-  bool get isReady => _modelOnnxPath != null && _modelJsonPath != null;
+  bool get isReady =>
+      _modelOnnxPath != null &&
+      _tokensPath != null &&
+      _espeakDataDir != null;
 
   String? get modelOnnxPath => _modelOnnxPath;
-  String? get modelJsonPath => _modelJsonPath;
+  String? get tokensPath => _tokensPath;
+  String? get espeakDataDir => _espeakDataDir;
 
-  /// Returns model paths if already downloaded, null otherwise.
+  /// Returns true and populates paths if all required files are present.
   Future<bool> checkIfDownloaded() async {
     final dir = await getApplicationDocumentsDirectory();
     final onnxFile = File('${dir.path}/piper_model.onnx');
-    final jsonFile = File('${dir.path}/piper_model.json');
+    final tokensFile = File('${dir.path}/piper_tokens.txt');
+    final espeakDir = Directory('${dir.path}/espeak-ng-data');
 
-    if (await onnxFile.exists() && await jsonFile.exists()) {
+    if (await onnxFile.exists() &&
+        await tokensFile.exists() &&
+        await espeakDir.exists()) {
       _modelOnnxPath = onnxFile.path;
-      _modelJsonPath = jsonFile.path;
+      _tokensPath = tokensFile.path;
+      _espeakDataDir = espeakDir.path;
+      debugPrint('PiperModelService: all files present ✓');
       return true;
     }
     return false;
   }
 
-  /// Downloads the model files. Shows progress via [onProgress] (0.0 to 1.0).
+  /// Downloads all required files. Reports [onProgress] (0.0–1.0).
+  ///
+  /// Download breakdown:
+  ///   0–5%   tokens.txt  (~1KB, instant)
+  ///   5–73%  model.onnx  (~61MB)
+  ///   73–90% espeak-ng-data.tar.bz2 (~10MB)
+  ///   90–99% extract espeak-ng-data
   Future<bool> downloadModel({
     void Function(double progress, String status)? onProgress,
   }) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final onnxPath = '${dir.path}/piper_model.onnx';
-      final jsonPath = '${dir.path}/piper_model.json';
+      final tokensPath = '${dir.path}/piper_tokens.txt';
+      final espeakTarPath = '${dir.path}/espeak-ng-data.tar.bz2';
+      final espeakDirPath = '${dir.path}/espeak-ng-data';
 
-      // Download model.json first (small, ~5KB)
+      // 1. Download tokens.txt (tiny)
       onProgress?.call(0.0, 'Downloading voice model...');
-      await _downloadFile(_modelJsonUrl, jsonPath, (p) {
-        onProgress?.call(p * 0.1, 'Downloading voice model...');
+      await _downloadFile(_tokensUrl, tokensPath, (p) {
+        onProgress?.call(p * 0.05, 'Downloading voice model...');
       });
 
-      // Download model.onnx (large, ~64MB)
+      // 2. Download model.onnx (~61MB)
       await _downloadFile(_modelOnnxUrl, onnxPath, (p) {
-        onProgress?.call(0.1 + p * 0.9, 'Downloading voice model...');
+        onProgress?.call(0.05 + p * 0.68, 'Downloading voice model...');
       });
+
+      // 3. Download espeak-ng-data.tar.bz2 (~10MB)
+      onProgress?.call(0.73, 'Downloading voice data...');
+      await _downloadFile(_espeakDataUrl, espeakTarPath, (p) {
+        onProgress?.call(0.73 + p * 0.17, 'Downloading voice data...');
+      });
+
+      // 4. Extract espeak-ng-data
+      onProgress?.call(0.90, 'Extracting voice data...');
+      await compute(_extractTarBz2, {'archive': espeakTarPath, 'dest': dir.path});
+      final tarFile = File(espeakTarPath);
+      if (await tarFile.exists()) await tarFile.delete();
+      onProgress?.call(0.99, 'Finalizing...');
 
       _modelOnnxPath = onnxPath;
-      _modelJsonPath = jsonPath;
+      _tokensPath = tokensPath;
+      _espeakDataDir = espeakDirPath;
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_modelDownloadedKey, true);
 
       onProgress?.call(1.0, 'Voice model ready!');
+      debugPrint('PiperModelService: download complete ✓');
       return true;
     } catch (e) {
       debugPrint('PiperModelService: download failed: $e');
       return false;
+    }
+  }
+
+  /// Top-level function for use with [compute] (must not be a closure).
+  static Future<void> _extractTarBz2(Map<String, String> args) async {
+    final archivePath = args['archive']!;
+    final destDir = args['dest']!;
+
+    final bytes = await File(archivePath).readAsBytes();
+    final tarBytes = BZip2Decoder().decodeBytes(bytes);
+    final archive = TarDecoder().decodeBytes(tarBytes);
+
+    for (final file in archive) {
+      final filePath = '$destDir/${file.name}';
+      if (file.isFile) {
+        final outFile = File(filePath);
+        await outFile.parent.create(recursive: true);
+        await outFile.writeAsBytes(file.content as List<int>);
+      } else {
+        await Directory(filePath).create(recursive: true);
+      }
     }
   }
 
@@ -91,16 +152,13 @@ class PiperModelService {
 
       final total = response.contentLength ?? 0;
       var received = 0;
-
       final file = File(savePath);
       final sink = file.openWrite();
 
       await for (final chunk in response.stream) {
         sink.add(chunk);
         received += chunk.length;
-        if (total > 0) {
-          onProgress(received / total);
-        }
+        if (total > 0) onProgress(received / total);
       }
       await sink.close();
     } finally {
@@ -108,15 +166,20 @@ class PiperModelService {
     }
   }
 
-  /// Deletes cached model files (e.g. to free space).
+  /// Deletes all cached model files (e.g. to free space or force re-download).
   Future<void> clearModel() async {
     final dir = await getApplicationDocumentsDirectory();
-    final onnxFile = File('${dir.path}/piper_model.onnx');
-    final jsonFile = File('${dir.path}/piper_model.json');
-    if (await onnxFile.exists()) await onnxFile.delete();
-    if (await jsonFile.exists()) await jsonFile.delete();
+    for (final name in ['piper_model.onnx', 'piper_tokens.txt']) {
+      final f = File('${dir.path}/$name');
+      if (await f.exists()) await f.delete();
+    }
+    final espeakDir = Directory('${dir.path}/espeak-ng-data');
+    if (await espeakDir.exists()) await espeakDir.delete(recursive: true);
+
     _modelOnnxPath = null;
-    _modelJsonPath = null;
+    _tokensPath = null;
+    _espeakDataDir = null;
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_modelDownloadedKey);
   }

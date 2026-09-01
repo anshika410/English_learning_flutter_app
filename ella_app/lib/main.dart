@@ -14,12 +14,17 @@ import 'services/chucker_notifier.dart';
 import 'services/piper_model_service.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
+import 'providers/piper_download_provider.dart';
+import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  // Must be called before any sherpa-onnx usage (Piper TTS)
+  sherpa.initBindings();
 
   // Debug-only: surface Chucker's recorded API calls as a real Android system
   // notification (in the pull-down shade) that opens the request inspector on
@@ -130,7 +135,30 @@ Future<void> main() async {
     await container.read(audioProvider).initialize();
   } catch (_) {}
 
+  // If Piper model is already downloaded, init it before runApp so ttsProvider
+  // routes to Piper immediately on first read.
+  // If not downloaded, kick off background download after first frame renders.
+  try {
+    final modelReady = await PiperModelService.instance.checkIfDownloaded();
+    if (modelReady) {
+      await container.read(piperTtsProvider).initialize();
+      debugPrint('main: PiperTtsService initialized ✓');
+    } else {
+      debugPrint('main: Piper model not downloaded yet, will download after app starts');
+    }
+  } catch (e) {
+    debugPrint('main: Piper init error: $e');
+  }
+
   runApp(
     UncontrolledProviderScope(container: container, child: const EllaApp()),
   );
+
+  // Trigger Piper model download after app renders (if not already downloaded).
+  // Using Future.delayed so network is ready and the UI is showing the banner.
+  if (!PiperModelService.instance.isReady) {
+    Future.delayed(const Duration(seconds: 3), () {
+      container.read(piperDownloadProvider.notifier).startIfNeeded();
+    });
+  }
 }

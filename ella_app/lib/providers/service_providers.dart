@@ -12,6 +12,7 @@ import '../services/stt_tts_service.dart';
 import '../services/native_tts_service.dart';
 import '../services/piper_tts_service.dart';
 import '../services/piper_model_service.dart';
+import '../providers/piper_download_provider.dart';
 
 final supabaseServiceProvider = Provider<SupabaseService>((ref) {
   return SupabaseService(Supabase.instance.client);
@@ -42,8 +43,11 @@ final piperTtsProvider = Provider<PiperTtsService>((ref) {
 
 /// ttsProvider: uses Piper if model is ready, otherwise NativeTts.
 /// Both implement TtsInterface so all consumers are unaffected.
+/// Watches piperDownloadProvider so it switches to Piper after download completes.
 final ttsProvider = Provider<TtsInterface>((ref) {
-  final modelReady = PiperModelService.instance.isReady;
+  final downloadState = ref.watch(piperDownloadProvider);
+  final modelReady = downloadState.status == PiperDownloadStatus.done &&
+      PiperModelService.instance.isReady;
   if (modelReady) {
     return ref.read(piperTtsProvider);
   }

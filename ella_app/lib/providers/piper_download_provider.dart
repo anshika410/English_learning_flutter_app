@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/piper_model_service.dart';
+import 'service_providers.dart';
 
 enum PiperDownloadStatus { idle, downloading, done, failed }
 
@@ -57,6 +58,14 @@ class PiperDownloadNotifier extends Notifier<PiperDownloadState> {
       progress: success ? 1.0 : state.progress,
       message: success ? 'Voice model ready!' : 'Download failed, using default voice',
     );
+
+    // After successful download, initialize PiperTtsService so it's ready
+    if (success) {
+      try {
+        final piperService = ref.read(piperTtsProvider);
+        await piperService.initialize();
+      } catch (_) {}
+    }
   }
 }
 
