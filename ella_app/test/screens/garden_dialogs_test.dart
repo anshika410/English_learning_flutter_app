@@ -468,7 +468,7 @@ void main() {
   );
 
   testWidgets(
-    'previous-garden skill sheet without evidence ends at the stepper',
+    'previous-garden skill sheet without evidence explains it was ready from the start',
     (tester) async {
       final skill = _skill(
         strand: Strand.voc,
@@ -491,7 +491,24 @@ void main() {
         findsOneWidget,
       );
 
-      // No empty-state block: no tile prompt, no evidence heading.
+      // The placement explanation replaces the empty-state block; it has no
+      // evidence heading or inherited growth-completion badges.
+      expect(find.text('Ready from the start'), findsOneWidget);
+      expect(
+        find.text(
+          'You started at a higher level, so this skill is already bloomed.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+                .getRect(find.byKey(const ValueKey('garden-ready-from-start')))
+                .top -
+            tester
+                .getRect(find.byKey(const ValueKey('garden-skill-stepper')))
+                .bottom,
+        closeTo(24, 0.5),
+      );
       expect(
         find.text(
           'This plant grows when you use this skill in your conversations',
@@ -499,6 +516,7 @@ void main() {
         findsNothing,
       );
       expect(find.text('You used this'), findsNothing);
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
     },
   );
 

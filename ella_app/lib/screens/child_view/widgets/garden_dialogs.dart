@@ -443,6 +443,7 @@ class _SkillSheetBody extends StatelessWidget {
         if (bt == null) return -1;
         return bt.compareTo(at);
       });
+    final isReadyFromStart = isPreviousGarden && evidence.isEmpty;
     final hasBody = evidence.isNotEmpty || !isPreviousGarden;
 
     // The header (skill title, strand tag, stepper) stays pinned; only the
@@ -483,7 +484,14 @@ class _SkillSheetBody extends StatelessWidget {
           children: [_StrandChip(strand: skill.strand)],
         ),
         const SizedBox(height: 20),
-        _SkillStepper(currentIndex: _growthIndexFor(skill)),
+        _SkillStepper(
+          currentIndex: _growthIndexFor(skill),
+          showCompletedBadges: !isPreviousGarden,
+        ),
+        if (isReadyFromStart) ...[
+          const SizedBox(height: 24),
+          const _ReadyFromStartSection(),
+        ],
         if (hasBody) ...[const SizedBox(height: 16), const _WoodDivider()],
       ],
     );
@@ -508,6 +516,57 @@ class _SkillSheetBody extends StatelessWidget {
                     evidence: evidence,
                     onExpanded: onEvidenceExpanded,
                   ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReadyFromStartSection extends StatelessWidget {
+  const _ReadyFromStartSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const ValueKey('garden-ready-from-start'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.auto_awesome_rounded,
+          size: 32,
+          color: Color(0xFFF3B748),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Ready from the start',
+                style: EllaFonts.body(
+                  const TextStyle(
+                    fontSize: 16,
+                    height: 1.6,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'You started at a higher level, so this skill is already bloomed.',
+                style: EllaFonts.body(
+                  const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    fontWeight: FontWeight.w500,
+                    color: _ink,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -603,7 +662,11 @@ const Color _stepIdleLabel = Color(0xFFA8A296);
 /// later stages are idle/greyed.
 class _SkillStepper extends StatelessWidget {
   final int currentIndex;
-  const _SkillStepper({required this.currentIndex});
+  final bool showCompletedBadges;
+  const _SkillStepper({
+    required this.currentIndex,
+    this.showCompletedBadges = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -617,6 +680,7 @@ class _SkillStepper extends StatelessWidget {
           stage: _growthStages[i],
           index: i,
           currentIndex: currentIndex,
+          showCompletedBadge: showCompletedBadges,
         ),
       );
     }
@@ -651,10 +715,12 @@ class _StepNode extends StatelessWidget {
   final _GrowthStage stage;
   final int index;
   final int currentIndex;
+  final bool showCompletedBadge;
   const _StepNode({
     required this.stage,
     required this.index,
     required this.currentIndex,
+    required this.showCompletedBadge,
   });
 
   @override
@@ -703,7 +769,7 @@ class _StepNode extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (done)
+                if (done && showCompletedBadge)
                   Positioned(
                     top: -2,
                     right: -2,
