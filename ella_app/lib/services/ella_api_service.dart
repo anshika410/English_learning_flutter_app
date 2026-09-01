@@ -178,8 +178,8 @@ class EllaApiService {
           (defaultTargetPlatform == TargetPlatform.windows ||
            defaultTargetPlatform == TargetPlatform.macOS ||
            defaultTargetPlatform == TargetPlatform.linux)) {
-        // Web landing URL for Desktop users opening the link in their web browser
-        redirectUrl = 'https://ella.navgurukul.org/login';
+        // Use ella:// deep link so the desktop app receives the tokens directly
+        redirectUrl = 'ella://login';
       } else {
         redirectUrl = 'ella://login';
       }

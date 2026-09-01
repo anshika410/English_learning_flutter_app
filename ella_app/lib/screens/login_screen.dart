@@ -212,8 +212,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Future<void> _handleGoogleSignIn() async {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      showEllaErrorToast(context, 'Google Sign-In is not supported on Windows. Please log in via Email.');
-      return;
+      // Windows uses google_sign_in_all_platforms (OAuth via localhost:3000 redirect)
+      // Fall through to the platform-specific branch below — do NOT return here.
     }
 
     final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
