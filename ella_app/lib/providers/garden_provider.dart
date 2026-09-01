@@ -12,31 +12,44 @@ import '../models/garden.dart';
 import '../services/ella_api_service.dart';
 import 'service_providers.dart';
 
-/// A garden level: CEFR code plus its display name.
+/// A garden level: CEFR code plus its full and compact display names.
 class GardenLevel {
   final String code;
+
+  /// Full label used in the garden switcher sheet.
   final String label;
 
-  const GardenLevel(this.code, this.label);
+  /// Shorter label used in the pinned garden selector.
+  final String compactLabel;
+
+  const GardenLevel(this.code, this.label, this.compactLabel);
 }
 
 /// Canonical ordered garden sequence (A0 → C1). Used by the garden switcher
 /// sheet and the level index helpers.
 const List<GardenLevel> gardenSequence = [
-  GardenLevel('A0', 'Dawn Glade'),
-  GardenLevel('A1', 'Morning Meadow'),
-  GardenLevel('A2', 'Midday Grove'),
-  GardenLevel('B1', 'Golden Orchard'),
-  GardenLevel('B2', 'Twilight Valley'),
-  GardenLevel('C1', 'Starlight Summit'),
+  GardenLevel('A0', 'Level 1 · First Words', 'Lv 1 · First Words'),
+  GardenLevel('A1', 'Level 2 · Simple Talk', 'Lv 2 · Simple Talk'),
+  GardenLevel('A2', 'Level 3 · Everyday Talk', 'Lv 3 · Everyday Talk'),
+  GardenLevel('B1', 'Level 4 · Explain Ideas', 'Lv 4 · Explain Ideas'),
+  GardenLevel('B2', 'Level 5 · Discuss Ideas', 'Lv 5 · Discuss Ideas'),
+  GardenLevel('C1', 'Level 6 · Express Precisely', 'Lv 6 · Express Precisely'),
 ];
+
+GardenLevel? gardenLevelFor(String level) {
+  final code = level.trim().toUpperCase();
+  for (final entry in gardenSequence) {
+    if (entry.code == code) return entry;
+  }
+  return null;
+}
 
 /// One row in the garden switcher sheet.
 class GardenSwitcherEntry {
   /// Level code, e.g. 'A0'…'C1'.
   final String code;
 
-  /// Display name, e.g. 'Dawn Glade'.
+  /// Full display name, e.g. 'Level 1 · First Words'.
   final String label;
 
   /// True for the garden the student is currently in ("You're here").

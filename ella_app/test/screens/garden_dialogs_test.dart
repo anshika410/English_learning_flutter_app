@@ -53,12 +53,12 @@ GardenData _gardenData(GardenStep step) => GardenData(
   steps: [step],
 );
 
-GardenEvidence _evidence(String quote) => GardenEvidence(
+GardenEvidence _evidence(String quote, {int ageDays = 2}) => GardenEvidence(
   quote: quote,
   confidence: 0.92,
   prompted: false,
   topic: 'cricket',
-  createdAt: DateTime.now().subtract(const Duration(days: 2, hours: 1)),
+  createdAt: DateTime.now().subtract(Duration(days: ageDays, hours: 1)),
 );
 
 Future<void> _setPhoneSurface(WidgetTester tester) async {
@@ -233,26 +233,25 @@ void main() {
     },
   );
 
-  testWidgets('skill sheet renders all Figma growth state chips', (
+  testWidgets('skill sheet renders the four-stage growth stepper', (
     tester,
   ) async {
-    final cases = [
-      _skill(status: SkillStatus.locked, sightings: 0),
-      _skill(id: 'sprout', status: SkillStatus.emerging, sightings: 1),
-      _skill(id: 'budding', status: SkillStatus.emerging, sightings: 2),
-      _skill(id: 'bloomed', status: SkillStatus.owned, sightings: 3),
-    ];
-    final labels = ['Seed', 'Sprout', 'Budding', 'Bloomed'];
+    await _setPhoneSurface(tester);
+    await _openSkillSheet(
+      tester,
+      _skill(id: 'bud', status: SkillStatus.emerging, sightings: 2),
+    );
 
-    for (var i = 0; i < cases.length; i++) {
-      await _openSkillSheet(tester, cases[i]);
-      expect(find.text(labels[i]), findsOneWidget);
-      expect(
-        find.byKey(ValueKey('garden-growth-state-${labels[i].toLowerCase()}')),
-        findsOneWidget,
-      );
-      await tester.pumpWidget(const SizedBox.shrink());
+    // All four stages render, once each, with the "Bud" label (not "Budding").
+    expect(find.byKey(const ValueKey('garden-skill-stepper')), findsOneWidget);
+    for (final key in ['seed', 'sprout', 'bud', 'bloom']) {
+      expect(find.byKey(ValueKey('garden-step-$key')), findsOneWidget);
     }
+    expect(find.text('Seed'), findsOneWidget);
+    expect(find.text('Sprout'), findsOneWidget);
+    expect(find.text('Bud'), findsOneWidget);
+    expect(find.text('Bloom'), findsOneWidget);
+    expect(find.text('Budding'), findsNothing);
   });
 
   testWidgets('skill sheet empty state matches Figma card sizing', (
@@ -265,51 +264,186 @@ void main() {
       find.byKey(const ValueKey('garden-empty-skill-message')),
       findsOneWidget,
     );
-    expect(find.text('Talk with Ella to grow this skill.'), findsOneWidget);
+    expect(
+      find.text(
+        'This plant grows when you use this skill in your conversations',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Waiting to be planted!'), findsNothing);
+    // The empty sheet still shows the progression stepper at Seed.
+    expect(find.byKey(const ValueKey('garden-skill-stepper')), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const ValueKey('garden-sheet-card'))).width,
       382,
     );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('garden-sheet-board'))).height,
-      56,
+    final boardSize = tester.getSize(
+      find.byKey(const ValueKey('garden-sheet-board')),
     );
+    expect(boardSize.height, 40);
+    // 70% of the sheet card's width (382 on this test surface).
+    expect(boardSize.width, closeTo(382 * 0.7, 0.5));
   });
 
-  testWidgets('skill sheet renders the first three evidence cards', (
+  testWidgets('skill sheet shows the latest evidence and expands the rest', (
     tester,
   ) async {
+    await _setPhoneSurface(tester);
     final skill = _skill(
       status: SkillStatus.owned,
       sightings: 3,
       evidence: [
-        _evidence('I am very happy talking to my family whenever I want'),
-        _evidence('This was a one time chance'),
-        _evidence('I used kind words to explain it'),
-        _evidence('This fourth quote should stay hidden'),
+        _evidence(
+          'I am very happy talking to my family whenever I want',
+          ageDays: 1,
+        ),
+        _evidence('This was a one time chance', ageDays: 3),
+        _evidence('I used kind words to explain it', ageDays: 5),
       ],
     );
 
     await _openSkillSheet(tester, skill);
 
-    expect(find.text('You Said'), findsOneWidget);
-    for (var i = 0; i < 3; i++) {
-      expect(find.byKey(ValueKey('garden-evidence-card-$i')), findsOneWidget);
-    }
+    // Collapsed: heading + only the newest (1-day-old) example, plus a link.
+    expect(find.text('You used this'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('garden-evidence-card-0')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('garden-evidence-card-1')), findsNothing);
     expect(
       find.text('I am very happy talking to my family whenever I want'),
       findsOneWidget,
     );
+    expect(find.text('This was a one time chance'), findsNothing);
+    expect(find.text('See 2 more ways you used this skill'), findsOneWidget);
+
+    // Tapping the link reveals the rest inline and hides the link.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('garden-evidence-see-more')),
+    );
+    await tester.tap(find.byKey(const ValueKey('garden-evidence-see-more')));
+    await tester.pumpAndSettle();
+
     expect(find.text('This was a one time chance'), findsOneWidget);
     expect(find.text('I used kind words to explain it'), findsOneWidget);
-    expect(find.text('This fourth quote should stay hidden'), findsNothing);
+    expect(find.textContaining('more ways you used this skill'), findsNothing);
     expect(find.text('Talking about cricket'), findsWidgets);
-    expect(find.text('2 days ago'), findsWidgets);
+    expect(find.text('1 day ago'), findsWidgets);
+
+    // Expanding the evidence never scrolls the dialog chrome off-screen.
+    final close = find.byKey(const ValueKey('garden-sheet-close'));
+    expect(close, findsOneWidget);
+    expect(tester.getRect(close).bottom, lessThanOrEqualTo(932));
+
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('garden-sheet-card')), findsNothing);
   });
 
   testWidgets(
-    'previous-garden skill sheet with evidence still shows What You Said',
+    'expanded short evidence wraps its content instead of filling the cap',
+    (tester) async {
+      await _setPhoneSurface(tester);
+      final skill = _skill(
+        status: SkillStatus.owned,
+        sightings: 3,
+        evidence: [
+          _evidence('I explained my answer clearly.', ageDays: 1),
+          _evidence('I asked a helpful question.', ageDays: 2),
+        ],
+      );
+
+      await _openSkillSheet(tester, skill);
+      final card = find.byKey(const ValueKey('garden-sheet-card'));
+      final collapsedHeight = tester.getSize(card).height;
+
+      await tester.tap(find.byKey(const ValueKey('garden-evidence-see-more')));
+      await tester.pumpAndSettle();
+
+      final expandedHeight = tester.getSize(card).height;
+      // On this 932px surface the 78%-of-usable-height cap is about 690px.
+      // Two short evidence cards should grow naturally, not fill that space.
+      expect(expandedHeight, greaterThan(collapsedHeight));
+      expect(expandedHeight, lessThan(650));
+      expect(
+        tester
+            .state<ScrollableState>(
+              find.descendant(
+                of: find.byKey(const ValueKey('garden-skill-evidence-scroll')),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .position
+            .maxScrollExtent,
+        0,
+      );
+      expect(
+        tester.getRect(find.byKey(const ValueKey('garden-sheet-close'))).bottom,
+        lessThanOrEqualTo(932),
+      );
+    },
+  );
+
+  testWidgets('strand chip text is vertically centered and left aligned', (
+    tester,
+  ) async {
+    await _setPhoneSurface(tester);
+    await _openSkillSheet(tester, _skill(strand: Strand.flu));
+
+    final chip = find.byKey(const ValueKey('garden-strand-chip-flu'));
+    final label = find.text('Fluency');
+    final chipRect = tester.getRect(chip);
+    final labelRect = tester.getRect(label);
+
+    expect(labelRect.left - chipRect.left, closeTo(8, 0.5));
+    expect(labelRect.center.dy, closeTo(chipRect.center.dy, 0.5));
+  });
+
+  testWidgets(
+    'expanded evidence scrolls inside a bounded skill sheet on short phones',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 600));
+      addTearDown(() async => tester.binding.setSurfaceSize(null));
+      final skill = _skill(
+        status: SkillStatus.owned,
+        sightings: 3,
+        evidence: List.generate(
+          5,
+          (index) => _evidence(
+            'This is a deliberately long evidence example number $index that '
+            'takes several lines so the expanded evidence list must scroll.',
+            ageDays: index + 1,
+          ),
+        ),
+      );
+
+      await _openSkillSheet(tester, skill);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('garden-evidence-see-more')),
+      );
+      await tester.tap(find.byKey(const ValueKey('garden-evidence-see-more')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final close = find.byKey(const ValueKey('garden-sheet-close'));
+      expect(tester.getRect(close).bottom, lessThanOrEqualTo(600));
+
+      final evidenceScroll = find.descendant(
+        of: find.byKey(const ValueKey('garden-skill-evidence-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      final scrollState = tester.state<ScrollableState>(evidenceScroll);
+      expect(scrollState.position.maxScrollExtent, greaterThan(0));
+
+      await tester.drag(evidenceScroll, const Offset(0, -180));
+      await tester.pumpAndSettle();
+      expect(scrollState.position.pixels, greaterThan(0));
+    },
+  );
+
+  testWidgets(
+    'previous-garden skill sheet with evidence still shows You used this',
     (tester) async {
       final skill = _skill(
         strand: Strand.voc,
@@ -322,14 +456,19 @@ void main() {
 
       await _openSkillSheet(tester, skill, step: step, isPreviousGarden: true);
 
-      expect(find.text('You Said'), findsOneWidget);
+      expect(find.text('You used this'), findsOneWidget);
       expect(find.text('My friend is tall and happy.'), findsOneWidget);
-      expect(find.text('Talk with Ella to grow this skill.'), findsNothing);
+      expect(
+        find.text(
+          'This plant grows when you use this skill in your conversations',
+        ),
+        findsNothing,
+      );
     },
   );
 
   testWidgets(
-    'previous-garden skill sheet without evidence ends at the chips',
+    'previous-garden skill sheet without evidence ends at the stepper',
     (tester) async {
       final skill = _skill(
         strand: Strand.voc,
@@ -341,26 +480,30 @@ void main() {
 
       await _openSkillSheet(tester, skill, step: step, isPreviousGarden: true);
 
-      // Unit name, skill name, strand tag and the Bloomed chip remain.
-      expect(find.text('Naming the world'), findsOneWidget);
+      // Skill name, strand tag and the stepper remain.
       expect(find.text('Colours and numbers up to ten'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('garden-strand-chip-voc')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey('garden-growth-state-bloomed')),
+        find.byKey(const ValueKey('garden-skill-stepper')),
         findsOneWidget,
       );
 
-      // No empty-state block: no divider tile icon, no Talk-with-Zoe prompt.
-      expect(find.text('Talk with Ella to grow this skill.'), findsNothing);
-      expect(find.text('You Said'), findsNothing);
+      // No empty-state block: no tile prompt, no evidence heading.
+      expect(
+        find.text(
+          'This plant grows when you use this skill in your conversations',
+        ),
+        findsNothing,
+      );
+      expect(find.text('You used this'), findsNothing);
     },
   );
 
   testWidgets(
-    'current-garden skill sheet without evidence keeps the Zoe prompt',
+    'current-garden skill sheet without evidence keeps the grow prompt',
     (tester) async {
       final skill = _skill(
         strand: Strand.voc,
@@ -370,7 +513,12 @@ void main() {
 
       await _openSkillSheet(tester, skill);
 
-      expect(find.text('Talk with Ella to grow this skill.'), findsOneWidget);
+      expect(
+        find.text(
+          'This plant grows when you use this skill in your conversations',
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -389,7 +537,8 @@ void main() {
 
     await _openSkillSheet(tester, skill, step: step);
 
-    expect(find.text('Refining past stories'), findsOneWidget);
+    // The board no longer carries the unit name; the skill copy still shows.
+    expect(find.text('Refining past stories'), findsNothing);
     expect(find.text('Talk about what you used to do'), findsOneWidget);
     expect(find.text('Canonical framework skill statement'), findsNothing);
     expect(
@@ -415,7 +564,6 @@ void main() {
 
     await _openUnitSheet(tester, step);
 
-    expect(find.text('Describing the World'), findsOneWidget);
     expect(find.text('Skill 0'), findsOneWidget);
     expect(find.text('Skill 1'), findsOneWidget);
     expect(find.text('Skill 2'), findsOneWidget);
@@ -455,6 +603,7 @@ void main() {
 
     await _openUnitSheet(tester, step);
 
+    // The board no longer carries the unit name; it now heads the sheet body.
     expect(find.text('Keeping the thread'), findsOneWidget);
     expect(
       find.text(
@@ -506,64 +655,67 @@ void main() {
     );
   });
 
-  testWidgets('shared sheet board keeps normal titles on one line', (
+  testWidgets('shared sheet board is a fixed, empty, centered plank', (
     tester,
   ) async {
     await _setPhoneSurface(tester);
-    final shortStep = _step(displayName: 'First Words');
+    final step = _step(displayName: 'First Words');
 
-    await _openUnitSheet(tester, shortStep);
+    await _openUnitSheet(tester, step);
 
     final board = find.byKey(const ValueKey('garden-sheet-board'));
     final card = find.byKey(const ValueKey('garden-sheet-card'));
-    final title = find.byKey(const ValueKey('garden-sheet-board-title'));
     final leftNail = find.byKey(const ValueKey('garden-sheet-left-nail'));
     final rightNail = find.byKey(const ValueKey('garden-sheet-right-nail'));
-    final shortWidth = tester.getSize(board).width;
+
+    // 70% of the card's width, centered over the card, no title.
+    final expectedBoardWidth = tester.getSize(card).width * 0.7;
+    expect(tester.getSize(board).height, 40);
+    expect(tester.getSize(board).width, closeTo(expectedBoardWidth, 0.5));
+    expect(
+      tester.getCenter(board).dx,
+      closeTo(tester.getCenter(card).dx, 0.01),
+    );
+    expect(
+      find.byKey(const ValueKey('garden-sheet-board-title')),
+      findsNothing,
+    );
+
+    // Nails stay pinned at each end regardless of the (now-absent) title.
     final boardRect = tester.getRect(board);
-    final titleRect = tester.getRect(title);
     final leftNailRect = tester.getRect(leftNail);
     final rightNailRect = tester.getRect(rightNail);
+    expect(leftNailRect.left - boardRect.left, closeTo(14, 0.01));
+    expect(boardRect.right - rightNailRect.right, closeTo(14, 0.01));
 
-    expect(tester.getSize(board).height, 56);
-    expect(
-      tester.getCenter(board).dx,
-      closeTo(tester.getCenter(card).dx, 0.01),
-    );
-    expect(leftNailRect.left - boardRect.left, closeTo(16, 0.01));
-    expect(boardRect.right - rightNailRect.right, closeTo(16, 0.01));
-    expect(titleRect.left - leftNailRect.right, greaterThanOrEqualTo(24));
-    expect(rightNailRect.left - titleRect.right, greaterThanOrEqualTo(24));
-    expect(tester.getSize(title).height, lessThanOrEqualTo(22));
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    final mediumStep = _step(displayName: 'Likes & Dislikes');
-    await _openUnitSheet(tester, mediumStep);
-
-    final mediumWidth = tester.getSize(board).width;
-    expect(mediumWidth, greaterThan(shortWidth));
-    expect(mediumWidth, lessThanOrEqualTo(tester.getSize(card).width - 32));
-    expect(tester.getSize(board).height, 56);
-    expect(tester.getSize(title).height, lessThanOrEqualTo(22));
-
+    // A much longer unit name does not change the board's proportional width.
     await tester.pumpWidget(const SizedBox.shrink());
     final longStep = _step(
-      displayName: 'A deliberately long garden unit title that must wrap',
+      displayName: 'A deliberately long garden unit title that used to wrap',
     );
     await _openUnitSheet(tester, longStep);
+    expect(tester.getSize(board).height, 40);
+    expect(tester.getSize(board).width, closeTo(expectedBoardWidth, 0.5));
 
-    expect(tester.getSize(board).height, 56);
-    expect(tester.getSize(board).width, greaterThan(shortWidth));
-    expect(tester.getSize(board).width, tester.getSize(card).width - 32);
-    expect(tester.getSize(title).height, greaterThan(22));
-
+    // Same board on the skill sheet.
     await tester.pumpWidget(const SizedBox.shrink());
-    await _openSkillSheet(tester, shortStep.skills.single, step: shortStep);
+    await _openSkillSheet(tester, step.skills.single, step: step);
+    expect(tester.getSize(board).height, 40);
+    expect(tester.getSize(board).width, closeTo(expectedBoardWidth, 0.5));
+  });
 
-    expect(tester.getSize(board).height, 56);
-    expect(
-      tester.getCenter(board).dx,
-      closeTo(tester.getCenter(card).dx, 0.01),
-    );
+  testWidgets('skill sheet has a round close button that dismisses it', (
+    tester,
+  ) async {
+    await _setPhoneSurface(tester);
+    await _openSkillSheet(tester, _skill());
+
+    final close = find.byKey(const ValueKey('garden-sheet-close'));
+    expect(close, findsOneWidget);
+    expect(tester.getSize(close), const Size(48, 48));
+
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('garden-sheet-card')), findsNothing);
   });
 }

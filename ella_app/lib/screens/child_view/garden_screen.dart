@@ -161,7 +161,6 @@ class _GardenSunSpec {
 
 class _GardenLevelVisualSpec {
   final String code;
-  final String label;
   final List<Color> sky;
   final List<Color> hill;
   final String iconAsset;
@@ -179,7 +178,6 @@ class _GardenLevelVisualSpec {
 
   const _GardenLevelVisualSpec({
     required this.code,
-    required this.label,
     required this.sky,
     required this.hill,
     required this.iconAsset,
@@ -199,7 +197,6 @@ class _GardenLevelVisualSpec {
 
 const _GardenLevelVisualSpec _dawnSpec = _GardenLevelVisualSpec(
   code: 'A0',
-  label: 'Dawn Glade',
   sky: _dawnSky,
   hill: _dawnHill,
   iconAsset: 'assets/garden/plants/Sunrise Seedbed Icon 1.svg',
@@ -214,7 +211,6 @@ const _GardenLevelVisualSpec _dawnSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _morningSpec = _GardenLevelVisualSpec(
   code: 'A1',
-  label: 'Morning Meadow',
   sky: _morningSky,
   hill: _morningHill,
   iconAsset: 'assets/garden/plants/morning-meadow-icon.svg',
@@ -238,7 +234,6 @@ const _GardenLevelVisualSpec _morningSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _middaySpec = _GardenLevelVisualSpec(
   code: 'A2',
-  label: 'Midday Grove',
   sky: _middaySky,
   hill: _middayHill,
   iconAsset: 'assets/garden/plants/midday-grove-icon.svg',
@@ -262,7 +257,6 @@ const _GardenLevelVisualSpec _middaySpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _goldenSpec = _GardenLevelVisualSpec(
   code: 'B1',
-  label: 'Golden Orchard',
   sky: _goldenSky,
   hill: _goldenHill,
   iconAsset: 'assets/garden/plants/golden-orchard-icon.svg',
@@ -287,7 +281,6 @@ const _GardenLevelVisualSpec _goldenSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _twilightSpec = _GardenLevelVisualSpec(
   code: 'B2',
-  label: 'Twilight Valley',
   sky: _twilightSky,
   hill: _twilightHill,
   iconAsset: 'assets/garden/plants/twilight-valley-icon.svg',
@@ -313,7 +306,6 @@ const _GardenLevelVisualSpec _twilightSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _starlightSpec = _GardenLevelVisualSpec(
   code: 'C1',
-  label: 'Starlight Summit',
   sky: _starlightSky,
   hill: _starlightHill,
   iconAsset: 'assets/garden/plants/starlight-summit-icon.svg',
@@ -369,15 +361,13 @@ _GardenLevelVisualSpec _visualSpecFor(String level) {
   }
 }
 
-bool _isKnownGardenLevel(String level) =>
-    const {'A0', 'A1', 'A2', 'B1', 'B2', 'C1'}.contains(_levelCode(level));
+bool _isKnownGardenLevel(String level) => gardenLevelFor(level) != null;
 
-String _gardenDisplayName(GardenData data, _GardenLevelVisualSpec spec) {
-  if (_isKnownGardenLevel(data.level)) return spec.label;
+String _gardenDisplayName(GardenData data) {
   final theme = data.theme.trim();
   if (theme.isNotEmpty) return theme;
   final label = data.levelLabel.trim();
-  return label.isNotEmpty ? label : spec.label;
+  return label.isNotEmpty ? label : data.level;
 }
 
 // First-time welcome copy (Figma "Shift to new garden and nudge to start
@@ -1582,6 +1572,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
   @override
   void dispose() {
     _cancelRevealTimers();
+    // Safety net: if the garden is torn down while a sheet is somehow still
+    // flagged open, clear it so a stale value can't hide the CTA elsewhere.
+    gardenSheetOpen.value = false;
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
@@ -1654,9 +1647,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     final childName =
         ref.watch(onboardingProvider).valueOrNull?.name?.trim() ?? '';
     final titleName = _gardenOwnerFirstName(childName);
-    final levelName = _isKnownGardenLevel(viewedLevel)
-        ? spec.label
-        : _gardenDisplayName(displayData, spec);
+    final levelName =
+        gardenLevelFor(viewedLevel)?.compactLabel ??
+        _gardenDisplayName(displayData);
     final scrollClipTop = spec.hillTop + 8;
     final revealLayerActive =
         revealQueue.isNotEmpty || _activeRevealItem != null;
@@ -1732,7 +1725,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
             child: _PinnedGardenHeader(
               spec: spec,
               levelName: levelName,
-              gardenTitle: "$titleName's Garden",
+              gardenTitle: 'See how your English is growing',
               scrollProgress: (_scrollOffset / 88).clamp(0.0, 1.0),
               soundOn: widget.soundOn,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
@@ -1749,21 +1742,26 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           right: 0,
           bottom: 0,
           child: RepaintBoundary(
-            child: AnimatedSwitcher(
-              duration: Duration(
-                milliseconds: MediaQuery.of(context).disableAnimations
-                    ? 0
-                    : 450,
+            // Fully hide (not just dim) the CTA while a skill/unit sheet is open,
+            // so it can't be mistaken for a live affordance behind the sheet.
+            child: ValueListenableBuilder<bool>(
+              valueListenable: gardenSheetOpen,
+              builder: (context, sheetOpen, _) => AnimatedSwitcher(
+                duration: Duration(
+                  milliseconds: MediaQuery.of(context).disableAnimations
+                      ? 0
+                      : 450,
+                ),
+                child: widget.showTalkBar && !modalLayerActive && !sheetOpen
+                    ? _LetsTalkBar(
+                        key: const ValueKey('garden-talk-bar-layer'),
+                        // The button returns to Home, where the child picks a
+                        // topic and starts a session (the garden no longer
+                        // starts one directly).
+                        onTalk: widget.onTalk,
+                      )
+                    : const SizedBox.shrink(),
               ),
-              child: widget.showTalkBar && !modalLayerActive
-                  ? _LetsTalkBar(
-                      key: const ValueKey('garden-talk-bar-layer'),
-                      // The button returns to Home, where the child picks a topic
-                      // and starts a session (the garden no longer starts one
-                      // directly).
-                      onTalk: widget.onTalk,
-                    )
-                  : const SizedBox.shrink(),
             ),
           ),
         ),
@@ -2115,7 +2113,6 @@ class _PinnedGardenHeader extends StatelessWidget {
       builder: (context, constraints) {
         final titleW = math.min(constraints.maxWidth - 32, 386.0);
         final titleTop = lerpDouble(titleStartY, titleTargetY, progress)!;
-        final titleSize = lerpDouble(18, 16, progress)!;
         final pillMaxW = math.max(180.0, constraints.maxWidth - 128);
 
         return SizedBox(
@@ -2188,10 +2185,10 @@ class _PinnedGardenHeader extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: EllaFonts.bricolage(
+                  style: EllaFonts.body(
                     TextStyle(
-                      fontSize: titleSize,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
                       height: 1.6,
                       letterSpacing: 0,
                       color: spec.titleColor,
@@ -2281,7 +2278,7 @@ class _LevelSelectorPill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: EllaFonts.body(
                 const TextStyle(
-                  fontSize: 16.7,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.6,
                   color: EllaColors.ink,
@@ -2415,6 +2412,7 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
               : _ZoeGardenBubble(
                   controller: _bubbleController,
                   maxWidth: media.size.width - 48,
+                  gardenName: _bubbleGardenName!,
                 ),
         ),
         const SizedBox(height: 16),
@@ -2630,7 +2628,7 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
     final spec = _visualSpecFor(entry.code);
 
     final card = Container(
-      height: 80,
+      height: 96,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: EllaColors.surface,
@@ -2645,30 +2643,29 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
         children: [
           SvgPicture.asset(spec.iconAsset, width: 48, height: 48),
           const SizedBox(width: 12),
-          // Name + chip claim all the slack so the chevron always pins to the
-          // far right. The chip sits outside the Flexible so it never truncates.
+          // Keep the current-garden chip below the name so long, full level
+          // labels remain readable on narrow phones.
           Expanded(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
-                  child: Text(
-                    entry.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: EllaFonts.body(
-                      const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        height: 1.6,
-                        letterSpacing: 0.016,
-                        color: EllaColors.ink,
-                      ),
+                Text(
+                  entry.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: EllaFonts.body(
+                    const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                      letterSpacing: 0.016,
+                      color: EllaColors.ink,
                     ),
                   ),
                 ),
                 if (entry.isCurrent) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 4),
                   const _YoureHereChip(),
                 ],
               ],
@@ -2904,8 +2901,13 @@ class _FogOverlayState extends State<_FogOverlay>
 class _ZoeGardenBubble extends StatelessWidget {
   final AnimationController controller;
   final double maxWidth;
+  final String gardenName;
 
-  const _ZoeGardenBubble({required this.controller, required this.maxWidth});
+  const _ZoeGardenBubble({
+    required this.controller,
+    required this.maxWidth,
+    required this.gardenName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2935,7 +2937,9 @@ class _ZoeGardenBubble extends StatelessWidget {
             border: Border.all(color: _bubbleBorder, width: 2),
           ),
           child: Text.rich(
-            const TextSpan(text: 'Keep practising to unlock the next garden.'),
+            TextSpan(
+              text: 'Keep practising in $gardenName to unlock the next garden.',
+            ),
             textAlign: TextAlign.center,
             style: EllaFonts.body(
               const TextStyle(
@@ -5748,7 +5752,7 @@ class _LetsTalkBar extends StatelessWidget {
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                'Start Talking',
+                                'Pick a Topic',
                                 maxLines: 1,
                                 style: EllaFonts.body(
                                   const TextStyle(
