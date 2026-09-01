@@ -568,14 +568,22 @@ class _LastTimeCard extends StatelessWidget {
 class _PiperDownloadBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(piperDownloadProvider);
+    final status = ref.watch(
+      piperDownloadProvider.select((s) => s.status),
+    );
 
     // Only show while actively downloading
-    if (state.status != PiperDownloadStatus.downloading) {
+    if (status != PiperDownloadStatus.downloading) {
       return const SizedBox.shrink();
     }
 
-    final percent = (state.progress * 100).toInt();
+    // Round to nearest 5% so the widget only rebuilds 20 times total, not 100+
+    final displayPercent = ref.watch(
+      piperDownloadProvider.select((s) => ((s.progress * 100).toInt() ~/ 5) * 5),
+    );
+    final progressValue = ref.watch(
+      piperDownloadProvider.select((s) => s.progress > 0 ? s.progress : null),
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -594,7 +602,7 @@ class _PiperDownloadBanner extends ConsumerWidget {
               width: 18,
               height: 18,
               child: CircularProgressIndicator(
-                value: state.progress > 0 ? state.progress : null,
+                value: progressValue,
                 strokeWidth: 2.5,
                 color: EllaColors.info,
               ),
@@ -602,7 +610,7 @@ class _PiperDownloadBanner extends ConsumerWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Upgrading voice... $percent%',
+                'Upgrading voice... $displayPercent%',
                 style: EllaTextStyles.bodySemibold.copyWith(
                   fontSize: 12,
                   color: EllaColors.textSecondary,
