@@ -5,6 +5,7 @@ import 'package:chucker_flutter/chucker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'analytics_service.dart';
@@ -76,8 +77,10 @@ class EllaApiService {
   static const _childAgeKey = 'ella_child_age';
   static const _placementDoneKey = 'ella_api_placement_done';
   static const _refreshTokenKey = 'ella_api_refresh_token';
+  static const _preferredModelKey = 'ella_api_preferred_model';
 
   static Future<bool>? _currentRefreshFuture;
+  static String? _appVersionCached;
 
   final String baseUrl;
   final http.Client _client;
@@ -124,10 +127,8 @@ class EllaApiService {
   }
 
   Future<void> logout() async {
+    await _clearToken();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userIdKey);
-    await prefs.remove(_refreshTokenKey);
     // Clear the cached onboarding profile too, so a different user signing in
     // next doesn't inherit the previous user's name/age (the greeting is
     // re-sourced from /users/me on the fresh session).
@@ -173,6 +174,12 @@ class EllaApiService {
       if (kIsWeb) {
         // Use the current web origin (e.g. http://localhost:3000)
         redirectUrl = '${Uri.base.origin}/#/login';
+      } else if (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.windows ||
+           defaultTargetPlatform == TargetPlatform.macOS ||
+           defaultTargetPlatform == TargetPlatform.linux)) {
+        // Use ella:// deep link so the desktop app receives the tokens directly
+        redirectUrl = 'ella://login';
       } else {
         redirectUrl = 'ella://login';
       }
@@ -195,6 +202,35 @@ class EllaApiService {
     }
   }
 
+  Future<bool> checkMagicLinkStatus(String email) async {
+    try {
+      final deviceId = await getDeviceId();
+      final data = await _request(
+        'POST',
+        '/auth/magic-link/poll',
+        auth: false,
+        body: {
+          'email': email,
+          'device_id': deviceId,
+        },
+      );
+      final accessToken = data['access_token'] ?? data['token'];
+      final refreshToken = data['refresh_token'];
+      final userId = data['user_id'] ?? 'user_from_token';
+      if (accessToken != null) {
+        await saveTokens(accessToken, userId, refreshToken: refreshToken);
+        try {
+          await AnalyticsService.setUserProfile(userId: userId);
+          await AnalyticsService.logLogin('magic_link');
+        } catch (_) {}
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<String?> getCachedUserId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_userIdKey);
@@ -203,6 +239,16 @@ class EllaApiService {
   Future<bool> isPlacementDone() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_placementDoneKey) ?? false;
+  }
+
+  Future<String?> getPreferredModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_preferredModelKey);
+  }
+
+  Future<void> setPreferredModel(String model) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_preferredModelKey, model);
   }
 
   Future<MemoryState> getUserMemory() async {
@@ -424,7 +470,7 @@ class EllaApiService {
       '/session/$sessionId/turn',
       body: {
         'content': content,
-        if (inputMode != null) 'input_mode': inputMode,
+        'input_mode': ?inputMode,
       },
     );
     return ConversationTurnApiResponse(
@@ -570,9 +616,21 @@ class EllaApiService {
     Map<String, dynamic>? body,
   }) async {
     final uri = Uri.parse(path.startsWith('http') ? path : '$baseUrl$path');
+    final prefs = await SharedPreferences.getInstance();
+    final preferredModel = prefs.getString(_preferredModelKey);
+    if (_appVersionCached == null) {
+      try {
+        final info = await PackageInfo.fromPlatform();
+        _appVersionCached = "${info.version}+${info.buildNumber}";
+      } catch (_) {
+        _appVersionCached = "";
+      }
+    }
     final headers = <String, String>{
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
+      if (preferredModel != null && preferredModel.isNotEmpty) 'X-Preferred-Model': preferredModel,
+      if (_appVersionCached!.isNotEmpty) 'X-App-Version': _appVersionCached!,
     };
     if (auth) {
       var token = await getToken();

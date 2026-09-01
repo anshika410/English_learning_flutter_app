@@ -180,20 +180,37 @@ async def verify_magic_link(
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <script>
             window.onload = function() {{
-                var now = new Date().getTime();
+                var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                var isAndroid = /android/i.test(userAgent);
                 
-                // Try opening the app via Intent
-                setTimeout(function() {{
-                    window.location.href = "intent://login?access_token={access_token}&refresh_token={refresh_token}&user_id={user.id}#Intent;scheme=ella;package=org.navgurukul.ella;end";
-                }}, 500);
-                
-                // Fallback to web link
-                setTimeout(function() {{
-                    window.location.href = "{final_url}";
+                if (isAndroid) {{
+                    // Try opening the app via Intent
+                    setTimeout(function() {{
+                        window.location.href = "intent://login?access_token={access_token}&refresh_token={refresh_token}&user_id={user.id}#Intent;scheme=ella;package=org.navgurukul.ella;end";
+                    }}, 500);
+                    
+                    // Fallback to Play Store on Android
                     setTimeout(function() {{
                         window.location.href = "{playstore_url}";
-                    }}, 2500);
-                }}, 1000);
+                    }}, 3000);
+                }} else {{
+                    // Desktop/Other platforms: Redirect directly to final_url (ella:// scheme or frontend web app)
+                    setTimeout(function() {{
+                        window.location.href = "{final_url}";
+                    }}, 500);
+                }}
+
+                // Update the instruction link dynamically
+                var instructionLink = document.getElementById("instruction-link");
+                if (instructionLink) {{
+                    if (isAndroid) {{
+                        instructionLink.href = "{playstore_url}";
+                        instructionLink.innerText = "download it from the Play Store";
+                    }} else {{
+                        instructionLink.href = "{final_url}";
+                        instructionLink.innerText = "open the application in your browser";
+                    }}
+                }}
             }};
         </script>
         <style>
@@ -205,7 +222,7 @@ async def verify_magic_link(
     <body>
         <div class="container">
             <h2>Redirecting you to Ella...</h2>
-            <p>If the app doesn't open automatically, <a href="{playstore_url}">download it from the Play Store</a>.</p>
+            <p>If the app doesn't open automatically, <a id="instruction-link" href="{final_url}">open the application in your browser</a>.</p>
         </div>
     </body>
     </html>

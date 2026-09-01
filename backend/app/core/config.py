@@ -1,5 +1,8 @@
+import contextvars
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+preferred_model_var = contextvars.ContextVar("preferred_model", default=None)
 
 
 class Settings(BaseSettings):
@@ -15,6 +18,10 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     deepseek_model: str = "deepseek-chat"
+    huggingface_api_key: str = ""
+    huggingface_base_url: str = "https://router.huggingface.co/v1"
+    huggingface_model: str = "meta-llama/Llama-3.1-8B-Instruct"
+    openai_api_key: str = ""
     llm_rate_limit_per_minute: int = 30
     # Set to false in production to hide /docs and /redoc
     docs_enabled: bool = False

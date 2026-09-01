@@ -35,6 +35,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _name = '';
   int _age = 0;
   String _email = '';
+  String _selectedModel = 'deepseek/deepseek-v4-flash';
 
   String _appVersion = '';
 
@@ -94,6 +95,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }
           if (_age == 0) _age = fallbackAge;
 
+        });
+      }
+      final model = await EllaApiService().getPreferredModel();
+      if (mounted) {
+        setState(() {
+          _selectedModel = model ?? 'deepseek/deepseek-v4-flash';
           _isLoading = false;
         });
       }
@@ -106,10 +113,123 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           // Offline / API failure: fall back to the last cached email so the
           // field isn't blank.
           _email = cachedEmail ?? 'No email found';
+        });
+      }
+      final model = await EllaApiService().getPreferredModel();
+      if (mounted) {
+        setState(() {
+          _selectedModel = model ?? 'deepseek/deepseek-v4-flash';
           _isLoading = false;
         });
       }
     }
+  }
+
+  String _friendlyModelName(String modelId) {
+    if (modelId.contains('luna')) return 'GPT-5.6 Luna';
+    return 'DeepSeek V4 Flash';
+  }
+
+  void _showModelPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFFFFFDF5),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final models = [
+          {
+            'id': 'deepseek/deepseek-v4-flash',
+            'name': 'DeepSeek V4 Flash',
+            'desc': 'Highly responsive dialogue model (Default)',
+          },
+          {
+            'id': 'openai/gpt-5.6-luna',
+            'name': 'GPT-5.6 Luna',
+            'desc': 'Experimental advanced tutor model',
+          },
+        ];
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select AI Model',
+                  style: EllaFonts.bricolage(
+                    const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2C2C2A),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...models.map((m) {
+                  final isSelected = _selectedModel == m['id'];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFFEF9F27) : const Color(0xFFEDE7D6),
+                        width: 2,
+                      ),
+                    ),
+                    child: Material(
+                      color: isSelected ? const Color(0xFFFAEEDA) : const Color(0xFFFFFDF5),
+                      borderRadius: BorderRadius.circular(14),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        onTap: () async {
+                          final modelId = m['id']!;
+                          await EllaApiService().setPreferredModel(modelId);
+                          setState(() {
+                            _selectedModel = modelId;
+                          });
+                          Navigator.of(context).pop();
+                        },
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        title: Text(
+                          m['name']!,
+                          style: EllaFonts.body(
+                            TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? const Color(0xFF854F0B) : const Color(0xFF2C2C2A),
+                            ),
+                          ),
+                        ),
+                        subtitle: Text(
+                          m['desc']!,
+                          style: EllaFonts.body(
+                            const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF5F5E5A),
+                            ),
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check_circle_rounded,
+                                color: Color(0xFFEF9F27),
+                                size: 24,
+                              )
+                            : null,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _handleSignOut() async {
@@ -599,6 +719,80 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                           ],
                                         ),
                                       ),
+                                      const Divider(
+                                        height: 1,
+                                        color: Color(0xFFEDE7D6),
+                                      ),
+                                      // AI Model Row
+                                      InkWell(
+                                        onTap: _showModelPicker,
+                                        borderRadius: const BorderRadius.only(
+                                          bottomLeft: Radius.circular(16),
+                                          bottomRight: Radius.circular(16),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 18,
+                                            vertical: 14,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 40,
+                                                height: 40,
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFFF0E6FF),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.psychology_rounded,
+                                                  color: Color(0xFF7000FF),
+                                                  size: 20,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 14),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'AI Model',
+                                                      style: EllaFonts.body(
+                                                        const TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Color(
+                                                            0xFF2C2C2A,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      _friendlyModelName(_selectedModel),
+                                                      style: EllaFonts.body(
+                                                        const TextStyle(
+                                                          fontSize: 13,
+                                                          color: Color(
+                                                            0xFF5F5E5A,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const Icon(
+                                                Icons.chevron_right_rounded,
+                                                color: Color(0xFFB4B2A9),
+                                                size: 24,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -728,7 +922,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               const SizedBox(width: 32),
                               InkWell(
-                                onTap: () {},
+                                onTap: () {
+                                  Navigator.of(
+                                    context,
+                                  ).pushNamed('/privacy-policy');
+                                },
                                 borderRadius: BorderRadius.circular(8),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,

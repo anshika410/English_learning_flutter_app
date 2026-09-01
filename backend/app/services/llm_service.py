@@ -48,11 +48,37 @@ def resolve_prompt(
             return custom_prompts[key]
 
     if user_id:
-        sandbox_path = PROMPTS_DIR / "sandboxes" / user_id / filename
+        uuid_part = user_id
+        email_part = None
+        if ":" in user_id:
+            parts = user_id.split(":", 1)
+            uuid_part = parts[0]
+            email_part = parts[1]
+
+        # 1. Try UUID sandbox
+        sandbox_path = PROMPTS_DIR / "sandboxes" / uuid_part / filename
         if sandbox_path.exists():
             return sandbox_path.read_text().strip()
 
+        # 2. Try Email sandbox
+        if email_part:
+            sandbox_path = PROMPTS_DIR / "sandboxes" / email_part / filename
+            if sandbox_path.exists():
+                return sandbox_path.read_text().strip()
+
     return (PROMPTS_DIR / filename).read_text().strip()
+
+
+def _all_level_skills_text(level_upper: str) -> str:
+    """Every "I Can" statement for a CEFR level, across all its curriculum units, in sequence."""
+    from ..core.curriculum_data import UNITS
+
+    lines = [
+        f"- [{skill['id']}] {skill['text']}"
+        for unit in UNITS.get(level_upper, [])
+        for skill in unit.get("skills", [])
+    ]
+    return "\n".join(lines) if lines else "None"
 
 # ── Shared HTTP helper ────────────────────────────────────────────────────────
 
@@ -62,15 +88,48 @@ async def _chat_completion(
     temperature: float = 0.75,
 ) -> str:
     settings = get_settings()
+    from ..core.config import preferred_model_var
+    preferred = preferred_model_var.get()
+    
+    # Route Luna (OpenAI GPT) requests directly to OpenAI's official API
+    preferred_lower = preferred.lower() if preferred else ""
+    if "luna" in preferred_lower:
+        model = "gpt-4o-mini"
+        base_url = "https://api.openai.com/v1"
+        api_key = settings.openai_api_key or settings.deepseek_api_key  # Use direct OpenAI key with fallback to OpenRouter key if present
+    # Route DeepSeek requests to Hugging Face if configured, otherwise fallback to OpenRouter
+    elif "deepseek" in preferred_lower:
+        if settings.huggingface_api_key:
+            model = "deepseek-ai/DeepSeek-V3"
+            base_url = settings.huggingface_base_url
+            api_key = settings.huggingface_api_key
+        else:
+            model = "deepseek/deepseek-v4-flash"
+            base_url = settings.deepseek_base_url
+            api_key = settings.deepseek_api_key
+    # Default fallback for any other requests (like Gemini or others)
+    else:
+        # Since Gemini/others are removed, default to gpt-4o-mini if OpenAI API key is present
+        if settings.openai_api_key:
+            model = "gpt-4o-mini"
+            base_url = "https://api.openai.com/v1"
+            api_key = settings.openai_api_key
+        else:
+            model = settings.deepseek_model
+            base_url = settings.deepseek_base_url
+            api_key = settings.deepseek_api_key
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
+
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
-            f"{settings.deepseek_base_url}/chat/completions",
+            url,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {settings.deepseek_api_key}",
+                "Authorization": f"Bearer {api_key}",
             },
             json={
-                "model": settings.deepseek_model,
+                "model": model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
@@ -153,6 +212,7 @@ async def generate_conversation_starter(
     persona_memory: dict | None = None,
     custom_prompts: dict | None = None,
     user_id: str | None = None,
+    last_conversation_transcript: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -162,8 +222,6 @@ async def generate_conversation_starter(
     level_upper = str(level or "A1").upper()
     if level_upper not in _LEVEL_BLOCKS:
         level_upper = "A1"
-    
-    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
 
     # Format learner context — only name and age (no persona_memory facts)
     memory_str = "None"
@@ -256,26 +314,48 @@ async def generate_conversation_starter(
     # Build elicitation plan (using plan_text(target_ids)) - Deprecated
     # elicitation_str = plan_text(target_ids, level_upper)
 
-    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
-    unit_block = (
-        unit_template
+    primary_id = target_ids[0] if target_ids else None
+    primary_strand = "VOC"
+    if primary_id:
+        from ..core.curriculum_data import get_skill_strand
+        primary_strand = get_skill_strand(primary_id)
+    primary_skill_text = resolve_skill_text(primary_id, level_upper) if primary_id else "General conversation practice"
+
+    watching_ids = target_ids[1:] if len(target_ids) > 1 else []
+    watch_list_str = "\n".join(
+        f"- [{wid}] {resolve_skill_text(wid, level_upper)}"
+        for wid in watching_ids
+        if resolve_skill_text(wid, level_upper)
+    ) if watching_ids else "None"
+
+    # Conversation now uses a single monolithic prompt (candidate-ella-prompt.md)
+    # instead of concatenating base-prompt.md + profile-{level}.md + conv-unit-framing.md.
+    # Those three files are intentionally left untouched on disk and unused here —
+    # they still back other flows (placement, etc.) and nothing is deleted.
+    prompt_template = resolve_prompt("candidate-ella-prompt.md", custom_prompts, user_id)
+    prompt_block = (
+        prompt_template
         .replace("{{UNITNAME}}", str(unit_name))
         .replace("{{UNITFOCUS}}", str(unit_focus))
         .replace("{{TARGETS}}", targets_str)
         # .replace("{{ELICITATION}}", elicitation_str) # Deprecated
         .replace("{{STUDENT_MEMORY}}", memory_str)
         .replace("{{CURRENT_TURN}}", "1")
+        # Support new pk_1.1 placeholders
+        .replace("{{UNIT}}", str(unit_name))
+        .replace("{{CONVERSATION_TOPIC}}", topic or "Free conversation")
+        .replace("{{PRIMARY_STRAND}}", primary_strand)
+        .replace("{{PRIMARY_SKILL}}", primary_skill_text)
+        .replace("{{LEARNER_CONTEXT}}", memory_str)
+        .replace("{{WATCH_LIST}}", watch_list_str)
+        .replace("{{LEVEL}}", level_upper)
+        .replace("{{ALL_LEVEL_SKILLS}}", _all_level_skills_text(level_upper))
+        .replace("{{LAST_CONVERSATION}}", last_conversation_transcript or "None — this is the learner's first conversation.")
         .strip()
     )
 
-    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
-
     system_prompt = (
-        f"{base_block}\n\n"
-        f"---\n\n"
-        f"{level_block}\n\n"
-        f"---\n\n"
-        f"{unit_block}\n\n"
+        f"{prompt_block}\n\n"
         f"---\n\n"
         f"The user message supplies the topic and may include sample starters.\n\n"
         f"After generating Zoe's first spoken turn, output on a new line:\n"
@@ -359,6 +439,7 @@ async def send_conversation_turn(
     skills_progress: dict | None = None,
     custom_prompts: dict | None = None,
     user_id: str | None = None,
+    last_conversation_transcript: str | None = None,
 ) -> dict:
     from ..core.curriculum_data import (
         UNITS, active_step, targets_list_for, validate_due_next,
@@ -465,14 +546,14 @@ async def send_conversation_turn(
         if resolve_skill_text(wid, level_upper)
     ) if watching_ids else "None"
 
-    level_block = resolve_prompt(f"profile-{level_upper}.md", custom_prompts, user_id)
+    # Conversation now uses a single monolithic prompt (candidate-ella-prompt.md)
+    # instead of concatenating base-prompt.md + profile-{level}.md + conv-unit-framing.md.
+    # Those three files are intentionally left untouched on disk and unused here —
+    # they still back other flows (placement, etc.) and nothing is deleted.
+    prompt_template = resolve_prompt("candidate-ella-prompt.md", custom_prompts, user_id)
 
-    base_block = resolve_prompt("base-prompt.md", custom_prompts, user_id)
-
-    unit_template = resolve_prompt("conv-unit-framing.md", custom_prompts, user_id)
-
-    unit_block = (
-        unit_template
+    system_prompt = (
+        prompt_template
         .replace("{{UNITNAME}}", unit_name)
         .replace("{{UNITFOCUS}}", unit_focus)
         .replace("{{TARGETS}}", targets_str)
@@ -486,10 +567,11 @@ async def send_conversation_turn(
         .replace("{{PRIMARY_SKILL}}", primary_skill_text)
         .replace("{{LEARNER_CONTEXT}}", memory_str)
         .replace("{{WATCH_LIST}}", watch_list_str)
+        .replace("{{LEVEL}}", level_upper)
+        .replace("{{ALL_LEVEL_SKILLS}}", _all_level_skills_text(level_upper))
+        .replace("{{LAST_CONVERSATION}}", last_conversation_transcript or "None — this is the learner's first conversation.")
         .strip()
     )
-
-    system_prompt = f"{base_block}\n\n---\n\n{level_block}\n\n---\n\n{unit_block}"
 
     api_messages = [{"role": "system", "content": system_prompt}] + [
         {"role": m["role"], "content": m["content"]} for m in messages
@@ -581,6 +663,10 @@ async def send_placement_turn(
             if "level" in data or "level_code" in data:
                 return _build_placement_result(data)
         except Exception as e:
+            # Fallback to loose parser
+            loose_data = _parse_loose_placement_output(text)
+            if loose_data:
+                return _build_placement_result(loose_data)
             import logging
             logging.warning(f"Failed parsing forced placement assessment: {e}. Raw text: {text}")
         # Absolute fallback if the LLM still refuses: start conservatively
@@ -611,10 +697,16 @@ async def send_placement_turn(
         return {"reply": reply or text, "is_complete": False}
 
     # Try parsing as final JSON assessment
+    data = None
     try:
         json_str = _extract_json(text)
         data = json.loads(json_str)
-        if "level" in data or "level_code" in data:
+    except Exception:
+        # Fallback to loose parser
+        data = _parse_loose_placement_output(text)
+
+    if data and ("level" in data or "level_code" in data):
+        try:
             confidence = data.get("confidence", "low")
 
             # ── TURN-BASED CONFIDENCE GATES ───────────────────────────────────
@@ -646,11 +738,20 @@ async def send_placement_turn(
             # Turn 9+: handled by the forced-completion branch above.
             else:
                 return _build_placement_result(data)
-
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     # Fallback: treat as plain reply
+    # If the reply contains technical keys, extract zoe_recap or show a friendly fallback
+    marker_words = ["evidence_summary", "possible_higher", "zoe_recap", "level_description"]
+    if any(word in text.lower() for word in marker_words):
+        recap_match = re.search(r"[\"']?(?:zoe_recap|level_description)[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+        if recap_match:
+            friendly_text = recap_match.group(1).strip()
+            if friendly_text:
+                return {"reply": friendly_text, "is_complete": False}
+        return {"reply": "Awesome job! We've completed our conversation. Let's find your level!", "is_complete": False}
+
     return {"reply": text, "is_complete": False}
 
 
@@ -687,6 +788,50 @@ def _build_placement_result(data: dict) -> dict:
         "interests": data.get("interests", []),
         "notes_for_first_session": data.get("notes_for_first_session"),
     }
+
+
+def _parse_loose_placement_output(text: str) -> dict | None:
+    """Fallback parser for malformed, unquoted, or prefixed placement outputs from LLM."""
+    marker_words = ["level", "confidence", "evidence_summary", "zoe_recap"]
+    matches_markers = any(word in text.lower() for word in marker_words)
+    if not matches_markers:
+        return None
+
+    data = {}
+    
+    # Extract level (A0-C1)
+    level_match = re.search(r"[\"']?(?:level|level_code)[\"']?\s*[:=]\s*[\"']?([A-C][0-2])[\"']?", text, re.IGNORECASE)
+    if level_match:
+        data["level"] = level_match.group(1).upper()
+        
+    # Extract confidence
+    conf_match = re.search(r"[\"']?confidence[\"']?\s*[:=]\s*[\"']?(\w+)[\"']?", text, re.IGNORECASE)
+    if conf_match:
+        data["confidence"] = conf_match.group(1).lower()
+
+    # Extract zoe_recap / level_description
+    recap_match = re.search(r"[\"']?zoe_recap[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if recap_match:
+        data["zoe_recap"] = recap_match.group(1).strip()
+        
+    desc_match = re.search(r"[\"']?level_description[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if desc_match:
+        data["level_description"] = desc_match.group(1).strip()
+
+    # Extract evidence_summary
+    ev_match = re.search(r"[\"']?evidence_summary[\"']?\s*[:=]\s*[\"']?([^,\n}\"']+)", text, re.IGNORECASE)
+    if ev_match:
+        data["evidence_summary"] = ev_match.group(1).strip()
+
+    # If we found at least a level, we can reconstruct the assessment!
+    if "level" in data:
+        data["confidence"] = data.get("confidence") or "medium"
+        data["zoe_recap"] = data.get("zoe_recap") or data.get("level_description") or "You enjoy talking and practicing your English!"
+        data["level_description"] = data.get("level_description") or data.get("zoe_recap") or "We'll find your perfect pace."
+        data["evidence_summary"] = data.get("evidence_summary") or "Assessment completed using fallback loose parsing."
+        return data
+
+    return None
 
 
 async def _continue_placement(
@@ -854,7 +999,10 @@ async def analyze_and_grade_session(
                 if evidence and not any(
                     evidence in utterance for utterance in student_utterances
                 ):
+                    # Fabricated quote — discard the credit, not just the quote,
+                    # so a hallucinated demonstration never earns a sighting.
                     score["evidence"] = ""
+                    score["confidence"] = 0.0
             # If LLM dropped a targeted skill entirely, add a zero-confidence entry
             # so apply_merge always sees every aimed skill (just with no evidence).
             returned_ids = {s.get("id") for s in data["scores"]}

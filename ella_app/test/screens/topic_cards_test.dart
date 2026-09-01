@@ -276,12 +276,6 @@ void main() {
     expect(find.text('Food'), findsWidgets);
     expect(find.textContaining("Let's Talk About Food"), findsOneWidget);
 
-    final pickLabel = tester.widget<Text>(
-      find.byKey(const ValueKey('home-topic-carousel-pick-label')),
-    );
-    expect(pickLabel.data, "Ella's Pick");
-    expect(pickLabel.style?.fontSize, 14);
-
     final artworkFinder = find.byWidgetPredicate(
       (widget) =>
           widget.key is ValueKey<String> &&
@@ -330,10 +324,10 @@ void main() {
     final bubbleRect = tester.getRect(
       find.byKey(const ValueKey('home-last-time-bubble')),
     );
-    final pickRect = tester.getRect(
-      find.byKey(const ValueKey('home-topic-carousel-pick-label')),
+    final carouselRect = tester.getRect(
+      find.byKey(const ValueKey('home-topic-carousel')),
     );
-    expect(pickRect.top - recapRect.bottom, closeTo(32, 0.01));
+    expect(carouselRect.top - recapRect.bottom, closeTo(24, 0.01));
 
     final zoeRect = tester.getRect(
       find.byKey(const ValueKey('home-zoe-mascot')),
@@ -518,15 +512,6 @@ void main() {
     );
     expect(pointerFinder, findsOneWidget);
 
-    final labelFinder = find.byKey(
-      const ValueKey('home-topic-carousel-pick-label'),
-    );
-    final opacityFinder = find.ancestor(
-      of: labelFinder,
-      matching: find.byType(Opacity),
-    );
-    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 1.0);
-
     final carousel = find.byKey(
       const ValueKey('home-topic-carousel-page-view'),
     );
@@ -535,13 +520,11 @@ void main() {
     await tester.drag(carousel, const Offset(-106, 0));
     await tester.pumpAndSettle();
     expect(pointerFinder, findsOneWidget);
-    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 0.0);
 
     // Swipe back to Topic A (Food)
     await tester.drag(carousel, const Offset(106, 0));
     await tester.pumpAndSettle();
     expect(pointerFinder, findsOneWidget);
-    expect(tester.widget<Opacity>(opacityFinder.first).opacity, 1.0);
   });
 
   testWidgets('home carousel interpolates the arc while dragging', (
@@ -671,10 +654,6 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
-      expect(
-        find.byKey(const ValueKey('home-topic-carousel-pick-label')),
-        findsOneWidget,
-      );
       expect(
         find.byKey(const ValueKey('home-topic-carousel-page-view')),
         findsOneWidget,

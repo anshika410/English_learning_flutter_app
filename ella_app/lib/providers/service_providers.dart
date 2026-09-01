@@ -1,6 +1,7 @@
 // Singleton providers for the three injectable services.
 // All read from .env (loaded in main.dart before runApp).
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +31,14 @@ final sttLevelProvider = Provider<ValueNotifier<double>>((ref) {
   return ref.watch(sttProvider).speechLevel;
 });
 
-final ttsProvider = Provider<TtsInterface>((ref) => ref.read(nativeTtsProvider));
+final ttsProvider = Provider<TtsInterface>((ref) {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    final service = FlutterTtsService();
+    unawaited(service.initialize());
+    return service;
+  }
+  return ref.read(nativeTtsProvider);
+});
 
 /// Native Android TTS with karaoke word-highlight support.
 final nativeTtsProvider = Provider<NativeTtsService>((ref) {

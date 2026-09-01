@@ -14,10 +14,13 @@ import 'app.dart';
 import 'providers/service_providers.dart';
 
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'dart:io' show Platform, Process;
 
 Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  await _registerWindowsProtocol();
 
   // Debug-only: surface Chucker's recorded API calls as a real Android system
   // notification (in the pull-down shade) that opens the request inspector on
@@ -48,9 +51,28 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  bool isGoogleSignInCancellation(Object? error) {
+    if (error == null) return false;
+    if (error is GoogleSignInException) {
+      if (error.code == GoogleSignInExceptionCode.canceled ||
+          error.code == GoogleSignInExceptionCode.interrupted) {
+        return true;
+      }
+    }
+    final errStr = error.toString().toLowerCase();
+    if (errStr.contains('googlesigninexception') &&
+        (errStr.contains('cancel') || errStr.contains('interrupted'))) {
+      return true;
+    }
+    return false;
+  }
+
   FlutterError.onError = (FlutterErrorDetails details) {
     debugPrint('🔥🔥🔥 FLUTTER ERROR: ${details.exception}');
     debugPrint('🔥🔥🔥 STACK TRACE: ${details.stack}');
+    if (isGoogleSignInCancellation(details.exception)) {
+      return;
+    }
     if (isFirebaseInitialized) {
       FirebaseCrashlytics.instance.recordFlutterFatalError(details);
     } else {
@@ -60,6 +82,9 @@ Future<void> main() async {
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('🔥🔥🔥 ASYNC ERROR: $error');
     debugPrint('🔥🔥🔥 ASYNC STACK: $stack');
+    if (isGoogleSignInCancellation(error)) {
+      return true;
+    }
     if (isFirebaseInitialized) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     }
@@ -69,9 +94,12 @@ Future<void> main() async {
   await dotenv.load(fileName: '.env');
   
   try {
+    final googleClientId = dotenv.env['GOOGLE_CLIENT_ID'];
+    final isApplePlatform = !kIsWeb && 
+        (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS);
     await GoogleSignIn.instance.initialize(
-      clientId: kIsWeb ? dotenv.env['GOOGLE_CLIENT_ID'] : null,
-      serverClientId: kIsWeb ? null : dotenv.env['GOOGLE_CLIENT_ID'],
+      clientId: (kIsWeb || isApplePlatform) ? googleClientId : null,
+      serverClientId: kIsWeb ? null : googleClientId,
     );
   } catch (e) {
     debugPrint('⚠️ Google Sign-In failed to initialize: $e');
@@ -104,4 +132,41 @@ Future<void> main() async {
   runApp(
     UncontrolledProviderScope(container: container, child: const EllaApp()),
   );
+}
+
+Future<void> _registerWindowsProtocol() async {
+  if (kIsWeb) return;
+  if (defaultTargetPlatform == TargetPlatform.windows) {
+    try {
+      final exePath = Platform.resolvedExecutable;
+      final result1 = await Process.run('reg', [
+        'add',
+        'HKCU\\Software\\Classes\\ella',
+        '/v',
+        'URL Protocol',
+        '/t',
+        'REG_SZ',
+        '/d',
+        '',
+        '/f'
+      ]);
+      final result2 = await Process.run('reg', [
+        'add',
+        'HKCU\\Software\\Classes\\ella\\shell\\open\\command',
+        '/ve',
+        '/t',
+        'REG_SZ',
+        '/d',
+        '"$exePath" "%1"',
+        '/f'
+      ]);
+      if (result1.exitCode != 0 || result2.exitCode != 0) {
+        debugPrint('⚠️ Failed to register Windows custom URL protocol: ${result1.stderr} / ${result2.stderr}');
+      } else {
+        debugPrint('ℹ️ Windows custom URL protocol "ella" registered successfully.');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error registering Windows custom URL protocol: $e');
+    }
+  }
 }

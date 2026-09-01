@@ -6,11 +6,10 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import '../../core/ella_smooth_shape.dart';
-import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../core/offline_alert_popup.dart';
 import '../../models/message.dart';
@@ -21,9 +20,6 @@ import '../../providers/chat_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/analytics_service.dart';
 import '../../services/stt_tts_service.dart';
-import '../../services/audio_service.dart';
-import '../../services/sounds.dart';
-import '../../services/ella_api_service.dart';
 import 'home_screen.dart' show kHomeChildName;
 import 'placement_garden_screen.dart';
 import 'widgets/conversation_view.dart';
@@ -43,7 +39,8 @@ const int kPlacementTurnTarget = 12;
 
 class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final _textController = TextEditingController();
-  bool _keyboardMode = false;
+  final _focusNode = FocusNode();
+  bool _keyboardMode = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
   bool _scheduledExit = false;
@@ -81,6 +78,11 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     AnalyticsService.logScreenView('Placement');
     _tts = ref.read(ttsProvider);
     _placementNotifier = ref.read(placementProvider.notifier);
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _stopAllTts();
+      }
+    });
     final nativeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = nativeTts.progressStream.listen((event) {
       if (mounted) {
@@ -112,6 +114,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       _tts.stop();
     } catch (_) {}
     _textController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -177,16 +180,39 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     );
   }
 
+  void _stopAllTts() {
+    _tts.stop();
+    ref.read(nativeTtsProvider).stop();
+    ref.read(placementProvider.notifier).stopSpeaking();
+    if (mounted) {
+      setState(() {
+        _speaking = false;
+        _replaying = false;
+        _highlightStart = -1;
+        _highlightEnd = -1;
+      });
+    }
+  }
+
   void _onMic(PlacementState s) {
     final notifier = ref.read(placementProvider.notifier);
     if (s.status == ChatStatus.userSpeaking) {
       notifier.stopListening();
+    } else if (s.status == ChatStatus.zoeSpeaking && !s.isComplete) {
+      _stopAllTts();
+      notifier.startListening().catchError(_snack);
     } else if ((s.status == ChatStatus.idle || s.status == ChatStatus.speechError) && !s.isComplete) {
+      if (_replaying || _speaking) {
+        _stopAllTts();
+      }
       notifier.startListening().catchError(_snack);
     }
   }
 
-  void _toggleKeyboard() => setState(() => _keyboardMode = !_keyboardMode);
+  void _toggleKeyboard() {
+    setState(() => _keyboardMode = !_keyboardMode);
+    _stopAllTts();
+  }
 
   void _sendTyped() {
     final text = _textController.text.trim();
@@ -324,7 +350,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
     final micState = switch (s.status) {
       ChatStatus.userSpeaking => MicState.listening,
-      ChatStatus.zoeThinking || ChatStatus.zoeSpeaking => MicState.busy,
+      ChatStatus.zoeThinking => MicState.busy,
+      ChatStatus.zoeSpeaking => MicState.idle, // Allow interrupt — user can tap to cut in
       ChatStatus.offline || ChatStatus.idle || ChatStatus.speechError => MicState.idle,
     };
 
@@ -370,6 +397,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 micState: micState,
                 textMode: _keyboardMode,
                 textController: _textController,
+                focusNode: _focusNode,
                 onMic: isOnline
                     ? () => _onMic(s)
                     : () {
@@ -405,17 +433,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   /// (mutes) the speech. Sets [_replaying] around the playback so Zoe runs her
   /// speaking animation for the manual replay too.
   Future<void> _speakLine(String text) async {
-    final tts = ref.read(ttsProvider);
     if (_speaking || _replaying) {
-      await tts.stop();
-      if (mounted) {
-        setState(() {
-          _replaying = false;
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
+      _stopAllTts();
       return;
     }
     setState(() {
@@ -425,11 +444,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       _highlightEnd = -1;
     });
     try {
-      await tts.speak(text);
+      await ref.read(placementProvider.notifier).replayZoeLine(text);
     } catch (_) {
     } finally {
       if (mounted) setState(() => _replaying = false);
     }
-    await ref.read(placementProvider.notifier).replayZoeLine(text);
   }
 }
