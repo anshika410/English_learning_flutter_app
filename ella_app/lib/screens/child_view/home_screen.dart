@@ -22,6 +22,7 @@ import '../../models/conversation_feedback.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
+import '../../providers/piper_download_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/analytics_service.dart';
 import '../../services/sounds.dart';
@@ -115,6 +116,12 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   @override
   void initState() {
     super.initState();
+    // Trigger Piper model download in background if not done yet
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(piperDownloadProvider.notifier).startIfNeeded();
+      }
+    });
     final nativeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = nativeTts.progressStream.listen((event) {
       if (mounted && _speaking) {
@@ -377,6 +384,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
               ),
               // Bottom group — the selected-topic CTA.
               const SizedBox(height: 16),
+              // Piper voice model download progress banner
+              _PiperDownloadBanner(),
               // Short wobble whenever the selected topic changes.
               ShakeOnChange(
                 trigger: selected?.name ?? '',
@@ -550,6 +559,59 @@ class _LastTimeCard extends StatelessWidget {
           child: SpeakerDotButton(active: speaking, onTap: onSpeak),
         ),
       ],
+    );
+  }
+}
+
+/// Small pill banner shown while the Piper voice model is downloading.
+/// Auto-hides when done or failed.
+class _PiperDownloadBanner extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(piperDownloadProvider);
+
+    // Only show while actively downloading
+    if (state.status != PiperDownloadStatus.downloading) {
+      return const SizedBox.shrink();
+    }
+
+    final percent = (state.progress * 100).toInt();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: EllaColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: EllaColors.info.withOpacity(0.4), width: 1),
+        ),
+        child: Row(
+          children: [
+            // Progress indicator
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                value: state.progress > 0 ? state.progress : null,
+                strokeWidth: 2.5,
+                color: EllaColors.info,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Upgrading voice... $percent%',
+                style: EllaTextStyles.bodySemibold.copyWith(
+                  fontSize: 12,
+                  color: EllaColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
