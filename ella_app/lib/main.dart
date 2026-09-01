@@ -46,12 +46,30 @@ Future<void> main() async {
   }
 
   // Try to initialize Piper on-device TTS (best-effort, non-blocking).
-  // If model not downloaded yet, it initializes silently as no-op.
-  // Model download happens lazily on first conversation start.
+  // Downloads the 64MB NavGurukul Indian accent model in the background on
+  // first launch. Once downloaded, Piper replaces Android native TTS.
   unawaited(() async {
     try {
-      await PiperModelService.instance.checkIfDownloaded();
-    } catch (_) {}
+      final modelService = PiperModelService.instance;
+      final alreadyDownloaded = await modelService.checkIfDownloaded();
+      if (!alreadyDownloaded) {
+        debugPrint('PiperModel: starting background download...');
+        final success = await modelService.downloadModel(
+          onProgress: (progress, status) {
+            debugPrint('PiperModel: ${(progress * 100).toStringAsFixed(0)}% - $status');
+          },
+        );
+        if (success) {
+          debugPrint('PiperModel: download complete, Piper TTS now active');
+        } else {
+          debugPrint('PiperModel: download failed, using Android TTS fallback');
+        }
+      } else {
+        debugPrint('PiperModel: already downloaded, Piper TTS active');
+      }
+    } catch (e) {
+      debugPrint('PiperModel: init error: $e');
+    }
   }());
   // Lock app to portrait mode only
   await SystemChrome.setPreferredOrientations([
