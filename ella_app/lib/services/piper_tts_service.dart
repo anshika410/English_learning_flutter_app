@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'stt_tts_service.dart';
 import 'piper_model_service.dart';
 import 'audio_service.dart';
-
 /// On-device TTS using the NavGurukul Indian accent Piper model via sherpa-onnx.
 /// Falls back gracefully if model is not downloaded yet.
 class PiperTtsService implements TtsInterface {
@@ -41,7 +44,8 @@ class PiperTtsService implements TtsInterface {
           numThreads: 2,
           provider: 'cpu',
         ),
-        maxNumSentences: 1,
+        // Note: typo in sherpa_onnx library — it's maxNumSenetences not maxNumSentences
+        maxNumSenetences: 1,
       );
 
       _tts = sherpa.OfflineTts(config);
@@ -79,11 +83,9 @@ class PiperTtsService implements TtsInterface {
         return;
       }
 
-      // Play the generated audio samples
+      // Write samples to WAV and play using audioplayers
       final completer = Completer<void>();
-      await audio.play(onDone: () {
-        if (!completer.isCompleted) completer.complete();
-      });
+      await _playAudioSamples(audio.samples, audio.sampleRate, completer);
       await completer.future.timeout(
         const Duration(seconds: 30),
         onTimeout: () {},
@@ -94,6 +96,61 @@ class PiperTtsService implements TtsInterface {
       _speaking = false;
       unawaited(AudioService.maybeInstance?.unduckAfterSpeech());
       _doneController.add(null);
+    }
+  }
+
+  /// Convert float32 PCM samples to WAV and play via audioplayers.
+  Future<void> _playAudioSamples(
+    Float32List samples,
+    int sampleRate,
+    Completer<void> completer,
+  ) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final wavFile = File('${dir.path}/piper_output.wav');
+
+      // Convert float32 → int16
+      final int16 = Int16List(samples.length);
+      for (int i = 0; i < samples.length; i++) {
+        int16[i] = (samples[i] * 32767).clamp(-32768, 32767).toInt();
+      }
+
+      // Build WAV file
+      final dataBytes = int16.buffer.asUint8List();
+      final header = ByteData(44);
+      void setStr(int offset, String s) {
+        for (int i = 0; i < s.length; i++) {
+          header.setUint8(offset + i, s.codeUnitAt(i));
+        }
+      }
+      setStr(0, 'RIFF');
+      header.setUint32(4, 36 + dataBytes.length, Endian.little);
+      setStr(8, 'WAVE');
+      setStr(12, 'fmt ');
+      header.setUint32(16, 16, Endian.little);
+      header.setUint16(20, 1, Endian.little); // PCM
+      header.setUint16(22, 1, Endian.little); // mono
+      header.setUint32(24, sampleRate, Endian.little);
+      header.setUint32(28, sampleRate * 2, Endian.little);
+      header.setUint16(32, 2, Endian.little);
+      header.setUint16(34, 16, Endian.little);
+      setStr(36, 'data');
+      header.setUint32(40, dataBytes.length, Endian.little);
+
+      await wavFile.writeAsBytes(
+        [...header.buffer.asUint8List(), ...dataBytes],
+      );
+
+      // Play with audioplayers
+      final player = AudioPlayer();
+      player.onPlayerComplete.listen((_) {
+        if (!completer.isCompleted) completer.complete();
+        player.dispose();
+      });
+      await player.play(DeviceFileSource(wavFile.path));
+    } catch (e) {
+      debugPrint('PiperTtsService: playback error: $e');
+      if (!completer.isCompleted) completer.complete();
     }
   }
 
