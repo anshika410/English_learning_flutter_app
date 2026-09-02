@@ -14,10 +14,13 @@ import 'app.dart';
 import 'providers/service_providers.dart';
 
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'dart:io' show Platform, Process;
 
 Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  await _registerWindowsProtocol();
 
   // Debug-only: surface Chucker's recorded API calls as a real Android system
   // notification (in the pull-down shade) that opens the request inspector on
@@ -129,4 +132,41 @@ Future<void> main() async {
   runApp(
     UncontrolledProviderScope(container: container, child: const EllaApp()),
   );
+}
+
+Future<void> _registerWindowsProtocol() async {
+  if (kIsWeb) return;
+  if (defaultTargetPlatform == TargetPlatform.windows) {
+    try {
+      final exePath = Platform.resolvedExecutable;
+      final result1 = await Process.run('reg', [
+        'add',
+        'HKCU\\Software\\Classes\\ella',
+        '/v',
+        'URL Protocol',
+        '/t',
+        'REG_SZ',
+        '/d',
+        '',
+        '/f'
+      ]);
+      final result2 = await Process.run('reg', [
+        'add',
+        'HKCU\\Software\\Classes\\ella\\shell\\open\\command',
+        '/ve',
+        '/t',
+        'REG_SZ',
+        '/d',
+        '"$exePath" "%1"',
+        '/f'
+      ]);
+      if (result1.exitCode != 0 || result2.exitCode != 0) {
+        debugPrint('⚠️ Failed to register Windows custom URL protocol: ${result1.stderr} / ${result2.stderr}');
+      } else {
+        debugPrint('ℹ️ Windows custom URL protocol "ella" registered successfully.');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error registering Windows custom URL protocol: $e');
+    }
+  }
 }

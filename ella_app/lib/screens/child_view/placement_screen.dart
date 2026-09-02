@@ -6,6 +6,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -39,7 +40,7 @@ const int kPlacementTurnTarget = 12;
 class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   final _textController = TextEditingController();
   final _focusNode = FocusNode();
-  bool _keyboardMode = false;
+  bool _keyboardMode = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
   bool _navigated = false;
   bool _advanceTimerStarted = false;
   bool _scheduledExit = false;

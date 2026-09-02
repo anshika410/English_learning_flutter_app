@@ -127,10 +127,8 @@ class EllaApiService {
   }
 
   Future<void> logout() async {
+    await _clearToken();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userIdKey);
-    await prefs.remove(_refreshTokenKey);
     // Clear the cached onboarding profile too, so a different user signing in
     // next doesn't inherit the previous user's name/age (the greeting is
     // re-sourced from /users/me on the fresh session).
@@ -176,6 +174,12 @@ class EllaApiService {
       if (kIsWeb) {
         // Use the current web origin (e.g. http://localhost:3000)
         redirectUrl = '${Uri.base.origin}/#/login';
+      } else if (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.windows ||
+           defaultTargetPlatform == TargetPlatform.macOS ||
+           defaultTargetPlatform == TargetPlatform.linux)) {
+        // Use ella:// deep link so the desktop app receives the tokens directly
+        redirectUrl = 'ella://login';
       } else {
         redirectUrl = 'ella://login';
       }
@@ -194,6 +198,35 @@ class EllaApiService {
       return true;
     } catch (e) {
       _log('Magic Link Error', e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> checkMagicLinkStatus(String email) async {
+    try {
+      final deviceId = await getDeviceId();
+      final data = await _request(
+        'POST',
+        '/auth/magic-link/poll',
+        auth: false,
+        body: {
+          'email': email,
+          'device_id': deviceId,
+        },
+      );
+      final accessToken = data['access_token'] ?? data['token'];
+      final refreshToken = data['refresh_token'];
+      final userId = data['user_id'] ?? 'user_from_token';
+      if (accessToken != null) {
+        await saveTokens(accessToken, userId, refreshToken: refreshToken);
+        try {
+          await AnalyticsService.setUserProfile(userId: userId);
+          await AnalyticsService.logLogin('magic_link');
+        } catch (_) {}
+        return true;
+      }
+      return false;
+    } catch (e) {
       return false;
     }
   }
@@ -437,7 +470,7 @@ class EllaApiService {
       '/session/$sessionId/turn',
       body: {
         'content': content,
-        if (inputMode != null) 'input_mode': inputMode,
+        'input_mode': ?inputMode,
       },
     );
     return ConversationTurnApiResponse(

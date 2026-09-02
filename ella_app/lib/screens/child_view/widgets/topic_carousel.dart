@@ -71,15 +71,6 @@ class _TopicCarouselState extends State<TopicCarousel> {
     _base = len * (_loops ~/ 2);
   }
 
-  int get _zoePickIndex {
-    final pick = widget.zoePick ?? (widget.topics.isNotEmpty ? widget.topics.first : null);
-    if (pick != null) {
-      final idx = widget.topics.indexWhere((t) => t.name == pick.name);
-      if (idx >= 0) return idx;
-    }
-    return 0;
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -128,33 +119,6 @@ class _TopicCarouselState extends State<TopicCarousel> {
       key: const ValueKey('home-topic-carousel'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        AnimatedBuilder(
-          animation: controller,
-          builder: (context, _) {
-            final zoeIdx = _zoePickIndex;
-            final page = _page;
-            final distToZoe = len > 0 ? ((page - zoeIdx) % len).abs() : 0.0;
-            final normalizedDist =
-                len > 0
-                    ? (distToZoe > len / 2 ? len - distToZoe : distToZoe).abs()
-                    : 0.0;
-            final labelOpacity = (1.0 - (normalizedDist * 2)).clamp(0.0, 1.0);
-
-            return Opacity(
-              opacity: labelOpacity,
-              child: Text(
-                "Ella's Pick",
-                key: const ValueKey('home-topic-carousel-pick-label'),
-                style: EllaTextStyles.bodySmall.copyWith(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: EllaColors.berryDeep,
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 2),
         // Pointer aimed at the centered circle (always visible).
         const Icon(
           Icons.arrow_drop_down,

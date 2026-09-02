@@ -49,6 +49,7 @@ dependencies:
   dotted_border: ^2.1.0
   flutter_markdown: ^0.7.6+2
   google_sign_in: ^7.2.0
+  google_sign_in_all_platforms: ^2.0.0
   connectivity_plus: ^6.1.0
   app_links: ^7.0.0
   url_launcher: ^6.3.2
@@ -63,6 +64,8 @@ dependencies:
   firebase_core: ^3.1.0
   firebase_analytics: ^11.1.0
   firebase_crashlytics: ^4.1.0
+  sherpa_onnx: ^1.12.0
+  path_provider: ^2.1.0
 
   flutter_native_splash: ^2.4.7
   android_intent_plus: ^6.0.0
@@ -81,6 +84,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  msix: ^3.16.5
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -185,3 +189,13 @@ flutter:
 dependency_overrides:
   google_sign_in_android:
     path: ../google_sign_in_android_patched
+
+msix_config:
+  display_name: Ella
+  publisher_display_name: Navgurukul
+  title: Ella
+  identity_name: org.navgurukul.ella
+  publisher: CN=Navgurukul
+  logo_path: assets/zoe_splash_padded.png
+  capabilities: internetClient, microphone
+  install_certificate: false
