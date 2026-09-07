@@ -438,552 +438,503 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Shortest height the content can lay out at; on shorter
-                    // screens the whole section scales down uniformly so the
-                    // screen never scrolls.
-                    const minContentHeight = 660.0;
-                    final scale = constraints.maxHeight / minContentHeight;
-                    final content = SizedBox(
-                      width: scale < 1
-                          ? constraints.maxWidth / scale
-                          : constraints.maxWidth,
-                      height: scale < 1
-                          ? minContentHeight
-                          : constraints.maxHeight,
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 16),
-                          // Avatar
-                          Container(
-                            width: 96,
-                            height: 96,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFFDF5),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      // Avatar
+                      Container(
+                        width: 96,
+                        height: 96,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFDF5),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                        ),
+                        child: Text(
+                          initial,
+                          style: EllaFonts.bricolage(
+                            const TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF444441),
                             ),
-                            child: Text(
-                              initial,
-                              style: EllaFonts.bricolage(
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Name
+                      Text(
+                        _name,
+                        style: EllaFonts.bricolage(
+                          const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2C2C2A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Age Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAEEDA),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SvgPicture.asset(
+                              '$_asset/balloon.svg',
+                              width: 18,
+                              height: 18,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFFEF9F27),
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$_age years old',
+                              style: EllaFonts.body(
                                 const TextStyle(
-                                  fontSize: 40,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF444441),
+                                  color: Color(0xFF854F0B),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
+                        ),
+                      ),
 
-                          // Middle section
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              children: [
-                                const SizedBox(height: 14),
+                      const SizedBox(height: 16),
 
-                                // Name
-                                Text(
-                                  _name,
-                                  style: EllaFonts.bricolage(
-                                    const TextStyle(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF2C2C2A),
+                      // Settings Card
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFDF5),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            // Email Row
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFE1F5EE),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.mail_outline_rounded,
+                                      color: Color(0xFF0F6E56),
+                                      size: 20,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-
-                                // Age Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 7,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFAEEDA),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SvgPicture.asset(
-                                        '$_asset/balloon.svg',
-                                        width: 18,
-                                        height: 18,
-                                        colorFilter: const ColorFilter.mode(
-                                          Color(0xFFEF9F27),
-                                          BlendMode.srcIn,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '$_age years old',
-                                        style: EllaFonts.body(
-                                          const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF854F0B),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Email',
+                                          style: EllaFonts.body(
+                                            const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF5F5E5A),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(height: 20),
-
-                                // Settings Card
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFFDF5),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      // Email Row
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 14,
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _email,
+                                          style: EllaFonts.body(
+                                            const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2C2C2A),
+                                            ),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 40,
-                                              height: 40,
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(
+                              height: 1,
+                              color: Color(0xFFEDE7D6),
+                            ),
+                            // Sound Effects Row
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFBEAF0),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.volume_up_rounded,
+                                      color: Color(0xFFD4537E),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Sounds',
+                                          style: EllaFonts.body(
+                                            const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2C2C2A),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Music and sound effects',
+                                          style: EllaFonts.body(
+                                            const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF5F5E5A),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  // Custom Switch
+                                  GestureDetector(
+                                    onTap: () {
+                                      final newVal = !_sfxOn;
+                                      setState(() {
+                                        _sfxOn = newVal;
+                                      });
+                                      ref
+                                          .read(audioProvider)
+                                          .setSfxEnabled(newVal);
+                                      ref
+                                          .read(audioProvider)
+                                          .setMusicEnabled(newVal);
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      width: 52,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: _sfxOn
+                                            ? const Color(0xFFD4537E)
+                                            : const Color(0xFFB4B2A9),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          AnimatedPositioned(
+                                            duration: const Duration(
+                                              milliseconds: 180,
+                                            ),
+                                            left: _sfxOn ? 25 : 3,
+                                            child: Container(
+                                              width: 24,
+                                              height: 24,
                                               decoration: const BoxDecoration(
-                                                color: Color(0xFFE1F5EE),
+                                                color: Colors.white,
                                                 shape: BoxShape.circle,
                                               ),
-                                              child: const Icon(
-                                                Icons.mail_outline_rounded,
-                                                color: Color(0xFF0F6E56),
-                                                size: 20,
-                                              ),
                                             ),
-                                            const SizedBox(width: 14),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'Email',
-                                                    style: EllaFonts.body(
-                                                      const TextStyle(
-                                                        fontSize: 13,
-                                                        color: Color(
-                                                          0xFF5F5E5A,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    _email,
-                                                    style: EllaFonts.body(
-                                                      const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: Color(
-                                                          0xFF2C2C2A,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const Divider(
-                                        height: 1,
-                                        color: Color(0xFFEDE7D6),
-                                      ),
-                                      // Sound Effects Row
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 14,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 40,
-                                              height: 40,
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xFFFBEAF0),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.volume_up_rounded,
-                                                color: Color(0xFFD4537E),
-                                                size: 20,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 14),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'Sounds',
-                                                    style: EllaFonts.body(
-                                                      const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: Color(
-                                                          0xFF2C2C2A,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    'Music and sound effects',
-                                                    style: EllaFonts.body(
-                                                      const TextStyle(
-                                                        fontSize: 13,
-                                                        color: Color(
-                                                          0xFF5F5E5A,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 14),
-                                            // Custom Switch
-                                            GestureDetector(
-                                              onTap: () {
-                                                final newVal = !_sfxOn;
-                                                setState(() {
-                                                  _sfxOn = newVal;
-                                                });
-                                                ref
-                                                    .read(audioProvider)
-                                                    .setSfxEnabled(newVal);
-                                                ref
-                                                    .read(audioProvider)
-                                                    .setMusicEnabled(newVal);
-                                              },
-                                              child: AnimatedContainer(
-                                                duration: const Duration(
-                                                  milliseconds: 180,
-                                                ),
-                                                width: 52,
-                                                height: 30,
-                                                decoration: BoxDecoration(
-                                                  color: _sfxOn
-                                                      ? const Color(0xFFD4537E)
-                                                      : const Color(0xFFB4B2A9),
-                                                  borderRadius:
-                                                      BorderRadius.circular(20),
-                                                ),
-                                                child: Stack(
-                                                  alignment: Alignment.center,
-                                                  children: [
-                                                    AnimatedPositioned(
-                                                      duration: const Duration(
-                                                        milliseconds: 180,
-                                                      ),
-                                                      left: _sfxOn ? 25 : 3,
-                                                      child: Container(
-                                                        width: 24,
-                                                        height: 24,
-                                                        decoration:
-                                                            const BoxDecoration(
-                                                              color:
-                                                                  Colors.white,
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const Divider(
-                                        height: 1,
-                                        color: Color(0xFFEDE7D6),
-                                      ),
-                                      // AI Model Row
-                                      InkWell(
-                                        onTap: _showModelPicker,
-                                        borderRadius: const BorderRadius.only(
-                                          bottomLeft: Radius.circular(16),
-                                          bottomRight: Radius.circular(16),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 18,
-                                            vertical: 14,
                                           ),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 40,
-                                                height: 40,
-                                                decoration: const BoxDecoration(
-                                                  color: Color(0xFFF0E6FF),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(
-                                                  Icons.psychology_rounded,
-                                                  color: Color(0xFF7000FF),
-                                                  size: 20,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 14),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'AI Model',
-                                                      style: EllaFonts.body(
-                                                        const TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Color(
-                                                            0xFF2C2C2A,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 2),
-                                                    Text(
-                                                      _friendlyModelName(_selectedModel),
-                                                      style: EllaFonts.body(
-                                                        const TextStyle(
-                                                          fontSize: 13,
-                                                          color: Color(
-                                                            0xFF5F5E5A,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const Icon(
-                                                Icons.chevron_right_rounded,
-                                                color: Color(0xFFB4B2A9),
-                                                size: 24,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(
+                              height: 1,
+                              color: Color(0xFFEDE7D6),
+                            ),
+                            // AI Model Row
+                            InkWell(
+                              onTap: _showModelPicker,
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(16),
+                                bottomRight: Radius.circular(16),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 14,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFF0E6FF),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.psychology_rounded,
+                                        color: Color(0xFF7000FF),
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'AI Model',
+                                            style: EllaFonts.body(
+                                              const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF2C2C2A),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            _friendlyModelName(_selectedModel),
+                                            style: EllaFonts.body(
+                                              const TextStyle(
+                                                fontSize: 13,
+                                                color: Color(0xFF5F5E5A),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: Color(0xFFB4B2A9),
+                                      size: 24,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Sign out button
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _handleSignOut,
+                        child: Container(
+                          height: 56,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                          ),
+                          decoration: BoxDecoration(
+                            color: EllaColors.errorLight,
+                            borderRadius: BorderRadius.circular(100),
+                            border: Border.all(
+                              color: EllaColors.errorDark,
+                              width: 3,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: EllaColors.berryDeep,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SvgPicture.asset(
+                                '$_asset/sign-out.svg',
+                                width: 24,
+                                height: 24,
+                                colorFilter: const ColorFilter.mode(
+                                  EllaColors.errorDark,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Sign Out',
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: EllaColors.errorDark,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Delete account
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _handleDeleteAccount,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: EllaColors.errorDark,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete Account',
+                            style: EllaFonts.body(
+                              const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: EllaColors.errorDark,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Privacy Policy & Contact Us
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              Navigator.of(
+                                context,
+                              ).pushNamed('/privacy-policy');
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SvgPicture.asset(
+                                  '$_asset/keyhole.svg',
+                                  width: 24,
+                                  height: 24,
+                                  colorFilter: const ColorFilter.mode(
+                                    EllaColors.ink,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Privacy Policy',
+                                  style: EllaFonts.body(
+                                    const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: EllaColors.ink,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const Spacer(),
-                          const SizedBox(height: 24),
-
-                          // Sign out button
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: _handleSignOut,
-                            child: Container(
-                              height: 56,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              decoration: BoxDecoration(
-                                color: EllaColors.errorLight,
-                                borderRadius: BorderRadius.circular(100),
-                                border: Border.all(
-                                  color: EllaColors.errorDark,
-                                  width: 3,
+                          const SizedBox(width: 32),
+                          InkWell(
+                            onTap: () {
+                              Navigator.of(
+                                context,
+                              ).pushNamed('/privacy-policy');
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SvgPicture.asset(
+                                  '$_asset/address-book.svg',
+                                  width: 24,
+                                  height: 24,
+                                  colorFilter: const ColorFilter.mode(
+                                    EllaColors.ink,
+                                    BlendMode.srcIn,
+                                  ),
                                 ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: EllaColors.berryDeep,
-                                    offset: Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SvgPicture.asset(
-                                    '$_asset/sign-out.svg',
-                                    width: 24,
-                                    height: 24,
-                                    colorFilter: const ColorFilter.mode(
-                                      EllaColors.errorDark,
-                                      BlendMode.srcIn,
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Contact Us',
+                                  style: EllaFonts.body(
+                                    const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: EllaColors.ink,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Sign Out',
-                                    style: EllaFonts.body(
-                                      const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: EllaColors.errorDark,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-
-                          const SizedBox(height: 24),
-
-                          // Delete account
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: _handleDeleteAccount,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: EllaColors.errorDark,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              child: Text(
-                                'Delete Account',
-                                style: EllaFonts.body(
-                                  const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: EllaColors.errorDark,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Privacy Policy & Contact Us
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              InkWell(
-                                onTap: () {
-                                  Navigator.of(
-                                    context,
-                                  ).pushNamed('/privacy-policy');
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SvgPicture.asset(
-                                      '$_asset/keyhole.svg',
-                                      width: 24,
-                                      height: 24,
-                                      colorFilter: const ColorFilter.mode(
-                                        EllaColors.ink,
-                                        BlendMode.srcIn,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Privacy Policy',
-                                      style: EllaFonts.body(
-                                        const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                          color: EllaColors.ink,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 32),
-                              InkWell(
-                                onTap: () {
-                                  Navigator.of(
-                                    context,
-                                  ).pushNamed('/privacy-policy');
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SvgPicture.asset(
-                                      '$_asset/address-book.svg',
-                                      width: 24,
-                                      height: 24,
-                                      colorFilter: const ColorFilter.mode(
-                                        EllaColors.ink,
-                                        BlendMode.srcIn,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Contact Us',
-                                      style: EllaFonts.body(
-                                        const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                          color: EllaColors.ink,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          if (_appVersion.isNotEmpty)
-                            Text(
-                              _appVersion,
-                              style: EllaFonts.body(
-                                const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: EllaColors.ink,
-                                ),
-                              ),
-                            ),
-
-                          const SizedBox(height: 16),
                         ],
                       ),
-                    );
-                    if (scale >= 1) {
-                      return content;
-                    }
-                    return FittedBox(
-                      fit: BoxFit.contain,
-                      alignment: Alignment.topCenter,
-                      child: content,
-                    );
-                  },
+
+                      const SizedBox(height: 12),
+
+                      if (_appVersion.isNotEmpty)
+                        Text(
+                          _appVersion,
+                          style: EllaFonts.body(
+                            const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: EllaColors.ink,
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ],
