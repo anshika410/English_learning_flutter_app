@@ -161,7 +161,6 @@ class _GardenSunSpec {
 
 class _GardenLevelVisualSpec {
   final String code;
-  final String label;
   final List<Color> sky;
   final List<Color> hill;
   final String iconAsset;
@@ -179,7 +178,6 @@ class _GardenLevelVisualSpec {
 
   const _GardenLevelVisualSpec({
     required this.code,
-    required this.label,
     required this.sky,
     required this.hill,
     required this.iconAsset,
@@ -199,7 +197,6 @@ class _GardenLevelVisualSpec {
 
 const _GardenLevelVisualSpec _dawnSpec = _GardenLevelVisualSpec(
   code: 'A0',
-  label: 'Dawn Glade',
   sky: _dawnSky,
   hill: _dawnHill,
   iconAsset: 'assets/garden/plants/Sunrise Seedbed Icon 1.svg',
@@ -214,7 +211,6 @@ const _GardenLevelVisualSpec _dawnSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _morningSpec = _GardenLevelVisualSpec(
   code: 'A1',
-  label: 'Morning Meadow',
   sky: _morningSky,
   hill: _morningHill,
   iconAsset: 'assets/garden/plants/morning-meadow-icon.svg',
@@ -238,7 +234,6 @@ const _GardenLevelVisualSpec _morningSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _middaySpec = _GardenLevelVisualSpec(
   code: 'A2',
-  label: 'Midday Grove',
   sky: _middaySky,
   hill: _middayHill,
   iconAsset: 'assets/garden/plants/midday-grove-icon.svg',
@@ -262,7 +257,6 @@ const _GardenLevelVisualSpec _middaySpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _goldenSpec = _GardenLevelVisualSpec(
   code: 'B1',
-  label: 'Golden Orchard',
   sky: _goldenSky,
   hill: _goldenHill,
   iconAsset: 'assets/garden/plants/golden-orchard-icon.svg',
@@ -287,7 +281,6 @@ const _GardenLevelVisualSpec _goldenSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _twilightSpec = _GardenLevelVisualSpec(
   code: 'B2',
-  label: 'Twilight Valley',
   sky: _twilightSky,
   hill: _twilightHill,
   iconAsset: 'assets/garden/plants/twilight-valley-icon.svg',
@@ -313,7 +306,6 @@ const _GardenLevelVisualSpec _twilightSpec = _GardenLevelVisualSpec(
 
 const _GardenLevelVisualSpec _starlightSpec = _GardenLevelVisualSpec(
   code: 'C1',
-  label: 'Starlight Summit',
   sky: _starlightSky,
   hill: _starlightHill,
   iconAsset: 'assets/garden/plants/starlight-summit-icon.svg',
@@ -369,15 +361,13 @@ _GardenLevelVisualSpec _visualSpecFor(String level) {
   }
 }
 
-bool _isKnownGardenLevel(String level) =>
-    const {'A0', 'A1', 'A2', 'B1', 'B2', 'C1'}.contains(_levelCode(level));
+bool _isKnownGardenLevel(String level) => gardenLevelFor(level) != null;
 
-String _gardenDisplayName(GardenData data, _GardenLevelVisualSpec spec) {
-  if (_isKnownGardenLevel(data.level)) return spec.label;
+String _gardenDisplayName(GardenData data) {
   final theme = data.theme.trim();
   if (theme.isNotEmpty) return theme;
   final label = data.levelLabel.trim();
-  return label.isNotEmpty ? label : spec.label;
+  return label.isNotEmpty ? label : data.level;
 }
 
 // First-time welcome copy (Figma "Shift to new garden and nudge to start
@@ -974,125 +964,6 @@ class _CompletedPreviousGardenBubble extends StatelessWidget {
   }
 }
 
-/// One-time "you're one of the first students" message shown in place on the
-/// garden after the 2nd conversation, once the usual growth reveal has
-/// finished. Styled to match the quick-hello growth-reveal card: Zoe
-/// overlapping the bubble's top-left corner, no modal scrim, with the CTA
-/// pinned to the bottom of the screen instead of living inside the bubble.
-class _GardenMilestoneLayer extends StatelessWidget {
-  final bool reducedMotion;
-  final VoidCallback onDismiss;
-
-  const _GardenMilestoneLayer({
-    required this.reducedMotion,
-    required this.onDismiss,
-  });
-
-  static const String _message =
-      "You're one of the first students using Ella! What we learn from "
-      'you will help make it better for many more students.';
-
-  static const double _mascotSize = 72;
-  static const double _cardLeft = 16;
-
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final textStyle = EllaFonts.body(
-      const TextStyle(
-        fontSize: 14,
-        height: 1.6,
-        fontWeight: FontWeight.w600,
-        color: EllaColors.ink,
-      ),
-    );
-    return GestureDetector(
-      key: const ValueKey('garden-second-chat-milestone'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () {},
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cardWidth = math.min(
-                320.0,
-                constraints.maxWidth - _cardLeft - 16,
-              );
-              final fullyCenteredLeft = (constraints.maxWidth - cardWidth) / 2;
-              // Modest inward nudge toward center — not fully centered like
-              // the growth-reveal card, since Zoe sits at the Stack's fixed
-              // left:0/top:0 corner and a full center shift would visually
-              // detach her from the card's speech-tail corner.
-              final cardLeft =
-                  _cardLeft + (fullyCenteredLeft - _cardLeft) * 0.35;
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.only(left: cardLeft),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: _mascotSize - 14),
-                        child: Container(
-                          key: const ValueKey(
-                            'garden-second-chat-milestone-card',
-                          ),
-                          width: cardWidth,
-                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
-                          clipBehavior: Clip.antiAlias,
-                          decoration: ellaSmoothDecoration(
-                            color: _growthRevealSurface,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(20),
-                              bottomLeft: Radius.circular(20),
-                              bottomRight: Radius.circular(20),
-                            ),
-                            side: const BorderSide(
-                              color: _growthRevealBorder,
-                              width: 3,
-                            ),
-                          ),
-                          child: Text(_message, style: textStyle),
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        child: ZoeMascot(
-                          key: const ValueKey(
-                            'garden-second-chat-milestone-zoe',
-                          ),
-                          mode: ZoeMascotMode.idle,
-                          size: _mascotSize,
-                          reducedMotion: reducedMotion,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: media.padding.bottom + 22),
-              child: _GardenIntroButton(
-                key: const ValueKey('garden-second-chat-milestone-cta'),
-                label: 'Got it',
-                onTap: onDismiss,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _GardenIntroButton extends StatelessWidget {
   final String label;
   final double? width;
@@ -1222,12 +1093,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
   ZoeMascotMode _revealZoeMode = ZoeMascotMode.listening;
   String? _poppingSkillId;
   int _revealToken = 0;
-  bool _showSecondChatMilestone = false;
-  // Captured as soon as a conversation's reveal state is observed, since the
-  // parent screen consumes (nulls) postConversationGardenRevealProvider as
-  // soon as this session's growth/watering reveal has been queued — often
-  // before this widget's own milestone check gets a chance to read it.
-  int? _lastPostConversationChatNumber;
 
   @override
   void initState() {
@@ -1329,9 +1194,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
         );
         if (pendingItem != null) _startPendingWatering(pendingItem);
       }
-      // Nothing was queued to reveal this session (e.g. a quick hello) —
-      // the milestone check in _onRevealCta never runs, so check here too.
-      _maybeShowSecondChatMilestone();
       return;
     }
     final item = queue.first;
@@ -1672,41 +1534,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
       // still queued would re-add it to pendingDisplayStage at its fromStage,
       // flickering the grown plant back to its plain tile for ~240ms.
       if (mounted) setState(() => _poppingSkillId = null);
-      _maybeShowSecondChatMilestone();
     });
-  }
-
-  /// Shows a one-time "you're one of the first students" message right on
-  /// the garden (no navigation) after the student's 2nd conversation, once
-  /// the usual plant-growth reveal has finished (or immediately if there was
-  /// nothing to reveal that session). Independent of the growth-reveal state
-  /// machine above so it can't get tangled in its timers/tokens.
-  void _maybeShowSecondChatMilestone() {
-    if (_showSecondChatMilestone) return;
-    if (ref.read(secondConversationMilestoneSeenProvider)) return;
-    // Read live state first, but fall back to the last-observed chat number:
-    // the parent screen consumes (nulls) postConversationGardenRevealProvider
-    // as soon as this session's reveal has been queued, often before this
-    // check runs, which would otherwise always look like "no conversation
-    // just ended" — see _lastPostConversationChatNumber for details.
-    final live = ref.read(postConversationGardenRevealProvider);
-    // Analysis for a just-ended conversation is still in flight — we don't
-    // yet know whether a reveal card (growth or quick-hello) is about to be
-    // queued. Bail here rather than treating a transiently empty reveal
-    // queue as "nothing to show"; this gets called again once resolve()
-    // lands (_syncRevealState) or after the user dismisses a queued reveal
-    // card (_onRevealCta).
-    if (live != null && !live.isResolved) return;
-    final chatNumber = live?.chatNumber ?? _lastPostConversationChatNumber;
-    if (chatNumber != 2) return;
-    if (ref.read(gardenGrowthRevealProvider).isNotEmpty) return;
-    if (_activeRevealItem != null) return;
-    setState(() => _showSecondChatMilestone = true);
-  }
-
-  void _dismissSecondChatMilestone() {
-    ref.read(secondConversationMilestoneSeenProvider.notifier).markSeen();
-    setState(() => _showSecondChatMilestone = false);
   }
 
   void _onExploreCompletedPreviousGarden(String viewedLevel) {
@@ -1744,6 +1572,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
   @override
   void dispose() {
     _cancelRevealTimers();
+    // Safety net: if the garden is torn down while a sheet is somehow still
+    // flagged open, clear it so a stale value can't hide the CTA elsewhere.
+    gardenSheetOpen.value = false;
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
@@ -1755,9 +1586,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     final data = widget.data;
     final revealQueue = ref.watch(gardenGrowthRevealProvider);
     final postConversation = ref.watch(postConversationGardenRevealProvider);
-    if (postConversation != null) {
-      _lastPostConversationChatNumber = postConversation.chatNumber;
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncRevealState(revealQueue, postConversation);
     });
@@ -1819,9 +1647,9 @@ class _GardenViewState extends ConsumerState<_GardenView> {
     final childName =
         ref.watch(onboardingProvider).valueOrNull?.name?.trim() ?? '';
     final titleName = _gardenOwnerFirstName(childName);
-    final levelName = _isKnownGardenLevel(viewedLevel)
-        ? spec.label
-        : _gardenDisplayName(displayData, spec);
+    final levelName =
+        gardenLevelFor(viewedLevel)?.compactLabel ??
+        _gardenDisplayName(displayData);
     final scrollClipTop = spec.hillTop + 8;
     final revealLayerActive =
         revealQueue.isNotEmpty || _activeRevealItem != null;
@@ -1897,7 +1725,7 @@ class _GardenViewState extends ConsumerState<_GardenView> {
             child: _PinnedGardenHeader(
               spec: spec,
               levelName: levelName,
-              gardenTitle: "$titleName's Garden",
+              gardenTitle: 'See how your English is growing',
               scrollProgress: (_scrollOffset / 88).clamp(0.0, 1.0),
               soundOn: widget.soundOn,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
@@ -1914,21 +1742,26 @@ class _GardenViewState extends ConsumerState<_GardenView> {
           right: 0,
           bottom: 0,
           child: RepaintBoundary(
-            child: AnimatedSwitcher(
-              duration: Duration(
-                milliseconds: MediaQuery.of(context).disableAnimations
-                    ? 0
-                    : 450,
+            // Fully hide (not just dim) the CTA while a skill/unit sheet is open,
+            // so it can't be mistaken for a live affordance behind the sheet.
+            child: ValueListenableBuilder<bool>(
+              valueListenable: gardenSheetOpen,
+              builder: (context, sheetOpen, _) => AnimatedSwitcher(
+                duration: Duration(
+                  milliseconds: MediaQuery.of(context).disableAnimations
+                      ? 0
+                      : 450,
+                ),
+                child: widget.showTalkBar && !modalLayerActive && !sheetOpen
+                    ? _LetsTalkBar(
+                        key: const ValueKey('garden-talk-bar-layer'),
+                        // The button returns to Home, where the child picks a
+                        // topic and starts a session (the garden no longer
+                        // starts one directly).
+                        onTalk: widget.onTalk,
+                      )
+                    : const SizedBox.shrink(),
               ),
-              child: widget.showTalkBar && !modalLayerActive
-                  ? _LetsTalkBar(
-                      key: const ValueKey('garden-talk-bar-layer'),
-                      // The button returns to Home, where the child picks a topic
-                      // and starts a session (the garden no longer starts one
-                      // directly).
-                      onTalk: widget.onTalk,
-                    )
-                  : const SizedBox.shrink(),
             ),
           ),
         ),
@@ -2025,13 +1858,6 @@ class _GardenViewState extends ConsumerState<_GardenView> {
             child: _CompletedPreviousGardenIntroLayer(
               levelLabel: levelName,
               onExplore: () => _onExploreCompletedPreviousGarden(viewedLevel),
-            ),
-          ),
-        if (_showSecondChatMilestone)
-          Positioned.fill(
-            child: _GardenMilestoneLayer(
-              reducedMotion: media.disableAnimations,
-              onDismiss: _dismissSecondChatMilestone,
             ),
           ),
       ],
@@ -2287,7 +2113,6 @@ class _PinnedGardenHeader extends StatelessWidget {
       builder: (context, constraints) {
         final titleW = math.min(constraints.maxWidth - 32, 386.0);
         final titleTop = lerpDouble(titleStartY, titleTargetY, progress)!;
-        final titleSize = lerpDouble(18, 16, progress)!;
         final pillMaxW = math.max(180.0, constraints.maxWidth - 128);
 
         return SizedBox(
@@ -2360,10 +2185,10 @@ class _PinnedGardenHeader extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: EllaFonts.bricolage(
+                  style: EllaFonts.body(
                     TextStyle(
-                      fontSize: titleSize,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
                       height: 1.6,
                       letterSpacing: 0,
                       color: spec.titleColor,
@@ -2453,7 +2278,7 @@ class _LevelSelectorPill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: EllaFonts.body(
                 const TextStyle(
-                  fontSize: 16.7,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.6,
                   color: EllaColors.ink,
@@ -2591,6 +2416,7 @@ class _GardenSwitcherSheetState extends ConsumerState<_GardenSwitcherSheet>
               : _ZoeGardenBubble(
                   controller: _bubbleController,
                   maxWidth: media.size.width - 48,
+                  gardenName: _bubbleGardenName!,
                 ),
         ),
         const SizedBox(height: 16),
@@ -2840,7 +2666,7 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
     final spec = _visualSpecFor(entry.code);
 
     final card = Container(
-      height: 80,
+      height: 96,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: EllaColors.surface,
@@ -2855,30 +2681,29 @@ class _GardenSwitcherCardState extends State<_GardenSwitcherCard>
         children: [
           SvgPicture.asset(spec.iconAsset, width: 48, height: 48),
           const SizedBox(width: 12),
-          // Name + chip claim all the slack so the chevron always pins to the
-          // far right. The chip sits outside the Flexible so it never truncates.
+          // Keep the current-garden chip below the name so long, full level
+          // labels remain readable on narrow phones.
           Expanded(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
-                  child: Text(
-                    entry.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: EllaFonts.body(
-                      const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        height: 1.6,
-                        letterSpacing: 0.016,
-                        color: EllaColors.ink,
-                      ),
+                Text(
+                  entry.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: EllaFonts.body(
+                    const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                      letterSpacing: 0.016,
+                      color: EllaColors.ink,
                     ),
                   ),
                 ),
                 if (entry.isCurrent) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 4),
                   const _YoureHereChip(),
                 ],
               ],
@@ -3114,8 +2939,13 @@ class _FogOverlayState extends State<_FogOverlay>
 class _ZoeGardenBubble extends StatelessWidget {
   final AnimationController controller;
   final double maxWidth;
+  final String gardenName;
 
-  const _ZoeGardenBubble({required this.controller, required this.maxWidth});
+  const _ZoeGardenBubble({
+    required this.controller,
+    required this.maxWidth,
+    required this.gardenName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3145,7 +2975,9 @@ class _ZoeGardenBubble extends StatelessWidget {
             border: Border.all(color: _bubbleBorder, width: 2),
           ),
           child: Text.rich(
-            const TextSpan(text: 'Keep practising to unlock the next garden.'),
+            TextSpan(
+              text: 'Keep practising in $gardenName to unlock the next garden.',
+            ),
             textAlign: TextAlign.center,
             style: EllaFonts.body(
               const TextStyle(
@@ -5958,7 +5790,7 @@ class _LetsTalkBar extends StatelessWidget {
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                'Start Talking',
+                                'Pick a Topic',
                                 maxLines: 1,
                                 style: EllaFonts.body(
                                   const TextStyle(

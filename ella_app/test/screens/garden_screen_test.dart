@@ -347,6 +347,7 @@ GardenEvidence _evidence(String quote) => GardenEvidence(
 PostConversationGardenReveal _postConversationResult({
   required int turnCount,
   required String skillId,
+  int chatNumber = 7,
   int beforeSightings = 0,
   int afterSightings = 0,
   Set<String> beforeOwned = const {},
@@ -358,7 +359,7 @@ PostConversationGardenReveal _postConversationResult({
       PostConversationGardenRevealStatus.resolved,
 }) => PostConversationGardenReveal(
   status: status,
-  chatNumber: 7,
+  chatNumber: chatNumber,
   turnCount: turnCount,
   targetSkillIds: [skillId],
   beforeSightings: {skillId: beforeSightings},
@@ -493,14 +494,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('known levels render their Figma garden labels', (tester) async {
+  testWidgets('known levels render their compact garden labels', (
+    tester,
+  ) async {
     final cases = {
-      'A0': 'Dawn Glade',
-      'A1': 'Morning Meadow',
-      'A2': 'Midday Grove',
-      'B1': 'Golden Orchard',
-      'B2': 'Twilight Valley',
-      'C1': 'Starlight Summit',
+      'A0': 'Lv 1 · First Words',
+      'A1': 'Lv 2 · Simple Talk',
+      'A2': 'Lv 3 · Everyday Talk',
+      'B1': 'Lv 4 · Explain Ideas',
+      'B2': 'Lv 5 · Discuss Ideas',
+      'C1': 'Lv 6 · Express Precisely',
     };
 
     for (final entry in cases.entries) {
@@ -966,6 +969,41 @@ void main() {
     expect(quickTitle.style?.fontSize, 16);
   });
 
+  testWidgets('second conversation does not show the removed milestone', (
+    tester,
+  ) async {
+    const skillId = 'target';
+    final data = _gardenData(
+      level: 'A1',
+      steps: [
+        _stepWithSkills(step: 1, skills: [_skill(id: skillId)]),
+      ],
+    );
+    final resolved = _postConversationResult(
+      chatNumber: 2,
+      turnCount: 1,
+      skillId: skillId,
+    );
+
+    await tester.pumpWidget(_harness(data, postConversationReveal: resolved));
+    await tester.pump();
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const ValueKey('garden-quick-hello-card')),
+    );
+
+    expect(
+      find.text(
+        "You're one of the first students using Ella! What we learn from you will help make it better for many more students.",
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('garden-second-chat-milestone-cta')),
+      findsNothing,
+    );
+  });
+
   testWidgets('resolved growth takes precedence over watering on first load', (
     tester,
   ) async {
@@ -1420,14 +1458,14 @@ void main() {
     },
   );
 
-  testWidgets('garden title uses first name only', (tester) async {
+  testWidgets('garden header shows the growth subtitle', (tester) async {
     await tester.pumpWidget(
       _harness(_gardenData(level: 'B1'), childName: 'Narendra Singh'),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 10));
 
-    expect(find.text("Narendra's Garden"), findsOneWidget);
+    expect(find.text('See how your English is growing'), findsOneWidget);
     expect(find.text("Narendra Singh's Garden"), findsNothing);
   });
 
@@ -1439,11 +1477,35 @@ void main() {
     expect(tester.getSize(selector).height, 48);
     final screenCenter = tester.getSize(find.byType(GardenScreen)).width / 2;
     expect(tester.getCenter(selector).dx, closeTo(screenCenter, 0.5));
-    expect(find.text('Starlight Summit'), findsOneWidget);
+    final label = find.text('Lv 6 · Express Precisely');
+    expect(label, findsOneWidget);
+    expect(
+      tester.getRect(label).right,
+      lessThanOrEqualTo(tester.getRect(selector).right),
+    );
     expect(
       tester.getSize(find.byKey(const ValueKey('garden-level-selector-icon'))),
       const Size(24, 24),
     );
+  });
+
+  testWidgets('longest compact level label fits on a 390px phone', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _harness(_gardenData(level: 'C1'), mediaSize: const Size(390, 844)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+
+    final selector = find.byKey(const ValueKey('garden-level-selector'));
+    final label = find.text('Lv 6 · Express Precisely');
+
+    expect(
+      tester.getRect(label).right,
+      lessThanOrEqualTo(tester.getRect(selector).right),
+    );
+    expect(tester.widget<Text>(label).style?.fontSize, 14);
   });
 
   testWidgets('C1 renders Figma stars and B2 renders none', (tester) async {
@@ -1582,7 +1644,7 @@ void main() {
     }
   });
 
-  testWidgets('garden sheet board stays 56px and preserves one-line titles', (
+  testWidgets('garden sheet board is a 70%-width 40px-tall empty plank', (
     tester,
   ) async {
     await _pumpGarden(
@@ -1605,16 +1667,20 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    final shortBoard = find.byKey(const ValueKey('garden-sheet-board'));
-    final shortCard = find.byKey(const ValueKey('garden-sheet-card'));
+    final board = find.byKey(const ValueKey('garden-sheet-board'));
+    final card = find.byKey(const ValueKey('garden-sheet-card'));
     final heading = find.byKey(const ValueKey('garden-unit-sheet-heading'));
-    final shortWidth = tester.getSize(shortBoard).width;
-    expect(tester.getSize(shortBoard).height, 56);
-    expect(tester.getCenter(shortBoard).dx, tester.getCenter(shortCard).dx);
+    expect(tester.getSize(board).height, 40);
+    expect(
+      tester.getSize(board).width,
+      closeTo(tester.getSize(card).width * 0.7, 0.5),
+    );
+    expect(tester.getCenter(board).dx, tester.getCenter(card).dx);
     expect(
       tester.getTopLeft(heading).dy,
-      greaterThan(tester.getTopLeft(shortCard).dy),
+      greaterThan(tester.getTopLeft(card).dy),
     );
+    // The board carries no unit description text.
     expect(find.text('Short unit description'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -1640,11 +1706,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    final tallBoard = find.byKey(const ValueKey('garden-sheet-board'));
-    final tallCard = find.byKey(const ValueKey('garden-sheet-card'));
-    expect(tester.getSize(tallBoard).height, 56);
-    expect(tester.getSize(tallBoard).width, greaterThan(shortWidth));
-    expect(tester.getCenter(tallBoard).dx, tester.getCenter(tallCard).dx);
+    // A longer unit name does not change the board's proportional width.
+    expect(tester.getSize(board).height, 40);
+    expect(
+      tester.getSize(board).width,
+      closeTo(tester.getSize(card).width * 0.7, 0.5),
+    );
+    expect(tester.getCenter(board).dx, tester.getCenter(card).dx);
     expect(find.text('Tall unit description'), findsNothing);
   });
 
@@ -1852,7 +1920,7 @@ void main() {
 
     await _pumpGarden(tester, data);
 
-    expect(find.text('Midday Grove'), findsOneWidget);
+    expect(find.text('Lv 3 · Everyday Talk'), findsOneWidget);
     expect(find.text('Finding Better Words'), findsOneWidget);
     expect(
       find.text('Talking About The Past With More Precision'),
@@ -1998,6 +2066,25 @@ void main() {
   // ── Garden switcher ──────────────────────────────────────────────────────
 
   group('gardenSwitcherEntries', () {
+    test('uses the centralized full and compact level labels', () {
+      expect(gardenSequence.map((level) => level.label), [
+        'Level 1 · First Words',
+        'Level 2 · Simple Talk',
+        'Level 3 · Everyday Talk',
+        'Level 4 · Explain Ideas',
+        'Level 5 · Discuss Ideas',
+        'Level 6 · Express Precisely',
+      ]);
+      expect(gardenSequence.map((level) => level.compactLabel), [
+        'Lv 1 · First Words',
+        'Lv 2 · Simple Talk',
+        'Lv 3 · Everyday Talk',
+        'Lv 4 · Explain Ideas',
+        'Lv 5 · Discuss Ideas',
+        'Lv 6 · Express Precisely',
+      ]);
+    });
+
     test('early A0 → one unlocked (current) + one locked next', () {
       final entries = gardenSwitcherEntries('A0');
       expect(entries.map((e) => e.code).toList(), ['A0', 'A1']);
@@ -2169,6 +2256,15 @@ void main() {
         reason: 'card $code should be present',
       );
     }
+    for (final level in gardenSequence) {
+      expect(
+        find.descendant(
+          of: find.byKey(ValueKey('garden-switcher-card-${level.code}')),
+          matching: find.text(level.label),
+        ),
+        findsOneWidget,
+      );
+    }
     // No locked/next card beyond C1 → the fog overlay never renders.
     expect(find.byKey(const ValueKey('garden-switcher-fog')), findsNothing);
   });
@@ -2187,7 +2283,10 @@ void main() {
       find.byKey(const ValueKey('garden-switcher-bubble')),
       findsOneWidget,
     );
-    expect(find.textContaining('Keep growing'), findsOneWidget);
+    expect(
+      find.textContaining('Keep practising in Level 1 · First Words'),
+      findsOneWidget,
+    );
     expect(
       tester
           .getBottomLeft(find.byKey(const ValueKey('garden-switcher-bubble')))
@@ -2199,8 +2298,8 @@ void main() {
             4,
       ),
     );
-    // "Dawn Glade" appears both on the current card and inside the bubble copy.
-    expect(find.textContaining('Dawn Glade'), findsWidgets);
+    // The full level name appears both on the current card and in the bubble.
+    expect(find.textContaining('Level 1 · First Words'), findsWidgets);
     // Sheet is still open — the fog card is non-navigable.
     expect(find.byKey(const ValueKey('garden-switcher-sheet')), findsOneWidget);
   });
@@ -2216,7 +2315,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byKey(const ValueKey('garden-backdrop-A1')), findsOneWidget);
-    expect(find.text('Morning Meadow'), findsWidgets);
+    expect(find.text('Lv 2 · Simple Talk'), findsWidgets);
   });
 
   testWidgets('completed previous garden shows one-time intro and bloomed data', (
@@ -2230,7 +2329,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byKey(const ValueKey('garden-backdrop-A1')), findsOneWidget);
-    expect(find.text('Morning Meadow'), findsWidgets);
+    expect(find.text('Lv 2 · Simple Talk'), findsWidgets);
     expect(
       find.byKey(const ValueKey('garden-completed-previous-intro')),
       findsOneWidget,
@@ -2269,19 +2368,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(
-      find.byKey(const ValueKey('garden-growth-state-bloomed')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('garden-skill-stepper')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('garden-strand-chip-voc')),
       findsOneWidget,
     );
-    expect(find.text('Bloomed'), findsOneWidget);
+    expect(find.text('Bloom'), findsOneWidget);
     // Real API evidence is shown for previous gardens.
-    expect(find.text('You Said'), findsOneWidget);
+    expect(find.text('You used this'), findsOneWidget);
     expect(find.textContaining('My friend is tall and happy.'), findsWidgets);
-    expect(find.text('Talk with Ella to grow this skill.'), findsNothing);
+    expect(
+      find.text(
+        'This plant grows when you use this skill in your conversations',
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets(
