@@ -36,6 +36,11 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Desktop ephemeral build files (never commit)
+/windows/flutter/ephemeral/
+/macos/Flutter/ephemeral/
+/linux/flutter/ephemeral/
+
 # Symbolication related
 app.*.symbols
 
