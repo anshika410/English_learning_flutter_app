@@ -1,6 +1,7 @@
 // Singleton providers for the three injectable services.
 // All read from .env (loaded in main.dart before runApp).
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

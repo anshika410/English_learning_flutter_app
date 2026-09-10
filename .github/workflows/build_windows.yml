@@ -1,0 +1,55 @@
+name: Build Windows App
+
+on:
+  push:
+    branches:
+      - windows
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Create dummy .env file
+        run: |
+          cd ella_app
+          Copy-Item .env.example .env
+
+      - name: Get dependencies
+        run: |
+          cd ella_app
+          flutter pub get
+
+      - name: Build Windows Release
+        run: |
+          cd ella_app
+          flutter build windows --release
+
+      - name: Create MSIX Package
+        run: |
+          cd ella_app
+          dart run msix:create --install-certificate false
+
+      - name: Upload Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ella-windows-installer
+          path: |
+            ella_app/build/windows/x64/runner/Release/*.msix
+            ella_app/build/windows/x64/runner/Release/*.exe

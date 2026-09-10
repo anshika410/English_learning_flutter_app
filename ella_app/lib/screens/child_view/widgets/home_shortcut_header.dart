@@ -8,7 +8,7 @@ import '../../../core/theme_colors.dart';
 import 'circle_icon_button.dart';
 
 const String _kNavGarden = 'assets/homescreen/new/nav-garden.svg';
-const String _kNavProfile = 'assets/homescreen/new/nav-profile.svg';
+const String _kNavProfile = 'assets/profile/nav-profile-neutral.svg';
 
 class HomeShortcutHeader extends StatelessWidget {
   final VoidCallback? onOpenProfile;
@@ -45,7 +45,24 @@ class HomeShortcutHeader extends StatelessWidget {
         ),
         EllaCircleIconButton(
           key: const ValueKey('home-profile-shortcut'),
-          glyph: SvgPicture.asset(_kNavProfile, width: 56, height: 56),
+          glyph: _BobbingGlyph(
+            child: ClipOval(
+              child: SizedBox(
+                width: 60,
+                height: 60,
+                child: OverflowBox(
+                  maxWidth: 84,
+                  maxHeight: 84,
+                  alignment: const Alignment(0, -0.35),
+                  child: SvgPicture.asset(
+                    _kNavProfile,
+                    width: 84,
+                    height: 84,
+                  ),
+                ),
+              ),
+            ),
+          ),
           diameter: 72,
           fill: EllaColors.surfaceVariant,
           ring: EllaColors.info,
@@ -107,6 +124,57 @@ class _SwayingGlyphState extends State<_SwayingGlyph>
       builder: (context, child) => Transform.rotate(
         angle: _angle.value,
         alignment: Alignment.bottomCenter,
+        child: child,
+      ),
+      child: widget.child,
+    );
+  }
+}
+
+class _BobbingGlyph extends StatefulWidget {
+  final Widget child;
+
+  const _BobbingGlyph({required this.child});
+
+  @override
+  State<_BobbingGlyph> createState() => _BobbingGlyphState();
+}
+
+class _BobbingGlyphState extends State<_BobbingGlyph>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _bob = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  );
+  late final Animation<double> _offset = Tween<double>(
+    begin: -1,
+    end: 1,
+  ).animate(CurvedAnimation(parent: _bob, curve: Curves.easeInOut));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _bob.stop();
+      _bob.value = 0.5;
+    } else if (!_bob.isAnimating) {
+      _bob.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _bob.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return AnimatedBuilder(
+      animation: _offset,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, _offset.value),
         child: child,
       ),
       child: widget.child,

@@ -18,10 +18,13 @@ import 'providers/piper_download_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'dart:io' show Platform, Process;
 
 Future<void> main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  await _registerWindowsProtocol();
 
   // Must be called before any sherpa-onnx usage (Piper TTS)
   sherpa.initBindings();
@@ -160,5 +163,42 @@ Future<void> main() async {
     Future.delayed(const Duration(seconds: 3), () {
       container.read(piperDownloadProvider.notifier).startIfNeeded();
     });
+  }
+}
+
+Future<void> _registerWindowsProtocol() async {
+  if (kIsWeb) return;
+  if (defaultTargetPlatform == TargetPlatform.windows) {
+    try {
+      final exePath = Platform.resolvedExecutable;
+      final result1 = await Process.run('reg', [
+        'add',
+        'HKCU\\Software\\Classes\\ella',
+        '/v',
+        'URL Protocol',
+        '/t',
+        'REG_SZ',
+        '/d',
+        '',
+        '/f'
+      ]);
+      final result2 = await Process.run('reg', [
+        'add',
+        'HKCU\\Software\\Classes\\ella\\shell\\open\\command',
+        '/ve',
+        '/t',
+        'REG_SZ',
+        '/d',
+        '"$exePath" "%1"',
+        '/f'
+      ]);
+      if (result1.exitCode != 0 || result2.exitCode != 0) {
+        debugPrint('⚠️ Failed to register Windows custom URL protocol: ${result1.stderr} / ${result2.stderr}');
+      } else {
+        debugPrint('ℹ️ Windows custom URL protocol "ella" registered successfully.');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error registering Windows custom URL protocol: $e');
+    }
   }
 }

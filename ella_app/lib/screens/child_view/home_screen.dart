@@ -333,50 +333,46 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                       constraints: BoxConstraints(
                         minHeight: constraints.maxHeight,
                       ),
-                      child: Transform.translate(
-                        offset: const Offset(0, -20),
-                        child: Column(
-                          key: const ValueKey('home-upper-content'),
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ZoeMascot(
-                              key: const ValueKey('home-zoe-mascot'),
-                              mode: !isOnline
-                                  ? ZoeMascotMode.sleep
-                                  : ZoeMascotMode.listening,
-                              size: mascotW,
-                              reducedMotion: MediaQuery.of(
-                                context,
-                              ).disableAnimations,
-                            ),
-                            // The recap bubble itself starts 14px below the
-                            // speaker-dot stack, leaving a visible 24px gap
-                            // from Zoe to the bubble border.
-                            const SizedBox(height: 10),
-                            _LastTimeCard(
-                              recap: _recap,
-                              onSpeak: _speakRecap,
-                              highlightStart: _highlightStart,
-                              highlightEnd: _highlightEnd,
-                              speaking: _speaking,
-                            ),
-                            // Keep one clear rhythm from Zoe's recap to the
-                            // "Zoe's pick" label.
-                            const SizedBox(height: 32),
-                            if (topics.isNotEmpty)
-                              TopicCarousel(
-                                // A fresh controller (and initial centre) whenever
-                                // the available topic set changes.
-                                key: ValueKey(
-                                  topics.map((t) => t.name).join('|'),
-                                ),
-                                topics: topics,
-                                selected: _selected,
-                                onSelect: _selectTopic,
+                      child: Column(
+                        key: const ValueKey('home-upper-content'),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 8),
+                          ZoeMascot(
+                            key: const ValueKey('home-zoe-mascot'),
+                            mode: !isOnline
+                                ? ZoeMascotMode.sleep
+                                : ZoeMascotMode.listening,
+                            size: mascotW,
+                            reducedMotion: MediaQuery.of(
+                              context,
+                            ).disableAnimations,
+                          ),
+                          // The recap bubble itself starts 14px below the
+                          // speaker-dot stack, leaving a visible 24px gap
+                          // from Zoe to the bubble border.
+                          const SizedBox(height: 10),
+                          _LastTimeCard(
+                            recap: _recap,
+                            onSpeak: _speakRecap,
+                            highlightStart: _highlightStart,
+                            highlightEnd: _highlightEnd,
+                            speaking: _speaking,
+                          ),
+                          const SizedBox(height: 24),
+                          if (topics.isNotEmpty)
+                            TopicCarousel(
+                              // A fresh controller (and initial centre) whenever
+                              // the available topic set changes.
+                              key: ValueKey(
+                                topics.map((t) => t.name).join('|'),
                               ),
-                          ],
-                        ),
+                              topics: topics,
+                              selected: _selected,
+                              onSelect: _selectTopic,
+                            ),
+                        ],
                       ),
                     ),
                   ),

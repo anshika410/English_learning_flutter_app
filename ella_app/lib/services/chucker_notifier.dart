@@ -69,7 +69,7 @@ class ChuckerNotifier {
     required String path,
     required int statusCode,
   }) async {
-    if (!_ready) return;
+    if (kIsWeb || !_ready) return;
     _count++;
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
