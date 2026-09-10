@@ -1172,22 +1172,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.1"
-    shelf:
-      dependency: transitive
-      description:
-        name: shelf
-        sha256: e7dd780a7ffb623c57850b33f43309312fc863fb6aa3d276a754bb299839ef12
-        url: "https://pub.dev"
-      source: hosted
-      version: "1.4.2"
-    shelf_router:
-      dependency: transitive
-      description:
-        name: shelf_router
-        sha256: f5e5d492440a7fb165fe1e2e1a623f31f734d3370900070b2b1e0d0428d59864
-        url: "https://pub.dev"
-      source: hosted
-      version: "1.1.4"
+  shelf:
+    dependency: transitive
+    description:
+      name: shelf
+      sha256: e7dd780a7ffb623c57850b33f43309312fc863fb6aa3d276a754bb299839ef12
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.2"
+  shelf_router:
+    dependency: transitive
+    description:
+      name: shelf_router
+      sha256: f5e5d492440a7fb165fe1e2e1a623f31f734d3370900070b2b1e0d0428d59864
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.4"
   sherpa_onnx:
     dependency: "direct main"
     description:
