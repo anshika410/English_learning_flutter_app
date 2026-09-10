@@ -15,7 +15,6 @@ import 'services/chucker_notifier.dart';
 import 'services/piper_model_service.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
-import 'providers/piper_download_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -160,14 +159,6 @@ Future<void> main() async {
   runApp(
     UncontrolledProviderScope(container: container, child: const EllaApp()),
   );
-
-  // Trigger Piper model download after app renders (if not already downloaded).
-  // Using Future.delayed so network is ready and the UI is showing the banner.
-  if (!PiperModelService.instance.isReady) {
-    Future.delayed(const Duration(seconds: 3), () {
-      container.read(piperDownloadProvider.notifier).startIfNeeded();
-    });
-  }
 }
 
 Future<void> _registerWindowsProtocol() async {

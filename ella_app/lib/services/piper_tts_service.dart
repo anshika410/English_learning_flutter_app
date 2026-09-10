@@ -8,14 +8,27 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'stt_tts_service.dart';
 import 'piper_model_service.dart';
 import 'audio_service.dart';
+
+class _WordSpan {
+  final int start;
+  final int end;
+  const _WordSpan(this.start, this.end);
+}
+
 /// On-device TTS using the NavGurukul Indian accent Piper model via sherpa-onnx.
-/// Falls back gracefully if model is not downloaded yet.
+/// Emits [progressStream] for word highlighting and supports instant stopping.
 class PiperTtsService implements TtsInterface {
   sherpa.OfflineTts? _tts;
+  AudioPlayer? _player;
   bool _initialized = false;
   bool _speaking = false;
 
+  final _progressController = StreamController<TtsProgressEvent>.broadcast();
+  @override
+  Stream<TtsProgressEvent> get progressStream => _progressController.stream;
+
   final _doneController = StreamController<void>.broadcast();
+  @override
   Stream<void> get doneStream => _doneController.stream;
 
   @override
@@ -67,6 +80,15 @@ class PiperTtsService implements TtsInterface {
     final sanitized = stripEmojis(text);
     if (sanitized.trim().isEmpty) return;
 
+    // Stop any existing playback first
+    await stop();
+
+    final spans = <_WordSpan>[];
+    final regex = RegExp(r'\S+');
+    for (final m in regex.allMatches(sanitized)) {
+      spans.add(_WordSpan(m.start, m.end));
+    }
+
     _speaking = true;
     try {
       // Duck background music
@@ -85,7 +107,12 @@ class PiperTtsService implements TtsInterface {
 
       // Write samples to WAV and play using audioplayers
       final completer = Completer<void>();
-      await _playAudioSamples(audio.samples, audio.sampleRate, completer);
+      await _playAudioSamples(
+        audio.samples,
+        audio.sampleRate,
+        completer,
+        spans,
+      );
       await completer.future.timeout(
         const Duration(seconds: 30),
         onTimeout: () {},
@@ -94,6 +121,7 @@ class PiperTtsService implements TtsInterface {
       debugPrint('PiperTtsService: speak failed: $e');
     } finally {
       _speaking = false;
+      _progressController.add(const TtsProgressEvent(0, 0));
       unawaited(AudioService.maybeInstance?.unduckAfterSpeech());
       _doneController.add(null);
     }
@@ -104,6 +132,7 @@ class PiperTtsService implements TtsInterface {
     Float32List samples,
     int sampleRate,
     Completer<void> completer,
+    List<_WordSpan> spans,
   ) async {
     try {
       final dir = await getTemporaryDirectory();
@@ -141,12 +170,27 @@ class PiperTtsService implements TtsInterface {
         [...header.buffer.asUint8List(), ...dataBytes],
       );
 
-      // Play with audioplayers
+      final durationMs = ((samples.length / sampleRate) * 1000).round();
       final player = AudioPlayer();
+      _player = player;
+
+      player.onPositionChanged.listen((pos) {
+        if (!_speaking || spans.isEmpty || durationMs <= 0) return;
+        final progress = (pos.inMilliseconds / durationMs).clamp(0.0, 1.0);
+        final wordIdx =
+            (progress * spans.length).floor().clamp(0, spans.length - 1);
+        final span = spans[wordIdx];
+        _progressController.add(TtsProgressEvent(span.start, span.end));
+      });
+
       player.onPlayerComplete.listen((_) {
+        _speaking = false;
+        _progressController.add(const TtsProgressEvent(0, 0));
         if (!completer.isCompleted) completer.complete();
         player.dispose();
+        if (_player == player) _player = null;
       });
+
       await player.play(DeviceFileSource(wavFile.path));
     } catch (e) {
       debugPrint('PiperTtsService: playback error: $e');
@@ -157,7 +201,16 @@ class PiperTtsService implements TtsInterface {
   @override
   Future<void> stop() async {
     _speaking = false;
-    // sherpa-onnx doesn't have a mid-speech stop, audio will finish naturally
+    if (_player != null) {
+      try {
+        await _player?.stop();
+        await _player?.dispose();
+      } catch (e) {
+        debugPrint('PiperTtsService: error stopping player: $e');
+      }
+      _player = null;
+    }
+    _progressController.add(const TtsProgressEvent(0, 0));
     unawaited(AudioService.maybeInstance?.unduckAfterSpeech());
     _doneController.add(null);
   }
@@ -166,7 +219,9 @@ class PiperTtsService implements TtsInterface {
   bool get isSpeaking => _speaking;
 
   void dispose() {
+    stop();
     _tts?.free();
     _doneController.close();
+    _progressController.close();
   }
 }
