@@ -31,6 +31,7 @@ import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
+import 'widgets/piper_download_banner.dart';
 import 'widgets/shake.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/topic_carousel.dart';
@@ -122,8 +123,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         ref.read(piperDownloadProvider.notifier).startIfNeeded();
       }
     });
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+    final activeTts = ref.read(ttsProvider);
+    _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted && _speaking) {
         setState(() {
           _highlightStart = event.start;
@@ -131,7 +132,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         });
       }
     });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+    _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;
@@ -381,7 +382,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
               // Bottom group — the selected-topic CTA.
               const SizedBox(height: 16),
               // Piper voice model download progress banner
-              _PiperDownloadBanner(),
+              const PiperDownloadBanner(),
               // Short wobble whenever the selected topic changes.
               ShakeOnChange(
                 trigger: selected?.name ?? '',
@@ -559,63 +560,4 @@ class _LastTimeCard extends StatelessWidget {
   }
 }
 
-/// Small pill banner shown while the Piper voice model is downloading.
-/// Auto-hides when done or failed.
-class _PiperDownloadBanner extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(
-      piperDownloadProvider.select((s) => s.status),
-    );
 
-    // Only show while actively downloading
-    if (status != PiperDownloadStatus.downloading) {
-      return const SizedBox.shrink();
-    }
-
-    // Round to nearest 5% so the widget only rebuilds 20 times total, not 100+
-    final displayPercent = ref.watch(
-      piperDownloadProvider.select((s) => ((s.progress * 100).toInt() ~/ 5) * 5),
-    );
-    final progressValue = ref.watch(
-      piperDownloadProvider.select((s) => s.progress > 0 ? s.progress : null),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: EllaColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: EllaColors.info.withOpacity(0.4), width: 1),
-        ),
-        child: Row(
-          children: [
-            // Progress indicator
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                value: progressValue,
-                strokeWidth: 2.5,
-                color: EllaColors.info,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Upgrading voice... $displayPercent%',
-                style: EllaTextStyles.bodySemibold.copyWith(
-                  fontSize: 12,
-                  color: EllaColors.textSecondary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -310,18 +310,32 @@ class SpeechToTextService implements SttInterface {
   bool get isListening => _sessionActive;
 }
 
-// ── TTS ─────────────────────────────────────────────────────────────────────
+class TtsProgressEvent {
+  final int start;
+  final int end;
+  const TtsProgressEvent(this.start, this.end);
+}
 
 abstract class TtsInterface {
   Future<void> initialize();
   Future<void> speak(String text);
   Future<void> stop();
   bool get isSpeaking;
+  Stream<TtsProgressEvent> get progressStream;
+  Stream<void> get doneStream;
 }
 
 class FlutterTtsService implements TtsInterface {
   final _tts = FlutterTts();
   bool _speaking = false;
+
+  final _progressController = StreamController<TtsProgressEvent>.broadcast();
+  @override
+  Stream<TtsProgressEvent> get progressStream => _progressController.stream;
+
+  final _doneController = StreamController<void>.broadcast();
+  @override
+  Stream<void> get doneStream => _doneController.stream;
 
   @override
   Future<void> initialize() async {
@@ -334,7 +348,13 @@ class FlutterTtsService implements TtsInterface {
     // (and the zoeSpeaking status that drives the open-mouth mascot) would end
     // the moment audio starts instead of when Zoe finishes talking.
     await _tts.awaitSpeakCompletion(true);
-    _tts.setCompletionHandler(() => _speaking = false);
+    _tts.setCompletionHandler(() {
+      _speaking = false;
+      _doneController.add(null);
+    });
+    _tts.setProgressHandler((text, start, end, word) {
+      _progressController.add(TtsProgressEvent(start, end));
+    });
   }
 
   /// Strips emojis and markdown before handing text to the TTS engine.
@@ -365,6 +385,7 @@ class FlutterTtsService implements TtsInterface {
   Future<void> stop() async {
     _speaking = false;
     await _tts.stop();
+    _doneController.add(null);
   }
 
   @override

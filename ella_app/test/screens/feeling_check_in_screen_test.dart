@@ -24,6 +24,12 @@ class _FakeTts implements TtsInterface {
   bool get isSpeaking => _isSpeaking;
 
   @override
+  Stream<TtsProgressEvent> get progressStream => const Stream.empty();
+
+  @override
+  Stream<void> get doneStream => const Stream.empty();
+
+  @override
   Future<void> initialize() async {}
 
   @override

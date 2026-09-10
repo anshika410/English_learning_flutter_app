@@ -14,6 +14,7 @@ import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../providers/connectivity_provider.dart';
+import '../../providers/piper_download_provider.dart';
 import '../../providers/placement_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/stt_tts_service.dart';
@@ -24,6 +25,7 @@ import 'chat_bubble.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
+import 'widgets/piper_download_banner.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/zoe_mascot.dart';
 
@@ -55,8 +57,8 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   void initState() {
     super.initState();
     _tts = ref.read(ttsProvider);
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+    final activeTts = ref.read(ttsProvider);
+    _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
           _highlightStart = event.start;
@@ -64,12 +66,18 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
         });
       }
     });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+    _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _highlightStart = -1;
           _highlightEnd = -1;
         });
+      }
+    });
+    // Trigger Piper model download in background if not done yet
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(piperDownloadProvider.notifier).startIfNeeded();
       }
     });
     // Greet the child aloud shortly after the screen appears (waiting for
@@ -223,6 +231,8 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              // Piper voice model download progress banner
+              const PiperDownloadBanner(),
               EllaPrimaryButton(
                 key: const ValueKey('placement-home-talk-cta'),
                 label: 'Start Talking',

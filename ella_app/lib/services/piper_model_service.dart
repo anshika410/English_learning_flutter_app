@@ -39,7 +39,7 @@ class PiperModelService {
   String? get tokensPath => _tokensPath;
   String? get espeakDataDir => _espeakDataDir;
 
-  /// Returns true and populates paths if all required files are present.
+  /// Returns true and populates paths if all required files are present and valid.
   Future<bool> checkIfDownloaded() async {
     final dir = await getApplicationDocumentsDirectory();
     final onnxFile = File('${dir.path}/piper_model.onnx');
@@ -47,7 +47,9 @@ class PiperModelService {
     final espeakDir = Directory('${dir.path}/espeak-ng-data');
 
     if (await onnxFile.exists() &&
+        (await onnxFile.length()) > 1000000 &&
         await tokensFile.exists() &&
+        (await tokensFile.length()) > 10 &&
         await espeakDir.exists()) {
       _modelOnnxPath = onnxFile.path;
       _tokensPath = tokensFile.path;
@@ -59,6 +61,7 @@ class PiperModelService {
   }
 
   /// Downloads all required files. Reports [onProgress] (0.0–1.0).
+  /// Resumes from partial `.part` downloads if interrupted.
   ///
   /// Download breakdown:
   ///   0–5%   tokens.txt  (~1KB, instant)
@@ -136,31 +139,86 @@ class PiperModelService {
     }
   }
 
+  /// Downloads [url] to [savePath] using an intermediate `.part` file.
+  /// Supports HTTP Range requests for resuming interrupted downloads.
   Future<void> _downloadFile(
     String url,
     String savePath,
     void Function(double) onProgress,
   ) async {
+    final finalFile = File(savePath);
+    if (await finalFile.exists()) {
+      onProgress(1.0);
+      return;
+    }
+
+    final tempPath = '$savePath.part';
+    final tempFile = File(tempPath);
+    int existingLength = 0;
+    if (await tempFile.exists()) {
+      existingLength = await tempFile.length();
+    }
+
     final client = http.Client();
+    IOSink? sink;
     try {
       final request = http.Request('GET', Uri.parse(url));
-      final response = await client.send(request);
+      if (existingLength > 0) {
+        request.headers['Range'] = 'bytes=$existingLength-';
+      }
 
-      if (response.statusCode != 200) {
+      var response = await client.send(request);
+
+      // Handle 416 (Requested Range Not Satisfiable) by clearing temp file and restarting
+      if (response.statusCode == 416 && existingLength > 0) {
+        await tempFile.delete();
+        existingLength = 0;
+        final freshRequest = http.Request('GET', Uri.parse(url));
+        response = await client.send(freshRequest);
+      }
+
+      if (response.statusCode != 200 && response.statusCode != 206) {
         throw Exception('HTTP ${response.statusCode} for $url');
       }
 
-      final total = response.contentLength ?? 0;
-      var received = 0;
-      final file = File(savePath);
-      final sink = file.openWrite();
+      final isPartial = response.statusCode == 206;
+      final contentLength = response.contentLength ?? 0;
+      final totalBytes = isPartial ? existingLength + contentLength : contentLength;
+      int receivedBytes = isPartial ? existingLength : 0;
+
+      if (!isPartial && existingLength > 0) {
+        // Server returned 200 (full content), overwrite partial file
+        sink = tempFile.openWrite(mode: FileMode.write);
+      } else {
+        sink = tempFile.openWrite(mode: FileMode.append);
+      }
+
+      if (totalBytes > 0) {
+        onProgress(receivedBytes / totalBytes);
+      }
 
       await for (final chunk in response.stream) {
         sink.add(chunk);
-        received += chunk.length;
-        if (total > 0) onProgress(received / total);
+        receivedBytes += chunk.length;
+        if (totalBytes > 0) {
+          onProgress(receivedBytes / totalBytes);
+        }
       }
+
+      await sink.flush();
       await sink.close();
+      sink = null;
+
+      // Atomically move the completed .part file to final savePath
+      if (await finalFile.exists()) {
+        await finalFile.delete();
+      }
+      await tempFile.rename(savePath);
+    } catch (e) {
+      try {
+        await sink?.close();
+      } catch (_) {}
+      rethrow;
     } finally {
       client.close();
     }
@@ -169,7 +227,14 @@ class PiperModelService {
   /// Deletes all cached model files (e.g. to free space or force re-download).
   Future<void> clearModel() async {
     final dir = await getApplicationDocumentsDirectory();
-    for (final name in ['piper_model.onnx', 'piper_tokens.txt']) {
+    for (final name in [
+      'piper_model.onnx',
+      'piper_model.onnx.part',
+      'piper_tokens.txt',
+      'piper_tokens.txt.part',
+      'espeak-ng-data.tar.bz2',
+      'espeak-ng-data.tar.bz2.part',
+    ]) {
       final f = File('${dir.path}/$name');
       if (await f.exists()) await f.delete();
     }
