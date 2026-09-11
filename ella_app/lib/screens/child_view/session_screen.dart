@@ -105,8 +105,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         _stopAllTts();
       }
     });
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+    final activeTts = ref.read(ttsProvider);
+    _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
           _speaking = true;
@@ -115,7 +115,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         });
       }
     });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+    _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;
@@ -245,7 +245,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   void _stopAllTts() {
     _tts.stop();
-    ref.read(nativeTtsProvider).stop();
     ref.read(chatProvider.notifier).stopSpeaking();
     if (mounted) {
       setState(() {
@@ -330,9 +329,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     unawaited(notifier.endChat().catchError(_snack));
 
     // First stop any current speech explicitly to clear active playback
-    final nativeTts = ref.read(nativeTtsProvider);
-    await nativeTts.stop();
-    // Allow any pending stop callback events to drain from the native channel
+    await _tts.stop();
+    // Allow any pending stop callback events to drain
     await Future.delayed(const Duration(milliseconds: 150));
 
     // NativeTtsService.speak completes only when playback finishes (with its
@@ -379,7 +377,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         : null;
     await ref.read(chatProvider.notifier).stopListening();
     await ref.read(ttsProvider).stop();
-    await ref.read(nativeTtsProvider).stop();
     if (!mounted) return;
 
     setState(() {

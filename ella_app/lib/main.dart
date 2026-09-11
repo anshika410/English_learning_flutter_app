@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:chucker_flutter/chucker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,9 +10,12 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'services/analytics_service.dart';
+import 'services/app_notification_service.dart';
 import 'services/chucker_notifier.dart';
+import 'services/piper_model_service.dart';
 import 'app.dart';
 import 'providers/service_providers.dart';
+import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'dart:io' show Platform, Process;
@@ -21,6 +25,12 @@ Future<void> main() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   await _registerWindowsProtocol();
+
+  // Must be called before any sherpa-onnx usage (Piper TTS)
+  sherpa.initBindings();
+
+  // Initialize local notification service for TTS download notifications
+  await AppNotificationService.instance.init();
 
   // Debug-only: surface Chucker's recorded API calls as a real Android system
   // notification (in the pull-down shade) that opens the request inspector on
@@ -45,6 +55,8 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('⚠️ Firebase initialization failed: $e');
   }
+
+  // Piper model download is triggered from the home screen with progress UI.
   // Lock app to portrait mode only
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -128,6 +140,21 @@ Future<void> main() async {
   try {
     await container.read(audioProvider).initialize();
   } catch (_) {}
+
+  // If Piper model is already downloaded, init it before runApp so ttsProvider
+  // routes to Piper immediately on first read.
+  // If not downloaded, kick off background download after first frame renders.
+  try {
+    final modelReady = await PiperModelService.instance.checkIfDownloaded();
+    if (modelReady) {
+      await container.read(piperTtsProvider).initialize();
+      debugPrint('main: PiperTtsService initialized ✓');
+    } else {
+      debugPrint('main: Piper model not downloaded yet, will download after app starts');
+    }
+  } catch (e) {
+    debugPrint('main: Piper init error: $e');
+  }
 
   runApp(
     UncontrolledProviderScope(container: container, child: const EllaApp()),

@@ -83,8 +83,8 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
         _stopAllTts();
       }
     });
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+    final activeTts = ref.read(ttsProvider);
+    _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
           _speaking = true;
@@ -93,7 +93,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
         });
       }
     });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+    _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;
@@ -182,7 +182,6 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   void _stopAllTts() {
     _tts.stop();
-    ref.read(nativeTtsProvider).stop();
     ref.read(placementProvider.notifier).stopSpeaking();
     if (mounted) {
       setState(() {
@@ -271,9 +270,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     if (!mounted) return;
 
     // First stop any current speech explicitly to clear active playback
-    final nativeTts = ref.read(nativeTtsProvider);
-    await nativeTts.stop();
-    // Allow any pending stop callback events to drain from the native channel
+    final activeTts = ref.read(ttsProvider);
+    await activeTts.stop();
+    // Allow any pending stop callback events to drain
     await Future.delayed(const Duration(milliseconds: 150));
 
     // Safety net: force navigation after 4.5 seconds if TTS done callback fails
@@ -284,14 +283,14 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
     // Listen for TTS done stream to transition as soon as speech finishes
     StreamSubscription? doneSub;
-    doneSub = nativeTts.doneStream.listen((_) {
+    doneSub = activeTts.doneStream.listen((_) {
       safetyTimer.cancel();
       doneSub?.cancel();
       Future.delayed(const Duration(milliseconds: 400), _goToComplete);
     });
 
     try {
-      await nativeTts.speak(_closingLine());
+      await activeTts.speak(_closingLine());
     } catch (_) {
       safetyTimer.cancel();
       doneSub.cancel();

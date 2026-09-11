@@ -11,6 +11,9 @@ import '../services/ella_api_service.dart';
 import '../services/supabase_service.dart';
 import '../services/stt_tts_service.dart';
 import '../services/native_tts_service.dart';
+import '../services/piper_tts_service.dart';
+import '../services/piper_model_service.dart';
+import '../providers/piper_download_provider.dart';
 
 final supabaseServiceProvider = Provider<SupabaseService>((ref) {
   return SupabaseService(Supabase.instance.client);
@@ -31,11 +34,23 @@ final sttLevelProvider = Provider<ValueNotifier<double>>((ref) {
   return ref.watch(sttProvider).speechLevel;
 });
 
+/// Piper on-device TTS (Indian accent model).
+/// Used as primary TTS if model is downloaded, falls back to native otherwise.
+final piperTtsProvider = Provider<PiperTtsService>((ref) {
+  final service = PiperTtsService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// ttsProvider: uses Piper if model is ready, otherwise NativeTts.
+/// Both implement TtsInterface so all consumers are unaffected.
+/// Watches piperDownloadProvider so it switches to Piper after download completes.
 final ttsProvider = Provider<TtsInterface>((ref) {
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-    final service = FlutterTtsService();
-    unawaited(service.initialize());
-    return service;
+  final downloadState = ref.watch(piperDownloadProvider);
+  final modelReady = downloadState.status == PiperDownloadStatus.done &&
+      PiperModelService.instance.isReady;
+  if (modelReady) {
+    return ref.read(piperTtsProvider);
   }
   return ref.read(nativeTtsProvider);
 });

@@ -22,6 +22,7 @@ import '../../models/conversation_feedback.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
+import '../../providers/piper_download_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/analytics_service.dart';
 import '../../services/sounds.dart';
@@ -30,6 +31,7 @@ import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
+import 'widgets/piper_download_banner.dart';
 import 'widgets/shake.dart';
 import 'widgets/speaker_dot_button.dart';
 import 'widgets/topic_carousel.dart';
@@ -115,8 +117,14 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   @override
   void initState() {
     super.initState();
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+    // Trigger Piper model download in background if not done yet
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(piperDownloadProvider.notifier).startIfNeeded();
+      }
+    });
+    final activeTts = ref.read(ttsProvider);
+    _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted && _speaking) {
         setState(() {
           _highlightStart = event.start;
@@ -124,7 +132,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         });
       }
     });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+    _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;
@@ -373,6 +381,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
               ),
               // Bottom group — the selected-topic CTA.
               const SizedBox(height: 16),
+              // Piper voice model download progress banner
+              const PiperDownloadBanner(),
               // Short wobble whenever the selected topic changes.
               ShakeOnChange(
                 trigger: selected?.name ?? '',
@@ -549,3 +559,5 @@ class _LastTimeCard extends StatelessWidget {
     );
   }
 }
+
+
