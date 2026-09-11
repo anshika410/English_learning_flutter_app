@@ -12,10 +12,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///   - tokens.txt       — phoneme→id map for the model
 ///   - espeak-ng-data/  — eSpeak-NG language data for Piper phonemization
 class PiperModelService {
-  static const _modelDownloadedKey = 'piper_model_downloaded_v3';
+  static const _modelDownloadedKey = 'piper_model_downloaded_v4';
 
   // Patched ONNX + tokens served from ella.navgurukul.org (model has sherpa-onnx ONNX metadata)
-  static const _modelOnnxUrl = 'https://ella.navgurukul.org/piper/model2.onnx';
+  static const _modelOnnxUrl = 'https://ella.navgurukul.org/piper/model.onnx';
   static const _tokensUrl = 'https://ella.navgurukul.org/piper/tokens.txt';
 
   // espeak-ng-data — shared across all Piper models (~10MB tar.bz2)
