@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
@@ -13,6 +14,63 @@ class _WordSpan {
   final int start;
   final int end;
   const _WordSpan(this.start, this.end);
+}
+
+/// Paths needed to rebuild the sherpa TTS engine inside a background isolate.
+class _TtsGenArgs {
+  final String modelPath;
+  final String tokensPath;
+  final String dataDir;
+  final String text;
+  const _TtsGenArgs({
+    required this.modelPath,
+    required this.tokensPath,
+    required this.dataDir,
+    required this.text,
+  });
+}
+
+/// Result of a TTS generation run.
+class _TtsGenResult {
+  final Float32List samples;
+  final int sampleRate;
+  const _TtsGenResult(this.samples, this.sampleRate);
+}
+
+/// Runs sherpa-onnx TTS generation in a background isolate so the heavy native
+/// VITS inference never blocks the UI thread (which caused an ANR).
+///
+/// The sherpa native handle cannot cross isolates, so we rebuild a fresh
+/// [sherpa.OfflineTts] from the model paths inside the isolate, generate, and
+/// free it before returning only the PCM samples.
+Future<_TtsGenResult> _generateInIsolate(_TtsGenArgs args) {
+  return Isolate.run(() {
+    sherpa.initBindings();
+    final config = sherpa.OfflineTtsConfig(
+      model: sherpa.OfflineTtsModelConfig(
+        vits: sherpa.OfflineTtsVitsModelConfig(
+          model: args.modelPath,
+          lexicon: '',
+          tokens: args.tokensPath,
+          dataDir: args.dataDir,
+          noiseScale: 0.667,
+          noiseScaleW: 0.8,
+          lengthScale: 1.0,
+        ),
+        debug: false,
+        numThreads: 2,
+        provider: 'cpu',
+      ),
+      maxNumSenetences: 1,
+    );
+    final tts = sherpa.OfflineTts(config);
+    try {
+      final audio = tts.generate(text: args.text, sid: 0, speed: 1.0);
+      return _TtsGenResult(audio.samples, audio.sampleRate);
+    } finally {
+      tts.free();
+    }
+  });
 }
 
 /// On-device TTS using the NavGurukul Indian accent Piper model via sherpa-onnx.
@@ -89,18 +147,33 @@ class PiperTtsService implements TtsInterface {
       spans.add(_WordSpan(m.start, m.end));
     }
 
+    final modelService = PiperModelService.instance;
+    if (!modelService.isReady) {
+      debugPrint('PiperTtsService: model paths not ready, cannot speak');
+      return;
+    }
+
     _speaking = true;
     try {
       // Duck background music
       unawaited(AudioService.maybeInstance?.duckForSpeech());
 
-      final audio = _tts!.generate(
-        text: sanitized,
-        sid: 0,
-        speed: 1.0,
+      // Generate off the main thread — sherpa VITS inference is a heavy
+      // synchronous native call that otherwise blocks the UI and triggers an
+      // ANR ("Ella isn't responding").
+      final result = await _generateInIsolate(
+        _TtsGenArgs(
+          modelPath: modelService.modelOnnxPath!,
+          tokensPath: modelService.tokensPath!,
+          dataDir: modelService.espeakDataDir!,
+          text: sanitized,
+        ),
       );
 
-      if (audio.samples.isEmpty) {
+      // A stop() during generation flips _speaking off — honor it.
+      if (!_speaking) return;
+
+      if (result.samples.isEmpty) {
         debugPrint('PiperTtsService: empty audio generated');
         return;
       }
@@ -108,8 +181,8 @@ class PiperTtsService implements TtsInterface {
       // Write samples to WAV and play using audioplayers
       final completer = Completer<void>();
       await _playAudioSamples(
-        audio.samples,
-        audio.sampleRate,
+        result.samples,
+        result.sampleRate,
         completer,
         spans,
       );
