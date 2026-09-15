@@ -193,7 +193,10 @@
       <h1>🎓 Ella Pilot Dashboard</h1>
       <span id="header-url"></span>
     </div>
-    <button class="refresh-btn" onclick="loadData()" style="margin-left:auto;color:white;border-color:rgba(255,255,255,0.3);">↻ Refresh</button>
+    <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
+      <button class="refresh-btn" onclick="openJumpModal('', '', '', '')" style="background:#2563eb; color:white; border-color:#1d4ed8; font-weight:600; display:flex; align-items:center; gap:6px;">⚡ Jump User Level</button>
+      <button class="refresh-btn" onclick="loadData()" style="color:white; border-color:rgba(255,255,255,0.3);">↻ Refresh</button>
+    </div>
   </header>
 
   <div class="container">
@@ -222,7 +225,10 @@
         <div class="section">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <h2 style="margin-bottom:0;">Placement Results</h2>
-            <input id="user-search" type="text" placeholder="🔍 Search by name..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <input id="user-search" type="text" placeholder="🔍 Search by name..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
+              <button onclick="openJumpModal('', '', '', '')" style="padding:7px 12px; border:1.5px solid #2563eb; background:#EFF6FF; color:#2563eb; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">⚡ Jump Level</button>
+            </div>
           </div>
           <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
             <table>
@@ -394,6 +400,47 @@
     <button class="modal-close" onclick="closeMemoryModal()">×</button>
     <h3 id="memory-modal-title">Student Memory</h3>
     <div id="memory-modal-content"></div>
+  </div>
+</div>
+
+<!-- Jump modal -->
+<div class="modal" id="jump-modal">
+  <div class="modal-box" style="max-width:540px;">
+    <button class="modal-close" onclick="closeJumpModal()">×</button>
+    <h3 id="jump-modal-title" style="display:flex; align-items:center; gap:8px;">
+      <span style="color:#2563eb;">⚡</span> Jump User Level
+    </h3>
+    <div id="jump-modal-content" style="margin-top:16px;">
+      <div style="margin-bottom:16px;">
+        <label style="display:block; font-size:13px; font-weight:700; color:#6B5740; margin-bottom:6px;">Student Email, User ID, or Device ID:</label>
+        <input type="text" id="jump-identifier" placeholder="e.g. tester@navgurukul.org or user-uuid" style="width:100%; box-sizing:border-box; padding:10px 12px; border:1.5px solid #F0E4CC; border-radius:8px; font-size:13.5px; background:#FFFDF8; color:#2C1E0F; outline:none;">
+        <div id="jump-user-meta" style="margin-top:6px; font-size:12px; color:#888;"></div>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label style="display:block; font-size:13px; font-weight:700; color:#6B5740; margin-bottom:8px;">Select Target CEFR Level:</label>
+        <div id="jump-level-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;"></div>
+      </div>
+
+      <div style="margin-bottom:20px; background:#FFFDF8; border:1.5px solid #F0E4CC; border-radius:8px; padding:12px 14px;">
+        <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:#2C1E0F; user-select:none;">
+          <input type="checkbox" id="jump-reset-progress" checked style="margin-top:3px; accent-color:#2563eb; width:16px; height:16px; cursor:pointer;">
+          <div>
+            <strong>Reset Unit Skills Progress</strong>
+            <div style="font-size:11.5px; color:#888; margin-top:2px;">Wipes previously recorded sightings and mastery for a completely fresh start at Unit 1 of this level (recommended for clean QA/testing).</div>
+          </div>
+        </label>
+      </div>
+
+      <div id="jump-alert" style="display:none; padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px;"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button onclick="closeJumpModal()" style="padding:9px 16px; border:1.5px solid #F0E4CC; border-radius:8px; background:white; color:#6B5740; font-weight:600; cursor:pointer;">Cancel</button>
+        <button id="jump-submit-btn" onclick="submitJump()" style="padding:9px 20px; border:none; border-radius:8px; background:#2563eb; color:white; font-weight:700; cursor:pointer; box-shadow:0 2px 0 #1d4ed8; display:flex; align-items:center; gap:6px;">
+          <span>🚀 Jump Level</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -667,7 +714,8 @@
         <td>${formatDate(u.last_active_at)}</td>
         <td><span style="font-family: monospace; font-size: 12px; color: #6B5740;" title="${u.app_version || ''}">${u.app_version ? u.app_version.split('+')[0] : '—'}</span></td>
         <td>
-          <div style="display: flex; gap: 6px;">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="transcript-btn" style="border-color: #2563eb; color: #2563eb; font-weight: 700; background: #EFF6FF;" onclick="openJumpModal('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}', '${u.email || ''}', '${u.level || ''}')">⚡ Jump</button>
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
             ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
             ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions</button>` : ''}
@@ -1580,6 +1628,119 @@
 
   function closeMemoryModal() {
     document.getElementById('memory-modal').classList.remove('open');
+  }
+
+  // ─── Jump Level Controller ──────────────────────────────────────────────────
+  let selectedJumpLevel = 'A2';
+
+  const JUMP_LEVELS = [
+    { code: 'A0', label: 'First Words', desc: 'Foundation (Objects, basics)', color: '#64748b' },
+    { code: 'A1', label: 'Finding My Voice', desc: 'Elementary (Present, past)', color: '#f59e0b' },
+    { code: 'A2', label: 'Building Confidence', desc: 'Pre-Intermediate (Opinions)', color: '#3b82f6' },
+    { code: 'B1', label: 'Expressing Myself', desc: 'Intermediate (Arguments)', color: '#10b981' },
+    { code: 'B2', label: 'Speaking Fluently', desc: 'Upper-Intermediate', color: '#8b5cf6' },
+    { code: 'C1', label: 'Mastering Language', desc: 'Advanced proficiency', color: '#ec4899' },
+  ];
+
+  function openJumpModal(userId, name, email, currentLevel) {
+    const input = document.getElementById('jump-identifier');
+    const meta = document.getElementById('jump-user-meta');
+    const alertBox = document.getElementById('jump-alert');
+    alertBox.style.display = 'none';
+
+    input.value = email || userId || '';
+    if (name && (email || userId)) {
+      meta.textContent = `Student: ${name} ${currentLevel ? `(Current Level: ${currentLevel})` : '(No Level Yet)'}`;
+    } else {
+      meta.textContent = 'Enter an email, User UUID, or Device UUID to set their CEFR level.';
+    }
+
+    selectedJumpLevel = (currentLevel && JUMP_LEVELS.some(l => l.code === currentLevel.toUpperCase())) 
+      ? currentLevel.toUpperCase() 
+      : 'A2';
+
+    renderJumpLevelCards();
+    document.getElementById('jump-modal').classList.add('open');
+  }
+
+  function renderJumpLevelCards() {
+    const grid = document.getElementById('jump-level-grid');
+    grid.innerHTML = JUMP_LEVELS.map(lvl => {
+      const isSelected = lvl.code === selectedJumpLevel;
+      return `
+        <div onclick="selectJumpLevel('${lvl.code}')" style="cursor:pointer; border:2px solid ${isSelected ? lvl.color : '#F0E4CC'}; background:${isSelected ? '#EFF6FF' : '#FFFDF8'}; border-radius:10px; padding:10px 8px; text-align:center; transition:all 0.15s; ${isSelected ? `box-shadow: 0 0 0 1px ${lvl.color};` : ''}">
+          <div style="display:inline-block; background:${lvl.color}; color:white; font-size:11px; font-weight:800; padding:2px 8px; border-radius:12px; margin-bottom:4px;">${lvl.code}</div>
+          <div style="font-size:12px; font-weight:700; color:#2C1E0F;">${lvl.label}</div>
+          <div style="font-size:10px; color:#888; margin-top:2px;">${lvl.desc}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function selectJumpLevel(level) {
+    selectedJumpLevel = level;
+    renderJumpLevelCards();
+  }
+
+  function closeJumpModal() {
+    document.getElementById('jump-modal').classList.remove('open');
+  }
+
+  async function submitJump() {
+    const identifier = document.getElementById('jump-identifier').value.trim();
+    const resetProgress = document.getElementById('jump-reset-progress').checked;
+    const alertBox = document.getElementById('jump-alert');
+    const submitBtn = document.getElementById('jump-submit-btn');
+
+    if (!identifier) {
+      alertBox.textContent = 'Please enter an email, User ID, or Device ID.';
+      alertBox.style.background = '#FEE2E2';
+      alertBox.style.color = '#B91C1C';
+      alertBox.style.border = '1px solid #FCA5A5';
+      alertBox.style.display = 'block';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span>⏳ Jumping...</span>';
+    alertBox.style.display = 'none';
+
+    try {
+      const res = await fetch(`${BASE_URL}/admin/jump?key=${encodeURIComponent(ADMIN_KEY)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: identifier,
+          level: selectedJumpLevel,
+          reset_progress: resetProgress
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || `Error ${res.status}: Failed to jump level`);
+      }
+
+      alertBox.textContent = `✅ Success: ${data.message || `User is now at Level ${selectedJumpLevel}`}`;
+      alertBox.style.background = '#ECFDF5';
+      alertBox.style.color = '#047857';
+      alertBox.style.border = '1px solid #A7F3D0';
+      alertBox.style.display = 'block';
+
+      setTimeout(() => {
+        closeJumpModal();
+        loadData();
+      }, 1000);
+    } catch (err) {
+      alertBox.textContent = `❌ ${err.message}`;
+      alertBox.style.background = '#FEE2E2';
+      alertBox.style.color = '#B91C1C';
+      alertBox.style.border = '1px solid #FCA5A5';
+      alertBox.style.display = 'block';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span>🚀 Jump Level</span>';
+    }
   }
 
 </script>

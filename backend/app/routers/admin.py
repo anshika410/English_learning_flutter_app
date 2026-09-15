@@ -1002,25 +1002,42 @@ async def jump_user_to_level(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    🚀 Jump API — instantly move any user to any CEFR level by email.
+    🚀 Jump API — instantly move any user to any CEFR level by email, user_id, or device_id.
     Perfect for QA and PM testing without going through placement.
 
-    - email: the user's registered email address
+    - email: the user's registered email address, user_id, or device_id
     - level: one of A0, A1, A2, B1, B2, C1
     - reset_progress: set true to start fresh at Unit 1 of that level (recommended for clean testing)
 
     After calling this, just open the app — Zoe will immediately behave at the new level.
     """
     valid_levels = {"A0", "A1", "A2", "B1", "B2", "C1"}
-    if body.level.upper() not in valid_levels:
+    target_level = body.level.upper()
+    if target_level not in valid_levels:
         raise HTTPException(status_code=400, detail=f"Invalid level. Must be one of: {sorted(valid_levels)}")
 
-    result = await db.execute(select(User).where(User.email == body.email.lower().strip()))
+    query_val = body.email.lower().strip()
+    raw_val = body.email.strip()
+    result = await db.execute(
+        select(User).where(
+            (User.email == query_val) | (User.id == raw_val) | (User.device_id == raw_val)
+        )
+    )
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail=f"No user found with email '{body.email}'")
+        raise HTTPException(status_code=404, detail=f"No user found matching identifier '{body.email}'")
 
-    user.level = body.level.upper()
+    level_label_map = {
+        "A0": "First Words",
+        "A1": "Finding My Voice",
+        "A2": "Building Confidence",
+        "B1": "Expressing Myself",
+        "B2": "Speaking Fluently",
+        "C1": "Mastering the Language"
+    }
+
+    user.level = target_level
+    user.level_label = level_label_map.get(target_level, target_level)
     # Targets are level-specific even when the public unit ID repeats.
     user.due_next = {}
 
@@ -1035,10 +1052,12 @@ async def jump_user_to_level(
 
     return {
         "status": "ok",
-        "email": body.email,
+        "user_id": user.id,
+        "email": user.email,
         "level": user.level,
+        "level_label": user.level_label,
         "progress_reset": body.reset_progress,
-        "message": f"User '{body.email}' is now at level {user.level}. Open the app to start a session.",
+        "message": f"User '{user.name or user.email or user.id}' is now at level {user.level}. Open the app to start a session.",
     }
 @router.delete("/reset-user/{device_id}")
 async def reset_user(
