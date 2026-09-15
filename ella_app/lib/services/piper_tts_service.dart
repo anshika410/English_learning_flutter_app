@@ -58,7 +58,7 @@ Future<_TtsGenResult> _generateInIsolate(_TtsGenArgs args) {
           lengthScale: 1.0,
         ),
         debug: false,
-        numThreads: 2,
+        numThreads: 4,
         provider: 'cpu',
       ),
       maxNumSenetences: 1,
@@ -112,7 +112,7 @@ class PiperTtsService implements TtsInterface {
             lengthScale: 1.0,
           ),
           debug: false,
-          numThreads: 2,
+          numThreads: 4,
           provider: 'cpu',
         ),
         // Note: typo in sherpa_onnx library — it's maxNumSenetences not maxNumSentences
@@ -135,7 +135,7 @@ class PiperTtsService implements TtsInterface {
       return;
     }
 
-    final sanitized = stripEmojis(text);
+    final sanitized = sanitizeTtsText(text);
     if (sanitized.trim().isEmpty) return;
 
     // Stop any existing playback first
@@ -239,9 +239,11 @@ class PiperTtsService implements TtsInterface {
       setStr(36, 'data');
       header.setUint32(40, dataBytes.length, Endian.little);
 
-      await wavFile.writeAsBytes(
-        [...header.buffer.asUint8List(), ...dataBytes],
-      );
+      final headerBytes = header.buffer.asUint8List();
+      final wavBytes = Uint8List(headerBytes.length + dataBytes.length);
+      wavBytes.setRange(0, headerBytes.length, headerBytes);
+      wavBytes.setRange(headerBytes.length, wavBytes.length, dataBytes);
+      await wavFile.writeAsBytes(wavBytes, flush: false);
 
       final durationMs = ((samples.length / sampleRate) * 1000).round();
       final player = AudioPlayer();
@@ -265,6 +267,10 @@ class PiperTtsService implements TtsInterface {
       });
 
       await player.play(DeviceFileSource(wavFile.path));
+      if (_speaking) {
+        final firstEnd = spans.isNotEmpty ? spans[0].end : 0;
+        _progressController.add(TtsProgressEvent(0, firstEnd));
+      }
     } catch (e) {
       debugPrint('PiperTtsService: playback error: $e');
       if (!completer.isCompleted) completer.complete();

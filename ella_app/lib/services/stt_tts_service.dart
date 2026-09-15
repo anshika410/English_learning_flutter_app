@@ -46,6 +46,25 @@ String stripEmojis(String text) {
       .trim();
 }
 
+/// Strips markdown formatting and emojis for both TTS playback and UI display,
+/// ensuring character indices and word boundaries match 1:1 across native TTS
+/// engines and UI widgets.
+String sanitizeTtsText(String text) {
+  return stripEmojis(
+    text
+        .replaceAll(RegExp(r'\*\*(.+?)\*\*', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'\*(.+?)\*', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'__(.+?)__', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'_(.+?)_', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'`(.+?)`', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'~~(.+?)~~', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
+        .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), ''),
+  );
+}
+
+
 // ── STT ─────────────────────────────────────────────────────────────────────
 
 abstract class SttInterface {
@@ -359,18 +378,7 @@ class FlutterTtsService implements TtsInterface {
 
   /// Strips emojis and markdown before handing text to the TTS engine.
   static String _sanitizeForTts(String text) {
-    return stripEmojis(
-      text
-          .replaceAll(RegExp(r'\*\*(.+?)\*\*', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'\*(.+?)\*', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'__(.+?)__', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'_(.+?)_', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'`(.+?)`', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'~~(.+?)~~', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-          .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), ''),
-    );
+    return sanitizeTtsText(text);
   }
 
   @override

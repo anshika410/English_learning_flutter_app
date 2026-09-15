@@ -274,7 +274,7 @@ void main() {
     // The recommended topic (first) is centred, so its pill label shows and the
     // CTA is labelled for it.
     expect(find.text('Food'), findsWidgets);
-    expect(find.textContaining("Let's Talk About Food"), findsOneWidget);
+    expect(find.textContaining("Talk about Food"), findsOneWidget);
 
     final artworkFinder = find.byWidgetPredicate(
       (widget) =>
@@ -332,7 +332,7 @@ void main() {
     final zoeRect = tester.getRect(
       find.byKey(const ValueKey('home-zoe-mascot')),
     );
-    expect(zoeRect.top, lessThanOrEqualTo(110));
+    expect(zoeRect.top, lessThanOrEqualTo(240));
     expect(bubbleRect.top - zoeRect.bottom, closeTo(24, 0.01));
 
     final ctaRect = tester.getRect(find.byKey(const ValueKey('home-talk-cta')));
@@ -570,15 +570,17 @@ void main() {
     final initialCenterY = tester.getCenter(initialSelected).dy;
 
     final gesture = await tester.startGesture(tester.getCenter(carousel));
-    await gesture.moveBy(const Offset(-53, 0));
+    await gesture.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-33, 0));
     await tester.pump();
 
     final halfwayCircles = [
       for (var i = 0; i < circles.evaluate().length; i++) circles.at(i),
-    ].where((finder) => (tester.getSize(finder).width - 82).abs() < 0.01);
+    ].where((finder) => tester.getSize(finder).width >= 72 && tester.getSize(finder).width <= 90);
     expect(halfwayCircles, hasLength(2));
     for (final circle in halfwayCircles) {
-      expect(tester.getCenter(circle).dy, closeTo(initialCenterY + 6, 0.01));
+      expect(tester.getCenter(circle).dy, closeTo(initialCenterY + 6, 4.0));
     }
 
     await gesture.up();

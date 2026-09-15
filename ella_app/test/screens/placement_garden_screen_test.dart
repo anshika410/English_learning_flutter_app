@@ -257,7 +257,7 @@ void main() {
       find.byKey(const ValueKey('placement-garden-tilled-tile')),
       findsOneWidget,
     );
-    expect(find.text('Explore Garden'), findsNothing);
+    expect(find.text('See your Garden'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
@@ -266,14 +266,14 @@ void main() {
       find.byKey(const ValueKey('placement-garden-reveal-bubble')),
       findsOneWidget,
     );
-    expect(find.text('Explore Garden'), findsNothing);
+    expect(find.text('See your Garden'), findsNothing);
 
     await _pumpUntilSpeaking(tester, tts);
     tts.finish();
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Explore Garden'), findsOneWidget);
+    expect(find.text('See your Garden'), findsOneWidget);
   });
 
   testWidgets('Explore Garden settles into the bottom Let\'s Talk bar', (
@@ -284,12 +284,12 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Explore Garden'), findsOneWidget);
+    expect(find.text('See your Garden'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('placement-garden-explore')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text("Let's Talk"), findsOneWidget);
+    expect(find.text('Start Talking'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('placement-garden-settled-talk')),
       findsOneWidget,
@@ -302,7 +302,7 @@ void main() {
     await tester.pumpWidget(_harness(playReveal: false));
     await tester.pump();
 
-    await tester.tap(find.text("Let's Talk"));
+    await tester.tap(find.text('Start Talking'));
     await tester.pump();
 
     expect(_FakeOnboardingNotifier.completed, isTrue);
@@ -338,9 +338,9 @@ void main() {
     (container.read(placementProvider.notifier) as _FakePlacementNotifier)
         .resolve(true);
     await tester.pump(const Duration(milliseconds: 1200));
-    await _pumpUntilFound(tester, find.text('Your flower is blooming!'));
+    await _pumpUntilFound(tester, find.textContaining('You grew your first plant'));
 
-    expect(find.text('Your flower is blooming!'), findsOneWidget);
+    expect(find.textContaining('You grew your first plant'), findsOneWidget);
     expect(find.text('See My Garden'), findsNothing);
 
     await _pumpUntilSpeaking(tester, tts);
@@ -373,23 +373,23 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1200));
     await _pumpUntilFound(
       tester,
-      find.text(
-        "Your plant is soaking up sunshine.\nLet's talk again and watch it grow!",
+      find.textContaining(
+        'Your plant is soaking up sunshine',
       ),
     );
 
     await _pumpUntilSpeaking(tester, tts);
     tts.finish();
-    await _pumpUntilFound(tester, find.text('Explore Garden'));
+    await _pumpUntilFound(tester, find.text('See your Garden'));
 
-    expect(find.text('Explore Garden'), findsOneWidget);
+    expect(find.text('See your Garden'), findsOneWidget);
     await tester.tap(
       find.byKey(const ValueKey('placement-garden-sprout-explore')),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('See My Garden'), findsNothing);
-    expect(find.text("Let's Talk"), findsOneWidget);
+    expect(find.text('Start Talking'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('placement-garden-settled-talk')),
       findsOneWidget,

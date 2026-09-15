@@ -111,7 +111,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Name step.
-    expect(find.textContaining('What is your name?', findRichText: true), findsOneWidget);
+    expect(find.textContaining('What should I call you?'), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-reply-send')), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Aarav');
@@ -121,7 +121,7 @@ void main() {
     await tester.pumpAndSettle(); // finish TypewriterText
 
     // Age step — question interpolates the typed name.
-    expect(find.textContaining('what is your age?', findRichText: true), findsOneWidget);
+    expect(find.textContaining('How old are you?'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '9');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
@@ -132,12 +132,12 @@ void main() {
     expect(find.text('Sunrise Seedbed'), findsOneWidget);
     expect(find.text("Aarav's Garden"), findsOneWidget);
     expect(find.textContaining('your first plant', findRichText: true), findsOneWidget);
-    expect(find.text('Explore Garden'), findsOneWidget);
+    expect(find.text('See your Garden'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('placement-garden-explore')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text("Let's Talk"), findsOneWidget);
+    expect(find.text('Start Talking'), findsOneWidget);
   });
 
   testWidgets('blank name stays on the name step', (tester) async {
@@ -148,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining("think that was your name", findRichText: true), findsNothing);
-    expect(find.textContaining('What is your name?', findRichText: true), findsOneWidget);
+    expect(find.textContaining('What should I call you?'), findsOneWidget);
   });
 
   testWidgets('invalid name shows error and stays on the name step', (
@@ -181,15 +181,15 @@ void main() {
     // Blank age stays put.
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('correct age', findRichText: true), findsNothing);
-    expect(find.textContaining('what is your age?', findRichText: true), findsOneWidget);
+    expect(find.textContaining('Enter your age as a number'), findsNothing);
+    expect(find.textContaining('How old are you?'), findsOneWidget);
     // Invalid age → error, stays put.
     await tester.enterText(find.byType(TextField), '0');
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
-    expect(find.textContaining('correct age', findRichText: true), findsOneWidget);
+    expect(find.textContaining('Enter your age as a number'), findsOneWidget);
     expect(find.text("Let's Talk"), findsNothing);
 
     // A large age (would have failed the old 3–19 check) is now accepted.
@@ -199,6 +199,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
-    expect(find.text('Explore Garden'), findsOneWidget);
+    expect(find.text('See your Garden'), findsOneWidget);
   });
 }

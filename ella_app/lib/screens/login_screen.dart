@@ -622,9 +622,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       children: [
         SvgPicture.asset(_kShieldCheckAsset, width: 32, height: 32),
         const SizedBox(width: 12),
-        Text(
-          'Your learning data is protected.',
-          style: EllaTextStyles.authBody.copyWith(fontSize: 15),
+        Flexible(
+          child: Text(
+            'Your learning data is protected.',
+            style: EllaTextStyles.authBody.copyWith(fontSize: 15),
+          ),
         ),
       ],
     );

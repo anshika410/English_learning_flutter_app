@@ -196,7 +196,7 @@ void main() {
     final step = data.steps.single;
     final skill = step.skills.single;
     expect(step.name, 'Talking about the past with more precision');
-    expect(step.displayName, 'Refining past stories');
+    expect(step.displayName, 'Richer Past');
     expect(
       step.focus,
       'Describing not just what happened, but what was happening.',
@@ -206,7 +206,7 @@ void main() {
       'Add precision to the past — what was happening, what used to be, and how to contrast ideas.',
     );
     expect(skill.text, "I can use 'used to' to talk about past habits.");
-    expect(skill.displayText, 'Talk about what you used to do');
+    expect(skill.displayText, 'Use used to for habits');
   });
 
   test(
@@ -225,7 +225,7 @@ void main() {
       });
 
       final step = data.steps.single;
-      expect(step.displayName, 'Mastery of vocabulary');
+      expect(step.displayName, 'Word Mastery');
       expect(
         step.displayDescription,
         'Moving towards native-level vocabulary range.',

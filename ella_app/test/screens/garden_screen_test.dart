@@ -732,7 +732,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Just a little more watering…'), findsOneWidget);
+    expect(find.text('Ella is checking what grew…'), findsOneWidget);
     expect(
       tester
           .widget<AnimatedOpacity>(
@@ -796,8 +796,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2100));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('You watered your garden today'), findsOneWidget);
-    expect(find.text('A line to remember'), findsNothing);
+    expect(find.textContaining('You practised today'), findsOneWidget);
+    expect(find.text('A sentence you used'), findsNothing);
   });
 
   testWidgets('pending quick hello skips speculative watering', (tester) async {
@@ -956,7 +956,7 @@ void main() {
       findsNothing,
     );
     expect(find.text('That was a quick hello 👋'), findsOneWidget);
-    expect(find.text("We can talk more whenever you're ready"), findsOneWidget);
+    expect(find.textContaining("We can talk more whenever you're ready"), findsOneWidget);
     final quickCard = find.byKey(const ValueKey('garden-quick-hello-card'));
     expect(tester.getSize(quickCard).width, lessThanOrEqualTo(330));
     expect(
@@ -1028,7 +1028,7 @@ void main() {
     await _pumpUntilRevealCard(tester);
 
     expect(find.text('A new skill is sprouting'), findsOneWidget);
-    expect(find.text('You watered your garden today'), findsNothing);
+    expect(find.textContaining('You practised today'), findsNothing);
     expect(
       find.byKey(const ValueKey('garden-preparing-overlay')),
       findsNothing,
@@ -1127,7 +1127,7 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 650));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('You watered your garden today'), findsOneWidget);
+    expect(find.textContaining('You practised today'), findsOneWidget);
     expect(tester.widget<AnimatedOpacity>(cardOpacity).opacity, 1);
     expect(tester.widget<AnimatedOpacity>(spotlightLayer).opacity, 1);
   });
@@ -1172,12 +1172,12 @@ void main() {
       await tester.pump();
       await _pumpUntilRevealCard(tester);
 
-      expect(find.text('You watered your garden today'), findsOneWidget);
+      expect(find.textContaining('You practised today'), findsOneWidget);
       expect(
         find.text('Every conversation gives your English a little more life.'),
         findsOneWidget,
       );
-      expect(find.text('A line to remember'), findsOneWidget);
+      expect(find.text('A sentence you used'), findsOneWidget);
       expect(
         find.text('I told a detailed story about our trip.'),
         findsOneWidget,
@@ -1429,7 +1429,7 @@ void main() {
     await _pumpUntilFound(tester, find.text('Connect two ideas'));
 
     expect(find.text('Connect two ideas'), findsOneWidget);
-    expect(find.text('Explore Garden'), findsOneWidget);
+    expect(find.text('See My Garden'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-growth-reveal-cta')));
     await tester.pump();
@@ -1961,19 +1961,19 @@ void main() {
       find.byKey(const ValueKey('garden-first-welcome-bubble')),
       findsOneWidget,
     );
-    expect(find.text('Explore Garden'), findsNothing);
-    expect(find.text("Let's Talk"), findsNothing);
+    expect(find.text('See My Garden'), findsNothing);
+    expect(find.text('Pick a Topic'), findsNothing);
 
     await _pumpUntilSpeaking(tester, tts);
     tts.finish();
-    await _pumpUntilFound(tester, find.text('Explore Garden'));
+    await _pumpUntilFound(tester, find.text('See My Garden'));
 
-    expect(find.text('Explore Garden'), findsOneWidget);
+    expect(find.text('See My Garden'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-first-explore')));
-    await _pumpUntilFound(tester, find.text("Let's Talk"));
+    await _pumpUntilFound(tester, find.text('Pick a Topic'));
 
-    expect(find.text("Let's Talk"), findsOneWidget);
+    expect(find.text('Pick a Topic'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-talk-bar-layer')), findsOneWidget);
   });
 
@@ -2336,7 +2336,7 @@ void main() {
     );
     expect(
       find.text(
-        'Look at this! These are things you already know. Your garden was already grown',
+        'Look! Your earlier conversations have already grown this garden',
       ),
       findsOneWidget,
     );
@@ -2400,7 +2400,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(
-        find.text('Something went wrong. Please try again later.'),
+        find.text('Something went wrong. Try again'),
         findsOneWidget,
       );
       // Bounced back to the current garden; no previous garden, no intro.

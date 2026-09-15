@@ -69,6 +69,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
         AnalyticsService.logTtsStarted();
         // Dim the background music (and mute SFX) under Zoe's voice.
         unawaited(AudioService.maybeInstance?.duckForSpeech());
+        _progressController.add(const TtsProgressEvent(0, 0));
         break;
       case 'onTtsDone':
         _fallbackDoneTimer?.cancel();
@@ -109,7 +110,7 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
 
   @override
   Future<void> speak(String text) async {
-    final sanitized = stripEmojis(text);
+    final sanitized = sanitizeTtsText(text);
     if (sanitized.trim().isEmpty) return;
     _fallbackDoneTimer?.cancel();
     _currentTextLength = sanitized.length;
