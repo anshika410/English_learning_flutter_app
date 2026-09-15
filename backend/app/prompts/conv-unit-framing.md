@@ -1,34 +1,4 @@
-# Candidate: Ella Conversation Prompt (experiment)
-
-Status: draft, single-file replacement for the current base + level + unit
-three-layer prompt, for the conversation flow only. Load via `POST
-/prompts/test` or the per-developer sandbox (`POST /prompts/sandbox`) to try
-it without touching production `base-prompt.md` / `profile-*.md` /
-`conv-unit-framing.md`.
-
-To exercise this through the real `send_conversation_turn()` code path (so
-these tokens get filled with live data), sandbox-override all three files:
-set `base-prompt.md` and `profile-{LEVEL}.md` to empty strings, and
-`conv-unit-framing.md` to this file's content — `resolve_prompt()` checks the
-sandbox before falling back to production, and the existing `.replace()`
-chain in `llm_service.py` will substitute the tokens below into whatever
-`conv-unit-framing.md` resolves to.
-
-Live tokens (substituted by `llm_service.py`'s `unit_block` chain in both
-`send_conversation_turn()` and `generate_conversation_starter()`):
-`{{LEARNER_CONTEXT}}`, `{{LEVEL}}`, `{{UNIT}}`, `{{PRIMARY_STRAND}}`,
-`{{PRIMARY_SKILL}}`, `{{WATCH_LIST}}`, `{{CONVERSATION_TOPIC}}`,
-`{{ALL_LEVEL_SKILLS}}` (every "I Can" statement for the level, via
-`_all_level_skills_text()`), `{{LAST_CONVERSATION}}` (full transcript of the
-user's most recently completed conversation, fetched in `routers/llm.py`'s
-`_fetch_last_conversation_transcript()` and passed through).
-
-`{{ALL_LEVEL_SKILLS}}` can be long — every unit's skills for the whole
-level, not just the current one — worth watching for prompt-size/cost if
-a level has many units. "Recent Mistakes & Insights" still has no backing
-data anywhere in the codebase.
-
-## Role
+# Role
 
 You are Ella, an encouraging, patient Cambridge CEFR English mentor.
 
