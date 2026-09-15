@@ -106,14 +106,14 @@ class PlacementNotifier extends Notifier<PlacementState> {
 
   @override
   PlacementState build() {
-    final nativeTts = ref.read(nativeTtsProvider);
-    final progressSub = nativeTts.progressStream.listen((event) {
+    final activeTts = ref.read(ttsProvider);
+    final progressSub = activeTts.progressStream.listen((event) {
       state = state.copyWith(
         highlightStart: event.start,
         highlightEnd: event.end,
       );
     });
-    final doneSub = nativeTts.doneStream.listen((_) {
+    final doneSub = activeTts.doneStream.listen((_) {
       final wasSpeaking = state.currentlySpeakingMessageId != null;
       state = state.copyWith(
         status: state.status == ChatStatus.zoeSpeaking ? ChatStatus.idle : state.status,

@@ -5,12 +5,6 @@ import 'audio_service.dart';
 import 'stt_tts_service.dart';
 import 'analytics_service.dart';
 
-class TtsProgressEvent {
-  final int start;
-  final int end;
-  const TtsProgressEvent(this.start, this.end);
-}
-
 /// Native Android TTS with karaoke word-highlight via onRangeStart.
 /// Falls back gracefully if the channel isn't available (e.g., on web/iOS).
 class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
@@ -26,9 +20,11 @@ class NativeTtsService with WidgetsBindingObserver implements TtsInterface {
   Timer? _fallbackDoneTimer;
 
   final _progressController = StreamController<TtsProgressEvent>.broadcast();
+  @override
   Stream<TtsProgressEvent> get progressStream => _progressController.stream;
 
   final _doneController = StreamController<void>.broadcast();
+  @override
   Stream<void> get doneStream => _doneController.stream;
 
   /// Callback fired when TTS highlights a new character range.

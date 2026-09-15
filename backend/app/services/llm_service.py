@@ -317,9 +317,12 @@ async def generate_conversation_starter(
     primary_id = target_ids[0] if target_ids else None
     primary_strand = "VOC"
     if primary_id:
-        from ..core.curriculum_data import get_skill_strand
+        from ..core.curriculum_data import get_skill_strand, SKILL_CONCEPTS
         primary_strand = get_skill_strand(primary_id)
+    else:
+        from ..core.curriculum_data import SKILL_CONCEPTS
     primary_skill_text = resolve_skill_text(primary_id, level_upper) if primary_id else "General conversation practice"
+    primary_concept = SKILL_CONCEPTS.get(primary_id, primary_skill_text.split("I can ")[-1].split(".")[0].strip() if primary_id else "general conversation")
 
     watching_ids = target_ids[1:] if len(target_ids) > 1 else []
     watch_list_str = "\n".join(
@@ -346,6 +349,7 @@ async def generate_conversation_starter(
         .replace("{{CONVERSATION_TOPIC}}", topic or "Free conversation")
         .replace("{{PRIMARY_STRAND}}", primary_strand)
         .replace("{{PRIMARY_SKILL}}", primary_skill_text)
+        .replace("{{PRIMARY_CONCEPT}}", primary_concept)
         .replace("{{LEARNER_CONTEXT}}", memory_str)
         .replace("{{WATCH_LIST}}", watch_list_str)
         .replace("{{LEVEL}}", level_upper)
@@ -535,9 +539,12 @@ async def send_conversation_turn(
     primary_id = target_ids[0] if target_ids else None
     primary_strand = "VOC"
     if primary_id:
-        from ..core.curriculum_data import get_skill_strand
+        from ..core.curriculum_data import get_skill_strand, SKILL_CONCEPTS
         primary_strand = get_skill_strand(primary_id)
+    else:
+        from ..core.curriculum_data import SKILL_CONCEPTS
     primary_skill_text = resolve_skill_text(primary_id, level_upper) if primary_id else "General conversation practice"
+    primary_concept = SKILL_CONCEPTS.get(primary_id, primary_skill_text.split("I can ")[-1].split(".")[0].strip() if primary_id else "general conversation")
     
     watching_ids = target_ids[1:] if len(target_ids) > 1 else []
     watch_list_str = "\n".join(
@@ -565,6 +572,7 @@ async def send_conversation_turn(
         .replace("{{CONVERSATION_TOPIC}}", topic)
         .replace("{{PRIMARY_STRAND}}", primary_strand)
         .replace("{{PRIMARY_SKILL}}", primary_skill_text)
+        .replace("{{PRIMARY_CONCEPT}}", primary_concept)
         .replace("{{LEARNER_CONTEXT}}", memory_str)
         .replace("{{WATCH_LIST}}", watch_list_str)
         .replace("{{LEVEL}}", level_upper)

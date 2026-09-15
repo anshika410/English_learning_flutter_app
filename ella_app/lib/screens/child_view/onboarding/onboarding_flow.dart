@@ -98,8 +98,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     AnalyticsService.logOnboardingStarted();
     _tts = ref.read(ttsProvider);
 
-    final nativeTts = ref.read(nativeTtsProvider);
-    _ttsProgressSub = nativeTts.progressStream.listen((event) {
+    final activeTts = ref.read(ttsProvider);
+    _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
           _speaking = true;
@@ -108,7 +108,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         });
       }
     });
-    _ttsDoneSub = nativeTts.doneStream.listen((_) {
+    _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;

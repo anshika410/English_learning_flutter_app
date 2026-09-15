@@ -209,9 +209,9 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
     // during screen load. It will be lazily initialized on first voice use in
     // startListening() method.
 
-    // Register native TTS range callbacks to drive Karaoke text highlighting
-    final nativeTts = ref.read(nativeTtsProvider);
-    final progressSub = nativeTts.progressStream.listen((event) {
+    // Register TTS range callbacks to drive Karaoke text highlighting
+    final activeTts = ref.read(ttsProvider);
+    final progressSub = activeTts.progressStream.listen((event) {
       if (state.hasValue) {
         state = AsyncValue.data(
           state.requireValue.copyWith(
@@ -221,7 +221,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
         );
       }
     });
-    final doneSub = nativeTts.doneStream.listen((_) {
+    final doneSub = activeTts.doneStream.listen((_) {
       if (state.hasValue) {
         final cur = state.requireValue;
         final wasSpeaking = cur.currentlySpeakingMessageId != null;

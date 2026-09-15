@@ -377,7 +377,8 @@ async def get_user_garden(
         and LEVEL_ORDER.index(requested_level) < LEVEL_ORDER.index(user_level)
     )
 
-    # For previous levels, override progress so all skills show as owned/bloomed.
+    # For previous levels, override progress so all skills show as owned/bloomed,
+    # but preserve real evidence and progress details that the student actually earned.
     if is_previous_level:
         from ..core.curriculum_data import UNITS as _UNITS
         all_skill_ids = [
@@ -388,14 +389,17 @@ async def get_user_garden(
         all_skill_ids = [sid for sid in all_skill_ids if sid]
         from datetime import datetime, timezone
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        existing_sightings = progress.get("sightings", {})
+        existing_strength = progress.get("strength", {})
+        existing_last_seen = progress.get("last_seen", {})
         progress = {
             "owned": all_skill_ids,
             "emerging": [],
-            "sightings": {sid: 3 for sid in all_skill_ids},
-            "strength": {sid: 2 for sid in all_skill_ids},
-            "last_seen": {sid: today for sid in all_skill_ids},
+            "sightings": {sid: max(3, existing_sightings.get(sid, 0)) for sid in all_skill_ids},
+            "strength": {sid: max(2, existing_strength.get(sid, 0)) for sid in all_skill_ids},
+            "last_seen": {sid: existing_last_seen.get(sid, today) for sid in all_skill_ids},
             "effort": progress.get("effort", {"times_spoken_total": 0}),
-            "evidence": {},
+            "evidence": progress.get("evidence", {}),
         }
 
     level = requested_level
