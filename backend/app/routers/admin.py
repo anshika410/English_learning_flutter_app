@@ -487,7 +487,7 @@ async def get_admin_prompts(
 
         judge = resolve_prompt("end-result-prompt.md", user_id=resolve_id)
         placement = resolve_prompt("placement-check-prompt.md", user_id=resolve_id)
-        base = resolve_prompt("base-prompt.md", user_id=resolve_id)
+        base = resolve_prompt("candidate-ella-prompt.md", user_id=resolve_id)
         conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=resolve_id)
         correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=resolve_id)
         
@@ -529,7 +529,7 @@ async def deploy_sandbox_prompts(
     import os
     
     valid_names = [
-        "base-prompt", "conv-unit-framing",
+        "base-prompt", "candidate-ella-prompt", "conv-unit-framing",
         "end-result-prompt", "placement-check-prompt",
         "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
@@ -549,9 +549,15 @@ async def deploy_sandbox_prompts(
         
         # Save the files
         for name, content in body.snapshot.items():
-            filename = name if name.endswith(".md") else f"{name}.md"
+            clean_name = name.replace(".md", "")
+            filename = f"{clean_name}.md"
             target = sandbox_dir / filename
             target.write_text(content)
+            # Sync base-prompt and candidate-ella-prompt in sandbox
+            if clean_name == "base-prompt":
+                (sandbox_dir / "candidate-ella-prompt.md").write_text(content)
+            elif clean_name == "candidate-ella-prompt":
+                (sandbox_dir / "base-prompt.md").write_text(content)
             
         return {"status": "success", "message": f"Saved {len(body.snapshot)} prompts to your sandbox"}
     except Exception as e:
@@ -566,10 +572,15 @@ async def clear_sandbox_prompts(
     from ..services.llm_service import PROMPTS_DIR
     import shutil
     
-    sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
     try:
-        if sandbox_dir.exists():
-            shutil.rmtree(sandbox_dir)
+        if user.id:
+            sandbox_dir = PROMPTS_DIR / "sandboxes" / user.id
+            if sandbox_dir.exists():
+                shutil.rmtree(sandbox_dir)
+        if user.email:
+            email_dir = PROMPTS_DIR / "sandboxes" / user.email
+            if email_dir.exists():
+                shutil.rmtree(email_dir)
         return {"status": "success", "message": "Cleared sandbox prompts"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Filesystem error: {str(e)}")

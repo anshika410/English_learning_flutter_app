@@ -28,6 +28,7 @@ def resolve_prompt(
         key_mappings = {
             "placement-check-prompt.md": "placement",
             "base-prompt.md": "base",
+            "candidate-ella-prompt.md": "base",
             "conv-unit-framing.md": "conv-unit-framing",
             "end-result-prompt.md": "judge",
             "correction-extraction-prompt.md": "correction-extraction",
@@ -38,6 +39,11 @@ def resolve_prompt(
                 return custom_prompts[profile_lvl]
         
         # Fallback maps
+        if filename == "candidate-ella-prompt.md":
+            if "candidate-ella-prompt" in custom_prompts:
+                return custom_prompts["candidate-ella-prompt"]
+            if "candidate_ella_prompt" in custom_prompts:
+                return custom_prompts["candidate_ella_prompt"]
         if filename == "correction-extraction-prompt.md" and "correction_extraction" in custom_prompts:
             return custom_prompts["correction_extraction"]
         if filename == "conv-unit-framing.md" and "conv_unit_framing" in custom_prompts:
@@ -59,12 +65,20 @@ def resolve_prompt(
         sandbox_path = PROMPTS_DIR / "sandboxes" / uuid_part / filename
         if sandbox_path.exists():
             return sandbox_path.read_text().strip()
+        if filename == "candidate-ella-prompt.md":
+            alt_path = PROMPTS_DIR / "sandboxes" / uuid_part / "base-prompt.md"
+            if alt_path.exists() and alt_path.stat().st_size > 10:
+                return alt_path.read_text().strip()
 
         # 2. Try Email sandbox
         if email_part:
             sandbox_path = PROMPTS_DIR / "sandboxes" / email_part / filename
             if sandbox_path.exists():
                 return sandbox_path.read_text().strip()
+            if filename == "candidate-ella-prompt.md":
+                alt_path = PROMPTS_DIR / "sandboxes" / email_part / "base-prompt.md"
+                if alt_path.exists() and alt_path.stat().st_size > 10:
+                    return alt_path.read_text().strip()
 
     return (PROMPTS_DIR / filename).read_text().strip()
 
