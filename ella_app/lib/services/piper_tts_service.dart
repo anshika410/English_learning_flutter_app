@@ -81,6 +81,9 @@ class PiperTtsService implements TtsInterface {
   bool _initialized = false;
   bool _speaking = false;
 
+  int _speakToken = 0;
+  Completer<void>? _activeCompleter;
+
   final _progressController = StreamController<TtsProgressEvent>.broadcast();
   @override
   Stream<TtsProgressEvent> get progressStream => _progressController.stream;
@@ -131,8 +134,11 @@ class PiperTtsService implements TtsInterface {
   @override
   Future<void> speak(String text) async {
     if (!_initialized || _tts == null) {
-      debugPrint('PiperTtsService: not initialized, cannot speak');
-      return;
+      await initialize();
+      if (!_initialized || _tts == null) {
+        debugPrint('PiperTtsService: not initialized, cannot speak');
+        return;
+      }
     }
 
     final sanitized = sanitizeTtsText(text);
@@ -141,62 +147,60 @@ class PiperTtsService implements TtsInterface {
     // Stop any existing playback first
     await stop();
 
-    final spans = <_WordSpan>[];
-    final regex = RegExp(r'\S+');
-    for (final m in regex.allMatches(sanitized)) {
-      spans.add(_WordSpan(m.start, m.end));
-    }
-
-    final modelService = PiperModelService.instance;
-    if (!modelService.isReady) {
-      debugPrint('PiperTtsService: model paths not ready, cannot speak');
-      return;
-    }
-
+    final token = ++_speakToken;
     _speaking = true;
+
+    final sw = Stopwatch()..start();
+    final t0 = sw.elapsedMilliseconds;
+
     try {
       // Duck background music
       unawaited(AudioService.maybeInstance?.duckForSpeech());
 
-      // Generate off the main thread — sherpa VITS inference is a heavy
-      // synchronous native call that otherwise blocks the UI and triggers an
-      // ANR ("Ella isn't responding").
-      final result = await _generateInIsolate(
-        _TtsGenArgs(
-          modelPath: modelService.modelOnnxPath!,
-          tokensPath: modelService.tokensPath!,
-          dataDir: modelService.espeakDataDir!,
-          text: sanitized,
-        ),
-      );
-
-      // A stop() during generation flips _speaking off — honor it.
-      if (!_speaking) return;
-
-      if (result.samples.isEmpty) {
-        debugPrint('PiperTtsService: empty audio generated');
-        return;
+      final spans = <_WordSpan>[];
+      final regex = RegExp(r'\S+');
+      for (final m in regex.allMatches(sanitized)) {
+        spans.add(_WordSpan(m.start, m.end));
       }
 
-      // Write samples to WAV and play using audioplayers
+      // Generate single-pass audio for the entire response text
+      final audio = _tts!.generate(text: sanitized, sid: 0, speed: 1.0);
+      final tGen = sw.elapsedMilliseconds;
+
+      debugPrint(
+        '⏱️ [PiperTTS Single-Pass] Audio ready in ${tGen - t0}ms | length=${sanitized.length} chars',
+      );
+
+      if (token != _speakToken || !_speaking) return;
+      if (audio.samples.isEmpty) return;
+
       final completer = Completer<void>();
+      _activeCompleter = completer;
+
       await _playAudioSamples(
-        result.samples,
-        result.sampleRate,
+        audio.samples,
+        audio.sampleRate,
         completer,
         spans,
+        token: token,
       );
+
       await completer.future.timeout(
         const Duration(seconds: 30),
-        onTimeout: () {},
+        onTimeout: () {
+          if (!completer.isCompleted) completer.complete();
+        },
       );
     } catch (e) {
       debugPrint('PiperTtsService: speak failed: $e');
     } finally {
-      _speaking = false;
-      _progressController.add(const TtsProgressEvent(0, 0));
-      unawaited(AudioService.maybeInstance?.unduckAfterSpeech());
-      _doneController.add(null);
+      if (token == _speakToken) {
+        _speaking = false;
+        _activeCompleter = null;
+        _progressController.add(const TtsProgressEvent(0, 0));
+        unawaited(AudioService.maybeInstance?.unduckAfterSpeech());
+        _doneController.add(null);
+      }
     }
   }
 
@@ -205,8 +209,9 @@ class PiperTtsService implements TtsInterface {
     Float32List samples,
     int sampleRate,
     Completer<void> completer,
-    List<_WordSpan> spans,
-  ) async {
+    List<_WordSpan> spans, {
+    required int token,
+  }) async {
     try {
       final dir = await getTemporaryDirectory();
       final wavFile = File('${dir.path}/piper_output.wav');
@@ -245,12 +250,17 @@ class PiperTtsService implements TtsInterface {
       wavBytes.setRange(headerBytes.length, wavBytes.length, dataBytes);
       await wavFile.writeAsBytes(wavBytes, flush: false);
 
+      if (token != _speakToken || !_speaking) {
+        if (!completer.isCompleted) completer.complete();
+        return;
+      }
+
       final durationMs = ((samples.length / sampleRate) * 1000).round();
       final player = AudioPlayer();
       _player = player;
 
       player.onPositionChanged.listen((pos) {
-        if (!_speaking || spans.isEmpty || durationMs <= 0) return;
+        if (token != _speakToken || !_speaking || spans.isEmpty || durationMs <= 0) return;
         final progress = (pos.inMilliseconds / durationMs).clamp(0.0, 1.0);
         final wordIdx =
             (progress * spans.length).floor().clamp(0, spans.length - 1);
@@ -259,17 +269,15 @@ class PiperTtsService implements TtsInterface {
       });
 
       player.onPlayerComplete.listen((_) {
-        _speaking = false;
-        _progressController.add(const TtsProgressEvent(0, 0));
         if (!completer.isCompleted) completer.complete();
         player.dispose();
         if (_player == player) _player = null;
       });
 
       await player.play(DeviceFileSource(wavFile.path));
-      if (_speaking) {
+      if (token == _speakToken && _speaking) {
         final firstEnd = spans.isNotEmpty ? spans[0].end : 0;
-        _progressController.add(TtsProgressEvent(0, firstEnd));
+        _progressController.add(TtsProgressEvent(spans.isNotEmpty ? spans[0].start : 0, firstEnd));
       }
     } catch (e) {
       debugPrint('PiperTtsService: playback error: $e');
@@ -279,15 +287,22 @@ class PiperTtsService implements TtsInterface {
 
   @override
   Future<void> stop() async {
+    _speakToken++;
     _speaking = false;
+    final c = _activeCompleter;
+    _activeCompleter = null;
+    if (c != null && !c.isCompleted) {
+      c.complete();
+    }
     if (_player != null) {
+      final playerToStop = _player;
+      _player = null;
       try {
-        await _player?.stop();
-        await _player?.dispose();
+        await playerToStop?.stop();
+        await playerToStop?.dispose();
       } catch (e) {
         debugPrint('PiperTtsService: error stopping player: $e');
       }
-      _player = null;
     }
     _progressController.add(const TtsProgressEvent(0, 0));
     unawaited(AudioService.maybeInstance?.unduckAfterSpeech());

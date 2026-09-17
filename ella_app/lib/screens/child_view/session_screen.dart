@@ -605,15 +605,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
     if (_speaking || _replaying) {
-      await tts.stop();
-      if (mounted) {
-        setState(() {
-          _replaying = false;
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
+      _stopAllTts();
       return;
     }
     setState(() {
