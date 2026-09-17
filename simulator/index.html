@@ -3099,22 +3099,21 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
             />
 
             {/* Conversation — Level Profiles */}
-            <div className="lbl" style={{marginTop:16, marginBottom:8}}>Conversation — Level Profiles</div>
+            <div className="lbl" style={{marginTop:16, marginBottom:8, color:'#888'}}>Conversation — Level Profiles (Legacy / Unused in conversation)</div>
             {serverPrompts.level_profiles && Object.entries(serverPrompts.level_profiles).map(([lvl, txt]) => {
-              const isActive = sessionType !== 'placement' && lvl === level && !isChatEnded;
               const pkey = `profile-${lvl}`;
               return (
                 <PromptFieldCard
                   key={lvl}
                   title={`Profile · ${lvl}`}
-                  subtitle={`profile-${lvl}.md`}
+                  subtitle={`profile-${lvl}.md (Legacy)`}
                   promptKey={pkey}
                   value={(editedServerPrompts && editedServerPrompts[pkey]) || ''}
-                  isActive={isActive}
+                  isActive={false}
                   isLoggedIn={isLoggedIn}
                   globalMode={promptViewMode}
                   minHeight={90}
-                  badgeColor={isActive ? '#2e7d32' : 'var(--purple)'}
+                  badgeColor='var(--purple)'
                   onChange={val => {
                     setEditedServerPrompts(prev => {
                       const up = {...prev, [pkey]: val};
@@ -3128,11 +3127,11 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
 
             {/* Unit Framing */}
             <PromptFieldCard
-              title="Conversation — Unit Framing & Contract"
-              subtitle="conv-unit-framing.md"
+              title="Conversation — Unit Framing & Contract (Legacy / Unused)"
+              subtitle="conv-unit-framing.md (Legacy)"
               promptKey="conv-unit-framing"
               value={(editedServerPrompts && editedServerPrompts['conv-unit-framing']) || ''}
-              isActive={sessionType !== 'placement' && !isChatEnded}
+              isActive={false}
               isLoggedIn={isLoggedIn}
               globalMode={promptViewMode}
               minHeight={140}
