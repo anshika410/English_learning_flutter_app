@@ -212,6 +212,7 @@ class PiperTtsService implements TtsInterface {
     List<_WordSpan> spans, {
     required int token,
   }) async {
+    AudioPlayer? player;
     try {
       final dir = await getTemporaryDirectory();
       final wavFile = File('${dir.path}/piper_output.wav');
@@ -256,7 +257,7 @@ class PiperTtsService implements TtsInterface {
       }
 
       final durationMs = ((samples.length / sampleRate) * 1000).round();
-      final player = AudioPlayer();
+      player = AudioPlayer();
       _player = player;
 
       player.onPositionChanged.listen((pos) {
@@ -270,7 +271,7 @@ class PiperTtsService implements TtsInterface {
 
       player.onPlayerComplete.listen((_) {
         if (!completer.isCompleted) completer.complete();
-        player.dispose();
+        player?.dispose();
         if (_player == player) _player = null;
       });
 
@@ -281,6 +282,12 @@ class PiperTtsService implements TtsInterface {
       }
     } catch (e) {
       debugPrint('PiperTtsService: playback error: $e');
+      if (player != null && _player == player) {
+        try {
+          await player.dispose();
+        } catch (_) {}
+        _player = null;
+      }
       if (!completer.isCompleted) completer.complete();
     }
   }
