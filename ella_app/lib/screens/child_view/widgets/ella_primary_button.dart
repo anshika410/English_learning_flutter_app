@@ -37,6 +37,8 @@ class EllaPrimaryButton extends StatefulWidget {
   /// Optional leading glyph rendered before the label (e.g. the voice icon on
   /// the home "Let's Talk" CTA). Callers tint it to match [_labelColor].
   final Widget? leading;
+  final Widget? trailing;
+  final double trailingGap;
   final bool playTapClickSound;
   final Color? backgroundColor;
   final Color? edgeColor;
@@ -50,8 +52,10 @@ class EllaPrimaryButton extends StatefulWidget {
     this.uppercase = false,
     this.variant = EllaButtonVariant.primary,
     this.leading,
+    this.trailing,
     this.horizontalPadding = 18,
     this.leadingGap = 10,
+    this.trailingGap = 8,
     // Pill by default, per the flat-fill button spec.
     this.borderRadius = const BorderRadius.all(Radius.circular(999)),
     this.playTapClickSound = true,
@@ -142,6 +146,10 @@ class _EllaPrimaryButtonState extends State<EllaPrimaryButton> {
                       ),
                     ),
               ),
+              if (widget.trailing != null) ...[
+                SizedBox(width: widget.trailingGap),
+                widget.trailing!,
+              ],
             ],
           ),
         ),

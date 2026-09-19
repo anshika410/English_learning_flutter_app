@@ -1,41 +1,41 @@
-// First-run onboarding — Figma "Onboarding" frames (Intro + Name -> User says
-// name -> Zoe asks age -> User says age -> Zoe congrats). The post-age garden
-// reveal is owned by PlacementGardenScreen so the placement garden art has one
-// implementation.
-//
-// Shown by RootGate (app.dart) for an unplaced student who hasn't onboarded
-// yet. A chat-style conversation on the shared garden background: Zoe asks the
-// child's name and age (each prompt is spoken aloud via TTS, with a replay
-// sound button on the bubble), the child types a reply in the composer, then
-// Zoe congratulates and hands off to PlacementGardenScreen.onboardingReveal.
-//
-// The mascot mirrors the interaction state: speaking while TTS plays, thinking
-// while Zoe "processes" a reply, listening otherwise.
+// Complete Onboarding & Placement Flow matching exact Figma specification:
+// Name -> Age -> Welcome -> Q1 (Level) -> Q2 (What to Improve) -> Q3 (Introduce Yourself) -> Level Indication (Result) -> Main Home.
 
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dotted_border/dotted_border.dart';
-import '../chat_bubble.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app.dart' show placementCacheProvider;
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../core/offline_alert_popup.dart';
 import '../../../providers/onboarding_provider.dart';
+import '../../../providers/chat_provider.dart';
 import '../../../providers/connectivity_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
-import '../../../services/sounds.dart';
 import '../../../services/analytics_service.dart';
 import '../../../services/stt_tts_service.dart';
-import '../placement_garden_screen.dart';
-import '../widgets/chat_reply_composer.dart';
+import '../widgets/ella_primary_button.dart';
 import '../widgets/home_scene_background.dart';
 import '../widgets/zoe_mascot.dart';
 
-enum _Step { name, age, congrats }
+import 'widgets/placement_top_progress_bar.dart';
+import 'widgets/placement_level_radio_group.dart';
+import 'widgets/placement_voice_dock.dart';
+import 'widgets/placement_result_card.dart';
+
+enum _Step {
+  name,
+  age,
+  welcome,
+  levelQ1,
+  voiceQ2,
+  voiceQ3,
+  result,
+}
 
 class OnboardingFlow extends ConsumerStatefulWidget {
   const OnboardingFlow({super.key});
@@ -48,49 +48,53 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   _Step _step = _Step.name;
   ZoeMascotMode _mascot = ZoeMascotMode.listening;
 
-  final TextEditingController _replyCtrl = TextEditingController();
-  final FocusNode _replyFocus = FocusNode();
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _ageCtrl = TextEditingController();
 
-  /// The child's reply bubble currently on screen (exactly as typed).
-  String? _userReply;
-
-  /// When a reply is invalid, Zoe re-asks in her own bubble using this text
-  /// (overriding the step's default prompt) instead of a separate error line.
-  String? _zoeOverride;
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _ageFocusNode = FocusNode();
 
   String _name = '';
-  int _nameAttempts = 0;
   int? _age;
+  int? _selectedLevelIndex;
 
-  bool _busy = false; // guards the send button during step transitions
+  String _q2VoiceResponse = '';
+  String _q3VoiceResponse = '';
+  String? _validationError;
 
-  int _highlightStart = -1;
-  int _highlightEnd = -1;
+  bool _isListening = false;
+  bool _busy = false;
+
   bool _speaking = false;
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
-  // Captured in initState so dispose() never reads `ref` (unreliable while the
-  // element is deactivating — same pattern as GardenScreen's audio handle).
   late final TtsInterface _tts;
 
-  // ── Zoe's script (Figma copy) ───────────────────────────────────────────────
+  // ── Prompts ───────────────────────────────────────────────────────────────
 
-  static const String _introText =
-      "Hi, I'm Ella 👋\nI'll help you practise speaking English. "
-      'What should I call you?';
-  String get _ageText =>
-      'Nice to meet you, $_name! How old are you? This helps me choose practice that fits you';
-  String get _congratsText =>
-      "Great, $_name! Your garden is ready. Let's grow your first plant";
+  static const String _namePrompt =
+      "Hi, I'm Ella.\nWhat should I call you?";
+  String get _agePrompt =>
+      "Thanks, $_name.\nHow old are you?";
 
-  String get _zoeText =>
-      _zoeOverride ??
-      switch (_step) {
-        _Step.name => _introText,
-        _Step.age => _ageText,
-        _Step.congrats => _congratsText,
-      };
+  static const String _levelPrompt =
+      "How does speaking English feel for you right now?";
+
+  static const String _q2Prompt =
+      "What do you want to improve in your English?";
+  static const String _q3Prompt =
+      "Tell me something about yourself?";
+
+  String get _currentPrompt => switch (_step) {
+    _Step.name => _namePrompt,
+    _Step.age => _agePrompt,
+    _Step.welcome => "Nice to Meet You, $_name",
+    _Step.levelQ1 => _levelPrompt,
+    _Step.voiceQ2 => _q2Prompt,
+    _Step.voiceQ3 => _q3Prompt,
+    _Step.result => "$_name, I found a good place for you to start!",
+  };
 
   @override
   void initState() {
@@ -101,40 +105,21 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final activeTts = ref.read(ttsProvider);
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
-        setState(() {
-          _speaking = true;
-          _highlightStart = event.start;
-          _highlightEnd = event.end;
-        });
+        setState(() => _speaking = true);
       }
     });
     _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
+          _mascot = ZoeMascotMode.listening;
         });
       }
     });
 
-    // saveProfile persisted the name/age the moment they were collected; when
-    // they're already cached, resume straight on the first-sprout garden.
-    final cached = ref.read(onboardingProvider).valueOrNull;
-    final cachedName = cached?.name;
-    final cachedAge = cached?.age;
-    if (cachedName != null && cachedName.isNotEmpty && cachedAge != null) {
-      _name = cachedName;
-      _age = cachedAge;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _openPlacementGarden(playReveal: false);
-      });
-      return;
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _replyFocus.requestFocus();
-      _speak(_introText);
+      _speak(_namePrompt);
     });
   }
 
@@ -142,36 +127,26 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void dispose() {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
-    _replyCtrl.dispose();
-    _replyFocus.dispose();
-    // Cut Zoe off if the flow is left mid-utterance.
+    _nameCtrl.dispose();
+    _ageCtrl.dispose();
+    _nameFocusNode.dispose();
+    _ageFocusNode.dispose();
     _tts.stop().catchError((_) {});
     super.dispose();
   }
 
-  // ── TTS + mascot state ──────────────────────────────────────────────────────
+  // ── Speech Output ──────────────────────────────────────────────────────────
 
-  /// Speaks [text] aloud, driving the mascot: speaking while the utterance
-  /// plays (speak() awaits real completion), listening after. TTS failures are
-  /// non-fatal — the bubble is on screen either way.
   Future<void> _speak(String text) async {
     final tts = ref.read(ttsProvider);
-    setState(() {
-      _speaking = true;
-      _highlightStart = -1;
-      _highlightEnd = -1;
-    });
+    setState(() => _speaking = true);
     try {
       await tts.stop();
       if (!mounted) return;
       setState(() => _mascot = ZoeMascotMode.speaking);
       await tts.speak(text);
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _speaking = false;
-        });
-      }
+      if (mounted) setState(() => _speaking = false);
     }
     if (mounted) {
       setState(() {
@@ -181,233 +156,211 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     }
   }
 
-  /// Sound-button replays: while TTS is already speaking, tapping it stops
-  /// (mutes) the speech. Otherwise, it replays the prompt.
-  Future<void> _replay(String text) async {
+  Future<void> _replayCurrentPrompt() async {
     if (_speaking) {
       await _tts.stop();
       if (mounted) {
         setState(() {
           _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
           _mascot = ZoeMascotMode.listening;
         });
       }
     } else {
-      await _speak(text);
+      await _speak(_currentPrompt);
     }
   }
 
-  // ── Reply parsing ───────────────────────────────────────────────────────────
-  // The child may answer conversationally ("My name is Narendra", "I am 12
-  // years old") — the bubble shows their words verbatim, while the stored
-  // profile keeps just the name/age.
+  // ── Voice Input (STT) ──────────────────────────────────────────────────────
 
-  // A valid name is letters and spaces only, with apostrophes/hyphens allowed
-  // inside (D'Souza, Mary-Jane). Digits or other symbols make it invalid.
-  static final RegExp _nameOk = RegExp(
-    r"^[A-Za-z][A-Za-z ]*(?:[’'\-][A-Za-z]+)*$",
-  );
-
-  /// Returns (cleanedName, errorMsg). If cleanedName is null, errorMsg contains the feedback.
-  static (String?, String?) _extractName(String raw, int attemptCount) {
-    var t = raw.trim().replaceAll(RegExp(r'[.!?]+$'), '');
-    final lower = t.toLowerCase();
-    for (final prefix in ['my name is ', 'i am ', "i'm ", 'name is ']) {
-      if (lower.startsWith(prefix)) {
-        t = t.substring(prefix.length).trim();
-        break;
-      }
-    }
-
-    if (t.isEmpty) {
-      return (
-        null,
-        "Hmm, I didn't quite catch that. Can you tell me your name?",
-      );
-    }
-
-    // Check word count first to prevent accepting full sentences
-    if (t.split(RegExp(r'\s+')).length > 3) {
-      return (
-        null,
-        "That's a lot of words! Try typing just your name in one or two words.",
-      );
-    }
-
-    if (t.length > 30) {
-      return (
-        null,
-        "Oops! That looks a bit too long. Try typing just your first name!",
-      );
-    }
-
-    if (RegExp(r'[0-9]').hasMatch(t)) {
-      return (
-        null,
-        "I see some numbers in there! Names should only have letters. Let's try again.",
-      );
-    }
-
-    if (RegExp(r'[!@#\$%\^&\*\(\)_\+=\[\]\{\};:"\\|<>\/?~`]').hasMatch(t)) {
-      return (
-        null,
-        "I see some special symbols in there! Names should only have letters. Let's try again.",
-      );
-    }
-
-    if (!_nameOk.hasMatch(t)) {
-      if (attemptCount == 0) {
-        return (
-          null,
-          "Hmm, I didn't quite catch that. Can you tell me just your first name?",
-        );
-      } else if (attemptCount == 1) {
-        return (null, "Oops! Make sure to only use letters for your name.");
-      } else {
-        return (
-          null,
-          "I can only read names made of letters! Let's try one more time.",
-        );
-      }
-    }
-
-    // Extract just the first name
-    t = t.split(RegExp(r'\s+')).first;
-    return (t[0].toUpperCase() + t.substring(1), null);
-  }
-
-  /// Returns the age, or null when the reply isn't a plain number in a sane
-  /// range. A trailing "years"/"years old" is tolerated; any other letter or
-  /// symbol makes it invalid (so Zoe can re-ask).
-  static int? _extractAge(String raw) {
-    var t = raw.trim().replaceAll(RegExp(r'[.!?]+$'), '');
-    // Tolerate a conversational wrapper: "I am 12 years old" → "12".
-    final lower = t.toLowerCase();
-    for (final prefix in ['i am ', "i'm ", 'my age is ', 'age is ']) {
-      if (lower.startsWith(prefix)) {
-        t = t.substring(prefix.length).trim();
-        break;
-      }
-    }
-    t = t.replaceAll(RegExp(r'\s*years?\s*old\s*$', caseSensitive: false), '');
-    t = t.replaceAll(RegExp(r'\s*years?\s*$', caseSensitive: false), '');
-    if (!RegExp(r'^\d{1,3}$').hasMatch(t)) return null;
-    final age = int.parse(t);
-    return (age >= 1 && age <= 120) ? age : null;
-  }
-
-  // ── Step transitions ────────────────────────────────────────────────────────
-
-  Future<void> _onSend() async {
+  Future<void> _toggleMic() async {
     final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
     if (!isOnline) {
-      ref.read(audioProvider).playSfx(Sounds.error);
       OfflineAlertPopup.show(context);
       return;
     }
 
-    if (_busy) return;
-    final typed = _replyCtrl.text.trim();
-    if (typed.isEmpty) return;
-
-    if (_step == _Step.name) {
-      final (name, errorMsg) = _extractName(typed, _nameAttempts);
-      if (name == null) {
-        _nameAttempts++;
-        // Re-ask as Zoe's next bubble (child's reply shown, Zoe asks again).
-        await _reask(
-          typed,
-          errorMsg ??
-              "Hmm, I don't think that was your name. Can you tell me your name again?",
-        );
-        return;
-      }
-      _name = name;
-      await _advance(typed, next: _Step.age, prompt: _ageText);
-      if (mounted) _replyFocus.requestFocus();
-    } else if (_step == _Step.age) {
-      final age = _extractAge(typed);
-      if (age == null) {
-        await _reask(
-          typed,
-          'Enter your age as a number, like 10.',
-        );
-        return;
-      }
-      _age = age;
-      _replyFocus.unfocus();
-      // Persist name/age right away (done stays false) so closing the app on
-      // the upcoming garden screen resumes there instead of re-asking.
-      unawaited(
-        ref
-            .read(onboardingProvider.notifier)
-            .saveProfile(name: _name, age: age),
+    final stt = ref.read(sttProvider);
+    if (_isListening) {
+      await stt.stopListening();
+      setState(() => _isListening = false);
+      _advanceVoiceQuestion();
+    } else {
+      await _tts.stop();
+      setState(() => _isListening = true);
+      await stt.initialize();
+      await stt.startListening(
+        onPartial: (partial) {
+          if (mounted) {
+            setState(() {
+              if (_step == _Step.voiceQ2) _q2VoiceResponse = partial;
+              if (_step == _Step.voiceQ3) _q3VoiceResponse = partial;
+            });
+          }
+        },
+        onFinal: (finalText) {
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+              if (_step == _Step.voiceQ2) _q2VoiceResponse = finalText;
+              if (_step == _Step.voiceQ3) _q3VoiceResponse = finalText;
+            });
+            _advanceVoiceQuestion();
+          }
+        },
       );
-      await _advance(typed, next: _Step.congrats, prompt: _congratsText);
-      if (mounted) _openPlacementGarden();
     }
   }
 
-  /// Shows the child's reply, lets Zoe "think", then swaps to [next] and
-  /// speaks [prompt] (awaiting utterance completion).
-  Future<void> _advance(
-    String reply, {
-    required _Step next,
-    required String prompt,
-  }) async {
-    setState(() {
-      _busy = true;
-      _userReply = reply;
-      _mascot = ZoeMascotMode.thinking;
-      _replyCtrl.clear();
-    });
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() {
-      _step = next;
-      _zoeOverride = null; // back to the step's default prompt
-      _userReply = null;
-      _busy = false;
-    });
-    await _speak(prompt);
+  void _advanceVoiceQuestion() {
+    if (_step == _Step.voiceQ2) {
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted && _step == _Step.voiceQ2) {
+          setState(() => _step = _Step.voiceQ3);
+          _speak(_q3Prompt);
+        }
+      });
+    } else if (_step == _Step.voiceQ3) {
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted && _step == _Step.voiceQ3) {
+          _showResultScreen();
+        }
+      });
+    }
   }
 
-  /// Invalid reply: show the child's words as a bubble, let Zoe "think", then
-  /// have her re-ask the same question ([prompt]) in her own bubble — no
-  /// separate error line. Stays on the current step.
-  Future<void> _reask(String reply, String prompt) async {
-    setState(() {
-      _busy = true;
-      _userReply = reply;
-      _mascot = ZoeMascotMode.thinking;
-      _replyCtrl.clear();
-    });
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() {
-      _zoeOverride = prompt;
-      _userReply = null;
-      _busy = false;
-    });
-    await _speak(prompt);
-    if (mounted) _replyFocus.requestFocus();
+  // ── Step Navigation & Back Button ──────────────────────────────────────────
+
+  void _onBack() {
+    _tts.stop().catchError((_) {});
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _validationError = null);
+
+    switch (_step) {
+      case _Step.name:
+        Navigator.of(context).maybePop();
+      case _Step.age:
+        setState(() => _step = _Step.name);
+        _speak(_namePrompt);
+      case _Step.welcome:
+        setState(() => _step = _Step.age);
+        _speak(_agePrompt);
+        _focusAgeInput();
+      case _Step.levelQ1:
+        setState(() => _step = _Step.welcome);
+        _speak("Nice to Meet You, $_name");
+      case _Step.voiceQ2:
+        setState(() => _step = _Step.levelQ1);
+        _speak(_levelPrompt);
+      case _Step.voiceQ3:
+        setState(() => _step = _Step.voiceQ2);
+        _speak(_q2Prompt);
+      case _Step.result:
+        setState(() => _step = _Step.voiceQ3);
+        _speak(_q3Prompt);
+    }
   }
 
-  void _openPlacementGarden({bool playReveal = true}) {
-    final age = _age;
-    if (age == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PlacementGardenScreen(
-          mode: PlacementGardenMode.onboardingReveal,
-          onboardingName: _name,
-          onboardingAge: age,
-          playReveal: playReveal,
-        ),
-      ),
-    );
+  void _focusAgeInput() {
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (mounted && _step == _Step.age) {
+        FocusScope.of(context).requestFocus(_ageFocusNode);
+      }
+    });
+  }
+
+  void _onNameSubmitted() {
+    final raw = _nameCtrl.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _validationError = "Please enter your name");
+      return;
+    }
+
+    var cleaned = raw.replaceAll(RegExp(r'[^A-Za-z\s\-\.]'), '').trim();
+    if (cleaned.isEmpty) cleaned = raw;
+    if (RegExp(r'[0-9]').hasMatch(cleaned)) {
+      setState(() => _validationError = "Names should only contain letters");
+      return;
+    }
+
+    cleaned = cleaned.split(RegExp(r'\s+')).first;
+    cleaned = cleaned[0].toUpperCase() + cleaned.substring(1);
+
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    setState(() {
+      _name = cleaned;
+      _validationError = null;
+      _step = _Step.age;
+    });
+    _speak(_agePrompt);
+    _focusAgeInput();
+  }
+
+  void _onAgeSubmitted() {
+    final raw = _ageCtrl.text.trim();
+    final parsedAge = int.tryParse(raw);
+    if (parsedAge == null || parsedAge < 1 || parsedAge > 120) {
+      setState(() => _validationError = "Please enter a valid age (e.g. 10)");
+      return;
+    }
+
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    setState(() {
+      _age = parsedAge;
+      _validationError = null;
+      _step = _Step.welcome;
+    });
+
+    ref.read(onboardingProvider.notifier).saveProfile(name: _name, age: parsedAge);
+    _speak("Nice to Meet You, $_name");
+  }
+
+  void _onWelcomeContinue() {
+    setState(() => _step = _Step.levelQ1);
+    _speak(_levelPrompt);
+  }
+
+  void _onLevelQ1Continue() {
+    if (_selectedLevelIndex == null) return;
+    setState(() => _step = _Step.voiceQ2);
+    _speak(_q2Prompt);
+  }
+
+  void _showResultScreen() {
+    setState(() {
+      _step = _Step.result;
+    });
+    _speak("$_name, I found a good place for you to start!");
+  }
+
+  Future<void> _onStartLearningEnglish() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ella_api_placement_done', true);
+
+    final ageVal = _age ?? 10;
+    await ref.read(onboardingProvider.notifier).complete(name: _name, age: ageVal);
+
+    ref.invalidate(placementCacheProvider);
+    await ref.read(chatProvider.notifier).refreshAfterPlacement();
+
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+  }
+
+  // Hardcoded level title for testing
+  String _getEvaluatedLevelTitle() {
+    final idx = _selectedLevelIndex ?? 2;
+    return switch (idx) {
+      0 => 'Lv. 1 Starting Out',
+      1 => 'Lv. 2 Simple Phrases',
+      2 => 'Lv. 3 Everyday Talk',
+      3 => 'Lv. 4 Expressing Ideas',
+      _ => 'Lv. 5 Fluent Conversations',
+    };
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -415,36 +368,331 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.of(context).disableAnimations;
+    final size = MediaQuery.of(context).size;
+
+    // Mascot sizes per step
+    final mascotW = switch (_step) {
+      _Step.welcome => (size.width * 0.36).clamp(100.0, 120.0),
+      _Step.result => 110.0,
+      _ => (size.width * 0.28).clamp(75.0, 92.0),
+    };
+
+    final double? progress = switch (_step) {
+      _Step.levelQ1 => 1 / 3,
+      _Step.voiceQ2 => 2 / 3,
+      _Step.voiceQ3 => 1.0,
+      _ => null,
+    };
+
     return HomeSceneBackground(
       child: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
-          transitionBuilder: (child, anim) =>
-              FadeTransition(opacity: anim, child: child),
-          child: _ChatStep(
-            // Use step-specific key so widget rebuilds when step changes
-            key: ValueKey('chat-$_step'),
-            zoeText: _zoeText,
-            userReply: _userReply,
-            mascotMode: _mascot,
-            reducedMotion: reducedMotion,
-            showComposer: _step != _Step.congrats,
-            controller: _replyCtrl,
-            focusNode: _replyFocus,
-            sendEnabled: !_busy,
-            onSend: _onSend,
-            onReplay: () => _replay(_zoeText),
-            keyboardType: _step == _Step.age
-                ? TextInputType.number
-                : TextInputType.text,
-            // Name allows up to 30 chars; age is capped at two digits (the
-            // number keyboard already restricts input to digits).
-            maxLength: _step == _Step.name
-                ? 30
-                : (_step == _Step.age ? 2 : null),
-            highlightStart: _highlightStart,
-            highlightEnd: _highlightEnd,
-            speaking: _speaking,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Column(
+            children: [
+              // Header Row: Top-left Circular Back Button ABOVE Progress Bar (Strictly Left Aligned)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _CircleBackButton(onTap: _onBack),
+                    if (progress != null) ...[
+                      const SizedBox(height: 10),
+                      PlacementTopProgressBar(progress: progress),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Main Content
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Vertical spacing to position content between top & center
+                      const SizedBox(height: 24),
+
+                      if (_step != _Step.result) ...[
+                        ZoeMascot(
+                          mode: _mascot,
+                          size: mascotW,
+                          reducedMotion: reducedMotion,
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+
+                      // Step 1: Name Input Screen (23px heading font size)
+                      if (_step == _Step.name) ...[
+                        _FigmaHeadingPrompt(
+                          text: _namePrompt,
+                          onReplay: _replayCurrentPrompt,
+                          headingFontSize: 23,
+                        ),
+                        const SizedBox(height: 24),
+                        _TextInputPill(
+                          key: const ValueKey('name_input_pill'),
+                          controller: _nameCtrl,
+                          focusNode: _nameFocusNode,
+                          hintText: 'Type Your Name...',
+                          keyboardType: TextInputType.name,
+                          maxLength: 30,
+                          onChanged: (_) {
+                            if (_validationError != null) {
+                              setState(() => _validationError = null);
+                            }
+                          },
+                          onSubmitted: (_) => _onNameSubmitted(),
+                        ),
+                        if (_validationError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            _validationError!,
+                            style: EllaFonts.body(
+                              const TextStyle(
+                                color: EllaColors.error,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+
+                      // Step 2: Age Input Screen (23px heading font size, strictly numeric keyboard)
+                      if (_step == _Step.age) ...[
+                        _FigmaHeadingPrompt(
+                          text: _agePrompt,
+                          onReplay: _replayCurrentPrompt,
+                          headingFontSize: 23,
+                        ),
+                        const SizedBox(height: 24),
+                        _TextInputPill(
+                          key: const ValueKey('age_input_pill'),
+                          controller: _ageCtrl,
+                          focusNode: _ageFocusNode,
+                          hintText: 'Type Your Age...',
+                          keyboardType: const TextInputType.numberWithOptions(
+                            signed: false,
+                            decimal: false,
+                          ),
+                          autofocus: true,
+                          maxLength: 3,
+                          onChanged: (_) {
+                            if (_validationError != null) {
+                              setState(() => _validationError = null);
+                            }
+                          },
+                          onSubmitted: (_) => _onAgeSubmitted(),
+                        ),
+                        if (_validationError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            _validationError!,
+                            style: EllaFonts.body(
+                              const TextStyle(
+                                color: EllaColors.error,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+
+                      // Step 3: Welcome Screen (Centered between top and center, spaced text)
+                      if (_step == _Step.welcome) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          "Nice to Meet You, $_name",
+                          textAlign: TextAlign.center,
+                          style: EllaFonts.bricolage(
+                            const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5,
+                              color: EllaColors.ink,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            "I will ask you a few questions to get started",
+                            textAlign: TextAlign.center,
+                            style: EllaFonts.body(
+                              const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                height: 1.6,
+                                letterSpacing: 0,
+                                color: EllaColors.ink,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      // Step 4: Placement Q1 (English Level Selection)
+                      if (_step == _Step.levelQ1) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _FigmaHeadingPrompt(
+                            text: _levelPrompt,
+                            onReplay: _replayCurrentPrompt,
+                            headingFontSize: 20,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        PlacementLevelRadioGroup(
+                          selectedIndex: _selectedLevelIndex,
+                          onSelect: (idx) {
+                            setState(() => _selectedLevelIndex = idx);
+                          },
+                        ),
+                      ],
+
+                      // Step 5: Placement Q2 (What do you want to improve in your English? - shifted slightly down)
+                      if (_step == _Step.voiceQ2) ...[
+                        const SizedBox(height: 8),
+                        const _VoiceSpeechBubbleCard(text: _q2Prompt),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'A short answer is okay. Say more if you want',
+                            textAlign: TextAlign.center,
+                            style: EllaFonts.body(
+                              const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                height: 1.5,
+                                color: EllaColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _HearAgainTextButton(onTap: _replayCurrentPrompt),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Step 6: Placement Q3 (Tell me something about yourself? - shifted slightly down)
+                      if (_step == _Step.voiceQ3) ...[
+                        const SizedBox(height: 8),
+                        const _VoiceSpeechBubbleCard(text: _q3Prompt),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'Speak as long as you like.',
+                            textAlign: TextAlign.center,
+                            style: EllaFonts.body(
+                              const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                height: 1.5,
+                                color: EllaColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _HearAgainTextButton(onTap: _replayCurrentPrompt),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Step 7: Placement Level Indication Result Screen
+                      if (_step == _Step.result) ...[
+                        PlacementResultCard(
+                          name: _name,
+                          levelTitle: _getEvaluatedLevelTitle(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Bottom CTA Buttons (Fixed at bottom of screen with caret right icon & spacing)
+              if (_step == _Step.name)
+                EllaPrimaryButton(
+                  label: 'Continue',
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: EllaColors.onPrimary,
+                  ),
+                  height: 52,
+                  onTap: _onNameSubmitted,
+                ),
+
+              if (_step == _Step.age)
+                EllaPrimaryButton(
+                  label: 'Continue',
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: EllaColors.onPrimary,
+                  ),
+                  height: 52,
+                  onTap: _onAgeSubmitted,
+                ),
+
+              if (_step == _Step.welcome)
+                EllaPrimaryButton(
+                  label: 'Get Started',
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: EllaColors.onPrimary,
+                  ),
+                  height: 52,
+                  onTap: _onWelcomeContinue,
+                ),
+
+              if (_step == _Step.levelQ1)
+                EllaPrimaryButton(
+                  label: 'Continue',
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: EllaColors.onPrimary,
+                  ),
+                  height: 52,
+                  onTap: _selectedLevelIndex != null ? _onLevelQ1Continue : null,
+                ),
+
+              if (_step == _Step.result)
+                EllaPrimaryButton(
+                  label: 'Start Learning English',
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: EllaColors.onPrimary,
+                  ),
+                  height: 52,
+                  onTap: _onStartLearningEnglish,
+                ),
+
+              // Q2 & Q3 use Voice Dock ONLY — NO Continue button!
+              if (_step == _Step.voiceQ2 || _step == _Step.voiceQ3) ...[
+                PlacementVoiceDock(
+                  isListening: _isListening,
+                  hasResponse: _step == _Step.voiceQ2
+                      ? _q2VoiceResponse.isNotEmpty
+                      : _q3VoiceResponse.isNotEmpty,
+                  onMicTap: _toggleMic,
+                ),
+                const SizedBox(height: 6),
+              ],
+            ],
           ),
         ),
       ),
@@ -452,257 +700,229 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 }
 
-// ── Chat step (name / age / congrats) ─────────────────────────────────────────
+// ── Top-Left Circular Back Button Widget ──────────────────────────────────────
 
-class _ChatStep extends StatelessWidget {
-  final String zoeText;
-  final String? userReply;
-  final ZoeMascotMode mascotMode;
-  final bool reducedMotion;
-  final bool showComposer;
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final bool sendEnabled;
-  final VoidCallback onSend;
+class _CircleBackButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CircleBackButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: withTapClick(onTap),
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F6EE),
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFF185E35), width: 2.79),
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.arrow_back_rounded,
+            size: 14,
+            color: Color(0xFF185E35),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Figma Voice Question Speech Bubble Box (Q2 & Q3) ─────────────────────────
+
+class _VoiceSpeechBubbleCard extends StatelessWidget {
+  final String text;
+
+  const _VoiceSpeechBubbleCard({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+      decoration: ellaSmoothDecoration(
+        color: EllaColors.surface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(4),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(18),
+        ),
+        side: const BorderSide(color: EllaColors.info, width: 2.5),
+        shadows: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            offset: const Offset(0, 3),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.left,
+        style: EllaFonts.bricolage(
+          const TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
+            height: 1.4,
+            color: EllaColors.ink,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Figma Heading Prompt & Hear Again Button ────────────────────────────────
+
+class _FigmaHeadingPrompt extends StatelessWidget {
+  final String text;
   final VoidCallback onReplay;
-  final TextInputType keyboardType;
-  final int? maxLength;
-  final int highlightStart;
-  final int highlightEnd;
-  final bool speaking;
+  final double headingFontSize;
 
-  const _ChatStep({
-    super.key,
-    required this.zoeText,
-    required this.userReply,
-    required this.mascotMode,
-    required this.reducedMotion,
-    required this.showComposer,
-    required this.controller,
-    required this.focusNode,
-    required this.sendEnabled,
-    required this.onSend,
+  const _FigmaHeadingPrompt({
+    required this.text,
     required this.onReplay,
-    this.keyboardType = TextInputType.text,
-    this.maxLength,
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
-    this.speaking = false,
+    this.headingFontSize = 23,
   });
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final mascotW = (size.width * 0.35).clamp(128.0, 168.0);
-    // Sky band above Zoe so she sits ~9% down the screen, matching Figma.
-    final topGap = (size.height * 0.06).clamp(32.0, 72.0);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-      child: Column(
+    final headingStyle = EllaFonts.bricolage(
+      TextStyle(
+        fontFamily: 'Amulya',
+        fontSize: headingFontSize,
+        fontWeight: FontWeight.w700,
+        height: 1.5,
+        letterSpacing: 0.001,
+        color: EllaColors.ink,
+      ),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: headingStyle,
+        ),
+        const SizedBox(height: 14),
+        _HearAgainTextButton(onTap: onReplay),
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+}
+
+class _HearAgainTextButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _HearAgainTextButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: withTapClick(onTap),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(height: topGap),
-                  ZoeMascot(
-                    mode: mascotMode,
-                    size: mascotW,
-                    reducedMotion: reducedMotion,
-                  ),
-                  const SizedBox(height: 16),
-                  // Cross-fade when Zoe's line changes (name → age → congrats).
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 450),
-                    child: _ZoeBubble(
-                      key: ValueKey(zoeText),
-                      text: zoeText,
-                      onReplay: onReplay,
-                      highlightStart: highlightStart,
-                      highlightEnd: highlightEnd,
-                      speaking: speaking,
-                    ),
-                  ),
-                  if (userReply != null) ...[
-                    const SizedBox(height: 14),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: _UserBubble(text: userReply!),
-                    ),
-                  ],
-                ],
+          const Icon(
+            Icons.volume_up_outlined,
+            size: 16,
+            color: EllaColors.textSecondary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Hear Again',
+            style: EllaFonts.body(
+              const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+                color: EllaColors.textSecondary,
               ),
             ),
           ),
-          if (showComposer)
-            _ReplyComposer(
-              controller: controller,
-              focusNode: focusNode,
-              enabled: sendEnabled,
-              onSend: onSend,
-              keyboardType: keyboardType,
-              maxLength: maxLength,
-            ),
         ],
       ),
     );
   }
 }
 
-// Zoe's bubble — same visual language as the placement/conversation _ZoeBubble
-// (surface fill, info border 2.5, squared top-left tail, bodySemibold text),
-// plus the berry sound button hanging off the top-right corner (replays the
-// prompt aloud), per the Figma name/age frames.
-class _ZoeBubble extends StatelessWidget {
-  final String text;
-  final VoidCallback onReplay;
-  final int highlightStart;
-  final int highlightEnd;
-  final bool speaking;
+// ── Text Input Pill Widget (Name & Age Input) ─────────────────────────────────
 
-  const _ZoeBubble({
+class _TextInputPill extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final String hintText;
+  final TextInputType keyboardType;
+  final bool autofocus;
+  final int? maxLength;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+
+  const _TextInputPill({
     super.key,
-    required this.text,
-    required this.onReplay,
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
-    this.speaking = false,
+    required this.controller,
+    this.focusNode,
+    required this.hintText,
+    this.keyboardType = TextInputType.text,
+    this.autofocus = false,
+    this.maxLength,
+    this.onChanged,
+    this.onSubmitted,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(18, 16, 24, 16),
-          decoration: ellaSmoothDecoration(
-            color: EllaColors.surface,
-            // Squared top-left "tail" pointing at Zoe; blue info border —
-            // identical to the conversation screen's Zoe bubble.
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(4),
-              topRight: Radius.circular(18),
-              bottomLeft: Radius.circular(18),
-              bottomRight: Radius.circular(18),
-            ),
-            side: const BorderSide(color: EllaColors.info, width: 2.5),
-            shadows: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                offset: const Offset(0, 4),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: TypewriterText(
-            text: text,
-            style: EllaTextStyles.bodySemibold,
-            highlightStart: highlightStart,
-            highlightEnd: highlightEnd,
-            animate: false,
-          ),
-        ),
-        Positioned(
-          top: -14,
-          right: -6,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: withTapClick(onReplay),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: speaking ? EllaColors.berryDark : EllaColors.berryMain,
-                shape: BoxShape.circle,
-                border: Border.all(color: EllaColors.berryDeep, width: 2),
-              ),
-              child: Icon(
-                speaking ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                size: 18,
-                color: EllaColors.onPrimary,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// The child's reply, echoed verbatim — same visual language as the
-// conversation screen's _StudentBubble (pale pink fill, berryDark border 2.5,
-// squared bottom-right tail, bodySemibold text).
-class _UserBubble extends StatelessWidget {
-  final String text;
-  const _UserBubble({required this.text});
-
-  // Student bubble fill from speaking.svg (paler than berryLight) — matches
-  // conversation_view.dart's _studentFill.
-  static const Color _fill = Color(0xFFFFF2F7);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.72,
-      ),
-      child: DottedBorder(
-        color: const Color(0xFFE91E63),
-        strokeWidth: 2.5,
-        dashPattern: const [8, 4],
-        borderType: BorderType.RRect,
-        radius: const Radius.circular(18),
-        padding: const EdgeInsets.all(2),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: BoxDecoration(
-            color: _fill,
-            borderRadius: BorderRadius.circular(18),
+      decoration: ellaSmoothDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFD4E5DB), width: 1.8),
+        shadows: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            offset: const Offset(0, 3),
+            blurRadius: 6,
           ),
-          child: SpokenTextFlow(
-            text: text,
-            style: EllaTextStyles.bodySemibold.copyWith(
-              color: const Color(0xFF880E4F),
-            ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: keyboardType,
+        autofocus: autofocus,
+        maxLength: maxLength,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        style: EllaFonts.body(
+          const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            color: EllaColors.ink,
           ),
         ),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: EllaFonts.body(
+            TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: EllaColors.textSecondary.withValues(alpha: 0.6),
+            ),
+          ),
+          border: InputBorder.none,
+          counterText: '',
+        ),
       ),
-    );
-  }
-}
-
-// "Type your reply…" composer — thin wrapper over the shared [ChatReplyComposer]
-// (Figma node 441:26724) so the name/age step matches the conversation dock.
-class _ReplyComposer extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final bool enabled;
-  final VoidCallback onSend;
-  final TextInputType keyboardType;
-  final int? maxLength;
-
-  const _ReplyComposer({
-    required this.controller,
-    required this.focusNode,
-    required this.enabled,
-    required this.onSend,
-    this.keyboardType = TextInputType.text,
-    this.maxLength,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ChatReplyComposer(
-      controller: controller,
-      focusNode: focusNode,
-      enabled: enabled,
-      onSend: onSend,
-      keyboardType: keyboardType,
-      maxLength: maxLength,
     );
   }
 }
