@@ -16,35 +16,40 @@ class PlacementResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final mascotSize = (size.height * 0.14).clamp(90.0, 115.0);
+    final verticalGap = (size.height * 0.02).clamp(12.0, 20.0);
+    final cardPadding = (size.height * 0.022).clamp(14.0, 22.0);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(height: 8),
-        const ZoeMascot(
+        SizedBox(height: (size.height * 0.01).clamp(4.0, 10.0)),
+        ZoeMascot(
           mode: ZoeMascotMode.listening,
-          size: 110,
+          size: mascotSize,
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: verticalGap),
 
         // "[Name], I found a good place for you to start!"
         Text(
           '$name, I found a good place\nfor you to start!',
           textAlign: TextAlign.center,
           style: EllaFonts.bricolage(
-            const TextStyle(
-              fontSize: 20,
+            TextStyle(
+              fontSize: (size.width * 0.052).clamp(18.0, 20.0),
               fontWeight: FontWeight.w700,
               height: 1.3,
               color: EllaColors.ink,
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: verticalGap),
 
         // Starting level card matching Figma
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 18),
+          padding: EdgeInsets.symmetric(vertical: cardPadding, horizontal: 18),
           decoration: ellaSmoothDecoration(
             color: EllaColors.surface,
             borderRadius: BorderRadius.circular(18),

@@ -24,11 +24,14 @@ class PlacementLevelRadioGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
+    final cardGap = (screenH * 0.008).clamp(5.0, 8.0);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (int i = 0; i < options.length; i++) ...[
-          if (i > 0) const SizedBox(height: 8),
+          if (i > 0) SizedBox(height: cardGap),
           _OptionCard(
             text: options[i],
             isSelected: selectedIndex == i,
@@ -56,6 +59,9 @@ class _OptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
+    final vertPadding = (screenH * 0.014).clamp(9.0, 13.0);
+
     // Selected state matching Figma: blue border (EllaColors.info #5898E0), white background
     final borderColor = isSelected ? EllaColors.info : const Color(0xFFE0EFE7);
     final borderWidth = isSelected ? 2.5 : 1.2;
@@ -64,7 +70,7 @@ class _OptionCard extends StatelessWidget {
       TextStyle(
         fontSize: 16,
         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-        height: 1.5,
+        height: 1.4,
         letterSpacing: 0,
         color: EllaColors.ink,
       ),
@@ -75,7 +81,7 @@ class _OptionCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: vertPadding),
         decoration: ellaSmoothDecoration(
           color: EllaColors.surface,
           borderRadius: BorderRadius.circular(14),

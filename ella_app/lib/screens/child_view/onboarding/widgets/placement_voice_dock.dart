@@ -9,18 +9,20 @@ class PlacementVoiceDock extends StatelessWidget {
   final bool isListening;
   final bool hasResponse;
   final VoidCallback onMicTap;
+  final double? micSize;
 
   const PlacementVoiceDock({
     super.key,
     required this.isListening,
     required this.hasResponse,
     required this.onMicTap,
+    this.micSize,
   });
-
-  static const double _micSize = 90;
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
+    final effectiveMicSize = micSize ?? (screenH * 0.11).clamp(72.0, 90.0);
     final fill = isListening ? EllaColors.berryDark : EllaColors.berryMain;
     final edge = EllaColors.berryDeep;
 
@@ -30,7 +32,7 @@ class PlacementVoiceDock extends StatelessWidget {
         // Waveform indicator when listening
         if (isListening) ...[
           const _WaveformIndicator(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
         ],
 
         // Circular mic button (conversation session style)
@@ -41,8 +43,8 @@ class PlacementVoiceDock extends StatelessWidget {
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: _micSize,
-            height: _micSize,
+            width: effectiveMicSize,
+            height: effectiveMicSize,
             decoration: BoxDecoration(
               color: fill,
               shape: BoxShape.circle,
@@ -59,8 +61,8 @@ class PlacementVoiceDock extends StatelessWidget {
               child: isListening
                   ? SvgPicture.asset(
                       'assets/send-button.svg',
-                      width: _micSize * 0.44,
-                      height: _micSize * 0.44,
+                      width: effectiveMicSize * 0.44,
+                      height: effectiveMicSize * 0.44,
                       colorFilter: const ColorFilter.mode(
                         EllaColors.onPrimary,
                         BlendMode.srcIn,
@@ -68,7 +70,7 @@ class PlacementVoiceDock extends StatelessWidget {
                     )
                   : Icon(
                       Icons.mic_rounded,
-                      size: _micSize * 0.44,
+                      size: effectiveMicSize * 0.44,
                       color: EllaColors.onPrimary,
                     ),
             ),

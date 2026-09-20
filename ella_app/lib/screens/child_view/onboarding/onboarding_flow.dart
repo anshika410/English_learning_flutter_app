@@ -370,11 +370,20 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final reducedMotion = MediaQuery.of(context).disableAnimations;
     final size = MediaQuery.of(context).size;
 
-    // Mascot sizes per step
+    // Responsive horizontal padding (16px to 24px)
+    final outerHPad = (size.width * 0.05).clamp(16.0, 24.0);
+
+    // Responsive vertical gaps based on screen height
+    final topSpace = (size.height * 0.024).clamp(12.0, 24.0);
+    final spaceAfterMascot = (size.height * 0.02).clamp(10.0, 18.0);
+    final spaceAfterPrompt = (size.height * 0.024).clamp(12.0, 24.0);
+    final subtitlePadding = (size.width * 0.06).clamp(16.0, 28.0);
+
+    // Responsive mascot size scaling cleanly across height & width
     final mascotW = switch (_step) {
-      _Step.welcome => (size.width * 0.36).clamp(100.0, 120.0),
-      _Step.result => 110.0,
-      _ => (size.width * 0.28).clamp(75.0, 92.0),
+      _Step.welcome => (size.height * 0.16).clamp(95.0, 120.0),
+      _Step.result => (size.height * 0.14).clamp(90.0, 110.0),
+      _ => (size.height * 0.12).clamp(70.0, 92.0),
     };
 
     final double? progress = switch (_step) {
@@ -386,313 +395,318 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
     return HomeSceneBackground(
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Column(
-            children: [
-              // Header Row: Top-left Circular Back Button ABOVE Progress Bar (Strictly Left Aligned)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _CircleBackButton(onTap: _onBack),
-                    if (progress != null) ...[
-                      const SizedBox(height: 10),
-                      PlacementTopProgressBar(progress: progress),
-                    ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(outerHPad, 8, outerHPad, 16),
+              child: Column(
+                children: [
+                  // Header Row: Top-left Circular Back Button ABOVE Progress Bar (Strictly Left Aligned)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _CircleBackButton(onTap: _onBack),
+                        if (progress != null) ...[
+                          const SizedBox(height: 10),
+                          PlacementTopProgressBar(progress: progress),
+                        ],
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: (size.height * 0.012).clamp(6.0, 12.0)),
+
+                  // Main Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Dynamic top spacing
+                          SizedBox(height: topSpace),
+
+                          if (_step != _Step.result) ...[
+                            ZoeMascot(
+                              mode: _mascot,
+                              size: mascotW,
+                              reducedMotion: reducedMotion,
+                            ),
+                            SizedBox(height: spaceAfterMascot),
+                          ],
+
+                          // Step 1: Name Input Screen (23px heading font size)
+                          if (_step == _Step.name) ...[
+                            _FigmaHeadingPrompt(
+                              text: _namePrompt,
+                              onReplay: _replayCurrentPrompt,
+                              headingFontSize: 23,
+                            ),
+                            SizedBox(height: spaceAfterPrompt),
+                            _TextInputPill(
+                              key: const ValueKey('name_input_pill'),
+                              controller: _nameCtrl,
+                              focusNode: _nameFocusNode,
+                              hintText: 'Type Your Name...',
+                              keyboardType: TextInputType.name,
+                              maxLength: 30,
+                              onChanged: (_) {
+                                if (_validationError != null) {
+                                  setState(() => _validationError = null);
+                                }
+                              },
+                              onSubmitted: (_) => _onNameSubmitted(),
+                            ),
+                            if (_validationError != null) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                _validationError!,
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    color: EllaColors.error,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+
+                          // Step 2: Age Input Screen (23px heading font size, strictly numeric keyboard)
+                          if (_step == _Step.age) ...[
+                            _FigmaHeadingPrompt(
+                              text: _agePrompt,
+                              onReplay: _replayCurrentPrompt,
+                              headingFontSize: 23,
+                            ),
+                            SizedBox(height: spaceAfterPrompt),
+                            _TextInputPill(
+                              key: const ValueKey('age_input_pill'),
+                              controller: _ageCtrl,
+                              focusNode: _ageFocusNode,
+                              hintText: 'Type Your Age...',
+                              keyboardType: const TextInputType.numberWithOptions(
+                                signed: false,
+                                decimal: false,
+                              ),
+                              autofocus: true,
+                              maxLength: 3,
+                              onChanged: (_) {
+                                if (_validationError != null) {
+                                  setState(() => _validationError = null);
+                                }
+                              },
+                              onSubmitted: (_) => _onAgeSubmitted(),
+                            ),
+                            if (_validationError != null) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                _validationError!,
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    color: EllaColors.error,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+
+                          // Step 3: Welcome Screen (Centered between top and center, spaced text)
+                          if (_step == _Step.welcome) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              "Nice to Meet You, $_name",
+                              textAlign: TextAlign.center,
+                              style: EllaFonts.bricolage(
+                                TextStyle(
+                                  fontSize: (size.width * 0.058).clamp(20.0, 24.0),
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.5,
+                                  color: EllaColors.ink,
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: (size.height * 0.022).clamp(14.0, 20.0)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
+                              child: Text(
+                                "I will ask you a few questions to get started",
+                                textAlign: TextAlign.center,
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.6,
+                                    letterSpacing: 0,
+                                    color: EllaColors.ink,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          // Step 4: Placement Q1 (English Level Selection)
+                          if (_step == _Step.levelQ1) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: _FigmaHeadingPrompt(
+                                text: _levelPrompt,
+                                onReplay: _replayCurrentPrompt,
+                                headingFontSize: 20,
+                              ),
+                            ),
+                            SizedBox(height: (size.height * 0.02).clamp(12.0, 20.0)),
+                            PlacementLevelRadioGroup(
+                              selectedIndex: _selectedLevelIndex,
+                              onSelect: (idx) {
+                                setState(() => _selectedLevelIndex = idx);
+                              },
+                            ),
+                          ],
+
+                          // Step 5: Placement Q2 (What do you want to improve in your English?)
+                          if (_step == _Step.voiceQ2) ...[
+                            const SizedBox(height: 6),
+                            const _VoiceSpeechBubbleCard(text: _q2Prompt),
+                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
+                              child: Text(
+                                'A short answer is okay. Say more if you want',
+                                textAlign: TextAlign.center,
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.5,
+                                    color: EllaColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
+                            _HearAgainTextButton(onTap: _replayCurrentPrompt),
+                            SizedBox(height: spaceAfterPrompt),
+                          ],
+
+                          // Step 6: Placement Q3 (Tell me something about yourself?)
+                          if (_step == _Step.voiceQ3) ...[
+                            const SizedBox(height: 6),
+                            const _VoiceSpeechBubbleCard(text: _q3Prompt),
+                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
+                              child: Text(
+                                'Speak as long as you like.',
+                                textAlign: TextAlign.center,
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.5,
+                                    color: EllaColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
+                            _HearAgainTextButton(onTap: _replayCurrentPrompt),
+                            SizedBox(height: spaceAfterPrompt),
+                          ],
+
+                          // Step 7: Placement Level Indication Result Screen
+                          if (_step == _Step.result) ...[
+                            PlacementResultCard(
+                              name: _name,
+                              levelTitle: _getEvaluatedLevelTitle(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Bottom CTA Buttons (Fixed at bottom of screen with caret right icon & spacing)
+                  if (_step == _Step.name)
+                    EllaPrimaryButton(
+                      label: 'Continue',
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 22,
+                        color: EllaColors.onPrimary,
+                      ),
+                      height: (size.height * 0.065).clamp(48.0, 52.0),
+                      onTap: _onNameSubmitted,
+                    ),
+
+                  if (_step == _Step.age)
+                    EllaPrimaryButton(
+                      label: 'Continue',
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 22,
+                        color: EllaColors.onPrimary,
+                      ),
+                      height: (size.height * 0.065).clamp(48.0, 52.0),
+                      onTap: _onAgeSubmitted,
+                    ),
+
+                  if (_step == _Step.welcome)
+                    EllaPrimaryButton(
+                      label: 'Get Started',
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 22,
+                        color: EllaColors.onPrimary,
+                      ),
+                      height: (size.height * 0.065).clamp(48.0, 52.0),
+                      onTap: _onWelcomeContinue,
+                    ),
+
+                  if (_step == _Step.levelQ1)
+                    EllaPrimaryButton(
+                      label: 'Continue',
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 22,
+                        color: EllaColors.onPrimary,
+                      ),
+                      height: (size.height * 0.065).clamp(48.0, 52.0),
+                      onTap: _selectedLevelIndex != null ? _onLevelQ1Continue : null,
+                    ),
+
+                  if (_step == _Step.result)
+                    EllaPrimaryButton(
+                      label: 'Start Learning English',
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 22,
+                        color: EllaColors.onPrimary,
+                      ),
+                      height: (size.height * 0.065).clamp(48.0, 52.0),
+                      onTap: _onStartLearningEnglish,
+                    ),
+
+                  // Q2 & Q3 use Voice Dock ONLY — NO Continue button!
+                  if (_step == _Step.voiceQ2 || _step == _Step.voiceQ3) ...[
+                    PlacementVoiceDock(
+                      isListening: _isListening,
+                      hasResponse: _step == _Step.voiceQ2
+                          ? _q2VoiceResponse.isNotEmpty
+                          : _q3VoiceResponse.isNotEmpty,
+                      onMicTap: _toggleMic,
+                    ),
+                    const SizedBox(height: 4),
                   ],
-                ),
+                ],
               ),
-              const SizedBox(height: 10),
-
-              // Main Content
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Vertical spacing to position content between top & center
-                      const SizedBox(height: 24),
-
-                      if (_step != _Step.result) ...[
-                        ZoeMascot(
-                          mode: _mascot,
-                          size: mascotW,
-                          reducedMotion: reducedMotion,
-                        ),
-                        const SizedBox(height: 18),
-                      ],
-
-                      // Step 1: Name Input Screen (23px heading font size)
-                      if (_step == _Step.name) ...[
-                        _FigmaHeadingPrompt(
-                          text: _namePrompt,
-                          onReplay: _replayCurrentPrompt,
-                          headingFontSize: 23,
-                        ),
-                        const SizedBox(height: 24),
-                        _TextInputPill(
-                          key: const ValueKey('name_input_pill'),
-                          controller: _nameCtrl,
-                          focusNode: _nameFocusNode,
-                          hintText: 'Type Your Name...',
-                          keyboardType: TextInputType.name,
-                          maxLength: 30,
-                          onChanged: (_) {
-                            if (_validationError != null) {
-                              setState(() => _validationError = null);
-                            }
-                          },
-                          onSubmitted: (_) => _onNameSubmitted(),
-                        ),
-                        if (_validationError != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            _validationError!,
-                            style: EllaFonts.body(
-                              const TextStyle(
-                                color: EllaColors.error,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-
-                      // Step 2: Age Input Screen (23px heading font size, strictly numeric keyboard)
-                      if (_step == _Step.age) ...[
-                        _FigmaHeadingPrompt(
-                          text: _agePrompt,
-                          onReplay: _replayCurrentPrompt,
-                          headingFontSize: 23,
-                        ),
-                        const SizedBox(height: 24),
-                        _TextInputPill(
-                          key: const ValueKey('age_input_pill'),
-                          controller: _ageCtrl,
-                          focusNode: _ageFocusNode,
-                          hintText: 'Type Your Age...',
-                          keyboardType: const TextInputType.numberWithOptions(
-                            signed: false,
-                            decimal: false,
-                          ),
-                          autofocus: true,
-                          maxLength: 3,
-                          onChanged: (_) {
-                            if (_validationError != null) {
-                              setState(() => _validationError = null);
-                            }
-                          },
-                          onSubmitted: (_) => _onAgeSubmitted(),
-                        ),
-                        if (_validationError != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            _validationError!,
-                            style: EllaFonts.body(
-                              const TextStyle(
-                                color: EllaColors.error,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-
-                      // Step 3: Welcome Screen (Centered between top and center, spaced text)
-                      if (_step == _Step.welcome) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          "Nice to Meet You, $_name",
-                          textAlign: TextAlign.center,
-                          style: EllaFonts.bricolage(
-                            const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              height: 1.5,
-                              color: EllaColors.ink,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Text(
-                            "I will ask you a few questions to get started",
-                            textAlign: TextAlign.center,
-                            style: EllaFonts.body(
-                              const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                                height: 1.6,
-                                letterSpacing: 0,
-                                color: EllaColors.ink,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      // Step 4: Placement Q1 (English Level Selection)
-                      if (_step == _Step.levelQ1) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _FigmaHeadingPrompt(
-                            text: _levelPrompt,
-                            onReplay: _replayCurrentPrompt,
-                            headingFontSize: 20,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        PlacementLevelRadioGroup(
-                          selectedIndex: _selectedLevelIndex,
-                          onSelect: (idx) {
-                            setState(() => _selectedLevelIndex = idx);
-                          },
-                        ),
-                      ],
-
-                      // Step 5: Placement Q2 (What do you want to improve in your English? - shifted slightly down)
-                      if (_step == _Step.voiceQ2) ...[
-                        const SizedBox(height: 8),
-                        const _VoiceSpeechBubbleCard(text: _q2Prompt),
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Text(
-                            'A short answer is okay. Say more if you want',
-                            textAlign: TextAlign.center,
-                            style: EllaFonts.body(
-                              const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                height: 1.5,
-                                color: EllaColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _HearAgainTextButton(onTap: _replayCurrentPrompt),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // Step 6: Placement Q3 (Tell me something about yourself? - shifted slightly down)
-                      if (_step == _Step.voiceQ3) ...[
-                        const SizedBox(height: 8),
-                        const _VoiceSpeechBubbleCard(text: _q3Prompt),
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Text(
-                            'Speak as long as you like.',
-                            textAlign: TextAlign.center,
-                            style: EllaFonts.body(
-                              const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                height: 1.5,
-                                color: EllaColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _HearAgainTextButton(onTap: _replayCurrentPrompt),
-                        const SizedBox(height: 24),
-                      ],
-
-                      // Step 7: Placement Level Indication Result Screen
-                      if (_step == _Step.result) ...[
-                        PlacementResultCard(
-                          name: _name,
-                          levelTitle: _getEvaluatedLevelTitle(),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Bottom CTA Buttons (Fixed at bottom of screen with caret right icon & spacing)
-              if (_step == _Step.name)
-                EllaPrimaryButton(
-                  label: 'Continue',
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: EllaColors.onPrimary,
-                  ),
-                  height: 52,
-                  onTap: _onNameSubmitted,
-                ),
-
-              if (_step == _Step.age)
-                EllaPrimaryButton(
-                  label: 'Continue',
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: EllaColors.onPrimary,
-                  ),
-                  height: 52,
-                  onTap: _onAgeSubmitted,
-                ),
-
-              if (_step == _Step.welcome)
-                EllaPrimaryButton(
-                  label: 'Get Started',
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: EllaColors.onPrimary,
-                  ),
-                  height: 52,
-                  onTap: _onWelcomeContinue,
-                ),
-
-              if (_step == _Step.levelQ1)
-                EllaPrimaryButton(
-                  label: 'Continue',
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: EllaColors.onPrimary,
-                  ),
-                  height: 52,
-                  onTap: _selectedLevelIndex != null ? _onLevelQ1Continue : null,
-                ),
-
-              if (_step == _Step.result)
-                EllaPrimaryButton(
-                  label: 'Start Learning English',
-                  trailing: const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: EllaColors.onPrimary,
-                  ),
-                  height: 52,
-                  onTap: _onStartLearningEnglish,
-                ),
-
-              // Q2 & Q3 use Voice Dock ONLY — NO Continue button!
-              if (_step == _Step.voiceQ2 || _step == _Step.voiceQ3) ...[
-                PlacementVoiceDock(
-                  isListening: _isListening,
-                  hasResponse: _step == _Step.voiceQ2
-                      ? _q2VoiceResponse.isNotEmpty
-                      : _q3VoiceResponse.isNotEmpty,
-                  onMicTap: _toggleMic,
-                ),
-                const SizedBox(height: 6),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -792,10 +806,13 @@ class _FigmaHeadingPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final responsiveFontSize = (size.width * 0.058).clamp(19.0, headingFontSize);
+
     final headingStyle = EllaFonts.bricolage(
       TextStyle(
         fontFamily: 'Amulya',
-        fontSize: headingFontSize,
+        fontSize: responsiveFontSize,
         fontWeight: FontWeight.w700,
         height: 1.5,
         letterSpacing: 0.001,
@@ -811,9 +828,9 @@ class _FigmaHeadingPrompt extends StatelessWidget {
           textAlign: TextAlign.center,
           style: headingStyle,
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
         _HearAgainTextButton(onTap: onReplay),
-        const SizedBox(height: 14),
+        SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
       ],
     );
   }
