@@ -1,4 +1,4 @@
-// Complete Onboarding & Placement Flow matching exact Figma specification:
+// Complete Onboarding & Placement Flow matching exact Figma specification & Placement V2 API:
 // Name -> Age -> Welcome -> Q1 (Level) -> Q2 (What to Improve) -> Q3 (Introduce Yourself) -> Level Indication (Result) -> Main Home.
 
 import 'dart:async';
@@ -11,6 +11,7 @@ import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
 import '../../../core/offline_alert_popup.dart';
+import '../../../models/placement.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/connectivity_provider.dart';
@@ -64,6 +65,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   bool _isListening = false;
   bool _busy = false;
+  bool _evaluatingPlacement = false;
+  PlacementTurnResult? _placementTurnResult;
 
   bool _speaking = false;
   StreamSubscription? _ttsProgressSub;
@@ -186,7 +189,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _advanceVoiceQuestion();
     } else {
       await _tts.stop();
-      setState(() => _isListening = true);
+      setState(() {
+        _isListening = true;
+        _validationError = null;
+      });
       await stt.initialize();
       await stt.startListening(
         onPartial: (partial) {
@@ -212,6 +218,18 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 
   void _advanceVoiceQuestion() {
+    final currentResponse = _step == _Step.voiceQ2 ? _q2VoiceResponse : _q3VoiceResponse;
+    if (currentResponse.trim().isEmpty) {
+      setState(() {
+        _validationError = "I didn't catch that. Let's try again.";
+      });
+      return;
+    }
+
+    setState(() {
+      _validationError = null;
+    });
+
     if (_step == _Step.voiceQ2) {
       Future.delayed(const Duration(milliseconds: 700), () {
         if (mounted && _step == _Step.voiceQ2) {
@@ -327,11 +345,62 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _speak(_q2Prompt);
   }
 
-  void _showResultScreen() {
+  Future<void> _showResultScreen() async {
     setState(() {
       _step = _Step.result;
+      _evaluatingPlacement = true;
     });
     _speak("$_name, I found a good place for you to start!");
+
+    // Execute Placement V2 API call
+    final selfReportedLevel = _selectedLevelIndex != null &&
+            _selectedLevelIndex! < PlacementLevelRadioGroup.options.length
+        ? PlacementLevelRadioGroup.options[_selectedLevelIndex!]
+        : 'I can have short conversations';
+
+    final userQ2Text = _q2VoiceResponse.trim();
+    final userQ3Text = _q3VoiceResponse.trim();
+
+    final messages = <Map<String, String>>[
+      {
+        'role': 'assistant',
+        'content': 'What do you want to improve in your English?',
+      },
+      {
+        'role': 'user',
+        'content': userQ2Text,
+      },
+      {
+        'role': 'assistant',
+        'content': 'Tell me something about yourself?',
+      },
+      {
+        'role': 'user',
+        'content': userQ3Text,
+      },
+    ];
+
+    try {
+      final api = ref.read(ellaApiServiceProvider);
+      final result = await api.placementTurn(
+        messages: messages,
+        name: _name,
+        age: _age ?? 12,
+        selfReportedLevel: selfReportedLevel,
+      );
+      if (mounted) {
+        setState(() {
+          _placementTurnResult = result;
+          _evaluatingPlacement = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _evaluatingPlacement = false;
+        });
+      }
+    }
   }
 
   Future<void> _onStartLearningEnglish() async {
@@ -342,6 +411,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     await prefs.setBool('ella_api_placement_done', true);
 
     final ageVal = _age ?? 10;
+    final api = ref.read(ellaApiServiceProvider);
+
+    try {
+      await api.updateProfile(name: _name, age: ageVal);
+    } catch (_) {}
+
     await ref.read(onboardingProvider.notifier).complete(name: _name, age: ageVal);
 
     ref.invalidate(placementCacheProvider);
@@ -351,8 +426,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 
-  // Hardcoded level title for testing
   String _getEvaluatedLevelTitle() {
+    if (_placementTurnResult?.levelName != null &&
+        _placementTurnResult!.levelName!.isNotEmpty) {
+      return _placementTurnResult!.levelName!;
+    }
     final idx = _selectedLevelIndex ?? 2;
     return switch (idx) {
       0 => 'Lv. 1 Starting Out',
@@ -374,16 +452,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final outerHPad = (size.width * 0.05).clamp(16.0, 24.0);
 
     // Responsive vertical gaps based on screen height
-    final topSpace = (size.height * 0.024).clamp(12.0, 24.0);
     final spaceAfterMascot = (size.height * 0.02).clamp(10.0, 18.0);
     final spaceAfterPrompt = (size.height * 0.024).clamp(12.0, 24.0);
     final subtitlePadding = (size.width * 0.06).clamp(16.0, 28.0);
 
-    // Responsive mascot size scaling cleanly across height & width
+    // Responsive mascot size scaling cleanly across height & width (Compact mascot for questions/name/age)
     final mascotW = switch (_step) {
       _Step.welcome => (size.height * 0.16).clamp(95.0, 120.0),
       _Step.result => (size.height * 0.14).clamp(90.0, 110.0),
-      _ => (size.height * 0.12).clamp(70.0, 92.0),
+      _ => (size.height * 0.11).clamp(68.0, 88.0),
     };
 
     final double? progress = switch (_step) {
@@ -419,23 +496,29 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   ),
                   SizedBox(height: (size.height * 0.012).clamp(6.0, 12.0)),
 
-                  // Main Content
+                  // Main Content (Slightly above center for Name, Age, Q1, Q2, Q3 screens)
                   Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Dynamic top spacing
-                          SizedBox(height: topSpace),
+                    child: Align(
+                      alignment: switch (_step) {
+                        _Step.welcome || _Step.result => Alignment.center,
+                        _ => const Alignment(0, -0.25),
+                      },
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_step != _Step.welcome && _step != _Step.result)
+                              const SizedBox(height: 4),
 
-                          if (_step != _Step.result) ...[
-                            ZoeMascot(
-                              mode: _mascot,
-                              size: mascotW,
-                              reducedMotion: reducedMotion,
-                            ),
-                            SizedBox(height: spaceAfterMascot),
-                          ],
+                            if (_step != _Step.result) ...[
+                              ZoeMascot(
+                                mode: _mascot,
+                                size: mascotW,
+                                reducedMotion: reducedMotion,
+                              ),
+                              SizedBox(height: spaceAfterMascot),
+                            ],
 
                           // Step 1: Name Input Screen (23px heading font size)
                           if (_step == _Step.name) ...[
@@ -515,9 +598,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             ],
                           ],
 
-                          // Step 3: Welcome Screen (Centered between top and center, spaced text)
+                          // Step 3: Welcome Screen (Centered on screen with slightly reduced text component spacing)
                           if (_step == _Step.welcome) ...[
-                            const SizedBox(height: 12),
+                            SizedBox(height: (size.height * 0.02).clamp(10.0, 16.0)),
                             Text(
                               "Nice to Meet You, $_name",
                               textAlign: TextAlign.center,
@@ -530,7 +613,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                                 ),
                               ),
                             ),
-                            SizedBox(height: (size.height * 0.022).clamp(14.0, 20.0)),
+                            SizedBox(height: (size.height * 0.02).clamp(12.0, 18.0)),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
                               child: Text(
@@ -623,12 +706,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             PlacementResultCard(
                               name: _name,
                               levelTitle: _getEvaluatedLevelTitle(),
+                              isLoading: _evaluatingPlacement,
                             ),
                           ],
                         ],
                       ),
                     ),
                   ),
+                ),
 
                   const SizedBox(height: 10),
 
@@ -690,11 +775,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         color: EllaColors.onPrimary,
                       ),
                       height: (size.height * 0.065).clamp(48.0, 52.0),
-                      onTap: _onStartLearningEnglish,
+                      onTap: _evaluatingPlacement ? null : _onStartLearningEnglish,
                     ),
 
                   // Q2 & Q3 use Voice Dock ONLY — NO Continue button!
                   if (_step == _Step.voiceQ2 || _step == _Step.voiceQ3) ...[
+                    if (_validationError != null) ...[
+                      _SpeechErrorBanner(message: _validationError!),
+                      const SizedBox(height: 12),
+                    ],
                     PlacementVoiceDock(
                       isListening: _isListening,
                       hasResponse: _step == _Step.voiceQ2
@@ -938,6 +1027,47 @@ class _TextInputPill extends StatelessWidget {
           ),
           border: InputBorder.none,
           counterText: '',
+        ),
+      ),
+    );
+  }
+}
+
+// ── Speech Error Banner (Matches Session Screen Design) ─────────────────────
+
+class _SpeechErrorBanner extends StatelessWidget {
+  final String message;
+
+  const _SpeechErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: EllaColors.greenMain.withValues(alpha: 0.38),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            offset: const Offset(0, 2),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: EllaFonts.body(
+          const TextStyle(
+            color: EllaColors.greenDeep,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
         ),
       ),
     );

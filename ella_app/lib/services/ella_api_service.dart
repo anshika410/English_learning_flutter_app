@@ -489,20 +489,34 @@ class EllaApiService {
   /// [name]/[age], if known from earlier turns, are threaded back so the LLM
   /// keeps its context.
   Future<PlacementTurnResult> placementTurn({
-    required List<Map<String, String>> messages,
+    required List<Map<String, dynamic>> messages,
     String? name,
     int? age,
+    String? selfReportedLevel,
   }) async {
-    final data = await _request(
-      'POST',
-      '/llm/placement-turn',
-      body: {
-        'messages': messages,
-        if (name != null && name.isNotEmpty) 'name': name,
-        'age': ?age,
-      },
-    );
-    return PlacementTurnResult.fromJson(data);
+    final payload = <String, dynamic>{
+      if (name != null && name.isNotEmpty) 'name': name,
+      'age': ?age,
+      if (selfReportedLevel != null && selfReportedLevel.isNotEmpty)
+        'self_reported_level': selfReportedLevel,
+      'messages': messages,
+    };
+
+    try {
+      final data = await _request(
+        'POST',
+        '/v2/llm/placement-turn',
+        body: payload,
+      );
+      return PlacementTurnResult.fromJson(data);
+    } catch (_) {
+      final data = await _request(
+        'POST',
+        '/llm/placement-turn',
+        body: payload,
+      );
+      return PlacementTurnResult.fromJson(data);
+    }
   }
 
   Future<String?> conversationStarter({String? topic}) async {
