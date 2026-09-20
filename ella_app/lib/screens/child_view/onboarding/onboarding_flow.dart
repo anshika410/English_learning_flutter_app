@@ -160,17 +160,8 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   }
 
   Future<void> _replayCurrentPrompt() async {
-    if (_speaking) {
-      await _tts.stop();
-      if (mounted) {
-        setState(() {
-          _speaking = false;
-          _mascot = ZoeMascotMode.listening;
-        });
-      }
-    } else {
-      await _speak(_currentPrompt);
-    }
+    if (_speaking) return;
+    await _speak(_currentPrompt);
   }
 
   // ── Voice Input (STT) ──────────────────────────────────────────────────────
@@ -525,6 +516,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             _FigmaHeadingPrompt(
                               text: _namePrompt,
                               onReplay: _replayCurrentPrompt,
+                              isSpeaking: _speaking,
                               headingFontSize: 23,
                             ),
                             SizedBox(height: spaceAfterPrompt),
@@ -562,6 +554,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             _FigmaHeadingPrompt(
                               text: _agePrompt,
                               onReplay: _replayCurrentPrompt,
+                              isSpeaking: _speaking,
                               headingFontSize: 23,
                             ),
                             SizedBox(height: spaceAfterPrompt),
@@ -639,6 +632,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                               child: _FigmaHeadingPrompt(
                                 text: _levelPrompt,
                                 onReplay: _replayCurrentPrompt,
+                                isSpeaking: _speaking,
                                 headingFontSize: 20,
                               ),
                             ),
@@ -672,7 +666,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                               ),
                             ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            _HearAgainTextButton(onTap: _replayCurrentPrompt),
+                            _HearAgainTextButton(
+                              onTap: _speaking ? null : _replayCurrentPrompt,
+                              disabled: _speaking,
+                            ),
                             SizedBox(height: spaceAfterPrompt),
                           ],
 
@@ -697,7 +694,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                               ),
                             ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            _HearAgainTextButton(onTap: _replayCurrentPrompt),
+                            _HearAgainTextButton(
+                              onTap: _speaking ? null : _replayCurrentPrompt,
+                              disabled: _speaking,
+                            ),
                             SizedBox(height: spaceAfterPrompt),
                           ],
 
@@ -885,11 +885,13 @@ class _VoiceSpeechBubbleCard extends StatelessWidget {
 class _FigmaHeadingPrompt extends StatelessWidget {
   final String text;
   final VoidCallback onReplay;
+  final bool isSpeaking;
   final double headingFontSize;
 
   const _FigmaHeadingPrompt({
     required this.text,
     required this.onReplay,
+    this.isSpeaking = false,
     this.headingFontSize = 23,
   });
 
@@ -918,7 +920,10 @@ class _FigmaHeadingPrompt extends StatelessWidget {
           style: headingStyle,
         ),
         SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
-        _HearAgainTextButton(onTap: onReplay),
+        _HearAgainTextButton(
+          onTap: isSpeaking ? null : onReplay,
+          disabled: isSpeaking,
+        ),
         SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
       ],
     );
@@ -926,36 +931,47 @@ class _FigmaHeadingPrompt extends StatelessWidget {
 }
 
 class _HearAgainTextButton extends StatelessWidget {
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool disabled;
 
-  const _HearAgainTextButton({required this.onTap});
+  const _HearAgainTextButton({
+    this.onTap,
+    this.disabled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = disabled
+        ? EllaColors.textSecondary.withValues(alpha: 0.4)
+        : EllaColors.textSecondary;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: withTapClick(onTap),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.volume_up_outlined,
-            size: 16,
-            color: EllaColors.textSecondary,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Hear Again',
-            style: EllaFonts.body(
-              const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-                color: EllaColors.textSecondary,
+      onTap: disabled || onTap == null ? null : withTapClick(onTap!),
+      child: Opacity(
+        opacity: disabled ? 0.5 : 1.0,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.volume_up_outlined,
+              size: 16,
+              color: effectiveColor,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Hear Again',
+              style: EllaFonts.body(
+                TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: effectiveColor,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
