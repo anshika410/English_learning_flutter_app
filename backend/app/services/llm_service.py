@@ -27,6 +27,7 @@ def resolve_prompt(
     if custom_prompts:
         key_mappings = {
             "placement-check-prompt.md": "placement",
+            "placement-v2-prompt.md": "placement_v2",
             "base-prompt.md": "base",
             "candidate-ella-prompt.md": "base",
             "conv-unit-framing.md": "conv-unit-framing",
@@ -1103,3 +1104,175 @@ def _extract_json(text: str) -> str:
     if start >= 0 and end > start:
         return trimmed[start : end + 1]
     raise ValueError("Could not extract JSON from LLM output")
+
+
+# ── Placement v2 Evaluation (7-step Streamlined Flow) ─────────────────────────
+
+LEVEL_METADATA_V2 = {
+    "A0": {
+        "level_number": 1,
+        "unit_name": "Lv. 1 First Words",
+        "level_description": "You're ready to start learning your first English words and everyday phrases!",
+        "confidence": "high",
+    },
+    "A1": {
+        "level_number": 2,
+        "unit_name": "Lv. 2 Finding My Voice",
+        "level_description": "You can introduce yourself and use simple English words. Let's build your confidence!",
+        "confidence": "high",
+    },
+    "A2": {
+        "level_number": 3,
+        "unit_name": "Lv. 3 Everyday Talk",
+        "level_description": "You can have short conversations and describe everyday things. Let's practice speaking more!",
+        "confidence": "high",
+    },
+    "B1": {
+        "level_number": 4,
+        "unit_name": "Lv. 4 Expressing Myself",
+        "level_description": "You can express your thoughts clearly and give reasons. Let's take your conversations deeper!",
+        "confidence": "high",
+    },
+    "B2": {
+        "level_number": 5,
+        "unit_name": "Lv. 5 Speaking Fluently",
+        "level_description": "You speak English smoothly with great expression. Let's master advanced discussions!",
+        "confidence": "high",
+    },
+    "C1": {
+        "level_number": 6,
+        "unit_name": "Lv. 6 Mastering the Language",
+        "level_description": "You have fluent and flexible mastery of English. Let's practice high-level conversation!",
+        "confidence": "high",
+    },
+}
+
+SELF_REPORT_MAP = {
+    "i am starting now": "A0",
+    "i know some english": "A1",
+    "i can have short conversations": "A2",
+    "i can explain my ideas": "B1",
+    "i am comfortable speaking english": "B2",
+}
+
+
+async def send_placement_v2_turn(
+    messages: list[dict],
+    name: str | None = None,
+    age: int | None = None,
+    self_reported_level: str | None = None,
+    custom_prompts: dict | None = None,
+    user_id: str | None = None,
+) -> dict:
+    """
+    Handles turn-by-turn logic and final evaluation for the streamlined 7-step placement flow (v2).
+    - 0 user answers: returns Question 1 ("What do you want to improve in your English?")
+    - 1 user answer: returns Question 2 ("Tell me something about yourself?")
+    - 2+ user answers: evaluates answers + self-reported level and returns the completed CEFR assessment.
+    """
+    user_messages = [m for m in messages if m.get("role") in ("user", "learner")]
+    num_user_turns = len(user_messages)
+
+    if num_user_turns == 0:
+        return {
+            "reply": "What do you want to improve in your English?",
+            "is_complete": False,
+            "turns_taken": 0,
+        }
+
+    if num_user_turns == 1:
+        return {
+            "reply": "Tell me something about yourself?",
+            "is_complete": False,
+            "turns_taken": 1,
+        }
+
+    # 2+ user turns: Run single-shot evaluation
+    ans1 = user_messages[0].get("content", "").strip()
+    ans2 = user_messages[1].get("content", "").strip()
+
+    prompt_template = resolve_prompt(
+        "placement-v2-prompt.md",
+        custom_prompts=custom_prompts,
+        user_id=user_id,
+    )
+
+    rendered_prompt = (
+        prompt_template
+        .replace("{{NAME}}", name or "Learner")
+        .replace("{{AGE}}", str(age) if age else "Not specified")
+        .replace("{{SELF_REPORTED_LEVEL}}", self_reported_level or "Not specified")
+        .replace("{{ANSWER_1}}", ans1)
+        .replace("{{ANSWER_2}}", ans2)
+    )
+
+    api_messages = [
+        {"role": "system", "content": rendered_prompt},
+        {"role": "user", "content": f"Please evaluate {name or 'the learner'}'s responses and output the assessment JSON."}
+    ]
+
+    try:
+        raw_output = await _chat_completion(
+            api_messages,
+            max_tokens=350,
+            temperature=0.2,
+        )
+        json_str = _extract_json(raw_output)
+        data = json.loads(json_str)
+
+        raw_lvl = str(data.get("level", "")).upper().strip()
+        lvl = raw_lvl if raw_lvl in LEVEL_METADATA_V2 else "A2"
+        meta = LEVEL_METADATA_V2[lvl]
+
+        return {
+            "reply": None,
+            "is_complete": True,
+            "name": name,
+            "age": age,
+            "level": lvl,
+            "level_number": data.get("level_number") or meta["level_number"],
+            "unit_name": data.get("unit_name") or meta["unit_name"],
+            "level_description": data.get("level_description") or meta["level_description"],
+            "confidence": data.get("confidence") or meta["confidence"],
+            "evidence_summary": data.get("evidence_summary") or "Assessed via placement responses.",
+            "zoe_recap": data.get("zoe_recap") or f"Great meeting you, {name or 'there'}!",
+            "interests": data.get("interests") or [],
+            "turns_taken": num_user_turns,
+        }
+    except Exception as e:
+        import logging
+        logging.warning(f"Placement v2 LLM evaluation failed ({e}), using fallback rubric.")
+
+        # Deterministic fallback determination
+        fallback_lvl = "A2"
+        if self_reported_level:
+            sr_clean = self_reported_level.lower().strip()
+            for key, val in SELF_REPORT_MAP.items():
+                if key in sr_clean:
+                    fallback_lvl = val
+                    break
+
+        # Adjust slightly based on combined word count
+        combined_words = len(ans1.split()) + len(ans2.split())
+        if combined_words <= 3 and fallback_lvl in ("B1", "B2", "C1", "A2"):
+            fallback_lvl = "A1"
+        elif combined_words >= 25 and fallback_lvl in ("A0", "A1"):
+            fallback_lvl = "A2"
+
+        meta = LEVEL_METADATA_V2.get(fallback_lvl, LEVEL_METADATA_V2["A2"])
+        return {
+            "reply": None,
+            "is_complete": True,
+            "name": name,
+            "age": age,
+            "level": fallback_lvl,
+            "level_number": meta["level_number"],
+            "unit_name": meta["unit_name"],
+            "level_description": meta["level_description"],
+            "confidence": "medium",
+            "evidence_summary": f"Initial starting level set based on conversation responses ({combined_words} words spoken).",
+            "zoe_recap": f"Nice to meet you, {name or 'there'}! Let's start learning English.",
+            "interests": [],
+            "turns_taken": num_user_turns,
+        }
+

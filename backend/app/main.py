@@ -87,6 +87,7 @@ async def preferred_model_middleware(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(llm.router)
+app.include_router(llm.llm_v2_router)
 app.include_router(conversations.router, prefix="/session")
 app.include_router(conversations.router, prefix="/sessions")
 app.include_router(placements.router)

@@ -11,7 +11,7 @@ from ..models.session_analysis import SessionAnalysis
 from ..schemas.llm import (
     StarterRequest, StarterResponse,
     ConversationTurnRequest, ConversationTurnResponse,
-    PlacementTurnRequest, PlacementTurnResponse,
+    PlacementTurnRequest, PlacementV2TurnRequest, PlacementTurnResponse,
     SessionAnalysisRequest, SessionAnalysisResponse,
 )
 from ..services import llm_service
@@ -19,6 +19,58 @@ from .analysis_shared import run_and_save_session_analysis
 import json
 
 router = APIRouter(prefix="/llm", tags=["llm"])
+llm_v2_router = APIRouter(prefix="/v2/llm", tags=["llm-v2"])
+
+
+def _backfill_owned_skills(user: User, placed_level: str | None):
+    """Auto-unlocks all skills for CEFR levels below the placed level."""
+    if not placed_level:
+        return
+    from ..core.curriculum_data import UNITS, unit_progress_key
+    from sqlalchemy.orm.attributes import flag_modified
+
+    LEVEL_ORDER = ["A0", "A1", "A2", "B1", "B2", "C1"]
+    placed_lvl = placed_level.upper()
+    if placed_lvl in LEVEL_ORDER:
+        placed_idx = LEVEL_ORDER.index(placed_lvl)
+        levels_to_backfill = LEVEL_ORDER[:placed_idx]
+
+        progress = user.skills_progress or {}
+        if not isinstance(progress, dict):
+            progress = {}
+        if "owned" not in progress:
+            progress["owned"] = []
+        if "emerging" not in progress:
+            progress["emerging"] = []
+        if "sightings" not in progress:
+            progress["sightings"] = {}
+        if "strength" not in progress:
+            progress["strength"] = {}
+        if "last_seen" not in progress:
+            progress["last_seen"] = {}
+        if "effort" not in progress:
+            progress["effort"] = {"times_spoken_total": 0}
+
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        for lvl in levels_to_backfill:
+            for unit in UNITS.get(lvl, []):
+                for skill in unit.get("skills", []):
+                    sid = unit_progress_key(lvl, skill["id"])
+                    if not sid:
+                        continue
+                    if sid not in progress["owned"]:
+                        progress["owned"].append(sid)
+                    if sid in progress["emerging"]:
+                        progress["emerging"].remove(sid)
+                    if sid not in progress["sightings"]:
+                        progress["sightings"][sid] = 3
+                    if sid not in progress["last_seen"]:
+                        progress["last_seen"][sid] = today
+
+        user.skills_progress = progress
+        flag_modified(user, "skills_progress")
 
 
 def _generate_placement_recap(result: dict) -> str | None:
@@ -214,11 +266,116 @@ async def placement_turn(
             user.due_next = {}
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(user, "due_next")
-            if interests:
-                user.interests = ",".join(interests)
+            # Backfill lower level skills
+            _backfill_owned_skills(user, level)
+            if not user.first_session_done:
+                user.first_session_done = True
+
             db.add(user)
             await db.flush()
             
+        return PlacementTurnResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM error: {e}")
+
+
+@llm_v2_router.post("/placement-turn", response_model=PlacementTurnResponse)
+@router.post("/v2/placement-turn", response_model=PlacementTurnResponse)
+@router.post("/placement-turn-v2", response_model=PlacementTurnResponse)
+async def placement_v2_turn(
+    body: PlacementV2TurnRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Executes a dialogue turn or final evaluation during the streamlined 7-step placement test (v2).
+    
+    - Supports sending individual turns or evaluating all captured answers at once.
+    - If cancel=true, records cancellation without assigning a level.
+    - Turn 0: Prompts with Question 1 ("What do you want to improve in your English?")
+    - Turn 1: Prompts with Question 2 ("Tell me something about yourself?")
+    - Turn 2+: Evaluates transcripts + self-reported level, returns final CEFR level & label,
+      persists Placement in database, updates User profile, and unlocks prerequisite skills.
+    """
+    raw_name = body.name or user.name
+    first_name = raw_name.strip().split(" ")[0] if raw_name else None
+    age_val = body.age or (int(user.age) if user.age and user.age.isdigit() else None)
+
+    # If new name/age are passed, update user record
+    if body.name and body.name != user.name:
+        user.name = body.name
+        db.add(user)
+    if body.age and str(body.age) != str(user.age):
+        user.age = str(body.age)
+        db.add(user)
+
+    if body.cancel:
+        return PlacementTurnResponse(
+            reply=None,
+            is_complete=True,
+            name=first_name,
+            age=age_val,
+            level=None,
+            unit_name=None,
+            level_description="Placement cancelled. You can retake anytime.",
+            confidence=None,
+            possible_higher=None,
+            evidence_summary="Placement cancelled by user.",
+            probe_targets_covered=None,
+            turns_taken=len([m for m in body.messages if m.role in ("user", "learner")]),
+            code_switch_observed=None,
+            interests=None,
+            notes_for_first_session=None,
+        )
+
+    try:
+        messages = [m.model_dump() for m in body.messages]
+        result = await llm_service.send_placement_v2_turn(
+            messages=messages,
+            name=first_name,
+            age=age_val,
+            self_reported_level=body.self_reported_level,
+            custom_prompts=body.custom_prompts,
+            user_id=f"{user.id}:{user.email}" if user.email else user.id,
+        )
+
+        result["name"] = first_name
+        result["age"] = age_val
+
+        if result.get("is_complete"):
+            from ..models.placement import Placement
+            import json
+
+            level = result.get("level")
+            unit_name = result.get("unit_name")
+            interests = result.get("interests", [])
+
+            placement = Placement(
+                user_id=user.id,
+                level=level,
+                unit_label=unit_name,
+                confidence=result.get("confidence"),
+                highlight=result.get("zoe_recap") or _generate_placement_recap(result) or result.get("evidence_summary"),
+                transcript_json=json.dumps(messages) if messages else None,
+            )
+            db.add(placement)
+
+            user.level = level
+            user.unit_label = unit_name
+            user.due_next = {}
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(user, "due_next")
+            if interests:
+                user.interests = ",".join(interests)
+
+            _backfill_owned_skills(user, level)
+
+            if not user.first_session_done:
+                user.first_session_done = True
+
+            db.add(user)
+            await db.flush()
+
         return PlacementTurnResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM error: {e}")

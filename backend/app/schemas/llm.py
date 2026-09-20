@@ -76,6 +76,31 @@ class PlacementTurnRequest(BaseModel):
     }
 
 
+class PlacementV2TurnRequest(BaseModel):
+    messages: list[MessageIn] = []
+    name: str | None = None
+    age: int | None = None
+    self_reported_level: str | None = None
+    cancel: bool = False
+    custom_prompts: dict | None = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "Narendra",
+                "age": 12,
+                "self_reported_level": "I can have short conversations",
+                "messages": [
+                    {"role": "assistant", "content": "What do you want to improve in your English?"},
+                    {"role": "user", "content": "I want to improve my vocabulary and speak with confidence."},
+                    {"role": "assistant", "content": "Tell me something about yourself?"},
+                    {"role": "user", "content": "I am Narendra. I study in class 7 and play cricket."}
+                ]
+            }
+        }
+    }
+
+
 class PlacementTurnResponse(BaseModel):
     reply: str | None = None
     is_complete: bool = False
@@ -83,6 +108,7 @@ class PlacementTurnResponse(BaseModel):
     age: int | None = None
     age_group: str | None = None
     level: str | None = None
+    level_number: int | None = None
     unit_name: str | None = None
     level_description: str | None = None
     confidence: str | None = None
@@ -91,6 +117,7 @@ class PlacementTurnResponse(BaseModel):
     probe_targets_covered: list[str] | None = None
     turns_taken: int | None = None
     code_switch_observed: bool | None = None
+    zoe_recap: str | None = None
     notes_for_first_session: str | None = None
     interests: list[str] | None = None
 
