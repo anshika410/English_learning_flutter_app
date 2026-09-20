@@ -8,7 +8,6 @@ import 'dart:math' as math;
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -499,7 +498,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Speak More. Grow your English.',
+                        'Your English AI Mentor.',
                         textAlign: TextAlign.center,
                         style: EllaTextStyles.authTitle,
                       ),

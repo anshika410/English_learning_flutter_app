@@ -44,10 +44,12 @@ class PlacementTurnResult {
   final int? age;
   final String? ageGroup;
   final String? level;
+  final int? levelNumber;
   final String? levelName; // the unit label (API field `unit_name`)
   final String? levelDescription;
   final String? confidence;
   final String? evidenceSummary;
+  final String? zoeRecap;
   final List<String> interests;
 
   const PlacementTurnResult({
@@ -57,10 +59,12 @@ class PlacementTurnResult {
     this.age,
     this.ageGroup,
     this.level,
+    this.levelNumber,
     this.levelName,
     this.levelDescription,
     this.confidence,
     this.evidenceSummary,
+    this.zoeRecap,
     this.interests = const [],
   });
 
@@ -72,12 +76,14 @@ class PlacementTurnResult {
         age: (j['age'] as num?)?.toInt(),
         ageGroup: j['age_group'] as String?,
         level: j['level'] as String?,
+        levelNumber: (j['level_number'] as num?)?.toInt(),
         // Live API returns `unit_name`; the OpenAPI schema called it
         // `level_name`, so accept either.
         levelName: j['unit_name'] as String? ?? j['level_name'] as String?,
         levelDescription: j['level_description'] as String?,
         confidence: j['confidence'] as String?,
         evidenceSummary: j['evidence_summary'] as String?,
+        zoeRecap: j['zoe_recap'] as String?,
         interests: List<String>.from((j['interests'] as List?) ?? const []),
       );
 }

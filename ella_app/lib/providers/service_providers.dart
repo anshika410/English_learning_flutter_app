@@ -1,7 +1,6 @@
 // Singleton providers for the three injectable services.
 // All read from .env (loaded in main.dart before runApp).
 
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,15 +43,17 @@ final piperTtsProvider = Provider<PiperTtsService>((ref) {
 
 /// ttsProvider: uses Piper if model is ready, otherwise NativeTts.
 /// Both implement TtsInterface so all consumers are unaffected.
-/// Watches piperDownloadProvider so it switches to Piper after download completes.
+/// Watches piperDownloadProvider so it switches to Piper after download completes,
+/// waiting until active native speech completes to prevent audio glitches.
 final ttsProvider = Provider<TtsInterface>((ref) {
   final downloadState = ref.watch(piperDownloadProvider);
+  final nativeTts = ref.read(nativeTtsProvider);
   final modelReady = downloadState.status == PiperDownloadStatus.done &&
       PiperModelService.instance.isReady;
-  if (modelReady) {
+  if (modelReady && !nativeTts.isSpeaking) {
     return ref.read(piperTtsProvider);
   }
-  return ref.read(nativeTtsProvider);
+  return nativeTts;
 });
 
 /// Native Android TTS with karaoke word-highlight support.

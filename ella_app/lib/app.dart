@@ -23,7 +23,6 @@ import 'providers/placement_provider.dart';
 import 'screens/child_view/home_screen.dart';
 import 'screens/child_view/garden_screen.dart';
 import 'screens/child_view/onboarding/onboarding_flow.dart';
-import 'screens/child_view/placement_intro_screen.dart';
 import 'screens/child_view/profile_screen.dart';
 import 'screens/child_view/spot_access_screen.dart';
 import 'screens/child_view/widgets/mascot_loading_screen.dart';
@@ -255,24 +254,23 @@ class RootGate extends ConsumerWidget {
       },
       data: (s) {
         final online = ref.read(chatProvider.notifier).online;
-        final needsOnboarding = online && s.memory.name == null;
-        final needsPlacement = online && s.memory.placement == null;
+        final isPlacementDone = placementAsync.valueOrNull ?? false;
+        final onboardingDone = ref.watch(onboardingProvider).valueOrNull?.done ?? false;
+
+        final needsOnboarding = online && !onboardingDone && s.memory.name == null;
+        final needsPlacement = online && !isPlacementDone && s.memory.placement == null;
         
         if (online) {
-          if (!needsOnboarding && !needsPlacement) return const _EllaHome();
+          if ((!needsOnboarding && !needsPlacement) || isPlacementDone) return const _EllaHome();
 
           final onboarding = ref.watch(onboardingProvider);
           if (onboarding.isLoading) {
             return const MascotLoadingScreen(message: 'Loading onboarding...');
           }
-          
-          final showOnboarding = needsOnboarding;
 
           return Scaffold(
             backgroundColor: Colors.transparent,
-            body: showOnboarding
-                ? _gatedOnboarding(ref)
-                : const PlacementIntroScreen(),
+            body: _gatedOnboarding(ref),
           );
         } else {
           // Because placementAsync is watched unconditionally, it stays cached!
@@ -286,14 +284,11 @@ class RootGate extends ConsumerWidget {
           if (onboarding.isLoading) {
             return const MascotLoadingScreen(message: 'Loading onboarding...');
           }
-          final onboardingDone = onboarding.valueOrNull?.done ?? false;
 
-              return Scaffold(
-                backgroundColor: Colors.transparent,
-                body: !onboardingDone
-                    ? _gatedOnboarding(ref)
-                    : const PlacementIntroScreen(),
-              );
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            body: _gatedOnboarding(ref),
+          );
         }
       },
     );
