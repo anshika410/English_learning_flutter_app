@@ -24,8 +24,8 @@ class NativeTtsPlugin(private val context: Context, private val channel: MethodC
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.US
-            tts?.setSpeechRate(0.85f)
-            tts?.setPitch(1.1f)
+            tts?.setSpeechRate(1.0f)
+            tts?.setPitch(1.0f)
             isReady = true
 
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {

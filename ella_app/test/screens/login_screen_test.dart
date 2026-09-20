@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ella_app/screens/login_screen.dart';
@@ -17,14 +18,16 @@ class _FakeEllaApiService extends EllaApiService {
 }
 
 Widget _harness(_FakeEllaApiService api, {Size size = const Size(430, 932)}) {
-  return MaterialApp(
-    home: Center(
-      child: SizedBox(
-        width: size.width,
-        height: size.height,
-        child: MediaQuery(
-          data: MediaQueryData(size: size, disableAnimations: true),
-          child: LoginScreen(api: api, enableGoogleAuth: false),
+  return ProviderScope(
+    child: MaterialApp(
+      home: Center(
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: MediaQuery(
+            data: MediaQueryData(size: size, disableAnimations: true),
+            child: LoginScreen(api: api, enableGoogleAuth: false),
+          ),
         ),
       ),
     ),
@@ -47,13 +50,13 @@ void main() {
     await _pumpLogin(tester, _FakeEllaApiService());
 
     expect(find.text('Ella'), findsOneWidget);
-    expect(find.text('Continue With Google'), findsOneWidget);
-    expect(find.text('Continue With Email'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Email'), findsOneWidget);
     expect(
-      find.textContaining('Your learning data stays private'),
+      find.textContaining('Your learning data is protected'),
       findsOneWidget,
     );
-    expect(find.text('Sign In With Email'), findsNothing);
+    expect(find.text('Sign in with Email'), findsNothing);
   });
 
   testWidgets('email state opens and back returns to login options', (
@@ -61,35 +64,35 @@ void main() {
   ) async {
     await _pumpLogin(tester, _FakeEllaApiService());
 
-    await tester.tap(find.text('Continue With Email'));
+    await tester.tap(find.text('Continue with Email'));
     await tester.pump();
 
-    expect(find.text('Sign In With Email'), findsOneWidget);
+    expect(find.text('Sign in with Email'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.byKey(const ValueKey('auth-back-button')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('auth-back-button')));
     await tester.pump();
 
-    expect(find.text('Continue With Google'), findsOneWidget);
-    expect(find.text('Continue With Email'), findsOneWidget);
-    expect(find.text('Sign In With Email'), findsNothing);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Email'), findsOneWidget);
+    expect(find.text('Sign in with Email'), findsNothing);
   });
 
   testWidgets('magic link success state uses entered email', (tester) async {
     final api = _FakeEllaApiService();
     await _pumpLogin(tester, api);
 
-    await tester.tap(find.text('Continue With Email'));
+    await tester.tap(find.text('Continue with Email'));
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'xyz@gmail.com');
-    await tester.tap(find.text('Send Me a Link'));
+    await tester.tap(find.text('Send Sign-In Link'));
     await tester.pump();
     await tester.pump();
 
     expect(api.requestedEmail, 'xyz@gmail.com');
-    expect(find.text('Open Your Inbox!'), findsOneWidget);
-    expect(find.text('Use a Different Email'), findsOneWidget);
+    expect(find.text('Open Email App'), findsOneWidget);
+    expect(find.text('Use Another Email'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) =>
@@ -103,11 +106,11 @@ void main() {
   testWidgets('compact phones can still reach the email form', (tester) async {
     await _pumpLogin(tester, _FakeEllaApiService(), size: const Size(320, 568));
 
-    await tester.tap(find.text('Continue With Email'));
+    await tester.tap(find.text('Continue with Email'));
     await tester.pump();
 
-    expect(find.text('Sign In With Email'), findsOneWidget);
+    expect(find.text('Sign in with Email'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('Send Me a Link'), findsOneWidget);
+    expect(find.text('Send Sign-In Link'), findsOneWidget);
   });
 }

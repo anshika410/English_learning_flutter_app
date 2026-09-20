@@ -8,26 +8,13 @@ import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
-import '../../services/stt_tts_service.dart' show stripEmojis;
+import '../../services/stt_tts_service.dart' show sanitizeTtsText;
 
 /// Strip markdown syntax and emojis for plain text display in TypewriterText.
-/// Stripping emojis here ensures the displayed character offsets always match
-/// what NativeTtsService sends to Android TTS (which also strips emojis),
-/// so karaoke highlights never land on an emoji character.
+/// Uses the canonical sanitizeTtsText so displayed character offsets always match
+/// what TTS services send to native TTS, preventing karaoke highlight drift.
 String stripMarkdown(String text) {
-  return stripEmojis(
-    text
-        .replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1')
-        .replaceAll(RegExp(r'\*(.+?)\*'), r'$1')
-        .replaceAll(RegExp(r'__(.+?)__'), r'$1')
-        .replaceAll(RegExp(r'_(.+?)_'), r'$1')
-        .replaceAll(RegExp(r'`(.+?)`'), r'$1')
-        .replaceAll(RegExp(r'~~(.+?)~~'), r'$1')
-        .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)'), r'$1')
-        .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-        .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
-        .trim(),
-  );
+  return sanitizeTtsText(text);
 }
 
 class ChatBubble extends ConsumerWidget {
@@ -150,9 +137,6 @@ class TypewriterText extends StatefulWidget {
 class _TypewriterTextState extends State<TypewriterText> {
   late String _cleanText;
   late List<String> _words;
-  int _visibleWords = 0;
-  bool _done = false;
-  int _animationId = 0;
 
   @override
   void initState() {
@@ -160,24 +144,6 @@ class _TypewriterTextState extends State<TypewriterText> {
     _cleanText = stripMarkdown(widget.text);
     final regex = RegExp(r'\S+|\n');
     _words = regex.allMatches(_cleanText).map((m) => m.group(0)!).toList();
-    if (widget.animate && widget.highlightStart < 0) {
-      _animate();
-    } else {
-      _visibleWords = _words.length;
-      _done = true;
-    }
-  }
-
-  void _animate() async {
-    final currentId = ++_animationId;
-    for (int i = 1; i <= _words.length; i++) {
-      await Future.delayed(const Duration(milliseconds: 50));
-      if (!mounted || _animationId != currentId) return;
-      setState(() => _visibleWords = i);
-    }
-    if (mounted && _animationId == currentId) {
-      setState(() => _done = true);
-    }
   }
 
   @override
@@ -187,21 +153,6 @@ class _TypewriterTextState extends State<TypewriterText> {
       _cleanText = stripMarkdown(widget.text);
       final regex = RegExp(r'\S+|\n');
       _words = regex.allMatches(_cleanText).map((m) => m.group(0)!).toList();
-      if (widget.animate && widget.highlightStart < 0) {
-        _visibleWords = 0;
-        _done = false;
-        _animate();
-      } else {
-        _visibleWords = _words.length;
-        _done = true;
-      }
-    } else {
-      if (widget.highlightStart >= 0 && !_done) {
-        setState(() {
-          _done = true;
-          _visibleWords = _words.length;
-        });
-      }
     }
   }
 
@@ -218,7 +169,17 @@ class _TypewriterTextState extends State<TypewriterText> {
           color: const Color(0xFFE91E63),
         );
 
-    final showCount = _done ? _words.length : _visibleWords;
+    final hasActiveHighlight =
+        widget.highlightStart >= 0 && widget.highlightEnd > widget.highlightStart;
+
+    if (!hasActiveHighlight) {
+      return Text(
+        _cleanText,
+        style: baseStyle,
+      );
+    }
+
+    final showCount = _words.length;
     if (showCount == 0) return const SizedBox.shrink();
 
     final regex = RegExp(r'\S+|\n');

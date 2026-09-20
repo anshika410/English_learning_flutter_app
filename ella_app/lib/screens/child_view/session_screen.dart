@@ -83,6 +83,11 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
+  // Audio-sync text reveal: holds new Zoe text until TTS audio starts playing
+  String? _lastRevealedZoeLine;
+  String? _pendingZoeLine;
+  Timer? _revealTimer;
+
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
   late final TtsInterface _tts;
@@ -168,6 +173,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   @override
   void dispose() {
     WakelockPlus.disable();
+    _revealTimer?.cancel();
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
     try {
@@ -427,22 +433,48 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return TopicChoice(name: name, label: name);
   }
 
+  /// Holds back revealing new Zoe text until TTS audio playback actually starts
+  /// (_speaking == true). Falls back after 1000ms if TTS fails to start.
+  String? _getZoeLine(ChatState s) {
+    if (_ending) return _kGoodbye;
+
+    final latestLine = _lastFrom(s, MessageSender.zoe) ?? widget.introText;
+
+    if (_speaking || _replaying || s.sessionEnded || s.status != ChatStatus.zoeSpeaking) {
+      _pendingZoeLine = null;
+      _revealTimer?.cancel();
+      _revealTimer = null;
+      _lastRevealedZoeLine = latestLine;
+      return latestLine;
+    }
+
+    if (_lastRevealedZoeLine == latestLine) {
+      return latestLine;
+    }
+
+    if (_pendingZoeLine != latestLine) {
+      _pendingZoeLine = latestLine;
+      _revealTimer?.cancel();
+      // Safety net: if TTS engine fails to start audio after 5000ms, reveal text anyway.
+      _revealTimer = Timer(const Duration(milliseconds: 5000), () {
+        if (mounted) {
+          setState(() {
+            _lastRevealedZoeLine = latestLine;
+            _pendingZoeLine = null;
+          });
+        }
+      });
+    }
+
+    return _lastRevealedZoeLine ?? widget.introText;
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     ref.listen(chatProvider, (previous, next) {
       _maybeStartSession();
-      final nextState = next.asData?.value;
-      if (nextState != null) {
-        if (nextState.status == ChatStatus.zoeSpeaking) {
-          setState(() {
-            _speaking = true;
-            _highlightStart = -1;
-            _highlightEnd = -1;
-          });
-        }
-      }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartSession());
 
@@ -503,10 +535,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
 
-    // Latest-turn content.
-    final zoeLine = _ending
-        ? _kGoodbye
-        : (_lastFrom(s, MessageSender.zoe) ?? widget.introText);
+    // Latest-turn content: syncs text reveal with TTS audio start.
+    final zoeLine = _getZoeLine(s);
 
     // In this voice-first flow, student transcription bubbles are hidden fully at all times.
     const String? studentLine = null;
@@ -521,10 +551,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       mascotPaused: _paused,
       mascotSpeaking:
           _ending ||
-          s.status == ChatStatus.zoeSpeaking ||
           _replaying ||
           _speaking,
-      mascotThinking: s.status == ChatStatus.zoeThinking,
+      mascotThinking: s.status == ChatStatus.zoeThinking ||
+          (s.status == ChatStatus.zoeSpeaking && !_speaking && !_replaying),
       isOffline: !isOnline,
       zoeLine: zoeLine,
       studentLine: studentLine,
@@ -575,15 +605,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   Future<void> _speakLine(String text) async {
     final tts = ref.read(ttsProvider);
     if (_speaking || _replaying) {
-      await tts.stop();
-      if (mounted) {
-        setState(() {
-          _replaying = false;
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
+      _stopAllTts();
       return;
     }
     setState(() {

@@ -63,6 +63,11 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
+  // Audio-sync text reveal: holds new Zoe text until TTS audio starts playing
+  String? _lastRevealedZoeLine;
+  String? _pendingZoeLine;
+  Timer? _revealTimer;
+
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
   late final TtsInterface _tts;
@@ -107,6 +112,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   @override
   void dispose() {
     WakelockPlus.disable();
+    _revealTimer?.cancel();
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
     try {
@@ -320,17 +326,45 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     return null;
   }
 
+  /// Holds back revealing new Zoe text until TTS audio playback actually starts
+  /// (_speaking == true). Falls back after 1000ms if TTS fails to start.
+  String? _getZoeLine(PlacementState s) {
+    if (_ending) return _closingLine();
+
+    final latestLine = _lastFrom(s, MessageSender.zoe);
+
+    if (_speaking || _replaying || s.isComplete || s.status != ChatStatus.zoeSpeaking) {
+      _pendingZoeLine = null;
+      _revealTimer?.cancel();
+      _revealTimer = null;
+      _lastRevealedZoeLine = latestLine;
+      return latestLine;
+    }
+
+    if (_lastRevealedZoeLine == latestLine) {
+      return latestLine;
+    }
+
+    if (_pendingZoeLine != latestLine) {
+      _pendingZoeLine = latestLine;
+      _revealTimer?.cancel();
+      // Safety net: if TTS engine fails to start audio after 5000ms, reveal text anyway.
+      _revealTimer = Timer(const Duration(milliseconds: 5000), () {
+        if (mounted) {
+          setState(() {
+            _lastRevealedZoeLine = latestLine;
+            _pendingZoeLine = null;
+          });
+        }
+      });
+    }
+
+    return _lastRevealedZoeLine;
+  }
+
   @override
   Widget build(BuildContext context) {
-    ref.listen(placementProvider, (previous, next) {
-      if (next.status == ChatStatus.zoeSpeaking) {
-        setState(() {
-          _speaking = true;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-    });
+    ref.listen(placementProvider, (previous, next) {});
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStart());
     final s = ref.watch(placementProvider);
@@ -354,9 +388,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
       ChatStatus.offline || ChatStatus.idle || ChatStatus.speechError => MicState.idle,
     };
 
-    // While ending, Zoe speaks the fixed farewell (which cross-fades in over the
-    // last turn); otherwise show her latest line.
-    final zoeLine = _ending ? _closingLine() : _lastFrom(s, MessageSender.zoe);
+    // While ending, Zoe speaks the fixed farewell; otherwise show her latest line
+    // synchronized with TTS audio playback start.
+    final zoeLine = _getZoeLine(s);
 
     // In this voice-first flow, student transcription bubbles are hidden fully at all times.
     const String? studentLine = null;
@@ -382,10 +416,10 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 phase: phase,
                 mascotSpeaking:
                     _ending ||
-                    s.status == ChatStatus.zoeSpeaking ||
                     _replaying ||
                     _speaking,
-                mascotThinking: !_ending && s.status == ChatStatus.zoeThinking,
+                mascotThinking: !_ending && (s.status == ChatStatus.zoeThinking ||
+                    (s.status == ChatStatus.zoeSpeaking && !_speaking && !_replaying)),
                 isOffline: !isOnline,
                 progress: _ending ? 1.0 : _progress(s),
                 zoeLine: zoeLine,

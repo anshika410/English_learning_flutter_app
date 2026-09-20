@@ -46,6 +46,25 @@ String stripEmojis(String text) {
       .trim();
 }
 
+/// Strips markdown formatting and emojis for both TTS playback and UI display,
+/// ensuring character indices and word boundaries match 1:1 across native TTS
+/// engines and UI widgets.
+String sanitizeTtsText(String text) {
+  return stripEmojis(
+    text
+        .replaceAll(RegExp(r'\*\*(.+?)\*\*', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'\*(.+?)\*', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'__(.+?)__', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'_(.+?)_', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'`(.+?)`', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'~~(.+?)~~', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)', dotAll: true), r'$1')
+        .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
+        .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), ''),
+  );
+}
+
+
 // ── STT ─────────────────────────────────────────────────────────────────────
 
 abstract class SttInterface {
@@ -114,28 +133,49 @@ class SpeechToTextService implements SttInterface {
     // Idempotent: the first call triggers the OS mic-permission prompt via the
     // speech_to_text plugin; later calls are no-ops so we don't re-prompt.
     if (_ready) return;
-    _ready = await _stt.initialize(
-      onError: (error) {
+    try {
+      _ready = await _stt.initialize(
+        onError: (error) {
+          AnalyticsService.logSttError(
+            error.errorMsg,
+            error.permanent ? 'permanent' : 'transient',
+            isPermanent: error.permanent,
+            stage: 'recognizer_error',
+            accumulatedTextLength: _displayText.trim().length,
+          );
+          // IMPORTANT: the Android plugin flags EVERY error as `permanent` —
+          // including `error_no_match` / `error_speech_timeout`, which fire on an
+          // ordinary silent pause. So we must NOT finalize (send) on the
+          // permanent flag; doing so sent the turn on random pauses before the
+          // child tapped Send. The statusListener restart already carries the
+          // session through these transient pause errors.
+          //
+          // Only a genuine permission failure is fatal — end the session, and do
+          // it WITHOUT sending a turn.
+          if (error.errorMsg == 'error_permission') {
+            AnalyticsService.logMicPermissionDenied();
+            _abortSession();
+          }
+        },
+      );
+      if (!_ready) {
         AnalyticsService.logSttError(
-          error.errorMsg,
-          error.permanent ? 'permanent' : 'transient',
+          'init_failed',
+          'SpeechToText initialize returned false (recognizer unavailable or permission missing)',
+          stage: 'initialize',
+          isPermanent: true,
         );
-        // IMPORTANT: the Android plugin flags EVERY error as `permanent` —
-        // including `error_no_match` / `error_speech_timeout`, which fire on an
-        // ordinary silent pause. So we must NOT finalize (send) on the
-        // permanent flag; doing so sent the turn on random pauses before the
-        // child tapped Send. The statusListener restart already carries the
-        // session through these transient pause errors.
-        //
-        // Only a genuine permission failure is fatal — end the session, and do
-        // it WITHOUT sending a turn.
-        if (error.errorMsg == 'error_permission') {
-          AnalyticsService.logMicPermissionDenied();
-          _abortSession();
-        }
-      },
-    );
-    if (!_ready) {
+        AnalyticsService.logMicPermissionDenied();
+      }
+    } catch (e, stackTrace) {
+      _ready = false;
+      AnalyticsService.logSttError(
+        'init_exception',
+        'Exception during SpeechToText initialization: $e',
+        stage: 'initialize',
+        stackTrace: stackTrace,
+        isPermanent: true,
+      );
       AnalyticsService.logMicPermissionDenied();
     }
   }
@@ -191,8 +231,15 @@ class SpeechToTextService implements SttInterface {
           localeId: 'en_US',
         ),
       );
-    } catch (_) {
+    } catch (e, stackTrace) {
       _recognizerRunning = false;
+      AnalyticsService.logSttError(
+        'listen_exception',
+        'Exception during _stt.listen(): $e',
+        stage: 'start_recognizer',
+        accumulatedTextLength: _displayText.trim().length,
+        stackTrace: stackTrace,
+      );
       // Retry shortly; a hard failure is caught by the permanent-error path.
       _scheduleRestart();
     }
@@ -359,18 +406,7 @@ class FlutterTtsService implements TtsInterface {
 
   /// Strips emojis and markdown before handing text to the TTS engine.
   static String _sanitizeForTts(String text) {
-    return stripEmojis(
-      text
-          .replaceAll(RegExp(r'\*\*(.+?)\*\*', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'\*(.+?)\*', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'__(.+?)__', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'_(.+?)_', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'`(.+?)`', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'~~(.+?)~~', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)', dotAll: true), r'$1')
-          .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-          .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), ''),
-    );
+    return sanitizeTtsText(text);
   }
 
   @override

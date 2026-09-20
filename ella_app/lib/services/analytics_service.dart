@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -371,19 +372,107 @@ class AnalyticsService {
     );
   }
 
-  // Track speech recognition errors
-  static Future<void> logSttError(String errorCode, String errorMessage) async {
+  /// Maps STT error codes to detailed human-readable causes.
+  static String mapSttErrorToReason(String errorCode) {
+    switch (errorCode.toLowerCase().trim()) {
+      case 'error_no_match':
+        return 'No speech recognized within timeout period (silence or unrecognized audio)';
+      case 'error_speech_timeout':
+        return 'Speech input timeout (user remained silent or paused too long)';
+      case 'error_network':
+        return 'Network error occurred during speech recognition';
+      case 'error_network_timeout':
+        return 'Network connection timed out while processing speech';
+      case 'error_audio':
+        return 'Audio recording hardware or stream error';
+      case 'error_client':
+        return 'Client-side error in OS speech recognizer engine';
+      case 'error_permission':
+      case 'error_insufficient_permissions':
+        return 'Microphone or speech recognition permission denied by user or OS';
+      case 'error_busy':
+        return 'Speech recognizer engine is busy processing another request';
+      case 'error_server':
+        return 'Server-side speech recognition service error';
+      case 'error_language_not_supported':
+        return 'Selected locale / language is not supported by device STT engine';
+      case 'init_failed':
+        return 'SpeechToText engine initialization returned false (recognizer unavailable or permission missing)';
+      case 'init_exception':
+        return 'Unhandled exception thrown during SpeechToText initialization';
+      case 'listen_exception':
+        return 'Unhandled exception thrown during SpeechToText listen session';
+      default:
+        return 'STT error occurred ($errorCode)';
+    }
+  }
+
+  /// Track speech recognition errors with detailed diagnostic context in Firebase Analytics and Crashlytics.
+  static Future<void> logSttError(
+    String errorCode,
+    String errorMessage, {
+    bool? isPermanent,
+    String? stage,
+    int? accumulatedTextLength,
+    StackTrace? stackTrace,
+    Map<String, Object>? extraDetails,
+  }) async {
+    final reason = mapSttErrorToReason(errorCode);
+    final version = await _getAppVersion();
+    final platformStr = kIsWeb ? 'web' : defaultTargetPlatform.name;
+
+    final params = <String, Object>{
+      'error_code': errorCode,
+      'error_message': errorMessage,
+      'error_reason': reason,
+      'platform': platformStr,
+      'app_version': version,
+      'event_time': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (isPermanent != null) {
+      params['is_permanent'] = isPermanent ? 1 : 0;
+    }
+    if (stage != null && stage.isNotEmpty) {
+      params['stage'] = stage;
+    }
+    if (accumulatedTextLength != null) {
+      params['accumulated_text_len'] = accumulatedTextLength;
+    }
+    if (extraDetails != null) {
+      extraDetails.forEach((key, val) {
+        if (!params.containsKey(key)) {
+          params[key] = val;
+        }
+      });
+    }
+
     await _analytics?.logEvent(
       name: 'stt_error',
-      parameters: {
-        'error_code': errorCode,
-        'error_message': errorMessage,
-      },
+      parameters: params,
     );
+
     try {
-      await FirebaseCrashlytics.instance.recordError(
-        'STT Error: $errorCode - $errorMessage',
-        StackTrace.current,
+      final crashlytics = FirebaseCrashlytics.instance;
+      await crashlytics.setCustomKey('stt_error_code', errorCode);
+      await crashlytics.setCustomKey('stt_error_message', errorMessage);
+      await crashlytics.setCustomKey('stt_reason', reason);
+      if (isPermanent != null) {
+        await crashlytics.setCustomKey('stt_permanent', isPermanent);
+      }
+      if (stage != null) {
+        await crashlytics.setCustomKey('stt_stage', stage);
+      }
+      if (accumulatedTextLength != null) {
+        await crashlytics.setCustomKey('stt_text_len', accumulatedTextLength);
+      }
+
+      final logMessage =
+          'STT Failure [$errorCode]${stage != null ? ' (stage: $stage)' : ''}: $errorMessage ($reason)';
+
+      await crashlytics.recordError(
+        logMessage,
+        stackTrace ?? StackTrace.current,
+        reason: 'STT failure: $errorCode',
         fatal: false,
       );
     } catch (_) {}

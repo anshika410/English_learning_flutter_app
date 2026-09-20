@@ -1006,6 +1006,8 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
       if (m.role == 'user') lastUserText = m.text;
     }
     if (_online && cur.activeSessionId != null && lastUserText != null) {
+      final turnSw = Stopwatch()..start();
+      final t0 = turnSw.elapsedMilliseconds;
       try {
         final api = ref.read(ellaApiServiceProvider);
         final turn = await api.conversationTurn(
@@ -1013,6 +1015,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
           content: lastUserText,
           inputMode: cur.inputMode == InputMode.voice ? 'voice' : 'text',
         );
+        final t1 = turnSw.elapsedMilliseconds;
         final reply = turn.latestAssistantText;
         if (reply != null && reply.trim().isNotEmpty) {
           final zoeMsg = ChatMessage(
@@ -1033,6 +1036,13 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
             final tts = ref.read(ttsProvider);
             await tts.speak(zoeMsg.text);
           } catch (_) {}
+          final t2 = turnSw.elapsedMilliseconds;
+          debugPrint(
+            '⏱️ [End-to-End Turn Latency Log] '
+            'api_network_round_trip=${t1 - t0}ms | '
+            'local_tts_duration=${t2 - t1}ms | '
+            'total_turn_time=${t2 - t0}ms',
+          );
           if (state.hasValue && state.requireValue.status == ChatStatus.zoeSpeaking) {
             state = AsyncValue.data(
               state.requireValue.copyWith(
