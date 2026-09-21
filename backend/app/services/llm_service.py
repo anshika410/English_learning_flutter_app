@@ -40,6 +40,18 @@ def resolve_prompt(
                 return custom_prompts[profile_lvl]
         
         # Fallback maps
+        if filename == "placement-v2-prompt.md":
+            if "placement_v2" in custom_prompts:
+                return custom_prompts["placement_v2"]
+            if "placement-v2-prompt" in custom_prompts:
+                return custom_prompts["placement-v2-prompt"]
+            if "placement-v2" in custom_prompts:
+                return custom_prompts["placement-v2"]
+        if filename == "placement-check-prompt.md":
+            if "placement" in custom_prompts:
+                return custom_prompts["placement"]
+            if "placement-check-prompt" in custom_prompts:
+                return custom_prompts["placement-check-prompt"]
         if filename == "candidate-ella-prompt.md":
             if "candidate-ella-prompt" in custom_prompts:
                 return custom_prompts["candidate-ella-prompt"]

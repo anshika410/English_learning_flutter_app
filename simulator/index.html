@@ -1291,6 +1291,12 @@ function App(){
       const key = ta.getAttribute('data-promptkey');
       if (key && ta.value && ta.value.trim()) {
         result[key] = ta.value.trim();
+        if (key === 'placement_v2') {
+          result['placement-v2-prompt'] = ta.value.trim();
+        }
+        if (key === 'placement') {
+          result['placement-check-prompt'] = ta.value.trim();
+        }
         if (key === 'base') {
           result['candidate-ella-prompt'] = ta.value.trim();
         }
@@ -2890,6 +2896,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
           setServerPrompts(data);
           setIsSandbox(!!data.is_sandbox);
           const initialEdits = {
+            placement_v2: data.placement_v2 || '',
             placement: data.placement || '',
             base: data.base || '',
             'conv-unit-framing': data.conv_unit_framing || '',
@@ -2905,7 +2912,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
           setLoading(false);
           // Initialize global edited prompts store
           const lvlInit = level || 'A0';
-          const initParts = [data.placement, data.base];
+          const initParts = [data.placement_v2, data.placement, data.base];
           if(data.level_profiles && data.level_profiles[lvlInit]) initParts.push(data.level_profiles[lvlInit]);
           initParts.push(data.conv_unit_framing, data.judge, data.correction_extraction);
           window.__editedPrompts = initParts.filter(Boolean).join('\n\n---\n\n');
@@ -2920,7 +2927,8 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
   React.useEffect(() => {
     window.__setEditedServerPrompts = (snapshot) => {
       const mapped = {
-        placement: snapshot['placement-check-prompt'] || '',
+        placement_v2: snapshot['placement-v2-prompt'] || snapshot['placement-v2'] || '',
+        placement: snapshot['placement-check-prompt'] || snapshot['placement'] || '',
         base: snapshot['candidate-ella-prompt'] || snapshot['base-prompt'] || '',
         'conv-unit-framing': snapshot['conv-unit-framing'] || '',
         judge: snapshot['end-result-prompt'] || '',
@@ -3053,16 +3061,36 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   🟢 Active in current conversation:{' '}
                   <b>
                     {sessionType === 'placement'
-                      ? 'placement-check-prompt.md'
+                      ? 'placement-check-prompt.md (Sim) / placement-v2-prompt.md (App Onboarding)'
                       : 'candidate-ella-prompt.md'}
                   </b>
                 </>
               )}
             </div>
 
-            {/* Placement */}
+            {/* Placement v2 - Mobile App Production */}
             <PromptFieldCard
-              title="Placement Check Prompt"
+              title="Placement Screening Assessment (v2 · Mobile App Onboarding)"
+              subtitle="placement-v2-prompt.md"
+              promptKey="placement_v2"
+              value={(editedServerPrompts && editedServerPrompts.placement_v2) || ''}
+              isActive={false}
+              isLoggedIn={isLoggedIn}
+              globalMode={promptViewMode}
+              minHeight={200}
+              badgeColor="#0288d1"
+              onChange={val => {
+                setEditedServerPrompts(prev => {
+                  const up = {...prev, placement_v2: val};
+                  window.__editedPrompts = Object.values(up).filter(Boolean).join('\n\n---\n\n');
+                  return up;
+                });
+              }}
+            />
+
+            {/* Placement Check Prompt - Conversational */}
+            <PromptFieldCard
+              title="Placement Check Prompt (v1 · Conversational)"
               subtitle="placement-check-prompt.md"
               promptKey="placement"
               value={(editedServerPrompts && editedServerPrompts.placement) || ''}
@@ -3190,6 +3218,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   }
                   const author = window.__ellaUser.name + ' (' + window.__ellaUser.email + ')';
                   const snapshot = {
+                    'placement-v2-prompt': editedServerPrompts['placement_v2'],
                     'placement-check-prompt': editedServerPrompts['placement'],
                     'base-prompt': editedServerPrompts['base'],
                     'candidate-ella-prompt': editedServerPrompts['base'],
@@ -3221,6 +3250,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
 
                 <button onClick={async()=>{
                   const snapshot = {
+                    'placement-v2-prompt': editedServerPrompts['placement_v2'],
                     'placement-check-prompt': editedServerPrompts['placement'],
                     'base-prompt': editedServerPrompts['base'],
                     'candidate-ella-prompt': editedServerPrompts['base'],
