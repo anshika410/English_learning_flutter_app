@@ -20,6 +20,7 @@ import '../../../services/audio_service.dart';
 import '../../../services/analytics_service.dart';
 import '../../../services/stt_tts_service.dart';
 import '../widgets/ella_primary_button.dart';
+import '../widgets/hear_again_button.dart';
 import '../widgets/home_scene_background.dart';
 import '../widgets/zoe_mascot.dart';
 
@@ -666,7 +667,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                               ),
                             ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            _HearAgainTextButton(
+                            HearAgainButton(
                               onTap: _speaking ? null : _replayCurrentPrompt,
                               disabled: _speaking,
                             ),
@@ -694,7 +695,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                               ),
                             ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            _HearAgainTextButton(
+                            HearAgainButton(
                               onTap: _speaking ? null : _replayCurrentPrompt,
                               disabled: _speaking,
                             ),
@@ -920,59 +921,12 @@ class _FigmaHeadingPrompt extends StatelessWidget {
           style: headingStyle,
         ),
         SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
-        _HearAgainTextButton(
+        HearAgainButton(
           onTap: isSpeaking ? null : onReplay,
           disabled: isSpeaking,
         ),
         SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
       ],
-    );
-  }
-}
-
-class _HearAgainTextButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  final bool disabled;
-
-  const _HearAgainTextButton({
-    this.onTap,
-    this.disabled = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveColor = disabled
-        ? EllaColors.textSecondary.withValues(alpha: 0.4)
-        : EllaColors.textSecondary;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: disabled || onTap == null ? null : withTapClick(onTap!),
-      child: Opacity(
-        opacity: disabled ? 0.5 : 1.0,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.volume_up_outlined,
-              size: 16,
-              color: effectiveColor,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Hear Again',
-              style: EllaFonts.body(
-                TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: effectiveColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
