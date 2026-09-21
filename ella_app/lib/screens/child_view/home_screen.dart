@@ -33,7 +33,6 @@ import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
 import 'widgets/piper_download_banner.dart';
 import 'widgets/shake.dart';
-import 'widgets/speaker_dot_button.dart';
 import 'widgets/topic_carousel.dart';
 import 'widgets/zoe_mascot.dart';
 import 'chat_bubble.dart';
@@ -350,10 +349,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                               context,
                             ).disableAnimations,
                           ),
-                          // The recap bubble itself starts 14px below the
-                          // speaker-dot stack, leaving a visible 24px gap
-                          // from Zoe to the bubble border.
-                          const SizedBox(height: 10),
+                          // The recap bubble itself starts 16px below Zoe (24px to bubble border).
+                          const SizedBox(height: 8),
                           _LastTimeCard(
                             recap: _recap,
                             onSpeak: _speakRecap,
@@ -542,20 +539,25 @@ class _LastTimeCard extends StatelessWidget {
       ),
     );
 
-    // Speaker dot straddling the top-right border — identical control to Zoe's
-    // chat bubble. Top padding keeps the overhanging dot inside the Stack's
-    // bounds so it stays tappable.
-    return Stack(
+    return Container(
       key: const ValueKey('home-last-time-card'),
-      clipBehavior: Clip.none,
-      children: [
-        Padding(padding: const EdgeInsets.only(top: 14), child: card),
-        Positioned(
-          top: 0,
-          right: 10,
-          child: SpeakerDotButton(active: speaking, onTap: onSpeak),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: ellaSmoothDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: EllaColors.info, width: 2),
+      ),
+      child: Container(
+        key: const ValueKey('home-last-time-bubble'),
+        child: TypewriterText(
+          text: body,
+          style: EllaTextStyles.bodySemibold,
+          highlightStart: highlightStart,
+          highlightEnd: highlightEnd,
+          animate: false,
         ),
-      ],
+      ),
     );
   }
 }
