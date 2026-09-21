@@ -306,7 +306,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       _ending = true;
       _paused = false;
       _sheetOpen = false;
-      _speaking = true;
+      _speaking = false;
+      _replaying = false;
+      _highlightStart = -1;
+      _highlightEnd = -1;
     });
 
     final chatState = ref.read(chatProvider).valueOrNull;
@@ -549,10 +552,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       topic: _topicPresentationFor(s),
       animateTopicHeader: widget.topicPresentation != null,
       mascotPaused: _paused,
-      mascotSpeaking:
-          _ending ||
-          _replaying ||
-          _speaking,
+      mascotSpeaking: _speaking,
       mascotThinking: s.status == ChatStatus.zoeThinking ||
           (s.status == ChatStatus.zoeSpeaking && !_speaking && !_replaying),
       isOffline: !isOnline,
@@ -610,7 +610,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
     setState(() {
       _replaying = true;
-      _speaking = true;
       _highlightStart = -1;
       _highlightEnd = -1;
     });

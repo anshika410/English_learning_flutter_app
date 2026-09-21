@@ -20,14 +20,17 @@ class _FakeTts implements TtsInterface {
   bool failAcknowledgement = false;
   bool _isSpeaking = false;
 
+  final _progressController = StreamController<TtsProgressEvent>.broadcast();
+  final _doneController = StreamController<void>.broadcast();
+
   @override
   bool get isSpeaking => _isSpeaking;
 
   @override
-  Stream<TtsProgressEvent> get progressStream => const Stream.empty();
+  Stream<TtsProgressEvent> get progressStream => _progressController.stream;
 
   @override
-  Stream<void> get doneStream => const Stream.empty();
+  Stream<void> get doneStream => _doneController.stream;
 
   @override
   Future<void> initialize() async {}
@@ -36,21 +39,30 @@ class _FakeTts implements TtsInterface {
   Future<void> speak(String text) {
     spoken.add(text);
     _isSpeaking = true;
+    _progressController.add(const TtsProgressEvent(0, 0));
     if (text.startsWith('Hey ')) {
       _promptCompleter = Completer<void>();
-      return _promptCompleter!.future.whenComplete(() => _isSpeaking = false);
+      return _promptCompleter!.future.whenComplete(() {
+        _isSpeaking = false;
+        _doneController.add(null);
+      });
     }
     if (failAcknowledgement) {
       _isSpeaking = false;
+      _doneController.add(null);
       throw StateError('TTS unavailable');
     }
     if (holdAcknowledgement) {
       _acknowledgementCompleter = Completer<void>();
       return _acknowledgementCompleter!.future.whenComplete(
-        () => _isSpeaking = false,
+        () {
+          _isSpeaking = false;
+          _doneController.add(null);
+        },
       );
     }
     _isSpeaking = false;
+    _doneController.add(null);
     return Future.value();
   }
 
@@ -58,6 +70,7 @@ class _FakeTts implements TtsInterface {
   Future<void> stop() async {
     stopCalls++;
     _isSpeaking = false;
+    _doneController.add(null);
     final prompt = _promptCompleter;
     if (prompt != null && !prompt.isCompleted) prompt.complete();
     final ack = _acknowledgementCompleter;

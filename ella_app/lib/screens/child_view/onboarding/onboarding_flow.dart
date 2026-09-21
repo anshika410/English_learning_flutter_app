@@ -21,6 +21,8 @@ import '../../../providers/piper_download_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/analytics_service.dart';
+import '../../../services/stt_tts_service.dart';
+import '../../../services/native_tts_service.dart';
 import '../widgets/ella_primary_button.dart';
 import '../widgets/hear_again_button.dart';
 import '../widgets/home_scene_background.dart';
@@ -100,12 +102,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _Step.result => "Hooray! That's a fantastic start.",
   };
 
-  late final NativeTtsService _nativeTts;
+  late final TtsInterface _tts;
 
   @override
   void initState() {
     super.initState();
-    _nativeTts = ref.read(nativeTtsProvider);
+    _tts = ref.read(ttsProvider);
     AnalyticsService.logOnboardingStarted();
 
     // Keep screen awake while user is speaking/recording/listening during Placement
@@ -135,7 +137,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _ageCtrl.dispose();
     _nameFocusNode.dispose();
     _ageFocusNode.dispose();
-    _nativeTts.stop().catchError((_) {});
+    _tts.stop().catchError((_) {});
     super.dispose();
   }
 
@@ -174,7 +176,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void _subscribeToActiveTts() {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
-    final activeTts = _nativeTts;
+    final activeTts = _tts;
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() => _speaking = true);
@@ -194,12 +196,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   Future<void> _speak(String text) async {
     _subscribeToActiveTts();
-    final tts = _nativeTts;
-    setState(() => _speaking = true);
+    final tts = _tts;
     try {
       await tts.stop();
       if (!mounted) return;
-      setState(() => _mascot = ZoeMascotMode.speaking);
       await tts.speak(text);
     } catch (_) {
       if (mounted) setState(() => _speaking = false);
@@ -232,7 +232,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       setState(() => _isListening = false);
       _advanceVoiceQuestion();
     } else {
-      await _nativeTts.stop();
+      await _tts.stop();
       setState(() {
         _isListening = true;
         _validationError = null;
@@ -294,7 +294,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // ── Step Navigation & Back Button ──────────────────────────────────────────
 
   void _onBack() {
-    _nativeTts.stop().catchError((_) {});
+    _tts.stop().catchError((_) {});
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _validationError = null);
 
@@ -797,6 +797,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   // Bottom CTA Buttons (Fixed at bottom of screen with caret right icon & spacing)
                   if (_step == _Step.name)
                     EllaPrimaryButton(
+                      key: const ValueKey('chat-reply-send'),
                       label: 'Continue',
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
@@ -809,6 +810,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
                   if (_step == _Step.age)
                     EllaPrimaryButton(
+                      key: const ValueKey('chat-reply-send'),
                       label: 'Continue',
                       trailing: const Icon(
                         Icons.chevron_right_rounded,

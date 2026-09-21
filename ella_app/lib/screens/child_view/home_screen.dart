@@ -124,8 +124,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     });
     final activeTts = ref.read(ttsProvider);
     _ttsProgressSub = activeTts.progressStream.listen((event) {
-      if (mounted && _speaking) {
+      if (mounted) {
         setState(() {
+          _speaking = true;
           _highlightStart = event.start;
           _highlightEnd = event.end;
         });
@@ -226,7 +227,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         ? _recap.trim()
         : 'Ready for your first chat?';
     setState(() {
-      _speaking = true;
       _highlightStart = -1;
       _highlightEnd = -1;
     });
@@ -520,24 +520,6 @@ class _LastTimeCard extends StatelessWidget {
     final body = recap.trim().isNotEmpty
         ? recap.trim()
         : 'Ready for your first chat?';
-
-    final card = Container(
-      key: const ValueKey('home-last-time-bubble'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: ellaSmoothDecoration(
-        color: EllaColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: EllaColors.info, width: 2),
-      ),
-      child: TypewriterText(
-        text: body,
-        style: EllaTextStyles.bodySemibold,
-        highlightStart: highlightStart,
-        highlightEnd: highlightEnd,
-        animate: false,
-      ),
-    );
 
     return Container(
       key: const ValueKey('home-last-time-card'),

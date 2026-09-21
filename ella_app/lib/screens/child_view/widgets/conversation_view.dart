@@ -421,7 +421,9 @@ class _ZoeBubbleState extends State<_ZoeBubble> {
     super.initState();
     _scrollController = ScrollController();
     _scrollController.addListener(_checkScrollFade);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkScrollFade());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkScrollFade();
+    });
   }
 
   @override

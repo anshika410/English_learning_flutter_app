@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../core/ella_smooth_shape.dart';
 import 'package:dotted_border/dotted_border.dart';
@@ -375,6 +376,50 @@ class _AnimatedWordState extends State<AnimatedWord> with SingleTickerProviderSt
     ).animate(curve);
 
     _controller.forward();
+    _checkEnsureVisible();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedWord oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isHighlighted && widget.isHighlighted) {
+      _checkEnsureVisible();
+    }
+  }
+
+  void _checkEnsureVisible() {
+    if (widget.isHighlighted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          final renderObject = context.findRenderObject();
+          if (renderObject is RenderBox) {
+            final viewport = RenderAbstractViewport.of(renderObject);
+            if (viewport != null) {
+              final scrollable = Scrollable.maybeOf(context);
+              if (scrollable != null && scrollable.position.maxScrollExtent > 0) {
+                final targetOffset = viewport.getOffsetToReveal(renderObject, 0.85).offset;
+                final maxScroll = scrollable.position.maxScrollExtent;
+                final currentOffset = scrollable.position.pixels;
+                final clampedTarget = targetOffset.clamp(0.0, maxScroll);
+                if (clampedTarget > currentOffset + 12.0) {
+                  final disableAnims = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+                  if (disableAnims) {
+                    scrollable.position.jumpTo(clampedTarget);
+                  } else {
+                    scrollable.position.animateTo(
+                      clampedTarget,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                    );
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      });
+    }
   }
 
   @override

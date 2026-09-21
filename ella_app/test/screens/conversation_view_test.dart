@@ -699,4 +699,68 @@ void main() {
       expect(hearAgainRect.bottom, lessThan(844));
     },
   );
+
+  testWidgets(
+    'auto-scrolls speech bubble to keep highlighted words visible when text is long',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final veryLongText = List.generate(
+        30,
+        (i) => 'Line ${i + 1} of long assistant text',
+      ).join('\n');
+
+      final highlightTargetStart = veryLongText.indexOf('Line 28');
+      final highlightTargetEnd = highlightTargetStart + 'Line 28'.length;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: Scaffold(
+              body: ConversationView(
+                phase: ConvPhase.talking,
+                mascotSpeaking: true,
+                zoeLine: veryLongText,
+                highlightStart: 0,
+                highlightEnd: 5,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: Scaffold(
+              body: ConversationView(
+                phase: ConvPhase.talking,
+                mascotSpeaking: true,
+                zoeLine: veryLongText,
+                highlightStart: highlightTargetStart,
+                highlightEnd: highlightTargetEnd,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final singleScrollView = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: find.byKey(const ValueKey('conversation-zoe-bubble')),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      final scrollController = singleScrollView.controller!;
+      expect(scrollController.position.pixels, greaterThan(0));
+    },
+  );
 }

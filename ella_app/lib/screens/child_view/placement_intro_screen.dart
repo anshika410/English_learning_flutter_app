@@ -60,6 +60,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
+          _speaking = true;
           _highlightStart = event.start;
           _highlightEnd = event.end;
         });
@@ -68,6 +69,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
+          _speaking = false;
           _highlightStart = -1;
           _highlightEnd = -1;
         });
@@ -99,7 +101,6 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   Future<void> _speakGreeting() async {
     if (_speaking) return; // prevent concurrent calls
     setState(() {
-      _speaking = true;
       _highlightStart = -1;
       _highlightEnd = -1;
     });
