@@ -163,23 +163,31 @@ class PiperTtsService implements TtsInterface {
         spans.add(_WordSpan(m.start, m.end));
       }
 
-      // Generate single-pass audio for the entire response text
-      final audio = _tts!.generate(text: sanitized, sid: 0, speed: 1.0);
+      // Generate single-pass audio in a background isolate (prevents main UI thread ANR)
+      final modelService = PiperModelService.instance;
+      final genResult = await _generateInIsolate(
+        _TtsGenArgs(
+          modelPath: modelService.modelOnnxPath!,
+          tokensPath: modelService.tokensPath!,
+          dataDir: modelService.espeakDataDir!,
+          text: sanitized,
+        ),
+      );
       final tGen = sw.elapsedMilliseconds;
 
       debugPrint(
-        '⏱️ [PiperTTS Single-Pass] Audio ready in ${tGen - t0}ms | length=${sanitized.length} chars',
+        '⏱️ [PiperTTS Isolate] Audio ready in ${tGen - t0}ms | length=${sanitized.length} chars',
       );
 
       if (token != _speakToken || !_speaking) return;
-      if (audio.samples.isEmpty) return;
+      if (genResult.samples.isEmpty) return;
 
       final completer = Completer<void>();
       _activeCompleter = completer;
 
       await _playAudioSamples(
-        audio.samples,
-        audio.sampleRate,
+        genResult.samples,
+        genResult.sampleRate,
         completer,
         spans,
         token: token,

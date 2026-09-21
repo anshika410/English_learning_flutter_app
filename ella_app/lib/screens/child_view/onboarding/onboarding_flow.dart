@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:wakelock_plus/wakelock_plus.dart';
+
 import '../../../app.dart' show placementCacheProvider;
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
@@ -18,7 +20,6 @@ import '../../../providers/connectivity_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/analytics_service.dart';
-import '../../../services/stt_tts_service.dart';
 import '../widgets/ella_primary_button.dart';
 import '../widgets/hear_again_button.dart';
 import '../widgets/home_scene_background.dart';
@@ -73,8 +74,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
-  late final TtsInterface _tts;
-
   // ── Prompts ───────────────────────────────────────────────────────────────
 
   static const String _namePrompt =
@@ -104,8 +103,70 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void initState() {
     super.initState();
     AnalyticsService.logOnboardingStarted();
-    _tts = ref.read(ttsProvider);
 
+    // Keep screen awake while user is speaking/recording/listening during Placement
+    WakelockPlus.enable();
+
+    _subscribeToActiveTts();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _restorePlacementState();
+      if (!mounted) return;
+      _speak(_currentPrompt);
+    });
+  }
+
+  @override
+  void dispose() {
+    // Release screen wakelock on leaving placement flow
+    WakelockPlus.disable();
+
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    _nameCtrl.dispose();
+    _ageCtrl.dispose();
+    _nameFocusNode.dispose();
+    _ageFocusNode.dispose();
+    ref.read(ttsProvider).stop().catchError((_) {});
+    super.dispose();
+  }
+
+  Future<void> _restorePlacementState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final onboardingState = ref.read(onboardingProvider).valueOrNull;
+    final cachedName = prefs.getString('ella_api_user_name') ?? onboardingState?.name;
+    final cachedAge = prefs.getInt('ella_api_user_age') ?? onboardingState?.age;
+
+    if (cachedName != null && cachedName.isNotEmpty) {
+      _name = cachedName;
+      _nameCtrl.text = cachedName;
+    }
+    if (cachedAge != null && cachedAge > 0) {
+      _age = cachedAge;
+      _ageCtrl.text = cachedAge.toString();
+    }
+
+    // If Name & Age are already saved/known: always resume Placement from the first question (_Step.levelQ1)
+    if (_name.isNotEmpty && _age != null && _age! > 0) {
+      if (mounted) {
+        setState(() {
+          _step = _Step.levelQ1;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveCurrentStep(_Step step) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('ella_placement_step', step.name);
+    } catch (_) {}
+  }
+
+  void _subscribeToActiveTts() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
     final activeTts = ref.read(ttsProvider);
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
@@ -120,28 +181,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         });
       }
     });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _speak(_namePrompt);
-    });
-  }
-
-  @override
-  void dispose() {
-    _ttsProgressSub?.cancel();
-    _ttsDoneSub?.cancel();
-    _nameCtrl.dispose();
-    _ageCtrl.dispose();
-    _nameFocusNode.dispose();
-    _ageFocusNode.dispose();
-    _tts.stop().catchError((_) {});
-    super.dispose();
   }
 
   // ── Speech Output ──────────────────────────────────────────────────────────
 
   Future<void> _speak(String text) async {
+    _subscribeToActiveTts();
     final tts = ref.read(ttsProvider);
     setState(() => _speaking = true);
     try {
@@ -180,7 +225,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       setState(() => _isListening = false);
       _advanceVoiceQuestion();
     } else {
-      await _tts.stop();
+      await ref.read(ttsProvider).stop();
       setState(() {
         _isListening = true;
         _validationError = null;
@@ -226,6 +271,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       Future.delayed(const Duration(milliseconds: 700), () {
         if (mounted && _step == _Step.voiceQ2) {
           setState(() => _step = _Step.voiceQ3);
+          _saveCurrentStep(_Step.voiceQ3);
           _speak(_q3Prompt);
         }
       });
@@ -241,7 +287,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // ── Step Navigation & Back Button ──────────────────────────────────────────
 
   void _onBack() {
-    _tts.stop().catchError((_) {});
+    ref.read(ttsProvider).stop().catchError((_) {});
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _validationError = null);
 
@@ -328,12 +374,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   void _onWelcomeContinue() {
     setState(() => _step = _Step.levelQ1);
+    _saveCurrentStep(_Step.levelQ1);
     _speak(_levelPrompt);
   }
 
   void _onLevelQ1Continue() {
     if (_selectedLevelIndex == null) return;
     setState(() => _step = _Step.voiceQ2);
+    _saveCurrentStep(_Step.voiceQ2);
     _speak(_q2Prompt);
   }
 
@@ -342,6 +390,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _step = _Step.result;
       _evaluatingPlacement = true;
     });
+    _saveCurrentStep(_Step.result);
     _speak("$_name, I found a good place for you to start!");
 
     // Execute Placement V2 API call
@@ -400,6 +449,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     setState(() => _busy = true);
 
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('ella_placement_step');
     await prefs.setBool('ella_api_placement_done', true);
 
     final ageVal = _age ?? 10;
