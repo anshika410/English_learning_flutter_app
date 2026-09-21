@@ -17,6 +17,7 @@ import '../../../models/placement.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/connectivity_provider.dart';
+import '../../../providers/piper_download_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/analytics_service.dart';
@@ -107,6 +108,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     // Keep screen awake while user is speaking/recording/listening during Placement
     WakelockPlus.enable();
 
+    // Start background download of Piper voice model so it is ready for post-placement session conversation
+    ref.read(piperDownloadProvider.notifier).startIfNeeded();
+
     _subscribeToActiveTts();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -128,7 +132,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _ageCtrl.dispose();
     _nameFocusNode.dispose();
     _ageFocusNode.dispose();
-    ref.read(ttsProvider).stop().catchError((_) {});
+    ref.read(nativeTtsProvider).stop().catchError((_) {});
     super.dispose();
   }
 
@@ -167,7 +171,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void _subscribeToActiveTts() {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
-    final activeTts = ref.read(ttsProvider);
+    final activeTts = ref.read(nativeTtsProvider);
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() => _speaking = true);
@@ -183,11 +187,11 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     });
   }
 
-  // ── Speech Output ──────────────────────────────────────────────────────────
+  // ── Speech Output (Placement strictly uses Native TTS; Piper is used post-placement) ────
 
   Future<void> _speak(String text) async {
     _subscribeToActiveTts();
-    final tts = ref.read(ttsProvider);
+    final tts = ref.read(nativeTtsProvider);
     setState(() => _speaking = true);
     try {
       await tts.stop();
@@ -225,7 +229,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       setState(() => _isListening = false);
       _advanceVoiceQuestion();
     } else {
-      await ref.read(ttsProvider).stop();
+      await ref.read(nativeTtsProvider).stop();
       setState(() {
         _isListening = true;
         _validationError = null;
@@ -287,7 +291,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // ── Step Navigation & Back Button ──────────────────────────────────────────
 
   void _onBack() {
-    ref.read(ttsProvider).stop().catchError((_) {});
+    ref.read(nativeTtsProvider).stop().catchError((_) {});
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _validationError = null);
 
