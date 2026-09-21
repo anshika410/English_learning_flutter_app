@@ -83,10 +83,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       "Thanks, $_name.\nHow old are you?";
 
   static const String _levelPrompt =
-      "How does speaking English feel for you right now?";
+      "Pick one that suits you.";
 
   static const String _q2Prompt =
-      "What do you want to improve in your English?";
+      "Tell me a little about why you want to learn English.";
   static const String _q3Prompt =
       "Tell me something about yourself?";
 
@@ -97,7 +97,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _Step.levelQ1 => _levelPrompt,
     _Step.voiceQ2 => _q2Prompt,
     _Step.voiceQ3 => _q3Prompt,
-    _Step.result => "$_name, I found a good place for you to start!",
+    _Step.result => "Hooray! That's a fantastic start.",
   };
 
   @override
@@ -395,7 +395,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _evaluatingPlacement = true;
     });
     _saveCurrentStep(_Step.result);
-    _speak("$_name, I found a good place for you to start!");
+    _speak("Hooray! That's a fantastic start.");
 
     // Execute Placement V2 API call
     final selfReportedLevel = _selectedLevelIndex != null &&
@@ -477,9 +477,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         _placementTurnResult!.levelName!.isNotEmpty) {
       return _placementTurnResult!.levelName!;
     }
-    final idx = _selectedLevelIndex ?? 2;
+    final idx = _selectedLevelIndex ?? 0;
     return switch (idx) {
-      0 => 'Lv. 1 Starting Out',
+      0 => 'Lv. 1 First Words',
       1 => 'Lv. 2 Simple Phrases',
       2 => 'Lv. 3 Everyday Talk',
       3 => 'Lv. 4 Expressing Ideas',
@@ -536,19 +536,33 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         if (progress != null) ...[
                           const SizedBox(height: 10),
                           PlacementTopProgressBar(progress: progress),
+                          SizedBox(height: (size.height * 0.016).clamp(10.0, 16.0)),
+                          Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              "This will help us get to know you and\npersonalise your learning",
+                              textAlign: TextAlign.center,
+                              style: EllaFonts.body(
+                                const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.6,
+                                  letterSpacing: 0,
+                                  color: EllaColors.ink,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ],
                     ),
                   ),
                   SizedBox(height: (size.height * 0.012).clamp(6.0, 12.0)),
 
-                  // Main Content (Slightly above center for Name, Age, Q1, Q2, Q3 screens)
+                  // Main Content (Shifted slightly above center so last component rests near visual center)
                   Expanded(
                     child: Align(
-                      alignment: switch (_step) {
-                        _Step.welcome || _Step.result => Alignment.center,
-                        _ => const Alignment(0, -0.25),
-                      },
+                      alignment: const Alignment(0, -0.35),
                       child: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -665,7 +679,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
                               child: Text(
-                                "I will ask you a few questions to get started",
+                                "Let’s get to know you &\npersonalise your learning.",
                                 textAlign: TextAlign.center,
                                 style: EllaFonts.body(
                                   const TextStyle(
@@ -700,15 +714,17 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             ),
                           ],
 
-                          // Step 5: Placement Q2 (What do you want to improve in your English?)
+                          // Step 5: Placement Q2 (Tell me a little about why you want to learn English.)
                           if (_step == _Step.voiceQ2) ...[
                             const SizedBox(height: 6),
-                            const _VoiceSpeechBubbleCard(text: _q2Prompt),
+                            const _VoiceSpeechBubbleCard(
+                              text: "Tell me a little about why\nyou want to learn English.",
+                            ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
                               child: Text(
-                                'A short answer is okay. Say more if you want',
+                                'Tell us what you hope to achieve.',
                                 textAlign: TextAlign.center,
                                 style: EllaFonts.body(
                                   const TextStyle(
@@ -728,10 +744,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             SizedBox(height: spaceAfterPrompt),
                           ],
 
-                          // Step 6: Placement Q3 (Tell me something about yourself?)
+                          // Step 6: Placement Q3 (Tell me something about yourself? 😎)
                           if (_step == _Step.voiceQ3) ...[
                             const SizedBox(height: 6),
-                            const _VoiceSpeechBubbleCard(text: _q3Prompt),
+                            const _VoiceSpeechBubbleCard(
+                              text: "Tell me something about\nyourself? 😎",
+                            ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
@@ -823,7 +841,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
                   if (_step == _Step.result)
                     EllaPrimaryButton(
-                      label: 'Start Learning English',
+                      label: 'Start learning',
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
                         size: 22,

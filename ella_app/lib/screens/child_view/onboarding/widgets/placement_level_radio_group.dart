@@ -9,11 +9,11 @@ class PlacementLevelRadioGroup extends StatelessWidget {
   final ValueChanged<int> onSelect;
 
   static const List<String> options = [
-    'I am starting new',
-    'I know some English',
-    'I can have short conversations',
+    'English is new to me',
+    'I understand a little English',
+    'I can speak simple sentences',
     'I can explain my ideas',
-    'I am comfortable speaking English',
+    'I can speak English confidently',
   ];
 
   const PlacementLevelRadioGroup({
