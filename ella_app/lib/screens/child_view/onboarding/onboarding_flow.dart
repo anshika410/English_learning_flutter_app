@@ -100,9 +100,12 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _Step.result => "Hooray! That's a fantastic start.",
   };
 
+  late final NativeTtsService _nativeTts;
+
   @override
   void initState() {
     super.initState();
+    _nativeTts = ref.read(nativeTtsProvider);
     AnalyticsService.logOnboardingStarted();
 
     // Keep screen awake while user is speaking/recording/listening during Placement
@@ -132,7 +135,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _ageCtrl.dispose();
     _nameFocusNode.dispose();
     _ageFocusNode.dispose();
-    ref.read(nativeTtsProvider).stop().catchError((_) {});
+    _nativeTts.stop().catchError((_) {});
     super.dispose();
   }
 
@@ -171,7 +174,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   void _subscribeToActiveTts() {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
-    final activeTts = ref.read(nativeTtsProvider);
+    final activeTts = _nativeTts;
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() => _speaking = true);
@@ -191,7 +194,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   Future<void> _speak(String text) async {
     _subscribeToActiveTts();
-    final tts = ref.read(nativeTtsProvider);
+    final tts = _nativeTts;
     setState(() => _speaking = true);
     try {
       await tts.stop();
@@ -229,7 +232,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       setState(() => _isListening = false);
       _advanceVoiceQuestion();
     } else {
-      await ref.read(nativeTtsProvider).stop();
+      await _nativeTts.stop();
       setState(() {
         _isListening = true;
         _validationError = null;
@@ -291,7 +294,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   // ── Step Navigation & Back Button ──────────────────────────────────────────
 
   void _onBack() {
-    ref.read(nativeTtsProvider).stop().catchError((_) {});
+    _nativeTts.stop().catchError((_) {});
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _validationError = null);
 
@@ -395,7 +398,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _evaluatingPlacement = true;
     });
     _saveCurrentStep(_Step.result);
-    _speak("Hooray! That's a fantastic start.");
 
     // Execute Placement V2 API call
     final selfReportedLevel = _selectedLevelIndex != null &&
@@ -438,12 +440,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           _placementTurnResult = result;
           _evaluatingPlacement = false;
         });
+        _speak("Hooray! That's a fantastic start.");
       }
     } catch (_) {
       if (mounted) {
         setState(() {
           _evaluatingPlacement = false;
         });
+        _speak("Hooray! That's a fantastic start.");
       }
     }
   }
