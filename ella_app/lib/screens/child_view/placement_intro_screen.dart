@@ -26,7 +26,6 @@ import 'widgets/ella_primary_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
 import 'widgets/piper_download_banner.dart';
-import 'widgets/speaker_dot_button.dart';
 import 'widgets/zoe_mascot.dart';
 
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
@@ -273,38 +272,22 @@ class _GreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The 40px dot straddles the card's top-right corner (Figma): it hangs
-    // above and off the right edge. Top padding keeps it inside the Stack's
-    // hit-test bounds.
-    return Stack(
+    return Container(
       key: const ValueKey('placement-home-greeting-card'),
-      clipBehavior: Clip.none,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: ellaSmoothDecoration(
-              color: EllaColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: EllaColors.info, width: 2),
-            ),
-            child: TypewriterText(
-              text: text,
-              style: EllaTextStyles.bodySemiboldLarge,
-              highlightStart: highlightStart,
-              highlightEnd: highlightEnd,
-              animate: false,
-            ),
-          ),
-        ),
-        Positioned(
-          top: 0,
-          right: -6,
-          child: SpeakerDotButton(active: speaking, onTap: onToggle, size: 40),
-        ),
-      ],
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: ellaSmoothDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: EllaColors.info, width: 2),
+      ),
+      child: TypewriterText(
+        text: text,
+        style: EllaTextStyles.bodySemiboldLarge,
+        highlightStart: highlightStart,
+        highlightEnd: highlightEnd,
+        animate: false,
+      ),
     );
   }
 }
