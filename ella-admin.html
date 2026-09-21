@@ -226,7 +226,10 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <h2 style="margin-bottom:0;">Placement Results</h2>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <input id="user-search" type="text" placeholder="🔍 Search by name..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
+              <input id="user-search" type="text" placeholder="🔍 Search by name or email..." oninput="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;width:200px;">
+              <select id="app-filter" onchange="filterUsers()" style="padding:7px 12px;border:1.5px solid #F0E4CC;border-radius:8px;font-size:13px;outline:none;background:#FFFDF8;color:#2C1E0F;cursor:pointer;">
+                <option value="">📱 All App Versions</option>
+              </select>
               <button onclick="openJumpModal('', '', '', '')" style="padding:7px 12px; border:1.5px solid #2563eb; background:#EFF6FF; color:#2563eb; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">⚡ Jump Level</button>
             </div>
           </div>
@@ -241,7 +244,7 @@
                   <th>Skill Progress</th>
                   <th onclick="toggleSort('joined')" style="cursor:pointer;user-select:none;">Joined <span id="sort-joined-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
                   <th onclick="toggleSort('last_active')" style="cursor:pointer;user-select:none;">Last Active <span id="sort-active-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
-                  <th>App</th>
+                  <th onclick="toggleSort('app')" style="cursor:pointer;user-select:none;">App <span id="sort-app-arrow" style="font-size:10px;opacity:0.4;">↕️</span></th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -631,6 +634,7 @@
     document.getElementById('level-bar').innerHTML = levelBar || '<span style="color:#888;font-size:13px">No placement data yet</span>';
 
     window.USERS = data.users;
+    populateAppFilterOptions();
     renderUsers();
 
     document.getElementById('convs-table').innerHTML = data.recent_conversations.map(c => `
@@ -649,6 +653,29 @@
     document.getElementById('content').style.display = 'block';
   }
 
+  function populateAppFilterOptions() {
+    const select = document.getElementById('app-filter');
+    if (!select || !window.USERS) return;
+    const currentVal = select.value;
+    const versions = new Set();
+    window.USERS.forEach(u => {
+      if (u.app_version) {
+        const clean = u.app_version.split('+')[0].trim();
+        if (clean) versions.add(clean);
+      }
+    });
+    const sortedVersions = Array.from(versions).sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+    let html = '<option value="">📱 All App Versions</option>';
+    sortedVersions.forEach(v => {
+      html += `<option value="${v}">v${v}</option>`;
+    });
+    html += '<option value="none">No version recorded</option>';
+    select.innerHTML = html;
+    if (currentVal && (versions.has(currentVal) || currentVal === 'none')) {
+      select.value = currentVal;
+    }
+  }
+
   function renderUsers() {
     let sorted = [...window.USERS].filter(u => u.name || u.email);
 
@@ -663,6 +690,17 @@
         const da = a.last_active_at ? new Date(a.last_active_at) : new Date(0);
         const db = b.last_active_at ? new Date(b.last_active_at) : new Date(0);
         return currentSortOrder === 'desc' ? db - da : da - db;
+      });
+    } else if (currentSortCol === 'app') {
+      sorted.sort((a, b) => {
+        const va = (a.app_version || '').trim();
+        const vb = (b.app_version || '').trim();
+        if (!va && !vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return currentSortOrder === 'desc'
+          ? vb.localeCompare(va, undefined, { numeric: true, sensitivity: 'base' })
+          : va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' });
       });
     } else {
       // Default custom sort logic: full profile first, then sorted by level
@@ -696,6 +734,16 @@
       } else {
         activeArrow.textContent = ' ↕️';
         activeArrow.style.opacity = '0.4';
+      }
+    }
+    const appArrow = document.getElementById('sort-app-arrow');
+    if (appArrow) {
+      if (currentSortCol === 'app') {
+        appArrow.textContent = currentSortOrder === 'desc' ? ' ⬇️' : ' ⬆️';
+        appArrow.style.opacity = '1';
+      } else {
+        appArrow.textContent = ' ↕️';
+        appArrow.style.opacity = '0.4';
       }
     }
 
@@ -1119,12 +1167,28 @@
   }
 
   function filterUsers() {
-    const q = document.getElementById('user-search').value.toLowerCase();
+    const q = (document.getElementById('user-search').value || '').toLowerCase().trim();
+    const appFilter = document.getElementById('app-filter');
+    const appVal = appFilter ? (appFilter.value || '').toLowerCase().trim() : '';
     const rows = document.querySelectorAll('#users-table tr');
     rows.forEach(row => {
-      const name = row.querySelector('td strong');
-      const text = name ? name.textContent.toLowerCase() : '';
-      row.style.display = (!q || text.includes(q)) ? '' : 'none';
+      const nameEl = row.querySelector('td strong');
+      const emailEl = row.querySelector('td[style*="font-size:11px"]');
+      const appEl = row.querySelector('td span[title]');
+      
+      const nameText = nameEl ? nameEl.textContent.toLowerCase() : '';
+      const emailText = emailEl ? emailEl.textContent.toLowerCase() : '';
+      const appText = appEl ? (appEl.getAttribute('title') || appEl.textContent || '').toLowerCase() : '';
+
+      const matchesSearch = !q || nameText.includes(q) || emailText.includes(q);
+      let matchesApp = true;
+      if (appVal === 'none') {
+        matchesApp = !appText || appText === '—' || appText.trim() === '';
+      } else if (appVal) {
+        matchesApp = appText.includes(appVal);
+      }
+
+      row.style.display = (matchesSearch && matchesApp) ? '' : 'none';
     });
   }
 
