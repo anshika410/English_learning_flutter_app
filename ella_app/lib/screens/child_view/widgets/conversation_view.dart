@@ -176,7 +176,7 @@ class ConversationView extends StatelessWidget {
                           children: [
                             mascot,
                             if (onSpeakAgain != null) ...[
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 24),
                               HearAgainButton(
                                 onTap: mascotSpeaking ? null : onSpeakAgain,
                                 disabled: mascotSpeaking,
@@ -190,7 +190,7 @@ class ConversationView extends StatelessWidget {
                     else ...[
                       mascot,
                       if (onSpeakAgain != null) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 24),
                         HearAgainButton(
                           onTap: mascotSpeaking ? null : onSpeakAgain,
                           disabled: mascotSpeaking,

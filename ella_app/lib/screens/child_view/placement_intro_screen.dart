@@ -51,14 +51,10 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
-  late final TtsInterface _tts;
-
-  @override
-  void initState() {
-    super.initState();
-    _tts = ref.read(ttsProvider);
-    final activeTts = ref.read(ttsProvider);
-    _ttsProgressSub = activeTts.progressStream.listen((event) {
+  void _subscribeToTts(TtsInterface tts) {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    _ttsProgressSub = tts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
           _speaking = true;
@@ -67,7 +63,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
         });
       }
     });
-    _ttsDoneSub = activeTts.doneStream.listen((_) {
+    _ttsDoneSub = tts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;
@@ -76,6 +72,12 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
         });
       }
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeToTts(ref.read(ttsProvider));
     // Trigger Piper model download in background if not done yet
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -94,7 +96,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
     try {
-      _tts.stop();
+      ref.read(ttsProvider).stop();
     } catch (_) {}
     super.dispose();
   }
@@ -125,7 +127,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   void _toggleSpeak() async {
     if (_speaking) {
       try {
-        await _tts.stop();
+        await ref.read(ttsProvider).stop();
       } catch (_) {}
       if (mounted) {
         setState(() {
@@ -175,6 +177,10 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TtsInterface>(ttsProvider, (previous, next) {
+      _subscribeToTts(next);
+    });
+
     final size = MediaQuery.of(context).size;
     final mascotW = (size.width * 0.35).clamp(128.0, 168.0);
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
@@ -216,11 +222,11 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                               context,
                             ).disableAnimations,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 24),
                           HearAgainButton(
                             key: const ValueKey('placement-intro-hear-again-button'),
-                            onTap: _toggleSpeak,
-                            disabled: false,
+                            onTap: _speaking ? null : _toggleSpeak,
+                            disabled: _speaking,
                           ),
                           const SizedBox(height: 10),
                           _GreetingCard(

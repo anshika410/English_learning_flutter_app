@@ -522,7 +522,9 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
                 child: RepaintBoundary(
                   child: PlacementGardenHeader(
                     name: name,
-                    onBack: _handleBack,
+                    onBack: widget.mode == PlacementGardenMode.placementResult
+                        ? null
+                        : _handleBack,
                     // Every garden speaker is a mute-only toggle for the ambient
                     // garden music (matches the real garden's speaker button).
                     trailing: const GardenSoundButton(size: 32),
@@ -687,6 +689,12 @@ class _PlacementGardenScreenState extends ConsumerState<PlacementGardenScreen>
       ),
     );
 
+    if (widget.mode == PlacementGardenMode.placementResult) {
+      return PopScope<Object?>(
+        canPop: false,
+        child: child,
+      );
+    }
     if (!_isOnboardingReveal) return child;
     return PopScope<Object?>(
       canPop: false,

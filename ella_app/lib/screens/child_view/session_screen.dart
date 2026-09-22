@@ -86,8 +86,29 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
-  late final TtsInterface _tts;
   late final ChatNotifier _chatNotifier;
+  void _subscribeToTts(TtsInterface tts) {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    _ttsProgressSub = tts.progressStream.listen((event) {
+      if (mounted) {
+        setState(() {
+          _speaking = true;
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = tts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -99,32 +120,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     AnalyticsService.logScreenView('Chat');
     final topicName = widget.initialTopic?.topic ?? 'Free Talk';
     AnalyticsService.logConversationStarted(topicName);
-    _tts = ref.read(ttsProvider);
     _chatNotifier = ref.read(chatProvider.notifier);
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
         _stopAllTts();
       }
     });
-    final activeTts = ref.read(ttsProvider);
-    _ttsProgressSub = activeTts.progressStream.listen((event) {
-      if (mounted) {
-        setState(() {
-          _speaking = true;
-          _highlightStart = event.start;
-          _highlightEnd = event.end;
-        });
-      }
-    });
-    _ttsDoneSub = activeTts.doneStream.listen((_) {
-      if (mounted) {
-        setState(() {
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-    });
+    _subscribeToTts(ref.read(ttsProvider));
     // Speak the starter message once this screen is mounted.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeSpeakStarter(ref.read(chatProvider).valueOrNull));
   }
@@ -136,7 +138,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         s.messages.first.sender == MessageSender.zoe) {
       _starterSpoken = true;
       final text = s.messages.first.text;
-      _tts.speak(text).catchError((_) {});
+      ref.read(ttsProvider).speak(text).catchError((_) {});
       if (mounted) {
         ref.read(chatProvider.notifier).markStarterSpoken();
       }
@@ -150,7 +152,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     _ttsDoneSub?.cancel();
     try {
       _chatNotifier.stopListening();
-      _tts.stop();
+      ref.read(ttsProvider).stop();
     } catch (_) {}
     _textController.dispose();
     _focusNode.dispose();
@@ -222,7 +224,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   void _stopAllTts() {
-    _tts.stop();
+    ref.read(ttsProvider).stop();
     ref.read(chatProvider.notifier).stopSpeaking();
     if (mounted) {
       setState(() {
@@ -314,7 +316,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     unawaited(notifier.endChat().catchError(_snack));
 
     // First stop any current speech explicitly to clear active playback
-    await _tts.stop();
+    await ref.read(ttsProvider).stop();
     // Allow any pending stop callback events to drain
     await Future.delayed(const Duration(milliseconds: 150));
 
@@ -322,7 +324,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     // own 30-second failure timeout). Do not race it with judge completion or a
     // shorter route timer: the whole farewell must land first.
     try {
-      await _tts.speak(_kGoodbye);
+      await ref.read(ttsProvider).speak(_kGoodbye);
     } catch (_) {}
     if (!mounted || _navigated) return;
 
@@ -422,6 +424,9 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TtsInterface>(ttsProvider, (previous, next) {
+      _subscribeToTts(next);
+    });
     ref.listen(chatProvider, (previous, next) {
       _maybeStartSession();
       _maybeSpeakStarter(next.valueOrNull);
