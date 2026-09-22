@@ -29,11 +29,11 @@ import '../../services/sounds.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
+import 'widgets/hear_again_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
 import 'widgets/piper_download_banner.dart';
 import 'widgets/shake.dart';
-import 'widgets/speaker_dot_button.dart';
 import 'widgets/topic_carousel.dart';
 import 'widgets/zoe_mascot.dart';
 import 'chat_bubble.dart';
@@ -125,8 +125,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     });
     final activeTts = ref.read(ttsProvider);
     _ttsProgressSub = activeTts.progressStream.listen((event) {
-      if (mounted && _speaking) {
+      if (mounted) {
         setState(() {
+          _speaking = true;
           _highlightStart = event.start;
           _highlightEnd = event.end;
         });
@@ -227,7 +228,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         ? _recap.trim()
         : 'Ready for your first chat?';
     setState(() {
-      _speaking = true;
       _highlightStart = -1;
       _highlightEnd = -1;
     });
@@ -350,10 +350,13 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                               context,
                             ).disableAnimations,
                           ),
-                          // The recap bubble itself starts 14px below the
-                          // speaker-dot stack, leaving a visible 24px gap
-                          // from Zoe to the bubble border.
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 8),
+                          HearAgainButton(
+                            key: const ValueKey('home-hear-again-button'),
+                            onTap: _speakRecap,
+                            disabled: false,
+                          ),
+                          const SizedBox(height: 8),
                           _LastTimeCard(
                             recap: _recap,
                             onSpeak: _speakRecap,
@@ -524,8 +527,8 @@ class _LastTimeCard extends StatelessWidget {
         ? recap.trim()
         : 'Ready for your first chat?';
 
-    final card = Container(
-      key: const ValueKey('home-last-time-bubble'),
+    return Container(
+      key: const ValueKey('home-last-time-card'),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: ellaSmoothDecoration(
@@ -533,29 +536,16 @@ class _LastTimeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: EllaColors.info, width: 2),
       ),
-      child: TypewriterText(
-        text: body,
-        style: EllaTextStyles.bodySemibold,
-        highlightStart: highlightStart,
-        highlightEnd: highlightEnd,
-        animate: false,
-      ),
-    );
-
-    // Speaker dot straddling the top-right border — identical control to Zoe's
-    // chat bubble. Top padding keeps the overhanging dot inside the Stack's
-    // bounds so it stays tappable.
-    return Stack(
-      key: const ValueKey('home-last-time-card'),
-      clipBehavior: Clip.none,
-      children: [
-        Padding(padding: const EdgeInsets.only(top: 14), child: card),
-        Positioned(
-          top: 0,
-          right: 10,
-          child: SpeakerDotButton(active: speaking, onTap: onSpeak),
+      child: Container(
+        key: const ValueKey('home-last-time-bubble'),
+        child: TypewriterText(
+          text: body,
+          style: EllaTextStyles.bodySemibold,
+          highlightStart: highlightStart,
+          highlightEnd: highlightEnd,
+          animate: false,
         ),
-      ],
+      ),
     );
   }
 }

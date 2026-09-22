@@ -51,6 +51,9 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
   bool _showAcknowledgement = false;
   int _speechToken = 0;
 
+  StreamSubscription? _ttsProgressSub;
+  StreamSubscription? _ttsDoneSub;
+
   String get _firstName {
     final supplied = widget.studentName?.trim();
     if (supplied != null && supplied.isNotEmpty) {
@@ -68,6 +71,12 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
   void initState() {
     super.initState();
     _tts = ref.read(ttsProvider);
+    _ttsProgressSub = _tts.progressStream.listen((_) {
+      if (mounted) setState(() => _speaking = true);
+    });
+    _ttsDoneSub = _tts.doneStream.listen((_) {
+      if (mounted) setState(() => _speaking = false);
+    });
     AnalyticsService.logScreenView('Conversation Feeling Check-In');
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted && _selected == null) _speakPrompt();
@@ -76,7 +85,6 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
 
   Future<void> _speakPrompt() async {
     final token = ++_speechToken;
-    if (mounted) setState(() => _speaking = true);
     try {
       await _tts.speak(_spokenPrompt);
     } catch (_) {
@@ -127,7 +135,6 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
 
     setState(() {
       _showAcknowledgement = true;
-      _speaking = true;
     });
 
     // Wait for Zoe to actually finish saying the line before starting the
@@ -164,6 +171,8 @@ class _FeelingCheckInScreenState extends ConsumerState<FeelingCheckInScreen> {
   @override
   void dispose() {
     ++_speechToken;
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
     try {
       _tts.stop();
     } catch (_) {}

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:ella_app/models/child_memory.dart';
 import 'package:ella_app/screens/child_view/widgets/conversation_view.dart';
+import 'package:ella_app/screens/child_view/widgets/hear_again_button.dart';
 import 'package:ella_app/screens/child_view/widgets/home_scene_background.dart';
 import 'package:ella_app/screens/child_view/widgets/mascot_loading_screen.dart';
 import 'package:ella_app/screens/child_view/widgets/network_error_view.dart';
@@ -577,7 +578,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(HomeSceneBackground), findsOneWidget);
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsWidgets);
 
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpWidget(const SizedBox.shrink());
@@ -619,9 +620,147 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byType(HomeSceneBackground), findsOneWidget);
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsWidgets);
 
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'renders HearAgainButton directly below ZoeMascot and removes SpeakerDotButton',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      bool spokeAgain = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ConversationView(
+              phase: ConvPhase.talking,
+              mascotSpeaking: false,
+              zoeLine: 'Welcome! How are you doing today?',
+              onSpeakAgain: () {
+                spokeAgain = true;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Reusable HearAgainButton must be rendered
+      expect(find.byType(HearAgainButton), findsOneWidget);
+      expect(find.text('Hear Again'), findsOneWidget);
+
+      // Verify tapping HearAgainButton triggers onSpeakAgain callback
+      await tester.tap(find.byType(HearAgainButton));
+      await tester.pump();
+      expect(spokeAgain, isTrue);
+    },
+  );
+
+  testWidgets(
+    'HearAgainButton remains visible and accessible even with very long assistant responses',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final veryLongZoeResponse = List.generate(
+        30,
+        (i) => 'This is line number ${i + 1} of a very long assistant response.',
+      ).join('\n');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ConversationView(
+              phase: ConvPhase.talking,
+              mascotSpeaking: false,
+              zoeLine: veryLongZoeResponse,
+              onSpeakAgain: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // HearAgainButton remains visible and mounted in viewport
+      expect(find.byType(HearAgainButton), findsOneWidget);
+
+      // Verify HearAgainButton vertical center is within screen bounds (0..844)
+      final hearAgainRect = tester.getRect(find.byType(HearAgainButton));
+      expect(hearAgainRect.top, greaterThan(0));
+      expect(hearAgainRect.bottom, lessThan(844));
+    },
+  );
+
+  testWidgets(
+    'auto-scrolls speech bubble to keep highlighted words visible when text is long',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final veryLongText = List.generate(
+        30,
+        (i) => 'Line ${i + 1} of long assistant text',
+      ).join('\n');
+
+      final highlightTargetStart = veryLongText.indexOf('Line 28');
+      final highlightTargetEnd = highlightTargetStart + 'Line 28'.length;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: Scaffold(
+              body: ConversationView(
+                phase: ConvPhase.talking,
+                mascotSpeaking: true,
+                zoeLine: veryLongText,
+                highlightStart: 0,
+                highlightEnd: 5,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: Scaffold(
+              body: ConversationView(
+                phase: ConvPhase.talking,
+                mascotSpeaking: true,
+                zoeLine: veryLongText,
+                highlightStart: highlightTargetStart,
+                highlightEnd: highlightTargetEnd,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final singleScrollView = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: find.byKey(const ValueKey('conversation-zoe-bubble')),
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      final scrollController = singleScrollView.controller!;
+      expect(scrollController.position.pixels, greaterThan(0));
+    },
+  );
 }

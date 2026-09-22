@@ -19,8 +19,8 @@ import '../../../core/theme_colors.dart';
 import '../../../models/child_memory.dart';
 import '../../../services/audio_service.dart';
 import 'chat_reply_composer.dart';
+import 'hear_again_button.dart';
 import 'home_scene_background.dart';
-import 'speaker_dot_button.dart';
 import 'topic_handoff.dart';
 import 'zoe_mascot.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -106,10 +106,18 @@ class ConversationView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final h = MediaQuery.of(context).size.height;
     final w = MediaQuery.of(context).size.width;
-    // Figma: 150.55 x 180, sitting a touch below the top.
-    final mascotSize = (w * 0.35).clamp(140.0, 158.0);
-    final bubbleMaxWidth = w * 0.86;
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final availableH = h - keyboardInset;
+    // Figma: 150.55 x 180, sitting a touch below the top. Responsive on short viewports & soft keyboard.
+    final mascotSize = textMode || keyboardInset > 0
+        ? (availableH * 0.16).clamp(70.0, 110.0)
+        : h < 650
+        ? (h * 0.18).clamp(80.0, 140.0)
+        : (w * 0.35).clamp(140.0, 158.0);
+    final bubbleMaxWidth = (w - 32.0).clamp(240.0, 382.0);
+    final outerHorizontalPadding = ((w - bubbleMaxWidth) / 2).clamp(16.0, 24.0);
 
     final mascot = ZoeMascot(
       key: const ValueKey('conversation-zoe-mascot'),
@@ -142,7 +150,7 @@ class ConversationView extends StatelessWidget {
                       ? 'conversation-prepare-content'
                       : 'conversation-active-content',
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: outerHorizontalPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -161,55 +169,50 @@ class ConversationView extends StatelessWidget {
                             ? 60
                             : 76,
                       ),
-                    // During prepare phase, mascot and card are centered together.
-                    // Otherwise, mascot stays fixed at the top.
-                    if (phase != ConvPhase.prepare) ...[
-                      mascot,
-                      SizedBox(height: topic == null ? 18 : 16),
-                    ],
-                    // Latest-turn bubbles live in a scroll region so a long turn can't
-                    // overflow the screen (or get clipped when the keyboard is up).
-                    // `reverse: true` pins the newest bubble just above the dock and
-                    // lets the older text scroll up and disappear under the fixed
-                    // mascot; the minHeight box keeps short turns top-aligned (right
-                    // under the mascot) exactly as before. In the prepare phase the
-                    // mascot + card centre in the space instead (Figma loader frame).
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) =>
-                            SingleChildScrollView(
-                              reverse: true,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: constraints.maxHeight,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisAlignment: phase == ConvPhase.prepare
-                                      ? MainAxisAlignment.center
-                                      : MainAxisAlignment.start,
-                                  children: [
-                                    if (phase == ConvPhase.prepare) ...[
-                                      mascot,
-                                      const SizedBox(height: 18),
-                                      const _PrepareCard(),
-                                    ] else
-                                      _Bubbles(
-                                        zoeLine: zoeLine,
-                                        studentLine: studentLine,
-                                        onSpeakAgain: onSpeakAgain,
-                                        speaking: mascotSpeaking,
-                                        maxWidth: bubbleMaxWidth,
-                                        highlightStart: highlightStart,
-                                        highlightEnd: highlightEnd,
-                                      ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                ),
+                    if (phase == ConvPhase.prepare)
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            mascot,
+                            if (onSpeakAgain != null) ...[
+                              const SizedBox(height: 8),
+                              HearAgainButton(
+                                onTap: mascotSpeaking ? null : onSpeakAgain,
+                                disabled: mascotSpeaking,
                               ),
+                            ],
+                            const SizedBox(height: 18),
+                            const _PrepareCard(),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      mascot,
+                      if (onSpeakAgain != null) ...[
+                        const SizedBox(height: 8),
+                        HearAgainButton(
+                          onTap: mascotSpeaking ? null : onSpeakAgain,
+                          disabled: mascotSpeaking,
+                        ),
+                      ],
+                      SizedBox(height: topic == null ? 18 : 16),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => Center(
+                            child: _Bubbles(
+                              zoeLine: zoeLine,
+                              studentLine: studentLine,
+                              maxWidth: bubbleMaxWidth,
+                              maxAvailableHeight: constraints.maxHeight,
+                              highlightStart: highlightStart,
+                              highlightEnd: highlightEnd,
                             ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
+                    const SizedBox(height: 12),
                     if (phase == ConvPhase.talking) ...[
                       if (hasSpeechError) ...[
                         Container(
@@ -229,7 +232,7 @@ class ConversationView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
-                      ] else ...[
+                      ] else if (!textMode) ...[
                         _FeedbackContainer(
                           micState: micState,
                           speechLevel: speechLevel ?? _dummySpeechLevel,
@@ -239,7 +242,7 @@ class ConversationView extends StatelessWidget {
                     ],
                     if (phase == ConvPhase.talking)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
+                        padding: EdgeInsets.only(bottom: textMode || keyboardInset > 0 ? 6 : 18),
                         child: textMode
                             ? _TextDock(
                                 controller: textController,
@@ -332,24 +335,26 @@ class _ProgressBar extends StatelessWidget {
 class _Bubbles extends StatelessWidget {
   final String? zoeLine;
   final String? studentLine;
-  final VoidCallback? onSpeakAgain;
-  final bool speaking;
   final double maxWidth;
+  final double? maxAvailableHeight;
   final int highlightStart;
   final int highlightEnd;
 
   const _Bubbles({
     required this.zoeLine,
     required this.studentLine,
-    required this.onSpeakAgain,
-    required this.speaking,
     required this.maxWidth,
+    this.maxAvailableHeight,
     this.highlightStart = -1,
     this.highlightEnd = -1,
   });
 
   @override
   Widget build(BuildContext context) {
+    final zoeMaxHeight = studentLine != null && maxAvailableHeight != null
+        ? (maxAvailableHeight! - 60.0).clamp(60.0, 280.0)
+        : maxAvailableHeight;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -371,8 +376,7 @@ class _Bubbles extends StatelessWidget {
                   : _ZoeBubble(
                       key: ValueKey(zoeLine),
                       text: zoeLine!,
-                      onSpeakAgain: onSpeakAgain,
-                      speaking: speaking,
+                      maxAvailableHeight: zoeMaxHeight,
                       highlightStart: highlightStart,
                       highlightEnd: highlightEnd,
                     ),
@@ -394,30 +398,137 @@ class _Bubbles extends StatelessWidget {
   }
 }
 
-class _ZoeBubble extends StatelessWidget {
+class _ZoeBubble extends StatefulWidget {
   final String text;
+  final double? maxAvailableHeight;
   final int highlightStart;
   final int highlightEnd;
-
-  /// Toggles TTS for this line. When set, a speaker dot straddles the bubble's
-  /// top-right border (Figma placement flow): replay when idle, stop while
-  /// [speaking].
-  final VoidCallback? onSpeakAgain;
-  final bool speaking;
 
   const _ZoeBubble({
     super.key,
     required this.text,
-    required this.onSpeakAgain,
-    this.speaking = false,
+    this.maxAvailableHeight,
     this.highlightStart = -1,
     this.highlightEnd = -1,
   });
 
   @override
+  State<_ZoeBubble> createState() => _ZoeBubbleState();
+}
+
+class _ZoeBubbleState extends State<_ZoeBubble> {
+  late final ScrollController _scrollController;
+  bool _showTopFade = false;
+  bool _showBottomFade = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_checkScrollFade);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkScrollFade();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ZoeBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkScrollFade());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_checkScrollFade);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _checkScrollFade() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final maxScroll = pos.maxScrollExtent;
+    final currentScroll = pos.pixels;
+
+    // Top fade ONLY active when scrolled down > 4.0px
+    final topFade = maxScroll > 0 && currentScroll > 4.0;
+    // Bottom fade active when text overflows maxScroll > 0 and not scrolled to end
+    final bottomFade = maxScroll > 0 && currentScroll < maxScroll - 4.0;
+
+    if (topFade != _showTopFade || bottomFade != _showBottomFade) {
+      if (mounted) {
+        setState(() {
+          _showTopFade = topFade;
+          _showBottomFade = bottomFade;
+        });
+      }
+    }
+  }
+
+  Widget _applyFadeMask(Widget child) {
+    if (!_showTopFade && !_showBottomFade) {
+      return child;
+    }
+
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        final colors = <Color>[];
+        final stops = <double>[];
+
+        if (_showTopFade) {
+          colors.add(Colors.transparent);
+          colors.add(Colors.black);
+          stops.add(0.0);
+          stops.add(0.12);
+        } else {
+          colors.add(Colors.black);
+          stops.add(0.0);
+        }
+
+        if (_showBottomFade) {
+          colors.add(Colors.black);
+          colors.add(Colors.transparent);
+          stops.add(0.88);
+          stops.add(1.0);
+        } else {
+          colors.add(Colors.black);
+          stops.add(1.0);
+        }
+
+        return LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: colors,
+          stops: stops,
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: child,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bubble = Container(
+    final screenH = MediaQuery.of(context).size.height;
+    // Cap bubble max height strictly by Expanded's available height constraint
+    final double maxBubbleHeight;
+    if (widget.maxAvailableHeight != null && widget.maxAvailableHeight! > 0) {
+      maxBubbleHeight = widget.maxAvailableHeight!.clamp(60.0, 280.0);
+    } else {
+      maxBubbleHeight = (screenH * 0.35).clamp(80.0, 280.0);
+    }
+
+    return Container(
       key: const ValueKey('conversation-zoe-bubble'),
+      constraints: BoxConstraints(
+        minHeight: 60.0,
+        maxHeight: maxBubbleHeight,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: ellaSmoothDecoration(
         color: EllaColors.surface,
@@ -430,34 +541,24 @@ class _ZoeBubble extends StatelessWidget {
         ),
         side: const BorderSide(color: EllaColors.info, width: 2.5),
       ),
-      child: TypewriterText(
-        text: text,
-        style: EllaTextStyles.bodySemiboldLarge,
-        highlightStart: highlightStart,
-        highlightEnd: highlightEnd,
-      ),
-    );
-
-    if (onSpeakAgain == null) return bubble;
-
-    // The 40px dot straddles the bubble's top-right corner (Figma "Placement
-    // Flow"): it hangs above and off the right edge. Top padding + the negative
-    // right offset keep it overhanging while still inside the Stack's hit-test
-    // bounds (hit tests outside a Stack's rect are dropped).
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Padding(padding: const EdgeInsets.only(top: 20), child: bubble),
-        Positioned(
-          top: 0,
-          right: -6,
-          child: SpeakerDotButton(
-            active: speaking,
-            onTap: onSpeakAgain,
-            size: 40,
+      child: _applyFadeMask(
+        NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            _checkScrollFade();
+            return false;
+          },
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(),
+            child: TypewriterText(
+              text: widget.text,
+              style: EllaTextStyles.bodySemiboldLarge,
+              highlightStart: widget.highlightStart,
+              highlightEnd: widget.highlightEnd,
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -630,7 +731,7 @@ class _VoiceDock extends StatelessWidget {
     };
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.zero,
       child: SizedBox(
         height: _micSize + 30, // room for the mic + its label below
         child: Stack(

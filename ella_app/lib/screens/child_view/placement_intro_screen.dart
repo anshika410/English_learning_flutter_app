@@ -23,10 +23,10 @@ import 'placement_screen.dart';
 import 'profile_screen.dart';
 import 'chat_bubble.dart';
 import 'widgets/ella_primary_button.dart';
+import 'widgets/hear_again_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
 import 'widgets/piper_download_banner.dart';
-import 'widgets/speaker_dot_button.dart';
 import 'widgets/zoe_mascot.dart';
 
 const String _kVoiceIcon = 'assets/homescreen/new/UserSound.svg';
@@ -61,6 +61,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
+          _speaking = true;
           _highlightStart = event.start;
           _highlightEnd = event.end;
         });
@@ -69,6 +70,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
     _ttsDoneSub = activeTts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
+          _speaking = false;
           _highlightStart = -1;
           _highlightEnd = -1;
         });
@@ -100,7 +102,6 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   Future<void> _speakGreeting() async {
     if (_speaking) return; // prevent concurrent calls
     setState(() {
-      _speaking = true;
       _highlightStart = -1;
       _highlightEnd = -1;
     });
@@ -215,6 +216,12 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                               context,
                             ).disableAnimations,
                           ),
+                          const SizedBox(height: 8),
+                          HearAgainButton(
+                            key: const ValueKey('placement-intro-hear-again-button'),
+                            onTap: _toggleSpeak,
+                            disabled: false,
+                          ),
                           const SizedBox(height: 10),
                           _GreetingCard(
                             speaking: _speaking,
@@ -273,38 +280,22 @@ class _GreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The 40px dot straddles the card's top-right corner (Figma): it hangs
-    // above and off the right edge. Top padding keeps it inside the Stack's
-    // hit-test bounds.
-    return Stack(
+    return Container(
       key: const ValueKey('placement-home-greeting-card'),
-      clipBehavior: Clip.none,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: ellaSmoothDecoration(
-              color: EllaColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: EllaColors.info, width: 2),
-            ),
-            child: TypewriterText(
-              text: text,
-              style: EllaTextStyles.bodySemiboldLarge,
-              highlightStart: highlightStart,
-              highlightEnd: highlightEnd,
-              animate: false,
-            ),
-          ),
-        ),
-        Positioned(
-          top: 0,
-          right: -6,
-          child: SpeakerDotButton(active: speaking, onTap: onToggle, size: 40),
-        ),
-      ],
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: ellaSmoothDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: EllaColors.info, width: 2),
+      ),
+      child: TypewriterText(
+        text: text,
+        style: EllaTextStyles.bodySemiboldLarge,
+        highlightStart: highlightStart,
+        highlightEnd: highlightEnd,
+        animate: false,
+      ),
     );
   }
 }

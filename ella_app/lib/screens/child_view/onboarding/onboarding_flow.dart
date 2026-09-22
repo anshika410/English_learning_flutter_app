@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:wakelock_plus/wakelock_plus.dart';
+
 import '../../../app.dart' show placementCacheProvider;
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
@@ -15,11 +17,14 @@ import '../../../models/placement.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/connectivity_provider.dart';
+import '../../../providers/piper_download_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/analytics_service.dart';
 import '../../../services/stt_tts_service.dart';
+import '../../../services/native_tts_service.dart';
 import '../widgets/ella_primary_button.dart';
+import '../widgets/hear_again_button.dart';
 import '../widgets/home_scene_background.dart';
 import '../widgets/zoe_mascot.dart';
 
@@ -72,8 +77,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
-  late final TtsInterface _tts;
-
   // ── Prompts ───────────────────────────────────────────────────────────────
 
   static const String _namePrompt =
@@ -82,10 +85,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       "Thanks, $_name.\nHow old are you?";
 
   static const String _levelPrompt =
-      "How does speaking English feel for you right now?";
+      "Pick one that suits you.";
 
   static const String _q2Prompt =
-      "What do you want to improve in your English?";
+      "Tell me a little about why you want to learn English.";
   static const String _q3Prompt =
       "Tell me something about yourself?";
 
@@ -96,16 +99,84 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     _Step.levelQ1 => _levelPrompt,
     _Step.voiceQ2 => _q2Prompt,
     _Step.voiceQ3 => _q3Prompt,
-    _Step.result => "$_name, I found a good place for you to start!",
+    _Step.result => "Hooray! That's a fantastic start.",
   };
+
+  late final TtsInterface _tts;
 
   @override
   void initState() {
     super.initState();
-    AnalyticsService.logOnboardingStarted();
     _tts = ref.read(ttsProvider);
+    AnalyticsService.logOnboardingStarted();
 
-    final activeTts = ref.read(ttsProvider);
+    // Keep screen awake while user is speaking/recording/listening during Placement
+    WakelockPlus.enable();
+
+    // Start background download of Piper voice model so it is ready for post-placement session conversation
+    ref.read(piperDownloadProvider.notifier).startIfNeeded();
+
+    _subscribeToActiveTts();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _restorePlacementState();
+      if (!mounted) return;
+      _speak(_currentPrompt);
+    });
+  }
+
+  @override
+  void dispose() {
+    // Release screen wakelock on leaving placement flow
+    WakelockPlus.disable();
+
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    _nameCtrl.dispose();
+    _ageCtrl.dispose();
+    _nameFocusNode.dispose();
+    _ageFocusNode.dispose();
+    _tts.stop().catchError((_) {});
+    super.dispose();
+  }
+
+  Future<void> _restorePlacementState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final onboardingState = ref.read(onboardingProvider).valueOrNull;
+    final cachedName = prefs.getString('ella_api_user_name') ?? onboardingState?.name;
+    final cachedAge = prefs.getInt('ella_api_user_age') ?? onboardingState?.age;
+
+    if (cachedName != null && cachedName.isNotEmpty) {
+      _name = cachedName;
+      _nameCtrl.text = cachedName;
+    }
+    if (cachedAge != null && cachedAge > 0) {
+      _age = cachedAge;
+      _ageCtrl.text = cachedAge.toString();
+    }
+
+    // If Name & Age are already saved/known: always resume Placement from the first question (_Step.levelQ1)
+    if (_name.isNotEmpty && _age != null && _age! > 0) {
+      if (mounted) {
+        setState(() {
+          _step = _Step.levelQ1;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveCurrentStep(_Step step) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('ella_placement_step', step.name);
+    } catch (_) {}
+  }
+
+  void _subscribeToActiveTts() {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    final activeTts = _tts;
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
         setState(() => _speaking = true);
@@ -119,34 +190,16 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         });
       }
     });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _speak(_namePrompt);
-    });
   }
 
-  @override
-  void dispose() {
-    _ttsProgressSub?.cancel();
-    _ttsDoneSub?.cancel();
-    _nameCtrl.dispose();
-    _ageCtrl.dispose();
-    _nameFocusNode.dispose();
-    _ageFocusNode.dispose();
-    _tts.stop().catchError((_) {});
-    super.dispose();
-  }
-
-  // ── Speech Output ──────────────────────────────────────────────────────────
+  // ── Speech Output (Placement strictly uses Native TTS; Piper is used post-placement) ────
 
   Future<void> _speak(String text) async {
-    final tts = ref.read(ttsProvider);
-    setState(() => _speaking = true);
+    _subscribeToActiveTts();
+    final tts = _tts;
     try {
       await tts.stop();
       if (!mounted) return;
-      setState(() => _mascot = ZoeMascotMode.speaking);
       await tts.speak(text);
     } catch (_) {
       if (mounted) setState(() => _speaking = false);
@@ -225,6 +278,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       Future.delayed(const Duration(milliseconds: 700), () {
         if (mounted && _step == _Step.voiceQ2) {
           setState(() => _step = _Step.voiceQ3);
+          _saveCurrentStep(_Step.voiceQ3);
           _speak(_q3Prompt);
         }
       });
@@ -284,9 +338,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       return;
     }
 
+    if (RegExp(r'[^A-Za-z\s\-\.]').hasMatch(raw)) {
+      setState(() => _validationError = "Names should only contain letters");
+      return;
+    }
+
     var cleaned = raw.replaceAll(RegExp(r'[^A-Za-z\s\-\.]'), '').trim();
-    if (cleaned.isEmpty) cleaned = raw;
-    if (RegExp(r'[0-9]').hasMatch(cleaned)) {
+    if (cleaned.isEmpty) {
       setState(() => _validationError = "Names should only contain letters");
       return;
     }
@@ -307,6 +365,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   void _onAgeSubmitted() {
     final raw = _ageCtrl.text.trim();
+    if (raw.isEmpty) {
+      return;
+    }
     final parsedAge = int.tryParse(raw);
     if (parsedAge == null || parsedAge < 1 || parsedAge > 120) {
       setState(() => _validationError = "Please enter a valid age (e.g. 10)");
@@ -327,12 +388,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   void _onWelcomeContinue() {
     setState(() => _step = _Step.levelQ1);
+    _saveCurrentStep(_Step.levelQ1);
     _speak(_levelPrompt);
   }
 
   void _onLevelQ1Continue() {
     if (_selectedLevelIndex == null) return;
     setState(() => _step = _Step.voiceQ2);
+    _saveCurrentStep(_Step.voiceQ2);
     _speak(_q2Prompt);
   }
 
@@ -341,7 +404,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _step = _Step.result;
       _evaluatingPlacement = true;
     });
-    _speak("$_name, I found a good place for you to start!");
+    _saveCurrentStep(_Step.result);
 
     // Execute Placement V2 API call
     final selfReportedLevel = _selectedLevelIndex != null &&
@@ -384,12 +447,14 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           _placementTurnResult = result;
           _evaluatingPlacement = false;
         });
+        _speak("Hooray! That's a fantastic start.");
       }
     } catch (_) {
       if (mounted) {
         setState(() {
           _evaluatingPlacement = false;
         });
+        _speak("Hooray! That's a fantastic start.");
       }
     }
   }
@@ -399,6 +464,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     setState(() => _busy = true);
 
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('ella_placement_step');
     await prefs.setBool('ella_api_placement_done', true);
 
     final ageVal = _age ?? 10;
@@ -422,9 +488,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         _placementTurnResult!.levelName!.isNotEmpty) {
       return _placementTurnResult!.levelName!;
     }
-    final idx = _selectedLevelIndex ?? 2;
+    final idx = _selectedLevelIndex ?? 0;
     return switch (idx) {
-      0 => 'Lv. 1 Starting Out',
+      0 => 'Lv. 1 First Words',
       1 => 'Lv. 2 Simple Phrases',
       2 => 'Lv. 3 Everyday Talk',
       3 => 'Lv. 4 Expressing Ideas',
@@ -481,19 +547,33 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                         if (progress != null) ...[
                           const SizedBox(height: 10),
                           PlacementTopProgressBar(progress: progress),
+                          SizedBox(height: (size.height * 0.016).clamp(10.0, 16.0)),
+                          Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              "This will help us get to know you and\npersonalise your learning",
+                              textAlign: TextAlign.center,
+                              style: EllaFonts.body(
+                                const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.6,
+                                  letterSpacing: 0,
+                                  color: EllaColors.ink,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ],
                     ),
                   ),
                   SizedBox(height: (size.height * 0.012).clamp(6.0, 12.0)),
 
-                  // Main Content (Slightly above center for Name, Age, Q1, Q2, Q3 screens)
+                  // Main Content (Shifted slightly above center so last component rests near visual center)
                   Expanded(
                     child: Align(
-                      alignment: switch (_step) {
-                        _Step.welcome || _Step.result => Alignment.center,
-                        _ => const Alignment(0, -0.25),
-                      },
+                      alignment: const Alignment(0, -0.35),
                       child: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -508,6 +588,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                                 size: mascotW,
                                 reducedMotion: reducedMotion,
                               ),
+                              if (_step != _Step.welcome) ...[
+                                const SizedBox(height: 8),
+                                HearAgainButton(
+                                  onTap: _speaking ? null : _replayCurrentPrompt,
+                                  disabled: _speaking,
+                                ),
+                              ],
                               SizedBox(height: spaceAfterMascot),
                             ],
 
@@ -610,7 +697,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
                               child: Text(
-                                "I will ask you a few questions to get started",
+                                "Let’s get to know you &\npersonalise your learning.",
                                 textAlign: TextAlign.center,
                                 style: EllaFonts.body(
                                   const TextStyle(
@@ -645,15 +732,17 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                             ),
                           ],
 
-                          // Step 5: Placement Q2 (What do you want to improve in your English?)
+                          // Step 5: Placement Q2 (Tell me a little about why you want to learn English.)
                           if (_step == _Step.voiceQ2) ...[
                             const SizedBox(height: 6),
-                            const _VoiceSpeechBubbleCard(text: _q2Prompt),
+                            const _VoiceSpeechBubbleCard(
+                              text: "Tell me a little about why\nyou want to learn English.",
+                            ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
                               child: Text(
-                                'A short answer is okay. Say more if you want',
+                                'Tell us what you hope to achieve.',
                                 textAlign: TextAlign.center,
                                 style: EllaFonts.body(
                                   const TextStyle(
@@ -665,18 +754,15 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                                 ),
                               ),
                             ),
-                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            _HearAgainTextButton(
-                              onTap: _speaking ? null : _replayCurrentPrompt,
-                              disabled: _speaking,
-                            ),
                             SizedBox(height: spaceAfterPrompt),
                           ],
 
-                          // Step 6: Placement Q3 (Tell me something about yourself?)
+                          // Step 6: Placement Q3 (Tell me something about yourself? 😎)
                           if (_step == _Step.voiceQ3) ...[
                             const SizedBox(height: 6),
-                            const _VoiceSpeechBubbleCard(text: _q3Prompt),
+                            const _VoiceSpeechBubbleCard(
+                              text: "Tell me something about\nyourself? 😎",
+                            ),
                             SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: subtitlePadding),
@@ -692,11 +778,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                                   ),
                                 ),
                               ),
-                            ),
-                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            _HearAgainTextButton(
-                              onTap: _speaking ? null : _replayCurrentPrompt,
-                              disabled: _speaking,
                             ),
                             SizedBox(height: spaceAfterPrompt),
                           ],
@@ -720,6 +801,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                   // Bottom CTA Buttons (Fixed at bottom of screen with caret right icon & spacing)
                   if (_step == _Step.name)
                     EllaPrimaryButton(
+                      key: const ValueKey('chat-reply-send'),
                       label: 'Continue',
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
@@ -732,6 +814,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
                   if (_step == _Step.age)
                     EllaPrimaryButton(
+                      key: const ValueKey('chat-reply-send'),
                       label: 'Continue',
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
@@ -768,7 +851,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
                   if (_step == _Step.result)
                     EllaPrimaryButton(
-                      label: 'Start Learning English',
+                      label: 'Start learning',
                       trailing: const Icon(
                         Icons.chevron_right_rounded,
                         size: 22,
@@ -919,60 +1002,7 @@ class _FigmaHeadingPrompt extends StatelessWidget {
           textAlign: TextAlign.center,
           style: headingStyle,
         ),
-        SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
-        _HearAgainTextButton(
-          onTap: isSpeaking ? null : onReplay,
-          disabled: isSpeaking,
-        ),
-        SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
       ],
-    );
-  }
-}
-
-class _HearAgainTextButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  final bool disabled;
-
-  const _HearAgainTextButton({
-    this.onTap,
-    this.disabled = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveColor = disabled
-        ? EllaColors.textSecondary.withValues(alpha: 0.4)
-        : EllaColors.textSecondary;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: disabled || onTap == null ? null : withTapClick(onTap!),
-      child: Opacity(
-        opacity: disabled ? 0.5 : 1.0,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.volume_up_outlined,
-              size: 16,
-              color: effectiveColor,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Hear Again',
-              style: EllaFonts.body(
-                TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: effectiveColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

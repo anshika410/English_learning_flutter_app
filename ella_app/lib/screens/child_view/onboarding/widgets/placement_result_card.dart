@@ -63,13 +63,26 @@ class PlacementResultCard extends StatelessWidget {
         ),
         SizedBox(height: verticalGap),
 
-        // "[Name], I found a good place for you to start!"
+        // "Hooray! 🥳 \n That's a fantastic start."
         Text(
-          '$name, I found a good place\nfor you to start!',
+          'Hooray! 🥳',
           textAlign: TextAlign.center,
           style: EllaFonts.bricolage(
             TextStyle(
-              fontSize: (size.width * 0.052).clamp(18.0, 20.0),
+              fontSize: (size.width * 0.06).clamp(22.0, 25.0),
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+              color: EllaColors.ink,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "That's a fantastic start.",
+          textAlign: TextAlign.center,
+          style: EllaFonts.bricolage(
+            TextStyle(
+              fontSize: (size.width * 0.05).clamp(18.0, 21.0),
               fontWeight: FontWeight.w700,
               height: 1.3,
               color: EllaColors.ink,
