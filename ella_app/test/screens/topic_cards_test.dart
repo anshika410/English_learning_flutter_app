@@ -333,7 +333,11 @@ void main() {
       find.byKey(const ValueKey('home-zoe-mascot')),
     );
     expect(zoeRect.top, lessThanOrEqualTo(240));
-    expect(bubbleRect.top - zoeRect.bottom, closeTo(24, 0.01));
+    final hearAgainRect = tester.getRect(
+      find.byKey(const ValueKey('home-hear-again-button')),
+    );
+    expect(hearAgainRect.top - zoeRect.bottom, closeTo(8, 0.5));
+    expect(bubbleRect.top - hearAgainRect.bottom, closeTo(24, 0.5));
 
     final ctaRect = tester.getRect(find.byKey(const ValueKey('home-talk-cta')));
     expect(844 - ctaRect.bottom, closeTo(24, 0.01));

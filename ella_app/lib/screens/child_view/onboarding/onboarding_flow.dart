@@ -338,9 +338,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       return;
     }
 
+    if (RegExp(r'[^A-Za-z\s\-\.]').hasMatch(raw)) {
+      setState(() => _validationError = "Names should only contain letters");
+      return;
+    }
+
     var cleaned = raw.replaceAll(RegExp(r'[^A-Za-z\s\-\.]'), '').trim();
-    if (cleaned.isEmpty) cleaned = raw;
-    if (RegExp(r'[0-9]').hasMatch(cleaned)) {
+    if (cleaned.isEmpty) {
       setState(() => _validationError = "Names should only contain letters");
       return;
     }
@@ -361,6 +365,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
   void _onAgeSubmitted() {
     final raw = _ageCtrl.text.trim();
+    if (raw.isEmpty) {
+      return;
+    }
     final parsedAge = int.tryParse(raw);
     if (parsedAge == null || parsedAge < 1 || parsedAge > 120) {
       setState(() => _validationError = "Please enter a valid age (e.g. 10)");
@@ -581,6 +588,13 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                                 size: mascotW,
                                 reducedMotion: reducedMotion,
                               ),
+                              if (_step != _Step.welcome) ...[
+                                const SizedBox(height: 8),
+                                HearAgainButton(
+                                  onTap: _speaking ? null : _replayCurrentPrompt,
+                                  disabled: _speaking,
+                                ),
+                              ],
                               SizedBox(height: spaceAfterMascot),
                             ],
 
@@ -740,11 +754,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                                 ),
                               ),
                             ),
-                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            HearAgainButton(
-                              onTap: _speaking ? null : _replayCurrentPrompt,
-                              disabled: _speaking,
-                            ),
                             SizedBox(height: spaceAfterPrompt),
                           ],
 
@@ -769,11 +778,6 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                                   ),
                                 ),
                               ),
-                            ),
-                            SizedBox(height: (size.height * 0.018).clamp(10.0, 16.0)),
-                            HearAgainButton(
-                              onTap: _speaking ? null : _replayCurrentPrompt,
-                              disabled: _speaking,
                             ),
                             SizedBox(height: spaceAfterPrompt),
                           ],
@@ -998,12 +1002,6 @@ class _FigmaHeadingPrompt extends StatelessWidget {
           textAlign: TextAlign.center,
           style: headingStyle,
         ),
-        SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
-        HearAgainButton(
-          onTap: isSpeaking ? null : onReplay,
-          disabled: isSpeaking,
-        ),
-        SizedBox(height: (size.height * 0.016).clamp(10.0, 14.0)),
       ],
     );
   }

@@ -23,6 +23,7 @@ import 'placement_screen.dart';
 import 'profile_screen.dart';
 import 'chat_bubble.dart';
 import 'widgets/ella_primary_button.dart';
+import 'widgets/hear_again_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
 import 'widgets/piper_download_banner.dart';
@@ -214,6 +215,12 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
                             reducedMotion: MediaQuery.of(
                               context,
                             ).disableAnimations,
+                          ),
+                          const SizedBox(height: 8),
+                          HearAgainButton(
+                            key: const ValueKey('placement-intro-hear-again-button'),
+                            onTap: _toggleSpeak,
+                            disabled: false,
                           ),
                           const SizedBox(height: 10),
                           _GreetingCard(

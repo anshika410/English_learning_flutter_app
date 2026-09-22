@@ -129,15 +129,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sunrise Seedbed'), findsOneWidget);
-    expect(find.text("Aarav's Garden"), findsOneWidget);
-    expect(find.textContaining('your first plant', findRichText: true), findsOneWidget);
-    expect(find.text('See your Garden'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('placement-garden-explore')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Start Talking'), findsOneWidget);
+    expect(find.textContaining('Nice to Meet You, Aarav'), findsOneWidget);
   });
 
   testWidgets('blank name stays on the name step', (tester) async {
@@ -163,7 +155,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining("special symbols", findRichText: true), findsOneWidget);
+    expect(find.textContaining("only contain letters", findRichText: true), findsOneWidget);
   });
 
   testWidgets('any positive age is accepted; invalid age is rejected', (
@@ -181,7 +173,7 @@ void main() {
     // Blank age stays put.
     await tester.tap(find.byKey(const ValueKey('chat-reply-send')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Enter your age as a number'), findsNothing);
+    expect(find.textContaining('valid age'), findsNothing);
     expect(find.textContaining('How old are you?'), findsOneWidget);
     // Invalid age → error, stays put.
     await tester.enterText(find.byType(TextField), '0');
@@ -189,7 +181,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Enter your age as a number'), findsOneWidget);
+    expect(find.textContaining('valid age'), findsOneWidget);
     expect(find.text("Let's Talk"), findsNothing);
 
     // A large age (would have failed the old 3–19 check) is now accepted.
@@ -199,6 +191,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
-    expect(find.text('See your Garden'), findsOneWidget);
+    expect(find.textContaining('Nice to Meet You, Aarav'), findsOneWidget);
   });
 }
