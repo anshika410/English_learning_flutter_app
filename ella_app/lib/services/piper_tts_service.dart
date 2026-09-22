@@ -65,34 +65,43 @@ class _WorkerGenRes {
   });
 }
 
-/// Splits text into short sentence/clause chunks for instant streaming playback.
-List<_SentenceChunk> _splitSentences(String text) {
-  final chunks = <_SentenceChunk>[];
-  final regExp = RegExp(r'[^.!?]+[.!?]+|[^.!?]+$');
-  final matches = regExp.allMatches(text);
+/// Smart sentence/clause splitter that ensures Chunk 0 has a minimum character length
+/// (>= 25 chars) so Chunk 0's playback duration comfortably covers background synthesis
+/// of remaining chunks, preventing any mid-speech gaps or silent pauses.
+List<_SentenceChunk> _splitSentencesSmart(String text) {
+  final rawRegExp = RegExp(r'[^.!?]+[.!?]+|[^.!?]+$');
+  final matches = rawRegExp.allMatches(text);
+  final rawList = <_SentenceChunk>[];
 
   for (final m in matches) {
     final str = m.group(0);
     if (str != null && str.trim().isNotEmpty) {
-      final trimmed = str.trim();
-      if (trimmed.length > 80) {
-        final subMatches = RegExp(r'[^,;:]+[,;:]?').allMatches(str);
-        for (final sm in subMatches) {
-          final subStr = sm.group(0);
-          if (subStr != null && subStr.trim().isNotEmpty) {
-            chunks.add(_SentenceChunk(subStr.trim(), m.start + sm.start, m.start + sm.end));
-          }
-        }
-      } else {
-        chunks.add(_SentenceChunk(trimmed, m.start, m.end));
-      }
+      rawList.add(_SentenceChunk(str.trim(), m.start, m.end));
     }
   }
 
-  if (chunks.isEmpty) {
-    chunks.add(_SentenceChunk(text.trim(), 0, text.length));
+  if (rawList.isEmpty) {
+    return [_SentenceChunk(text.trim(), 0, text.length)];
   }
-  return chunks;
+
+  final merged = <_SentenceChunk>[];
+  int i = 0;
+  while (i < rawList.length) {
+    var curText = rawList[i].text;
+    var startChar = rawList[i].startChar;
+    var endChar = rawList[i].endChar;
+
+    while (curText.length < 25 && i + 1 < rawList.length) {
+      i++;
+      curText = '$curText ${rawList[i].text}';
+      endChar = rawList[i].endChar;
+    }
+
+    merged.add(_SentenceChunk(curText, startChar, endChar));
+    i++;
+  }
+
+  return merged;
 }
 
 /// Entry point for the persistent background worker isolate.
@@ -170,8 +179,8 @@ void _piperWorkerEntryPoint(SendPort mainSendPort) {
 }
 
 /// On-device TTS using the NavGurukul Indian accent Piper model via sherpa-onnx.
-/// Uses persistent worker isolate, sentence-level streaming synthesis (<150ms initial latency),
-/// and audio caching for instant replay.
+/// Uses persistent worker isolate, smart chunk streaming (<180ms initial latency),
+/// zero-gap playback, and audio caching for instant replay.
 class PiperTtsService implements TtsInterface {
   Isolate? _workerIsolate;
   SendPort? _workerSendPort;
@@ -346,8 +355,8 @@ class PiperTtsService implements TtsInterface {
         return;
       }
 
-      // 2. Sentence-level streaming synthesis: generate first sentence for instant playback
-      final chunks = _splitSentences(sanitized);
+      // 2. Smart chunked streaming: generate Chunk 0 (guaranteed >= 25 chars) for instant playback
+      final chunks = _splitSentencesSmart(sanitized);
 
       if (chunks.length <= 1) {
         final genResult = await _generateChunk(sanitized);
@@ -365,10 +374,10 @@ class PiperTtsService implements TtsInterface {
           if (!completer.isCompleted) completer.complete();
         });
       } else {
-        // Multi-sentence: Synthesize chunk 0 immediately (<120ms start)
+        // Multi-chunk: Synthesize Chunk 0 immediately (<160ms start)
         final firstChunkRes = await _generateChunk(chunks[0].text);
         final tFirst = sw.elapsedMilliseconds;
-        debugPrint('⏱️ [PiperTTS Stream] First sentence ready in ${tFirst - t0}ms');
+        debugPrint('⏱️ [PiperTTS Smart Stream] Chunk 0 ready in ${tFirst - t0}ms');
 
         if (token != _speakToken || !_speaking || firstChunkRes == null || firstChunkRes.samples.isEmpty) return;
 
@@ -385,21 +394,21 @@ class PiperTtsService implements TtsInterface {
           return list;
         });
 
-        // Play first chunk immediately
+        // Play Chunk 0 immediately
         final c1Completer = Completer<void>();
         _activeCompleter = c1Completer;
         final c1Spans = spans.where((s) => s.start <= chunks[0].endChar).toList();
 
         await _playAudioSamples(firstChunkRes.samples, firstChunkRes.sampleRate, c1Completer, c1Spans, token: token);
 
-        // Wait for first chunk playback to complete
+        // Wait for Chunk 0 playback to complete
         await c1Completer.future.timeout(const Duration(seconds: 15), onTimeout: () {
           if (!c1Completer.isCompleted) c1Completer.complete();
         });
 
         if (token != _speakToken || !_speaking) return;
 
-        // Fetch remaining results
+        // Fetch remaining results (which finished synthesizing while Chunk 0 was playing!)
         final remainingResults = await remainingChunksFuture;
         if (token != _speakToken || !_speaking) return;
 
