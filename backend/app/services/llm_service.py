@@ -40,6 +40,18 @@ def resolve_prompt(
                 return custom_prompts[profile_lvl]
         
         # Fallback maps
+        if filename == "placement-v2-prompt.md":
+            if "placement_v2" in custom_prompts:
+                return custom_prompts["placement_v2"]
+            if "placement-v2-prompt" in custom_prompts:
+                return custom_prompts["placement-v2-prompt"]
+            if "placement-v2" in custom_prompts:
+                return custom_prompts["placement-v2"]
+        if filename == "placement-check-prompt.md":
+            if "placement" in custom_prompts:
+                return custom_prompts["placement"]
+            if "placement-check-prompt" in custom_prompts:
+                return custom_prompts["placement-check-prompt"]
         if filename == "candidate-ella-prompt.md":
             if "candidate-ella-prompt" in custom_prompts:
                 return custom_prompts["candidate-ella-prompt"]
@@ -1220,9 +1232,18 @@ async def send_placement_v2_turn(
         json_str = _extract_json(raw_output)
         data = json.loads(json_str)
 
-        raw_lvl = str(data.get("level", "")).upper().strip()
+        raw_lvl = str(data.get("level_to_open") or data.get("level") or data.get("assessed_level", "")).upper().strip()
+        if raw_lvl == "C2":
+            raw_lvl = "C1"
         lvl = raw_lvl if raw_lvl in LEVEL_METADATA_V2 else "A2"
         meta = LEVEL_METADATA_V2[lvl]
+
+        evidence_text = (
+            data.get("evidence_summary")
+            or data.get("reasoning")
+            or (", ".join(data.get("evidence")) if isinstance(data.get("evidence"), list) and data.get("evidence") else None)
+            or "Assessed via placement responses."
+        )
 
         return {
             "reply": None,
@@ -1234,7 +1255,7 @@ async def send_placement_v2_turn(
             "unit_name": data.get("unit_name") or meta["unit_name"],
             "level_description": data.get("level_description") or meta["level_description"],
             "confidence": data.get("confidence") or meta["confidence"],
-            "evidence_summary": data.get("evidence_summary") or "Assessed via placement responses.",
+            "evidence_summary": evidence_text,
             "zoe_recap": data.get("zoe_recap") or f"Great meeting you, {name or 'there'}!",
             "interests": data.get("interests") or [],
             "turns_taken": num_user_turns,

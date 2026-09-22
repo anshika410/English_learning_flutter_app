@@ -458,6 +458,7 @@ class AdminPromptsResponse(BaseModel):
     conversation: str
     judge: str
     placement: str
+    placement_v2: str = ""
     correction_extraction: str
     base: str
     level_profiles: dict[str, str]
@@ -487,6 +488,7 @@ async def get_admin_prompts(
 
         judge = resolve_prompt("end-result-prompt.md", user_id=resolve_id)
         placement = resolve_prompt("placement-check-prompt.md", user_id=resolve_id)
+        placement_v2 = resolve_prompt("placement-v2-prompt.md", user_id=resolve_id)
         base = resolve_prompt("candidate-ella-prompt.md", user_id=resolve_id)
         conv_unit_framing = resolve_prompt("conv-unit-framing.md", user_id=resolve_id)
         correction_prompt = resolve_prompt("correction-extraction-prompt.md", user_id=resolve_id)
@@ -500,6 +502,7 @@ async def get_admin_prompts(
             conversation="",
             judge=judge,
             placement=placement,
+            placement_v2=placement_v2,
             correction_extraction=correction_prompt,
             base=base,
             level_profiles=level_profiles,
@@ -530,7 +533,7 @@ async def deploy_sandbox_prompts(
     
     valid_names = [
         "base-prompt", "candidate-ella-prompt", "conv-unit-framing",
-        "end-result-prompt", "placement-check-prompt",
+        "end-result-prompt", "placement-check-prompt", "placement-v2-prompt", "placement-v2",
         "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
@@ -649,7 +652,7 @@ async def deploy_prompt(
     # Validate prompt name
     valid_names = [
         "base-prompt", "conv-unit-framing",
-        "end-result-prompt", "placement-check-prompt",
+        "end-result-prompt", "placement-check-prompt", "placement-v2-prompt",
         "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
@@ -741,7 +744,7 @@ async def deploy_all_prompts(
         "base-prompt", "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
         "conv-unit-framing",
-        "end-result-prompt", "placement-check-prompt",
+        "end-result-prompt", "placement-check-prompt", "placement-v2-prompt",
         "correction-extraction-prompt",
     ]
     snapshot = {}
@@ -812,7 +815,7 @@ async def deploy_snapshot(
 
     valid_names = [
         "base-prompt", "conv-unit-framing",
-        "end-result-prompt", "placement-check-prompt",
+        "end-result-prompt", "placement-check-prompt", "placement-v2-prompt",
         "correction-extraction-prompt",
         "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
@@ -909,7 +912,7 @@ async def bump_prompt_version(
         "base-prompt", "profile-A0", "profile-A1", "profile-A2",
         "profile-B1", "profile-B2", "profile-C1",
         "conv-unit-framing",
-        "end-result-prompt", "placement-check-prompt",
+        "end-result-prompt", "placement-check-prompt", "placement-v2-prompt",
         "correction-extraction-prompt",
     ]
     snapshot = {}
