@@ -75,7 +75,11 @@ void main() {
       final cardRect = tester.getRect(
         find.byKey(const ValueKey('placement-home-greeting-card')),
       );
-      expect(cardRect.top - mascotRect.bottom, closeTo(10, 0.01));
+      final hearAgainRect = tester.getRect(
+        find.byKey(const ValueKey('placement-intro-hear-again-button')),
+      );
+      expect(hearAgainRect.top - mascotRect.bottom, closeTo(8, 0.5));
+      expect(cardRect.top - hearAgainRect.bottom, closeTo(10, 0.5));
       final ctaRect = tester.getRect(
         find.byKey(const ValueKey('placement-home-talk-cta')),
       );

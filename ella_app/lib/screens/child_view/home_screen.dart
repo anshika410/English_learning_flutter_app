@@ -29,6 +29,7 @@ import '../../services/sounds.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
+import 'widgets/hear_again_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
 import 'widgets/piper_download_banner.dart';
@@ -349,7 +350,12 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                               context,
                             ).disableAnimations,
                           ),
-                          // The recap bubble itself starts 16px below Zoe (24px to bubble border).
+                          const SizedBox(height: 8),
+                          HearAgainButton(
+                            key: const ValueKey('home-hear-again-button'),
+                            onTap: _speakRecap,
+                            disabled: false,
+                          ),
                           const SizedBox(height: 8),
                           _LastTimeCard(
                             recap: _recap,

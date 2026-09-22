@@ -627,7 +627,7 @@ void main() {
   });
 
   testWidgets(
-    'renders HearAgainButton above Voice/Speak button and removes SpeakerDotButton',
+    'renders HearAgainButton directly below ZoeMascot and removes SpeakerDotButton',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;

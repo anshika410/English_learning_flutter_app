@@ -175,6 +175,13 @@ class ConversationView extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             mascot,
+                            if (onSpeakAgain != null) ...[
+                              const SizedBox(height: 8),
+                              HearAgainButton(
+                                onTap: mascotSpeaking ? null : onSpeakAgain,
+                                disabled: mascotSpeaking,
+                              ),
+                            ],
                             const SizedBox(height: 18),
                             const _PrepareCard(),
                           ],
@@ -182,6 +189,13 @@ class ConversationView extends StatelessWidget {
                       )
                     else ...[
                       mascot,
+                      if (onSpeakAgain != null) ...[
+                        const SizedBox(height: 8),
+                        HearAgainButton(
+                          onTap: mascotSpeaking ? null : onSpeakAgain,
+                          disabled: mascotSpeaking,
+                        ),
+                      ],
                       SizedBox(height: topic == null ? 18 : 16),
                       Expanded(
                         child: LayoutBuilder(
@@ -197,15 +211,6 @@ class ConversationView extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (onSpeakAgain != null) ...[
-                        const SizedBox(height: 12),
-                        Center(
-                          child: HearAgainButton(
-                            onTap: mascotSpeaking ? null : onSpeakAgain,
-                            disabled: mascotSpeaking,
-                          ),
-                        ),
-                      ],
                     ],
                     const SizedBox(height: 12),
                     if (phase == ConvPhase.talking) ...[
