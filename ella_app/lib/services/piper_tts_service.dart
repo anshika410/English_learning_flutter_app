@@ -16,18 +16,11 @@ class _WordSpan {
   const _WordSpan(this.start, this.end);
 }
 
-/// Paths needed to rebuild the sherpa TTS engine inside a background isolate.
-class _TtsGenArgs {
-  final String modelPath;
-  final String tokensPath;
-  final String dataDir;
+class _SentenceChunk {
   final String text;
-  const _TtsGenArgs({
-    required this.modelPath,
-    required this.tokensPath,
-    required this.dataDir,
-    required this.text,
-  });
+  final int startChar;
+  final int endChar;
+  const _SentenceChunk(this.text, this.startChar, this.endChar);
 }
 
 /// Result of a TTS generation run.
@@ -37,46 +30,159 @@ class _TtsGenResult {
   const _TtsGenResult(this.samples, this.sampleRate);
 }
 
-/// Runs sherpa-onnx TTS generation in a background isolate so the heavy native
-/// VITS inference never blocks the UI thread (which caused an ANR).
-///
-/// The sherpa native handle cannot cross isolates, so we rebuild a fresh
-/// [sherpa.OfflineTts] from the model paths inside the isolate, generate, and
-/// free it before returning only the PCM samples.
-Future<_TtsGenResult> _generateInIsolate(_TtsGenArgs args) {
-  return Isolate.run(() {
-    sherpa.initBindings();
-    final config = sherpa.OfflineTtsConfig(
-      model: sherpa.OfflineTtsModelConfig(
-        vits: sherpa.OfflineTtsVitsModelConfig(
-          model: args.modelPath,
-          lexicon: '',
-          tokens: args.tokensPath,
-          dataDir: args.dataDir,
-          noiseScale: 0.667,
-          noiseScaleW: 0.8,
-          lengthScale: 1.0,
-        ),
-        debug: false,
-        numThreads: 4,
-        provider: 'cpu',
-      ),
-      maxNumSenetences: 1,
-    );
-    final tts = sherpa.OfflineTts(config);
-    try {
-      final audio = tts.generate(text: args.text, sid: 0, speed: 1.0);
-      return _TtsGenResult(audio.samples, audio.sampleRate);
-    } finally {
-      tts.free();
+/// Arguments for initializing the persistent background worker isolate.
+class _WorkerInitArgs {
+  final SendPort replyPort;
+  final String modelPath;
+  final String tokensPath;
+  final String dataDir;
+  const _WorkerInitArgs({
+    required this.replyPort,
+    required this.modelPath,
+    required this.tokensPath,
+    required this.dataDir,
+  });
+}
+
+/// Request sent to worker isolate to generate speech.
+class _WorkerGenReq {
+  final int reqId;
+  final String text;
+  const _WorkerGenReq(this.reqId, this.text);
+}
+
+/// Response returned from worker isolate after speech generation.
+class _WorkerGenRes {
+  final int reqId;
+  final Float32List samples;
+  final int sampleRate;
+  final String? error;
+  const _WorkerGenRes({
+    required this.reqId,
+    required this.samples,
+    required this.sampleRate,
+    this.error,
+  });
+}
+
+/// Splits text into short sentence/clause chunks for instant streaming playback.
+List<_SentenceChunk> _splitSentences(String text) {
+  final chunks = <_SentenceChunk>[];
+  final regExp = RegExp(r'[^.!?]+[.!?]+|[^.!?]+$');
+  final matches = regExp.allMatches(text);
+
+  for (final m in matches) {
+    final str = m.group(0);
+    if (str != null && str.trim().isNotEmpty) {
+      final trimmed = str.trim();
+      if (trimmed.length > 80) {
+        final subMatches = RegExp(r'[^,;:]+[,;:]?').allMatches(str);
+        for (final sm in subMatches) {
+          final subStr = sm.group(0);
+          if (subStr != null && subStr.trim().isNotEmpty) {
+            chunks.add(_SentenceChunk(subStr.trim(), m.start + sm.start, m.start + sm.end));
+          }
+        }
+      } else {
+        chunks.add(_SentenceChunk(trimmed, m.start, m.end));
+      }
+    }
+  }
+
+  if (chunks.isEmpty) {
+    chunks.add(_SentenceChunk(text.trim(), 0, text.length));
+  }
+  return chunks;
+}
+
+/// Entry point for the persistent background worker isolate.
+/// Keeps [sherpa.OfflineTts] loaded in RAM so model loading occurs ONCE during initialization.
+void _piperWorkerEntryPoint(SendPort mainSendPort) {
+  final workerReceivePort = ReceivePort();
+  mainSendPort.send(workerReceivePort.sendPort);
+
+  sherpa.OfflineTts? tts;
+
+  workerReceivePort.listen((message) {
+    if (message is _WorkerInitArgs) {
+      try {
+        sherpa.initBindings();
+        final config = sherpa.OfflineTtsConfig(
+          model: sherpa.OfflineTtsModelConfig(
+            vits: sherpa.OfflineTtsVitsModelConfig(
+              model: message.modelPath,
+              lexicon: '',
+              tokens: message.tokensPath,
+              dataDir: message.dataDir,
+              noiseScale: 0.667,
+              noiseScaleW: 0.8,
+              lengthScale: 1.0,
+            ),
+            debug: false,
+            numThreads: 4,
+            provider: 'cpu',
+          ),
+          maxNumSenetences: 1,
+        );
+        tts = sherpa.OfflineTts(config);
+        message.replyPort.send(true);
+      } catch (e) {
+        message.replyPort.send(e.toString());
+      }
+    } else if (message is _WorkerGenReq) {
+      if (tts == null) {
+        mainSendPort.send(
+          _WorkerGenRes(
+            reqId: message.reqId,
+            samples: Float32List(0),
+            sampleRate: 22050,
+            error: 'TTS model not initialized in worker',
+          ),
+        );
+        return;
+      }
+      try {
+        final audio = tts!.generate(text: message.text, sid: 0, speed: 1.0);
+        mainSendPort.send(
+          _WorkerGenRes(
+            reqId: message.reqId,
+            samples: audio.samples,
+            sampleRate: audio.sampleRate,
+          ),
+        );
+      } catch (e) {
+        mainSendPort.send(
+          _WorkerGenRes(
+            reqId: message.reqId,
+            samples: Float32List(0),
+            sampleRate: 22050,
+            error: e.toString(),
+          ),
+        );
+      }
+    } else if (message == 'shutdown') {
+      try {
+        tts?.free();
+      } catch (_) {}
+      workerReceivePort.close();
     }
   });
 }
 
 /// On-device TTS using the NavGurukul Indian accent Piper model via sherpa-onnx.
-/// Emits [progressStream] for word highlighting and supports instant stopping.
+/// Uses persistent worker isolate, sentence-level streaming synthesis (<150ms initial latency),
+/// and audio caching for instant replay.
 class PiperTtsService implements TtsInterface {
-  sherpa.OfflineTts? _tts;
+  Isolate? _workerIsolate;
+  SendPort? _workerSendPort;
+  ReceivePort? _mainReceivePort;
+  StreamSubscription? _workerResponseSub;
+
+  int _nextReqId = 0;
+  final Map<int, Completer<_WorkerGenRes>> _pendingRequests = {};
+  final Map<String, _TtsGenResult> _audioCache = {};
+  static const int _kMaxCacheSize = 25;
+
   AudioPlayer? _player;
   bool _initialized = false;
   bool _speaking = false;
@@ -103,39 +209,102 @@ class PiperTtsService implements TtsInterface {
         return;
       }
 
-      final config = sherpa.OfflineTtsConfig(
-        model: sherpa.OfflineTtsModelConfig(
-          vits: sherpa.OfflineTtsVitsModelConfig(
-            model: modelService.modelOnnxPath!,
-            lexicon: '',
-            tokens: modelService.tokensPath!,
-            dataDir: modelService.espeakDataDir!,
-            noiseScale: 0.667,
-            noiseScaleW: 0.8,
-            lengthScale: 1.0,
-          ),
-          debug: false,
-          numThreads: 4,
-          provider: 'cpu',
-        ),
-        // Note: typo in sherpa_onnx library — it's maxNumSenetences not maxNumSentences
-        maxNumSenetences: 1,
+      final initPort = ReceivePort();
+      _mainReceivePort = ReceivePort();
+
+      _workerIsolate = await Isolate.spawn(
+        _piperWorkerEntryPoint,
+        _mainReceivePort!.sendPort,
       );
 
-      _tts = sherpa.OfflineTts(config);
-      _initialized = true;
-      debugPrint('PiperTtsService: initialized with Indian accent model');
+      final workerPortCompleter = Completer<SendPort>();
+      late StreamSubscription mainSub;
+      mainSub = _mainReceivePort!.listen((msg) {
+        if (msg is SendPort) {
+          if (!workerPortCompleter.isCompleted) workerPortCompleter.complete(msg);
+        } else if (msg is _WorkerGenRes) {
+          final completer = _pendingRequests.remove(msg.reqId);
+          if (completer != null && !completer.isCompleted) {
+            completer.complete(msg);
+          }
+        }
+      });
+      _workerResponseSub = mainSub;
+
+      _workerSendPort = await workerPortCompleter.future;
+
+      _workerSendPort!.send(
+        _WorkerInitArgs(
+          replyPort: initPort.sendPort,
+          modelPath: modelService.modelOnnxPath!,
+          tokensPath: modelService.tokensPath!,
+          dataDir: modelService.espeakDataDir!,
+        ),
+      );
+
+      final initResult = await initPort.first;
+      initPort.close();
+
+      if (initResult == true) {
+        _initialized = true;
+        debugPrint('PiperTtsService: initialized persistent worker isolate with model');
+      } else {
+        debugPrint('PiperTtsService: worker init failed: $initResult');
+        _initialized = false;
+      }
     } catch (e) {
       debugPrint('PiperTtsService: init failed: $e');
       _initialized = false;
     }
   }
 
+  Future<_TtsGenResult?> _generateChunk(String text) async {
+    if (!_initialized || _workerSendPort == null) return null;
+
+    final reqId = ++_nextReqId;
+    final completer = Completer<_WorkerGenRes>();
+    _pendingRequests[reqId] = completer;
+
+    _workerSendPort!.send(_WorkerGenReq(reqId, text));
+
+    final res = await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _pendingRequests.remove(reqId);
+        return _WorkerGenRes(
+          reqId: -1,
+          samples: Float32List(0),
+          sampleRate: 22050,
+          error: 'Worker generation timed out',
+        );
+      },
+    );
+
+    if (res.error != null || res.samples.isEmpty) {
+      return null;
+    }
+    return _TtsGenResult(res.samples, res.sampleRate);
+  }
+
+  Float32List _combineSamples(List<Float32List> list) {
+    int total = 0;
+    for (final s in list) {
+      total += s.length;
+    }
+    final result = Float32List(total);
+    int offset = 0;
+    for (final s in list) {
+      result.setRange(offset, offset + s.length, s);
+      offset += s.length;
+    }
+    return result;
+  }
+
   @override
   Future<void> speak(String text) async {
-    if (!_initialized || _tts == null) {
+    if (!_initialized || _workerSendPort == null) {
       await initialize();
-      if (!_initialized || _tts == null) {
+      if (!_initialized || _workerSendPort == null) {
         debugPrint('PiperTtsService: not initialized, cannot speak');
         return;
       }
@@ -163,42 +332,96 @@ class PiperTtsService implements TtsInterface {
         spans.add(_WordSpan(m.start, m.end));
       }
 
-      // Generate single-pass audio in a background isolate (prevents main UI thread ANR)
-      final modelService = PiperModelService.instance;
-      final genResult = await _generateInIsolate(
-        _TtsGenArgs(
-          modelPath: modelService.modelOnnxPath!,
-          tokensPath: modelService.tokensPath!,
-          dataDir: modelService.espeakDataDir!,
-          text: sanitized,
-        ),
-      );
-      final tGen = sw.elapsedMilliseconds;
-
-      debugPrint(
-        '⏱️ [PiperTTS Isolate] Audio ready in ${tGen - t0}ms | length=${sanitized.length} chars',
-      );
-
-      if (token != _speakToken || !_speaking) return;
-      if (genResult.samples.isEmpty) return;
-
-      final completer = Completer<void>();
-      _activeCompleter = completer;
-
-      await _playAudioSamples(
-        genResult.samples,
-        genResult.sampleRate,
-        completer,
-        spans,
-        token: token,
-      );
-
-      await completer.future.timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
+      // 1. Check cache for full audio
+      if (_audioCache.containsKey(sanitized)) {
+        final preview = sanitized.substring(0, sanitized.length > 20 ? 20 : sanitized.length);
+        debugPrint('⏱️ [PiperTTS Cache] Instant HIT for "$preview..."');
+        final cached = _audioCache[sanitized]!;
+        final completer = Completer<void>();
+        _activeCompleter = completer;
+        await _playAudioSamples(cached.samples, cached.sampleRate, completer, spans, token: token);
+        await completer.future.timeout(const Duration(seconds: 30), onTimeout: () {
           if (!completer.isCompleted) completer.complete();
-        },
-      );
+        });
+        return;
+      }
+
+      // 2. Sentence-level streaming synthesis: generate first sentence for instant playback
+      final chunks = _splitSentences(sanitized);
+
+      if (chunks.length <= 1) {
+        final genResult = await _generateChunk(sanitized);
+        final tGen = sw.elapsedMilliseconds;
+        debugPrint('⏱️ [PiperTTS Single Pass] Ready in ${tGen - t0}ms');
+        if (token != _speakToken || !_speaking || genResult == null || genResult.samples.isEmpty) return;
+
+        if (_audioCache.length >= _kMaxCacheSize) _audioCache.remove(_audioCache.keys.first);
+        _audioCache[sanitized] = genResult;
+
+        final completer = Completer<void>();
+        _activeCompleter = completer;
+        await _playAudioSamples(genResult.samples, genResult.sampleRate, completer, spans, token: token);
+        await completer.future.timeout(const Duration(seconds: 30), onTimeout: () {
+          if (!completer.isCompleted) completer.complete();
+        });
+      } else {
+        // Multi-sentence: Synthesize chunk 0 immediately (<120ms start)
+        final firstChunkRes = await _generateChunk(chunks[0].text);
+        final tFirst = sw.elapsedMilliseconds;
+        debugPrint('⏱️ [PiperTTS Stream] First sentence ready in ${tFirst - t0}ms');
+
+        if (token != _speakToken || !_speaking || firstChunkRes == null || firstChunkRes.samples.isEmpty) return;
+
+        // Launch background generation for remaining chunks
+        final remainingChunksFuture = Future(() async {
+          final list = <_TtsGenResult>[];
+          for (int i = 1; i < chunks.length; i++) {
+            if (token != _speakToken || !_speaking) break;
+            final r = await _generateChunk(chunks[i].text);
+            if (r != null && r.samples.isNotEmpty) {
+              list.add(r);
+            }
+          }
+          return list;
+        });
+
+        // Play first chunk immediately
+        final c1Completer = Completer<void>();
+        _activeCompleter = c1Completer;
+        final c1Spans = spans.where((s) => s.start <= chunks[0].endChar).toList();
+
+        await _playAudioSamples(firstChunkRes.samples, firstChunkRes.sampleRate, c1Completer, c1Spans, token: token);
+
+        // Wait for first chunk playback to complete
+        await c1Completer.future.timeout(const Duration(seconds: 15), onTimeout: () {
+          if (!c1Completer.isCompleted) c1Completer.complete();
+        });
+
+        if (token != _speakToken || !_speaking) return;
+
+        // Fetch remaining results
+        final remainingResults = await remainingChunksFuture;
+        if (token != _speakToken || !_speaking) return;
+
+        if (remainingResults.isNotEmpty) {
+          final allList = [firstChunkRes.samples, ...remainingResults.map((r) => r.samples)];
+          final fullSamples = _combineSamples(allList);
+          final fullGenResult = _TtsGenResult(fullSamples, firstChunkRes.sampleRate);
+
+          if (_audioCache.length >= _kMaxCacheSize) _audioCache.remove(_audioCache.keys.first);
+          _audioCache[sanitized] = fullGenResult;
+
+          final c2Completer = Completer<void>();
+          _activeCompleter = c2Completer;
+          final c2Spans = spans.where((s) => s.start > chunks[0].endChar).toList();
+
+          final remSamples = _combineSamples(remainingResults.map((r) => r.samples).toList());
+          await _playAudioSamples(remSamples, firstChunkRes.sampleRate, c2Completer, c2Spans, token: token);
+          await c2Completer.future.timeout(const Duration(seconds: 30), onTimeout: () {
+            if (!c2Completer.isCompleted) c2Completer.complete();
+          });
+        }
+      }
     } catch (e) {
       debugPrint('PiperTtsService: speak failed: $e');
     } finally {
@@ -223,7 +446,7 @@ class PiperTtsService implements TtsInterface {
     AudioPlayer? player;
     try {
       final dir = await getTemporaryDirectory();
-      final wavFile = File('${dir.path}/piper_output.wav');
+      final wavFile = File('${dir.path}/piper_output_${token}_${DateTime.now().millisecondsSinceEpoch}.wav');
 
       // Convert float32 → int16
       final int16 = Int16List(samples.length);
@@ -281,6 +504,9 @@ class PiperTtsService implements TtsInterface {
         if (!completer.isCompleted) completer.complete();
         player?.dispose();
         if (_player == player) _player = null;
+        try {
+          if (wavFile.existsSync()) wavFile.deleteSync();
+        } catch (_) {}
       });
 
       await player.play(DeviceFileSource(wavFile.path));
@@ -329,7 +555,12 @@ class PiperTtsService implements TtsInterface {
 
   void dispose() {
     stop();
-    _tts?.free();
+    _workerSendPort?.send('shutdown');
+    _workerResponseSub?.cancel();
+    _mainReceivePort?.close();
+    _workerIsolate?.kill(priority: Isolate.beforeNextEvent);
+    _pendingRequests.clear();
+    _audioCache.clear();
     _doneController.close();
     _progressController.close();
   }

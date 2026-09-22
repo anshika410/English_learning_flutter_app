@@ -82,11 +82,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   bool _speaking = false;
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
-
-  // Audio-sync text reveal: holds new Zoe text until TTS audio starts playing
-  String? _lastRevealedZoeLine;
-  String? _pendingZoeLine;
-  Timer? _revealTimer;
+  bool _starterSpoken = false;
 
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
@@ -130,40 +126,17 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       }
     });
     // Speak the starter message once this screen is mounted.
-    // startSession sets state to zoeSpeaking but skips tts.speak() so that
-    // audio never fires before the screen appears. We own it here instead.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _speakStarterIfReady());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeSpeakStarter(ref.read(chatProvider).valueOrNull));
   }
 
-  Future<void> _speakStarterIfReady() async {
-    if (!mounted) return;
-
-    // Wait for chatProvider to populate the starter message. On clean launches,
-    // startSession() calls the async API to create the conversation, which takes
-    // a brief moment to complete.
-    ChatState? s;
-    for (var i = 0; i < 50; i++) {
-      s = ref.read(chatProvider).valueOrNull;
-      if (s != null &&
-          s.status == ChatStatus.zoeSpeaking &&
-          s.messages.length == 1 &&
-          s.messages.first.sender == MessageSender.zoe) {
-        break;
-      }
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (!mounted) return;
-    }
-    if (s == null) return;
-
+  void _maybeSpeakStarter(ChatState? s) {
+    if (_starterSpoken || !mounted || s == null) return;
     if (s.status == ChatStatus.zoeSpeaking &&
         s.messages.length == 1 &&
         s.messages.first.sender == MessageSender.zoe) {
+      _starterSpoken = true;
       final text = s.messages.first.text;
-      try {
-        // chatProvider.build() already called tts.initialize() — don't call
-        // it again here to avoid race conditions on first launch.
-        await _tts.speak(text);
-      } catch (_) {}
+      _tts.speak(text).catchError((_) {});
       if (mounted) {
         ref.read(chatProvider.notifier).markStarterSpoken();
       }
@@ -173,7 +146,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   @override
   void dispose() {
     WakelockPlus.disable();
-    _revealTimer?.cancel();
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
     try {
@@ -262,17 +234,21 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
   }
 
-  void _onMic(ChatState s) {
+  Future<void> _onMic(ChatState s) async {
     final notifier = ref.read(chatProvider.notifier);
     if (s.status == ChatStatus.userSpeaking) {
       notifier.stopListening();
-    } else if (s.status == ChatStatus.zoeSpeaking && !s.sessionEnded) {
-      // Interrupt Zoe — stop her speech, then start listening
+    } else if ((s.status == ChatStatus.zoeSpeaking || _speaking || _replaying) && !s.sessionEnded) {
+      // Interrupt Zoe — stop her speech, release audio focus, then start listening in 1 tap
       _stopAllTts();
+      await Future.delayed(const Duration(milliseconds: 150));
+      if (!mounted) return;
       notifier.startListening().catchError(_snack);
     } else if (s.status == ChatStatus.idle && !s.sessionEnded) {
       if (_replaying || _speaking) {
         _stopAllTts();
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!mounted) return;
       }
       notifier.startListening().catchError(_snack);
     }
@@ -436,40 +412,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return TopicChoice(name: name, label: name);
   }
 
-  /// Holds back revealing new Zoe text until TTS audio playback actually starts
-  /// (_speaking == true). Falls back after 1000ms if TTS fails to start.
+  /// Returns the latest Zoe text immediately upon arrival (decoupled from TTS audio start).
   String? _getZoeLine(ChatState s) {
     if (_ending) return _kGoodbye;
-
-    final latestLine = _lastFrom(s, MessageSender.zoe) ?? widget.introText;
-
-    if (_speaking || _replaying || s.sessionEnded || s.status != ChatStatus.zoeSpeaking) {
-      _pendingZoeLine = null;
-      _revealTimer?.cancel();
-      _revealTimer = null;
-      _lastRevealedZoeLine = latestLine;
-      return latestLine;
-    }
-
-    if (_lastRevealedZoeLine == latestLine) {
-      return latestLine;
-    }
-
-    if (_pendingZoeLine != latestLine) {
-      _pendingZoeLine = latestLine;
-      _revealTimer?.cancel();
-      // Safety net: if TTS engine fails to start audio after 5000ms, reveal text anyway.
-      _revealTimer = Timer(const Duration(milliseconds: 5000), () {
-        if (mounted) {
-          setState(() {
-            _lastRevealedZoeLine = latestLine;
-            _pendingZoeLine = null;
-          });
-        }
-      });
-    }
-
-    return _lastRevealedZoeLine ?? widget.introText;
+    return _lastFrom(s, MessageSender.zoe) ?? widget.introText;
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -478,8 +424,12 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   Widget build(BuildContext context) {
     ref.listen(chatProvider, (previous, next) {
       _maybeStartSession();
+      _maybeSpeakStarter(next.valueOrNull);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartSession());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeStartSession();
+      _maybeSpeakStarter(ref.read(chatProvider).valueOrNull);
+    });
 
     final chatAsync = ref.watch(chatProvider);
     final s = chatAsync.asData?.value;

@@ -886,6 +886,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
     // Allow starting from idle OR while Zoe is speaking (interrupt her)
     if (cur.status == ChatStatus.zoeSpeaking) {
       await stopSpeaking();
+      await Future.delayed(const Duration(milliseconds: 150));
     } else if (cur.status != ChatStatus.idle && cur.status != ChatStatus.speechError) {
       return;
     }
