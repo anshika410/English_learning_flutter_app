@@ -1092,25 +1092,26 @@ function App(){
     setBusy(true);
     setTurnCount(0);
     autoStep.current = 0;
-    setChatGoal("Determine learner's CEFR speaking level through adaptive conversation.");
+    setChatGoal("Determine learner's CEFR level through Placement v2 2-question screening.");
     setLlmLive(null);
 
     const activeChatNum = chatNum;
 
     if (LLM_CONFIG.mode === 'api') {
       try {
-        // Use real production /llm/placement-turn with custom prompts
+        // Use real production /v2/llm/placement-turn with custom prompts
         const customPrompts = collectCustomPrompts();
-        const placementResponse = await callEllaAPI('/llm/placement-turn', 'POST', {
+        const placementResponse = await callEllaAPI('/v2/llm/placement-turn', 'POST', {
           messages: [],
           name: mem.name || null,
           age: mem.age || null,
+          self_reported_level: mem.self_reported_level || 'Intermediate',
           ...(customPrompts ? { custom_prompts: customPrompts } : {})
         });
         setActiveConvId("placement_session");
         setMsgs([
-          {role:'sys',text:'Placement Test'+(customPrompts?' (custom prompts)':'')},
-          {role:'zoe',text:placementResponse.reply || "Hi! I'm Zoe. Let's chat!"}
+          {role:'sys',text:'Placement Screening Assessment (v2 · 2-Question Screening)'+(customPrompts?' (custom prompts)':'')},
+          {role:'zoe',text:placementResponse.reply || "What do you want to improve in your English?"}
         ]);
         setLlmLive(true);
       } catch (err) {
@@ -1123,8 +1124,8 @@ function App(){
       }
     } else {
       setMsgs([
-        {role:'sys',text:'Placement Test (Mock Mode)'},
-        {role:'zoe',text:"Hi! I'm Zoe. Nice to meet you! Tell me, what's your name, and what is your favorite thing to do?"}
+        {role:'sys',text:'Placement Screening (v2 · Mock Mode)'},
+        {role:'zoe',text:"What do you want to improve in your English?"}
       ]);
       setBusy(false);
     }
@@ -1353,14 +1354,15 @@ function App(){
             role: m.role==='me' ? 'user' : 'assistant',
             content: m.text
           }));
-          const response = await callEllaAPI('/llm/placement-turn', 'POST', {
+          const response = await callEllaAPI('/v2/llm/placement-turn', 'POST', {
             messages: apiMsgs,
             name: mem.name || null,
             age: mem.age || null,
+            self_reported_level: mem.self_reported_level || 'Intermediate',
             ...(customPrompts ? { custom_prompts: customPrompts } : {})
           });
           if (response.is_complete) {
-            setMsgs(m => [...m, { role: 'sys', text: 'Placement test complete!' }]);
+            setMsgs(m => [...m, { role: 'sys', text: '🎉 Placement screening assessment evaluated!' }]);
             setPlacementAssessment(response);
             setTimeout(async () => {
               try {
@@ -1384,28 +1386,27 @@ function App(){
           setBusy(false);
         }
       } else {
-        // Mock local completion on turn 5
+        // Mock local completion on turn 2
         setTimeout(() => {
-          if (turnCount >= 4) {
-            setMsgs(m => [...m, { role: 'sys', text: 'Placement test complete!' }]);
+          if (turnCount >= 1) {
+            setMsgs(m => [...m, { role: 'sys', text: '🎉 Placement screening evaluated (Mock Mode)!' }]);
             setPlacementAssessment({
               is_complete: true,
               level: 'A2',
               unit_name: 'Finding My Voice',
               level_description: 'Can communicate in simple and routine tasks.',
               confidence: 'high',
-              evidence_summary: 'Used simple sentences correctly about routines.',
-              interests: ['music', 'cricket']
+              evidence_summary: 'Targeted answers demonstrate simple sentence structure and foundational vocabulary.',
+              interests: ['music', 'technology']
             });
-
           } else {
-            setMsgs(m => [...m, { role: 'zoe', text: 'That is interesting! Tell me more about that.' }]);
+            setMsgs(m => [...m, { role: 'zoe', text: 'Tell me something about yourself?' }]);
           }
           setBusy(false);
         }, 800);
       }
       return;
-  }
+    }
     if (LLM_CONFIG.mode === 'api') {
       // Use real production /session/turn with custom prompts injected
       try {
@@ -1829,9 +1830,9 @@ function App(){
       </div>
       {sessionType === 'placement' ? (
         <div className="mission" style={{borderColor:'var(--rust)'}}>
-          <b>Diagnostic Screening:</b> Talk to Zoe naturally. She is assessing your speaking capability.
-          <span className="phasepill" style={{background:'#fdf0ed', color:'var(--rust)', borderColor:'var(--rust)'}}>placement</span>
-          <div className="mini">Respond to Zoe's questions. The test completes automatically once she has enough evidence (typically 5-7 turns).</div>
+          <b>Placement Screening (v2):</b> Single-shot evaluation using 2 core spoken prompts.
+          <span className="phasepill" style={{background:'#fdf0ed', color:'var(--rust)', borderColor:'var(--rust)'}}>placement v2</span>
+          <div className="mini">Answer Zoe's 2 questions (English Goals & Self Introduction). The assessment evaluates automatically on your 2nd answer.</div>
         </div>
       ) : (
         (()=>{const ms=studentMission(flatTargets(mem)[0], level); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()
@@ -2075,7 +2076,7 @@ function App(){
             setBusy(true);
             try {
               if (LLM_CONFIG.mode === 'api') {
-                await callEllaAPI('/llm/placement-turn', 'POST', {
+                await callEllaAPI('/v2/llm/placement-turn', 'POST', {
                   messages: [],
                   name: null,
                   age: null,
