@@ -1783,8 +1783,8 @@ function App(){
     <div className="col left">
       <div className="bar"><GoogleSignIn /><h2>📱 Child view</h2><span className="sp"></span>
         <div className="modeToggle">
-          <button className={model==='skill'?'on':''} onClick={()=>changeModel('skill')}>micro-skill</button>
-          <button className={model==='unit'?'on':''} onClick={()=>changeModel('unit')}>units</button>
+          <button className={model==='skill'?'on':''} onClick={()=>changeModel('skill')} title="Initial suggestion / Prototype">micro-skill (initial)</button>
+          <button className={model==='unit'?'on':''} onClick={()=>changeModel('unit')} title="Units (Current production)">units (current)</button>
         </div>
       </div>
       <div className="statline" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -2062,11 +2062,7 @@ function App(){
           </div>
         )}
       </div>
-      <div className="quickbar">
-        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput(studentMission(flatTargets(mem)[0], level).starter)}>💡 help me answer</button>
-        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput('Can you make it easier?')}>Make it easier</button>
-        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput('Please give me an example.')}>Example</button>
-      </div>
+
       <div className="inrow">
         <input value={input} placeholder={judgeOut ? 'Chat completed. Click Next chat →' : placementAssessment ? 'Placement test complete.' : auto ? 'auto-mode on' : 'type as the learner…'} disabled={auto||busy||!!judgeOut||!!placementAssessment} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')sendKid(input);}}/>
         {!auto&&<button className="act" disabled={busy||!!judgeOut||!!placementAssessment} onClick={()=>sendKid(input)}>Send</button>}
@@ -2127,7 +2123,7 @@ function App(){
         </select>
       </div>
       <div className="tabs">
-        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['recap','📋 Today'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='recap')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
+        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['recap','📋 Today'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units (current)':'🌱 Skills (initial)'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='recap')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
           <div key={k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{lab}</div>))}
       </div>
       <div className="panel">
@@ -3491,7 +3487,12 @@ function VersionBadge() {
 function SkillsView({mem,skills}){
   const b=id=>mem.owned.includes(id)?'owned':mem.emerging.includes(id)?'emerging':'locked';
   const g={VOC:[],GRA:[],FLU:[]}; skills.forEach(s=>g[s.strand].push(s));
-  return(<div>{Object.entries(g).map(([st,arr])=>(<div key={st}>
+  return(<div>
+    <div style={{background:'#fff9e6', border:'1px solid #ffe082', borderRadius:8, padding:'8px 12px', fontSize:11.5, color:'#795548', marginBottom:12, lineHeight:1.45}}>
+      💡 <b>Initial Prototype:</b> This flat micro-skill model was an initial suggestion. The system has officially transitioned to <b>Units</b>-based progression.
+    </div>
+    <div className="lbl">Flat skills catalog (Initial concept)</div>
+    {Object.entries(g).map(([st,arr])=>(<div key={st}>
     <div className="lbl">{STRANDS[st]} — {arr.filter(s=>b(s.id)==='owned').length}/{arr.length} owned</div>
     {arr.map(s=>{const bk=b(s.id);return(<div className="skill" key={s.id}><span className={'dot d-'+bk}></span>
       <span style={{fontFamily:'monospace',fontSize:'10px',opacity:.6,minWidth:66}}>{s.id}</span>
