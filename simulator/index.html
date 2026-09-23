@@ -2103,7 +2103,9 @@ function App(){
         )}
         <button className="ghost" disabled={busy} onClick={nextChat}>Next chat →</button>
         <button className="ghost" onClick={resetAll}>Reset</button>
-        <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)',fontWeight:'bold'}} disabled={busy||!!placementAssessment} onClick={startPlacementTest}>📝 Placement Test</button>
+        {sessionType !== 'placement' && (
+          <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)',fontWeight:'bold'}} disabled={busy||!!placementAssessment} onClick={startPlacementTest}>📝 Placement Test</button>
+        )}
       </div>
     </div>
     <div className="col right">
