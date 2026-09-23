@@ -181,7 +181,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
     final activeTts = _tts;
     _ttsProgressSub = activeTts.progressStream.listen((event) {
       if (mounted) {
-        setState(() => _speaking = true);
+        setState(() {
+          _speaking = true;
+          _mascot = ZoeMascotMode.speaking;
+        });
       }
     });
     _ttsDoneSub = activeTts.doneStream.listen((_) {
@@ -199,18 +202,24 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   Future<void> _speak(String text) async {
     _subscribeToActiveTts();
     final tts = _tts;
+    if (mounted) {
+      setState(() {
+        _speaking = true;
+        _mascot = ZoeMascotMode.speaking;
+      });
+    }
     try {
       await tts.stop();
       if (!mounted) return;
       await tts.speak(text);
     } catch (_) {
-      if (mounted) setState(() => _speaking = false);
-    }
-    if (mounted) {
-      setState(() {
-        _speaking = false;
-        _mascot = ZoeMascotMode.listening;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _mascot = ZoeMascotMode.listening;
+        });
+      }
     }
   }
 
@@ -827,6 +836,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                               name: _name,
                               levelTitle: _getEvaluatedLevelTitle(),
                               isLoading: _evaluatingPlacement,
+                              speaking: _speaking,
                             ),
                           ],
                         ],

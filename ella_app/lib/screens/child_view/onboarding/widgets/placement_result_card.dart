@@ -8,12 +8,14 @@ class PlacementResultCard extends StatelessWidget {
   final String name;
   final String levelTitle; // e.g. "Lv. 3 Everyday Talk"
   final bool isLoading;
+  final bool speaking;
 
   const PlacementResultCard({
     super.key,
     required this.name,
     required this.levelTitle,
     this.isLoading = false,
+    this.speaking = false,
   });
 
   @override
@@ -58,7 +60,7 @@ class PlacementResultCard extends StatelessWidget {
       children: [
         SizedBox(height: (size.height * 0.01).clamp(4.0, 10.0)),
         ZoeMascot(
-          mode: ZoeMascotMode.listening,
+          mode: speaking ? ZoeMascotMode.speaking : ZoeMascotMode.listening,
           size: mascotSize,
         ),
         SizedBox(height: verticalGap),
