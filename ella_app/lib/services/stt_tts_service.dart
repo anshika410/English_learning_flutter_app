@@ -46,19 +46,55 @@ String stripEmojis(String text) {
       .trim();
 }
 
+String _unwrapMarkdownSyntax(String text, RegExp pattern) {
+  return text.replaceAllMapped(pattern, (match) {
+    final innerText = match.group(1) ?? '';
+    final matchedText = match.group(0) ?? '';
+
+    if (innerText.isNotEmpty && RegExp(r'^_+$').hasMatch(innerText)) {
+      return matchedText;
+    }
+
+    return innerText;
+  });
+}
+
 /// Strips markdown formatting and emojis for both TTS playback and UI display,
 /// ensuring character indices and word boundaries match 1:1 across native TTS
 /// engines and UI widgets.
 String sanitizeTtsText(String text) {
+  var sanitized = text;
+  sanitized = _unwrapMarkdownSyntax(
+    sanitized,
+    RegExp(r'\*\*(.+?)\*\*', dotAll: true),
+  );
+  sanitized = _unwrapMarkdownSyntax(
+    sanitized,
+    RegExp(r'\*(.+?)\*', dotAll: true),
+  );
+  sanitized = _unwrapMarkdownSyntax(
+    sanitized,
+    RegExp(r'__(.+?)__', dotAll: true),
+  );
+  sanitized = _unwrapMarkdownSyntax(
+    sanitized,
+    RegExp(r'_(.+?)_', dotAll: true),
+  );
+  sanitized = _unwrapMarkdownSyntax(
+    sanitized,
+    RegExp(r'`(.+?)`', dotAll: true),
+  );
+  sanitized = _unwrapMarkdownSyntax(
+    sanitized,
+    RegExp(r'~~(.+?)~~', dotAll: true),
+  );
+  sanitized = _unwrapMarkdownSyntax(
+    sanitized,
+    RegExp(r'\[(.+?)\]\(.+?\)', dotAll: true),
+  );
+
   return stripEmojis(
-    text
-        .replaceAll(RegExp(r'\*\*(.+?)\*\*', dotAll: true), r'$1')
-        .replaceAll(RegExp(r'\*(.+?)\*', dotAll: true), r'$1')
-        .replaceAll(RegExp(r'__(.+?)__', dotAll: true), r'$1')
-        .replaceAll(RegExp(r'_(.+?)_', dotAll: true), r'$1')
-        .replaceAll(RegExp(r'`(.+?)`', dotAll: true), r'$1')
-        .replaceAll(RegExp(r'~~(.+?)~~', dotAll: true), r'$1')
-        .replaceAll(RegExp(r'\[(.+?)\]\(.+?\)', dotAll: true), r'$1')
+    sanitized
         .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
         .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), ''),
   );
