@@ -423,9 +423,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                 mascotSpeaking:
                     _ending ||
                     _replaying ||
-                    _speaking,
-                mascotThinking: !_ending && (s.status == ChatStatus.zoeThinking ||
-                    (s.status == ChatStatus.zoeSpeaking && !_speaking && !_replaying)),
+                    _speaking ||
+                    s.status == ChatStatus.zoeSpeaking,
+                mascotThinking: !_ending && s.status == ChatStatus.zoeThinking,
                 isOffline: !isOnline,
                 progress: _ending ? 1.0 : _progress(s),
                 zoeLine: zoeLine,

@@ -104,6 +104,7 @@ class _PlacementIntroScreenState extends ConsumerState<PlacementIntroScreen> {
   Future<void> _speakGreeting() async {
     if (_speaking) return; // prevent concurrent calls
     setState(() {
+      _speaking = true;
       _highlightStart = -1;
       _highlightEnd = -1;
     });

@@ -507,9 +507,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       topic: _topicPresentationFor(s),
       animateTopicHeader: widget.topicPresentation != null,
       mascotPaused: _paused,
-      mascotSpeaking: _speaking,
-      mascotThinking: s.status == ChatStatus.zoeThinking ||
-          (s.status == ChatStatus.zoeSpeaking && !_speaking && !_replaying),
+      mascotSpeaking: _speaking || _replaying || s.status == ChatStatus.zoeSpeaking,
+      mascotThinking: !_ending && s.status == ChatStatus.zoeThinking,
       isOffline: !isOnline,
       zoeLine: zoeLine,
       studentLine: studentLine,
