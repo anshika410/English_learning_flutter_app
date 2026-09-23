@@ -112,6 +112,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
         ref.invalidate(placementProvider);
         ref.invalidate(placementCacheProvider);
         ref.invalidate(gardenProvider);
+        ref.invalidate(isEarlyAccessStudentProvider);
 
         // Clear the auth screens so Back can't return to login/email.
         _navigatorKey.currentState?.pushNamedAndRemoveUntil(
@@ -196,9 +197,7 @@ class _EllaAppState extends ConsumerState<EllaApp> {
   }
 }
 
-final placementCacheProvider = FutureProvider<bool>((ref) {
-  return EllaApiService().isPlacementDone();
-});
+
 
 /// Whether the signed-in student's email marks them as part of NavGurukul's
 /// small early-access group. Purely cosmetic (drives the one-time "You've

@@ -21,6 +21,10 @@ import 'chat_provider.dart' show ChatStatus, chatProvider;
 import 'service_providers.dart';
 import '../services/sounds.dart';
 
+final placementCacheProvider = FutureProvider<bool>((ref) {
+  return ref.read(ellaApiServiceProvider).isPlacementDone();
+});
+
 class PlacementState {
   final List<ChatMessage> messages;
   final ChatStatus status;

@@ -70,26 +70,12 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   // Captured in initState so dispose() never reads `ref` (unreliable while the
   // element is deactivating) — otherwise the stop-on-leave can silently fail.
-  late final TtsInterface _tts;
   late final PlacementNotifier _placementNotifier;
 
-  @override
-  void initState() {
-    super.initState();
-    // Keep the display awake for the whole placement conversation (voice-first,
-    // no touch input) so the OS idle timer can't dim/lock it. Released in
-    // dispose().
-    WakelockPlus.enable();
-    AnalyticsService.logScreenView('Placement');
-    _tts = ref.read(ttsProvider);
-    _placementNotifier = ref.read(placementProvider.notifier);
-    _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        _stopAllTts();
-      }
-    });
-    final activeTts = ref.read(ttsProvider);
-    _ttsProgressSub = activeTts.progressStream.listen((event) {
+  void _subscribeToTts(TtsInterface tts) {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    _ttsProgressSub = tts.progressStream.listen((event) {
       if (mounted) {
         setState(() {
           _speaking = true;
@@ -98,7 +84,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
         });
       }
     });
-    _ttsDoneSub = activeTts.doneStream.listen((_) {
+    _ttsDoneSub = tts.doneStream.listen((_) {
       if (mounted) {
         setState(() {
           _speaking = false;
@@ -110,6 +96,23 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Keep the display awake for the whole placement conversation (voice-first,
+    // no touch input) so the OS idle timer can't dim/lock it. Released in
+    // dispose().
+    WakelockPlus.enable();
+    AnalyticsService.logScreenView('Placement');
+    _placementNotifier = ref.read(placementProvider.notifier);
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _stopAllTts();
+      }
+    });
+    _subscribeToTts(ref.read(ttsProvider));
+  }
+
+  @override
   void dispose() {
     WakelockPlus.disable();
     _revealTimer?.cancel();
@@ -117,7 +120,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     _ttsDoneSub?.cancel();
     try {
       _placementNotifier.stopListening();
-      _tts.stop();
+      ref.read(ttsProvider).stop();
     } catch (_) {}
     _textController.dispose();
     _focusNode.dispose();
@@ -187,7 +190,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
   }
 
   void _stopAllTts() {
-    _tts.stop();
+    ref.read(ttsProvider).stop();
     ref.read(placementProvider.notifier).stopSpeaking();
     if (mounted) {
       setState(() {
@@ -364,6 +367,9 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TtsInterface>(ttsProvider, (previous, next) {
+      _subscribeToTts(next);
+    });
     ref.listen(placementProvider, (previous, next) {});
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStart());

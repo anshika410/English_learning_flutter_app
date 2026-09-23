@@ -26,6 +26,7 @@ import '../../providers/piper_download_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/analytics_service.dart';
 import '../../services/sounds.dart';
+import '../../services/stt_tts_service.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
@@ -114,6 +115,29 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
 
+  void _subscribeToTts(TtsInterface tts) {
+    _ttsProgressSub?.cancel();
+    _ttsDoneSub?.cancel();
+    _ttsProgressSub = tts.progressStream.listen((event) {
+      if (mounted) {
+        setState(() {
+          _speaking = true;
+          _highlightStart = event.start;
+          _highlightEnd = event.end;
+        });
+      }
+    });
+    _ttsDoneSub = tts.doneStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
+        });
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -123,25 +147,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         ref.read(piperDownloadProvider.notifier).startIfNeeded();
       }
     });
-    final activeTts = ref.read(ttsProvider);
-    _ttsProgressSub = activeTts.progressStream.listen((event) {
-      if (mounted) {
-        setState(() {
-          _speaking = true;
-          _highlightStart = event.start;
-          _highlightEnd = event.end;
-        });
-      }
-    });
-    _ttsDoneSub = activeTts.doneStream.listen((_) {
-      if (mounted) {
-        setState(() {
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-    });
+    _subscribeToTts(ref.read(ttsProvider));
   }
 
   @override
@@ -212,22 +218,13 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   // card shows when the server hasn't sent a recap yet. A no-op while TTS is
   // already speaking (placement-flow behavior), so taps can't stack utterances.
   Future<void> _speakRecap() async {
+    if (_speaking) return;
     final tts = ref.read(ttsProvider);
-    if (_speaking) {
-      await tts.stop();
-      if (mounted) {
-        setState(() {
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-      return;
-    }
     final text = _recap.trim().isNotEmpty
         ? _recap.trim()
         : 'Ready for your first chat?';
     setState(() {
+      _speaking = true;
       _highlightStart = -1;
       _highlightEnd = -1;
     });
@@ -236,9 +233,12 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     try {
       await tts.speak(text);
     } catch (_) {
+    } finally {
       if (mounted) {
         setState(() {
           _speaking = false;
+          _highlightStart = -1;
+          _highlightEnd = -1;
         });
       }
     }
@@ -265,8 +265,14 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     if (_isStarting) return;
     setState(() => _isStarting = true);
     try {
+      if (_speaking) {
+        try {
+          await ref.read(ttsProvider).stop();
+        } catch (_) {}
+      }
       final sel = _selected;
       if (sel != null && sel.name.isNotEmpty) {
+        if (!mounted) return;
         // The topic NAME (not the label) is what the backend expects.
         await startTopic(
           context,
@@ -294,6 +300,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TtsInterface>(ttsProvider, (previous, next) {
+      _subscribeToTts(next);
+    });
+
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
 
     // Keep the CTA tappable even while memory is still loading so it doesn't
@@ -344,17 +354,19 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                             key: const ValueKey('home-zoe-mascot'),
                             mode: !isOnline
                                 ? ZoeMascotMode.sleep
+                                : _speaking
+                                ? ZoeMascotMode.speaking
                                 : ZoeMascotMode.listening,
                             size: mascotW,
                             reducedMotion: MediaQuery.of(
                               context,
                             ).disableAnimations,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 24),
                           HearAgainButton(
                             key: const ValueKey('home-hear-again-button'),
-                            onTap: _speakRecap,
-                            disabled: false,
+                            onTap: _speaking ? null : _speakRecap,
+                            disabled: _speaking,
                           ),
                           const SizedBox(height: 8),
                           _LastTimeCard(

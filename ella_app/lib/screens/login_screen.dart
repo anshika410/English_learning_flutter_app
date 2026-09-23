@@ -19,6 +19,10 @@ import 'package:android_intent_plus/android_intent.dart';
 
 import '../core/app_toast.dart';
 import '../providers/chat_provider.dart';
+import '../providers/onboarding_provider.dart';
+import '../providers/placement_provider.dart';
+import '../providers/garden_provider.dart';
+import '../app.dart' show isEarlyAccessStudentProvider;
 import '../providers/connectivity_provider.dart';
 import '../core/text_styles.dart';
 import '../core/theme_colors.dart';
@@ -128,7 +132,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           if (idToken != null) {
             final success = await _api.loginWithGoogle(idToken);
             if (success && mounted) {
-              ref.invalidate(chatProvider);
+              _invalidateAuthProviders();
               Navigator.of(context).pushReplacementNamed('/');
             } else {
               _showError('Google Login failed on backend.');
@@ -161,7 +165,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 try {
                   final success = await _api.loginWithGoogle(idToken);
                   if (success && mounted) {
-                    ref.invalidate(chatProvider);
+                    _invalidateAuthProviders();
                     Navigator.of(context).pushReplacementNamed('/');
                   } else {
                     _showError('One Tap Login failed on backend.');
@@ -246,7 +250,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         }
         final success = await _api.loginWithGoogle(credentials.accessToken);
         if (success && mounted) {
-          ref.invalidate(chatProvider);
+          _invalidateAuthProviders();
           Navigator.of(context).pushReplacementNamed('/');
         } else {
           _showError('Google login failed on backend.');
@@ -301,7 +305,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       if (idToken != null) {
         final success = await _api.loginWithGoogle(idToken);
         if (success && mounted) {
-          ref.invalidate(chatProvider);
+          _invalidateAuthProviders();
           // Restart app to pick up auth state
           Navigator.of(context).pushReplacementNamed('/');
         } else {
@@ -357,6 +361,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  void _invalidateAuthProviders() {
+    ref.invalidate(chatProvider);
+    ref.invalidate(onboardingProvider);
+    ref.invalidate(placementProvider);
+    ref.invalidate(placementCacheProvider);
+    ref.invalidate(gardenProvider);
+    ref.invalidate(isEarlyAccessStudentProvider);
+  }
+
   void _startMagicLinkPolling(String email) {
     _magicLinkPollTimer?.cancel();
     _magicLinkPollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
@@ -367,7 +380,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final success = await _api.checkMagicLinkStatus(email);
       if (success && mounted) {
         timer.cancel();
-        ref.invalidate(chatProvider);
+        _invalidateAuthProviders();
         Navigator.of(context).pushReplacementNamed('/');
       }
     });

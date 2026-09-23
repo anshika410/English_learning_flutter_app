@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import '../../../app.dart' show placementCacheProvider;
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../core/ella_smooth_shape.dart';
 import '../../../core/text_styles.dart';
 import '../../../core/theme_colors.dart';
@@ -17,12 +17,14 @@ import '../../../models/placement.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/connectivity_provider.dart';
+import '../../../providers/garden_provider.dart';
+import '../../../providers/placement_provider.dart';
 import '../../../providers/piper_download_provider.dart';
 import '../../../providers/service_providers.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/analytics_service.dart';
+import '../../../services/ella_api_service.dart';
 import '../../../services/stt_tts_service.dart';
-import '../../../services/native_tts_service.dart';
 import '../widgets/ella_primary_button.dart';
 import '../widgets/hear_again_button.dart';
 import '../widgets/home_scene_background.dart';
@@ -300,7 +302,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
 
     switch (_step) {
       case _Step.name:
-        Navigator.of(context).maybePop();
+        _handleBackToLogin();
       case _Step.age:
         setState(() => _step = _Step.name);
         _speak(_namePrompt);
@@ -318,8 +320,35 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
         setState(() => _step = _Step.voiceQ2);
         _speak(_q2Prompt);
       case _Step.result:
-        setState(() => _step = _Step.voiceQ3);
-        _speak(_q3Prompt);
+        // Placement flow complete — do not allow going back to questions
+        break;
+    }
+  }
+
+  Future<void> _handleBackToLogin() async {
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    try {
+      await EllaApiService().logout();
+    } catch (_) {}
+
+    ref.invalidate(chatProvider);
+    ref.invalidate(onboardingProvider);
+    ref.invalidate(placementProvider);
+    ref.invalidate(placementCacheProvider);
+    ref.invalidate(gardenProvider);
+    try {
+      await ref.read(onboardingProvider.notifier).reset();
+    } catch (_) {}
+
+    try {
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {}
+
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true)
+          .pushNamedAndRemoveUntil('/login', (route) => false);
     }
   }
 
@@ -527,76 +556,86 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _ => null,
     };
 
-    return HomeSceneBackground(
-      child: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(outerHPad, 8, outerHPad, 16),
-              child: Column(
-                children: [
-                  // Header Row: Top-left Circular Back Button ABOVE Progress Bar (Strictly Left Aligned)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _CircleBackButton(onTap: _onBack),
-                        if (progress != null) ...[
-                          const SizedBox(height: 10),
-                          PlacementTopProgressBar(progress: progress),
-                          SizedBox(height: (size.height * 0.016).clamp(10.0, 16.0)),
-                          Align(
-                            alignment: Alignment.center,
-                            child: Text(
-                              "This will help us get to know you and\npersonalise your learning",
-                              textAlign: TextAlign.center,
-                              style: EllaFonts.body(
-                                const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.6,
-                                  letterSpacing: 0,
-                                  color: EllaColors.ink,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _step != _Step.result) {
+          _onBack();
+        }
+      },
+      child: HomeSceneBackground(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(outerHPad, 8, outerHPad, 16),
+                child: Column(
+                  children: [
+                    // Header Row: Top-left Circular Back Button ABOVE Progress Bar (Strictly Left Aligned)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_step != _Step.result)
+                            _CircleBackButton(onTap: _onBack)
+                          else
+                            const SizedBox(height: 40),
+                          if (progress != null) ...[
+                            const SizedBox(height: 10),
+                            PlacementTopProgressBar(progress: progress),
+                            SizedBox(height: (size.height * 0.016).clamp(10.0, 16.0)),
+                            Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                "This will help us get to know you and\npersonalise your learning",
+                                textAlign: TextAlign.center,
+                                style: EllaFonts.body(
+                                  const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.6,
+                                    letterSpacing: 0,
+                                    color: EllaColors.ink,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  SizedBox(height: (size.height * 0.012).clamp(6.0, 12.0)),
+                    SizedBox(height: (size.height * 0.012).clamp(6.0, 12.0)),
 
-                  // Main Content (Shifted slightly above center so last component rests near visual center)
-                  Expanded(
-                    child: Align(
-                      alignment: const Alignment(0, -0.35),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (_step != _Step.welcome && _step != _Step.result)
-                              const SizedBox(height: 4),
+                    // Main Content (Shifted slightly above center so last component rests near visual center)
+                    Expanded(
+                      child: Align(
+                        alignment: const Alignment(0, -0.35),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_step != _Step.welcome && _step != _Step.result)
+                                const SizedBox(height: 4),
 
-                            if (_step != _Step.result) ...[
-                              ZoeMascot(
-                                mode: _mascot,
-                                size: mascotW,
-                                reducedMotion: reducedMotion,
-                              ),
-                              if (_step != _Step.welcome) ...[
-                                const SizedBox(height: 8),
-                                HearAgainButton(
-                                  onTap: _speaking ? null : _replayCurrentPrompt,
-                                  disabled: _speaking,
+                              if (_step != _Step.result) ...[
+                                ZoeMascot(
+                                  mode: _mascot,
+                                  size: mascotW,
+                                  reducedMotion: reducedMotion,
                                 ),
+                                if (_step != _Step.welcome) ...[
+                                  const SizedBox(height: 24),
+                                  HearAgainButton(
+                                    onTap: _speaking ? null : _replayCurrentPrompt,
+                                    disabled: _speaking,
+                                  ),
+                                ],
+                                SizedBox(height: spaceAfterMascot),
                               ],
-                              SizedBox(height: spaceAfterMascot),
-                            ],
 
                           // Step 1: Name Input Screen (23px heading font size)
                           if (_step == _Step.name) ...[
@@ -882,8 +921,9 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ── Top-Left Circular Back Button Widget ──────────────────────────────────────

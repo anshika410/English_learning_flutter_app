@@ -33,29 +33,32 @@ class HearAgainButton extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: disabled || onTap == null ? null : withTapClick(onTap!),
-      child: Opacity(
-        opacity: disabled ? 0.5 : 1.0,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.volume_up_outlined,
-              size: iconSize,
-              color: effectiveColor,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Hear Again',
-              style: EllaFonts.body(
-                TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: effectiveColor,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Opacity(
+          opacity: disabled ? 0.5 : 1.0,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.volume_up_outlined,
+                size: iconSize,
+                color: effectiveColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Hear Again',
+                style: EllaFonts.body(
+                  TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                    color: effectiveColor,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
