@@ -3061,7 +3061,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   🟢 Active in current conversation:{' '}
                   <b>
                     {sessionType === 'placement'
-                      ? 'placement-check-prompt.md (Sim) / placement-v2-prompt.md (App Onboarding)'
+                      ? 'placement-v2-prompt.md'
                       : 'candidate-ella-prompt.md'}
                   </b>
                 </>
@@ -3074,11 +3074,11 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
               subtitle="placement-v2-prompt.md"
               promptKey="placement_v2"
               value={(editedServerPrompts && editedServerPrompts.placement_v2) || ''}
-              isActive={false}
+              isActive={sessionType === 'placement' && !isChatEnded}
               isLoggedIn={isLoggedIn}
               globalMode={promptViewMode}
               minHeight={200}
-              badgeColor="#0288d1"
+              badgeColor="#2e7d32"
               onChange={val => {
                 setEditedServerPrompts(prev => {
                   const up = {...prev, placement_v2: val};
@@ -3091,10 +3091,10 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
             {/* Placement Check Prompt - Conversational */}
             <PromptFieldCard
               title="Placement Check Prompt (v1 · Conversational)"
-              subtitle="placement-check-prompt.md"
+              subtitle="placement-check-prompt.md (Legacy / Sim only)"
               promptKey="placement"
               value={(editedServerPrompts && editedServerPrompts.placement) || ''}
-              isActive={sessionType === 'placement' && !isChatEnded}
+              isActive={false}
               isLoggedIn={isLoggedIn}
               globalMode={promptViewMode}
               minHeight={200}
