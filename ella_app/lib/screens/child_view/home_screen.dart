@@ -114,6 +114,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   bool _speaking = false;
   StreamSubscription? _ttsProgressSub;
   StreamSubscription? _ttsDoneSub;
+  Timer? _autoSpeakTimer;
+  bool _hasAutoSpokenRecap = false;
 
   void _subscribeToTts(TtsInterface tts) {
     _ttsProgressSub?.cancel();
@@ -148,12 +150,42 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
       }
     });
     _subscribeToTts(ref.read(ttsProvider));
+
+    // Auto-speak the recap text shortly after the screen appears (matching PlacementIntroScreen)
+    _autoSpeakTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _checkAutoSpeakRecap();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_HomeBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.memory != oldWidget.memory) {
+      _checkAutoSpeakRecap();
+    }
+  }
+
+  void _checkAutoSpeakRecap() {
+    if (_hasAutoSpokenRecap || !mounted) return;
+    final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
+    if (widget.memory == null && isOnline) {
+      // Memory is still fetching, wait for didUpdateWidget when memory arrives
+      return;
+    }
+    _hasAutoSpokenRecap = true;
+    _speakRecap();
   }
 
   @override
   void dispose() {
+    _autoSpeakTimer?.cancel();
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
+    try {
+      ref.read(ttsProvider).stop();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -362,7 +394,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                               context,
                             ).disableAnimations,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 8),
                           HearAgainButton(
                             key: const ValueKey('home-hear-again-button'),
                             onTap: _speaking ? null : _speakRecap,
