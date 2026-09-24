@@ -973,7 +973,7 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
     // stuck on userSpeaking, commit whatever partial we heard rather than
     // dropping to idle — going idle here would briefly flash Zoe's previous
     // line before the turn lands (the manual-stop bug).
-    Future.delayed(const Duration(milliseconds: 400), () {
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (sessionId != _activeSttSessionId || _sttSessionFinalized) return;
       _sttSessionFinalized = true;
 

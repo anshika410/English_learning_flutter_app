@@ -140,8 +140,12 @@ class SpeechToTextService implements SttInterface {
 
   // Child intent: true between startListening() and stopListening().
   bool _sessionActive = false;
+  // Whether stopListening() is currently shutting down and waiting for final words.
+  bool _stopping = false;
   // Whether the OS recognizer is actively capturing right now.
   bool _recognizerRunning = false;
+
+  Completer<void>? _finalResultCompleter;
 
   // Segments finalized by earlier recognizer runs in THIS session.
   String _accumulated = '';
@@ -179,15 +183,6 @@ class SpeechToTextService implements SttInterface {
             stage: 'recognizer_error',
             accumulatedTextLength: _displayText.trim().length,
           );
-          // IMPORTANT: the Android plugin flags EVERY error as `permanent` —
-          // including `error_no_match` / `error_speech_timeout`, which fire on an
-          // ordinary silent pause. So we must NOT finalize (send) on the
-          // permanent flag; doing so sent the turn on random pauses before the
-          // child tapped Send. The statusListener restart already carries the
-          // session through these transient pause errors.
-          //
-          // Only a genuine permission failure is fatal — end the session, and do
-          // it WITHOUT sending a turn.
           if (error.errorMsg == 'error_permission') {
             AnalyticsService.logMicPermissionDenied();
             _abortSession();
@@ -223,6 +218,8 @@ class SpeechToTextService implements SttInterface {
   }) async {
     if (!_ready || _sessionActive) return;
     _sessionActive = true;
+    _stopping = false;
+    _finalResultCompleter = null;
     _accumulated = '';
     _currentPartial = '';
     _onPartial = onPartial;
@@ -231,12 +228,16 @@ class SpeechToTextService implements SttInterface {
 
     _stt.statusListener = (status) {
       // The recognizer stopped (silence pause, segment cap, or our own stop).
-      // While the child still wants to dictate, fold the last partial in and
-      // restart so listening continues instead of ending the turn.
       if (status == 'notListening' || status == 'done') {
         _recognizerRunning = false;
         speechLevel.value = 0.0;
-        if (_sessionActive) {
+        if (_stopping) {
+          if (status == 'done') {
+            if (_finalResultCompleter != null && !_finalResultCompleter!.isCompleted) {
+              _finalResultCompleter!.complete();
+            }
+          }
+        } else if (_sessionActive) {
           _foldPartial();
           _scheduleRestart();
         }
@@ -247,7 +248,7 @@ class SpeechToTextService implements SttInterface {
   }
 
   Future<void> _startRecognizer() async {
-    if (!_sessionActive || _recognizerRunning) return;
+    if (!_sessionActive || _stopping || _recognizerRunning) return;
     _recognizerRunning = true;
     _currentPartial = '';
     try {
@@ -257,9 +258,6 @@ class SpeechToTextService implements SttInterface {
           speechLevel.value = ((level + 2) / 12).clamp(0.0, 1.0);
         },
         listenOptions: stt.SpeechListenOptions(
-          // Each segment caps at 60s; a longer pauseFor tolerates natural
-          // thinking pauses before the recognizer ends the segment (we restart
-          // regardless, so this only trims restart churn).
           listenFor: const Duration(seconds: 60),
           pauseFor: const Duration(seconds: 6),
           partialResults: true,
@@ -276,47 +274,36 @@ class SpeechToTextService implements SttInterface {
         accumulatedTextLength: _displayText.trim().length,
         stackTrace: stackTrace,
       );
-      // Retry shortly; a hard failure is caught by the permanent-error path.
-      _scheduleRestart();
+      if (!_stopping) {
+        _scheduleRestart();
+      }
     }
   }
 
-  /// Handles both partial and final results from ONE recognizer run.
-  ///
-  /// We deliberately do NOT commit on `finalResult` here — a final is just the
-  /// best version of the current live phrase. Committing happens in exactly one
-  /// place, [_foldPartial] (on the statusListener's `done`, on restart, and on
-  /// stop), so a segment can never be dropped by an empty final or double-added
-  /// by a final+done race.
   void _handleResult(SpeechRecognitionResult r) {
-    // Ignore anything arriving while no run is active (e.g. a late final from
-    // the previous run landing during the restart gap) — it would otherwise be
-    // re-committed on top of the already-folded text.
-    if (!_sessionActive || !_recognizerRunning) return;
+    if (!_sessionActive && !_stopping) return;
     final words = r.recognizedWords.trim();
-    // An empty result must never wipe the live phrase before it's committed.
-    if (words.isEmpty) return;
+    if (words.isNotEmpty) {
+      final wl = words.toLowerCase();
+      final pl = _currentPartial.toLowerCase();
+      final samePhrase = _currentPartial.isEmpty || wl.contains(pl) || pl.contains(wl);
+      if (!samePhrase) {
+        _accumulated =
+            _accumulated.isEmpty ? _currentPartial : '$_accumulated $_currentPartial';
+        _currentPartial = '';
+      }
 
-    // Android can start a NEW phrase mid-run: recognizedWords stops extending
-    // (and isn't an extension/revision of) the current phrase. Commit the old
-    // phrase before the new one overwrites it. A bidirectional prefix check
-    // treats plain growth ("I" → "I am") and shrinking revisions ("helloo" →
-    // "hello") as the same phrase, so only a real reset triggers a commit.
-    final wl = words.toLowerCase();
-    final pl = _currentPartial.toLowerCase();
-    final samePhrase = _currentPartial.isEmpty || wl.contains(pl) || pl.contains(wl);
-    if (!samePhrase) {
-      _accumulated =
-          _accumulated.isEmpty ? _currentPartial : '$_accumulated $_currentPartial';
-      _currentPartial = '';
+      _currentPartial = words;
+      _onPartial?.call(_displayText.trim());
     }
 
-    _currentPartial = words;
-    _onPartial?.call(_displayText.trim());
+    if (r.finalResult) {
+      if (_finalResultCompleter != null && !_finalResultCompleter!.isCompleted) {
+        _finalResultCompleter!.complete();
+      }
+    }
   }
 
-  /// Commits the live phrase into the accumulated transcript. Idempotent — it
-  /// clears [_currentPartial], so the final/done ordering can't double-commit.
   void _foldPartial() {
     final p = _currentPartial.trim();
     if (p.isEmpty) return;
@@ -326,20 +313,17 @@ class SpeechToTextService implements SttInterface {
 
   void _scheduleRestart() {
     _restartTimer?.cancel();
-    if (!_sessionActive) return;
-    // Small delay so the previous recognizer fully tears down before we start
-    // the next one (starting too eagerly can fail on Android).
+    if (!_sessionActive || _stopping) return;
     _restartTimer = Timer(const Duration(milliseconds: 250), () {
-      if (_sessionActive && !_recognizerRunning) _startRecognizer();
+      if (_sessionActive && !_stopping && !_recognizerRunning) _startRecognizer();
     });
   }
 
-  /// Ends the session and delivers the committed transcript exactly once. Only
-  /// an explicit stop (the child's Send tap) reaches this.
   void _finishSession() {
-    if (!_sessionActive && _onFinal == null) return;
     _sessionActive = false;
+    _stopping = false;
     _recognizerRunning = false;
+    _finalResultCompleter = null;
     _restartTimer?.cancel();
     speechLevel.value = 0.0;
     _foldPartial();
@@ -355,13 +339,11 @@ class SpeechToTextService implements SttInterface {
     }
   }
 
-  /// Ends the session on a fatal error (e.g. permission denied) WITHOUT sending
-  /// a turn. Delivers an empty final so the caller just returns to idle — a
-  /// recognition error must never be mistaken for the child's Send.
   void _abortSession() {
-    if (!_sessionActive && _onFinal == null) return;
     _sessionActive = false;
+    _stopping = false;
     _recognizerRunning = false;
+    _finalResultCompleter = null;
     _restartTimer?.cancel();
     speechLevel.value = 0.0;
     final cb = _onFinal;
@@ -377,15 +359,32 @@ class SpeechToTextService implements SttInterface {
 
   @override
   Future<void> stopListening() async {
-    if (!_sessionActive) return;
-    _sessionActive = false;
+    if (!_sessionActive || _stopping) return;
+    _stopping = true;
     _restartTimer?.cancel();
     speechLevel.value = 0.0;
+
+    final completer = Completer<void>();
+    _finalResultCompleter = completer;
+
     try {
       await _stt.stop();
     } catch (_) {}
+
+    // Wait for the recognizer to deliver the final SpeechRecognitionResult or status=done
+    try {
+      await completer.future.timeout(
+        const Duration(milliseconds: 1000),
+        onTimeout: () {
+          debugPrint('STT: timeout waiting for final result after stop, using latest partial');
+        },
+      );
+    } catch (_) {}
+
+    _finalResultCompleter = null;
     _recognizerRunning = false;
-    // Explicit stop == the child's Send: finalize the accumulated turn now.
+    _sessionActive = false;
+    _stopping = false;
     _finishSession();
   }
 
