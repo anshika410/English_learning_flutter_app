@@ -1092,25 +1092,26 @@ function App(){
     setBusy(true);
     setTurnCount(0);
     autoStep.current = 0;
-    setChatGoal("Determine learner's CEFR speaking level through adaptive conversation.");
+    setChatGoal("Determine learner's CEFR level through Placement v2 2-question screening.");
     setLlmLive(null);
 
     const activeChatNum = chatNum;
 
     if (LLM_CONFIG.mode === 'api') {
       try {
-        // Use real production /llm/placement-turn with custom prompts
+        // Use real production /v2/llm/placement-turn with custom prompts
         const customPrompts = collectCustomPrompts();
-        const placementResponse = await callEllaAPI('/llm/placement-turn', 'POST', {
+        const placementResponse = await callEllaAPI('/v2/llm/placement-turn', 'POST', {
           messages: [],
           name: mem.name || null,
           age: mem.age || null,
+          self_reported_level: mem.self_reported_level || 'Intermediate',
           ...(customPrompts ? { custom_prompts: customPrompts } : {})
         });
         setActiveConvId("placement_session");
         setMsgs([
-          {role:'sys',text:'Placement Test'+(customPrompts?' (custom prompts)':'')},
-          {role:'zoe',text:placementResponse.reply || "Hi! I'm Zoe. Let's chat!"}
+          {role:'sys',text:'Placement Screening Assessment (v2 · 2-Question Screening)'+(customPrompts?' (custom prompts)':'')},
+          {role:'zoe',text:placementResponse.reply || "What do you want to improve in your English?"}
         ]);
         setLlmLive(true);
       } catch (err) {
@@ -1123,8 +1124,8 @@ function App(){
       }
     } else {
       setMsgs([
-        {role:'sys',text:'Placement Test (Mock Mode)'},
-        {role:'zoe',text:"Hi! I'm Zoe. Nice to meet you! Tell me, what's your name, and what is your favorite thing to do?"}
+        {role:'sys',text:'Placement Screening (v2 · Mock Mode)'},
+        {role:'zoe',text:"What do you want to improve in your English?"}
       ]);
       setBusy(false);
     }
@@ -1353,14 +1354,15 @@ function App(){
             role: m.role==='me' ? 'user' : 'assistant',
             content: m.text
           }));
-          const response = await callEllaAPI('/llm/placement-turn', 'POST', {
+          const response = await callEllaAPI('/v2/llm/placement-turn', 'POST', {
             messages: apiMsgs,
             name: mem.name || null,
             age: mem.age || null,
+            self_reported_level: mem.self_reported_level || 'Intermediate',
             ...(customPrompts ? { custom_prompts: customPrompts } : {})
           });
           if (response.is_complete) {
-            setMsgs(m => [...m, { role: 'sys', text: 'Placement test complete!' }]);
+            setMsgs(m => [...m, { role: 'sys', text: '🎉 Placement screening assessment evaluated!' }]);
             setPlacementAssessment(response);
             setTimeout(async () => {
               try {
@@ -1384,28 +1386,27 @@ function App(){
           setBusy(false);
         }
       } else {
-        // Mock local completion on turn 5
+        // Mock local completion on turn 2
         setTimeout(() => {
-          if (turnCount >= 4) {
-            setMsgs(m => [...m, { role: 'sys', text: 'Placement test complete!' }]);
+          if (turnCount >= 1) {
+            setMsgs(m => [...m, { role: 'sys', text: '🎉 Placement screening evaluated (Mock Mode)!' }]);
             setPlacementAssessment({
               is_complete: true,
               level: 'A2',
               unit_name: 'Finding My Voice',
               level_description: 'Can communicate in simple and routine tasks.',
               confidence: 'high',
-              evidence_summary: 'Used simple sentences correctly about routines.',
-              interests: ['music', 'cricket']
+              evidence_summary: 'Targeted answers demonstrate simple sentence structure and foundational vocabulary.',
+              interests: ['music', 'technology']
             });
-
           } else {
-            setMsgs(m => [...m, { role: 'zoe', text: 'That is interesting! Tell me more about that.' }]);
+            setMsgs(m => [...m, { role: 'zoe', text: 'Tell me something about yourself?' }]);
           }
           setBusy(false);
         }, 800);
       }
       return;
-  }
+    }
     if (LLM_CONFIG.mode === 'api') {
       // Use real production /session/turn with custom prompts injected
       try {
@@ -1783,8 +1784,8 @@ function App(){
     <div className="col left">
       <div className="bar"><GoogleSignIn /><h2>📱 Child view</h2><span className="sp"></span>
         <div className="modeToggle">
-          <button className={model==='skill'?'on':''} onClick={()=>changeModel('skill')}>micro-skill</button>
-          <button className={model==='unit'?'on':''} onClick={()=>changeModel('unit')}>units</button>
+          <button className={model==='skill'?'on':''} onClick={()=>changeModel('skill')} title="Initial suggestion / Prototype">micro-skill (initial)</button>
+          <button className={model==='unit'?'on':''} onClick={()=>changeModel('unit')} title="Units (Current production)">units (current)</button>
         </div>
       </div>
       <div className="statline" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1829,9 +1830,9 @@ function App(){
       </div>
       {sessionType === 'placement' ? (
         <div className="mission" style={{borderColor:'var(--rust)'}}>
-          <b>Diagnostic Screening:</b> Talk to Zoe naturally. She is assessing your speaking capability.
-          <span className="phasepill" style={{background:'#fdf0ed', color:'var(--rust)', borderColor:'var(--rust)'}}>placement</span>
-          <div className="mini">Respond to Zoe's questions. The test completes automatically once she has enough evidence (typically 5-7 turns).</div>
+          <b>Placement Screening (v2):</b> Single-shot evaluation using 2 core spoken prompts.
+          <span className="phasepill" style={{background:'#fdf0ed', color:'var(--rust)', borderColor:'var(--rust)'}}>placement v2</span>
+          <div className="mini">Answer Zoe's 2 questions (English Goals & Self Introduction). The assessment evaluates automatically on your 2nd answer.</div>
         </div>
       ) : (
         (()=>{const ms=studentMission(flatTargets(mem)[0], level); const phase=sessionStage(turnCount); return <div className="mission"><b>Today’s tiny mission:</b> {ms.title}<span className="phasepill">{phase}</span><div className="mini">Zoe will help you. Small answers are okay. If stuck, tap help/example.</div><div className="starter">Try: “{ms.starter}”</div></div>;})()
@@ -2062,11 +2063,7 @@ function App(){
           </div>
         )}
       </div>
-      <div className="quickbar">
-        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput(studentMission(flatTargets(mem)[0], level).starter)}>💡 help me answer</button>
-        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput('Can you make it easier?')}>Make it easier</button>
-        <button className="ghost" disabled={busy||auto||!!judgeOut||!!placementAssessment} onClick={()=>setInput('Please give me an example.')}>Example</button>
-      </div>
+
       <div className="inrow">
         <input value={input} placeholder={judgeOut ? 'Chat completed. Click Next chat →' : placementAssessment ? 'Placement test complete.' : auto ? 'auto-mode on' : 'type as the learner…'} disabled={auto||busy||!!judgeOut||!!placementAssessment} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')sendKid(input);}}/>
         {!auto&&<button className="act" disabled={busy||!!judgeOut||!!placementAssessment} onClick={()=>sendKid(input)}>Send</button>}
@@ -2079,7 +2076,7 @@ function App(){
             setBusy(true);
             try {
               if (LLM_CONFIG.mode === 'api') {
-                await callEllaAPI('/llm/placement-turn', 'POST', {
+                await callEllaAPI('/v2/llm/placement-turn', 'POST', {
                   messages: [],
                   name: null,
                   age: null,
@@ -2107,7 +2104,9 @@ function App(){
         )}
         <button className="ghost" disabled={busy} onClick={nextChat}>Next chat →</button>
         <button className="ghost" onClick={resetAll}>Reset</button>
-        <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)',fontWeight:'bold'}} disabled={busy||!!placementAssessment} onClick={startPlacementTest}>📝 Placement Test</button>
+        {sessionType !== 'placement' && (
+          <button className="ghost" style={{color:'var(--rust)',borderColor:'var(--rust)',fontWeight:'bold'}} disabled={busy||!!placementAssessment} onClick={startPlacementTest}>📝 Placement Test</button>
+        )}
       </div>
     </div>
     <div className="col right">
@@ -2127,7 +2126,7 @@ function App(){
         </select>
       </div>
       <div className="tabs">
-        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['recap','📋 Today'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units':'🌱 Skills'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='recap')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
+        {[['readme','📖 Read me'],['garden','🏡 Garden'],['memory','🧠 Memory'],['judge','⚖️ Judge'],['apicalls','🔌 API Calls'],['recap','📋 Today'],['dual','⚖️⚖️ Both'],['session','📄 Session'],['due','🎯 due_next'],['prompt','📝 Prompt'],['edit','✏️ Prompts'],[model==='unit'?'units':'skills',model==='unit'?'🪜 Units (current)':'🌱 Skills (initial)'],['hist','📊 History'],['settings','⚙︎ LLM']].filter(([k])=>{if(k==='apicalls')return LLM_CONFIG.mode==='api';if(k==='recap')return LLM_CONFIG.mode==='api';if(k==='dual')return LLM_CONFIG.showClientSide;return true;}).map(([k,lab])=>(
           <div key={k} className={'tab '+(tab===k?'on':'')} onClick={()=>setTab(k)}>{lab}</div>))}
       </div>
       <div className="panel">
@@ -3061,7 +3060,7 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
                   🟢 Active in current conversation:{' '}
                   <b>
                     {sessionType === 'placement'
-                      ? 'placement-check-prompt.md (Sim) / placement-v2-prompt.md (App Onboarding)'
+                      ? 'placement-v2-prompt.md'
                       : 'candidate-ella-prompt.md'}
                   </b>
                 </>
@@ -3074,11 +3073,11 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
               subtitle="placement-v2-prompt.md"
               promptKey="placement_v2"
               value={(editedServerPrompts && editedServerPrompts.placement_v2) || ''}
-              isActive={false}
+              isActive={sessionType === 'placement' && !isChatEnded}
               isLoggedIn={isLoggedIn}
               globalMode={promptViewMode}
               minHeight={200}
-              badgeColor="#0288d1"
+              badgeColor="#2e7d32"
               onChange={val => {
                 setEditedServerPrompts(prev => {
                   const up = {...prev, placement_v2: val};
@@ -3091,10 +3090,10 @@ function EditView({prompts,setPrompts,model,callEllaAPI,sessionType,level,isChat
             {/* Placement Check Prompt - Conversational */}
             <PromptFieldCard
               title="Placement Check Prompt (v1 · Conversational)"
-              subtitle="placement-check-prompt.md"
+              subtitle="placement-check-prompt.md (Legacy / Sim only)"
               promptKey="placement"
               value={(editedServerPrompts && editedServerPrompts.placement) || ''}
-              isActive={sessionType === 'placement' && !isChatEnded}
+              isActive={false}
               isLoggedIn={isLoggedIn}
               globalMode={promptViewMode}
               minHeight={200}
@@ -3491,7 +3490,12 @@ function VersionBadge() {
 function SkillsView({mem,skills}){
   const b=id=>mem.owned.includes(id)?'owned':mem.emerging.includes(id)?'emerging':'locked';
   const g={VOC:[],GRA:[],FLU:[]}; skills.forEach(s=>g[s.strand].push(s));
-  return(<div>{Object.entries(g).map(([st,arr])=>(<div key={st}>
+  return(<div>
+    <div style={{background:'#fff9e6', border:'1px solid #ffe082', borderRadius:8, padding:'8px 12px', fontSize:11.5, color:'#795548', marginBottom:12, lineHeight:1.45}}>
+      💡 <b>Initial Prototype:</b> This flat micro-skill model was an initial suggestion. The system has officially transitioned to <b>Units</b>-based progression.
+    </div>
+    <div className="lbl">Flat skills catalog (Initial concept)</div>
+    {Object.entries(g).map(([st,arr])=>(<div key={st}>
     <div className="lbl">{STRANDS[st]} — {arr.filter(s=>b(s.id)==='owned').length}/{arr.length} owned</div>
     {arr.map(s=>{const bk=b(s.id);return(<div className="skill" key={s.id}><span className={'dot d-'+bk}></span>
       <span style={{fontFamily:'monospace',fontSize:'10px',opacity:.6,minWidth:66}}>{s.id}</span>
