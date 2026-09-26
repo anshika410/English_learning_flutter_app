@@ -17,7 +17,7 @@ Return ONLY valid JSON in this exact structure:
 
 {
   "overall": "good",
-  "zoe_recap": "<warm specific recap, max 120 characters>",
+  "zoe_recap": "A warm specific 1-sentence recap of what the student practiced or shared today",
   "best_moment": {
     "quote": "<exact learner words>",
     "note": "<why this was communicatively strong>"

@@ -130,4 +130,40 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('HomeScreen ignores prompt placeholder leakage in last_time_recap',
+      (tester) async {
+    final mockTts = _MockTtsService();
+    const leakedRecapText =
+        'A warm recap of something the learner shared. Max 100 characters.';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatProvider.overrideWith(
+              () => _FakeChatNotifier(_testMemory(leakedRecapText))),
+          onboardingProvider.overrideWith(_FakeOnboardingNotifier.new),
+          connectivityProvider.overrideWith((ref) => Stream.value(true)),
+          ttsProvider.overrideWithValue(mockTts),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: Size(390, 844),
+              disableAnimations: true,
+            ),
+            child: HomeScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Must fall back to default friendly prompt instead of speaking the template placeholder
+    expect(mockTts.lastSpokenText, 'Ready for your first chat?');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

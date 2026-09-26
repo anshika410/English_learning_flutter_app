@@ -13,6 +13,41 @@ _DOCKER_PROMPTS = Path("/app/assets/prompts")
 _LOCAL_PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 PROMPTS_DIR = _DOCKER_PROMPTS if _DOCKER_PROMPTS.exists() else _LOCAL_PROMPTS
 
+
+def is_placeholder_recap(text: str | None) -> bool:
+    """Checks if a recap string is empty or contains leaked prompt placeholder template text."""
+    if not text or not isinstance(text, str):
+        return True
+    cleaned = text.strip()
+    if not cleaned:
+        return True
+    if cleaned.startswith("<") and cleaned.endswith(">"):
+        return True
+    lower = cleaned.lower()
+    placeholder_indicators = [
+        "max 100",
+        "max 120",
+        "max chars",
+        "max character",
+        "characters.",
+        "characters)",
+        "warm recap",
+        "warm personal sentence",
+        "warm specific recap",
+        "warm, accurate sentence",
+        "warm, honest recap",
+        "learner shared",
+        "something the learner",
+        "specific recap",
+        "referencing their answer",
+        "<warm",
+        "one warm",
+        "one concise sentence",
+        "one practical sentence",
+    ]
+    return any(p in lower for p in placeholder_indicators)
+
+
 def resolve_prompt(
     filename: str,
     custom_prompts: dict | None = None,
@@ -806,6 +841,24 @@ def _build_placement_result(data: dict) -> dict:
     }
     raw_level = str(data.get("level") or data.get("level_code") or "A0").upper()
     level = raw_level if raw_level in level_names else "A0"
+
+    raw_recap = data.get("zoe_recap")
+    if is_placeholder_recap(raw_recap):
+        interests = data.get("interests", [])
+        name = data.get("name")
+        if interests and isinstance(interests, list):
+            clean = [str(i).strip() for i in interests if str(i).strip()]
+            if len(clean) == 1:
+                raw_recap = f"You told me you like {clean[0]}!"
+            elif len(clean) >= 2:
+                raw_recap = f"You told me you like {clean[0]} and {clean[1]}!"
+            else:
+                raw_recap = f"Great meeting you, {name}!" if name else "Great to meet you!"
+        elif name:
+            raw_recap = f"Great meeting you, {name}!"
+        else:
+            raw_recap = "Great to meet you! Ready for our first chat?"
+
     return {
         "reply": data.get("reply"),
         "is_complete": True,
@@ -818,7 +871,7 @@ def _build_placement_result(data: dict) -> dict:
         "confidence": data.get("confidence"),
         "possible_higher": data.get("possible_higher"),
         "evidence_summary": data.get("evidence_summary"),
-        "zoe_recap": data.get("zoe_recap"),
+        "zoe_recap": raw_recap,
         "probe_targets_covered": data.get("probe_targets_covered"),
         "turns_taken": data.get("turns_taken"),
         "code_switch_observed": data.get("code_switch_observed"),
@@ -863,8 +916,14 @@ def _parse_loose_placement_output(text: str) -> dict | None:
     # If we found at least a level, we can reconstruct the assessment!
     if "level" in data:
         data["confidence"] = data.get("confidence") or "medium"
-        data["zoe_recap"] = data.get("zoe_recap") or data.get("level_description") or "You enjoy talking and practicing your English!"
-        data["level_description"] = data.get("level_description") or data.get("zoe_recap") or "We'll find your perfect pace."
+        recap = data.get("zoe_recap")
+        if is_placeholder_recap(recap):
+            recap = "You enjoy talking and practicing your English!"
+        data["zoe_recap"] = recap
+        desc = data.get("level_description")
+        if is_placeholder_recap(desc):
+            desc = "We'll find your perfect pace."
+        data["level_description"] = desc
         data["evidence_summary"] = data.get("evidence_summary") or "Assessment completed using fallback loose parsing."
         return data
 
@@ -1054,6 +1113,9 @@ async def analyze_and_grade_session(
                     })
         else:
             data["scores"] = []
+        
+        if is_placeholder_recap(data.get("zoe_recap")):
+            data["zoe_recap"] = None
         
         return data
     except Exception as e:
@@ -1245,6 +1307,22 @@ async def send_placement_v2_turn(
             or "Assessed via placement responses."
         )
 
+        raw_recap = data.get("zoe_recap")
+        if is_placeholder_recap(raw_recap):
+            interests = data.get("interests") or []
+            if interests and isinstance(interests, list):
+                clean = [str(i).strip() for i in interests if str(i).strip()]
+                if len(clean) == 1:
+                    raw_recap = f"You told me you like {clean[0]}!"
+                elif len(clean) >= 2:
+                    raw_recap = f"You told me you like {clean[0]} and {clean[1]}!"
+                else:
+                    raw_recap = f"Great meeting you, {name}!" if name else "Great to meet you!"
+            elif name:
+                raw_recap = f"Great meeting you, {name}!"
+            else:
+                raw_recap = "Great to meet you! Ready for our first chat?"
+
         return {
             "reply": None,
             "is_complete": True,
@@ -1256,7 +1334,7 @@ async def send_placement_v2_turn(
             "level_description": data.get("level_description") or meta["level_description"],
             "confidence": data.get("confidence") or meta["confidence"],
             "evidence_summary": evidence_text,
-            "zoe_recap": data.get("zoe_recap") or f"Great meeting you, {name or 'there'}!",
+            "zoe_recap": raw_recap,
             "interests": data.get("interests") or [],
             "turns_taken": num_user_turns,
         }

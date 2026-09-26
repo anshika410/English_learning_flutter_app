@@ -244,6 +244,32 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
     return recommended;
   }
 
+  bool _isPlaceholderRecap(String text) {
+    final lower = text.toLowerCase();
+    const placeholders = [
+      'max 100',
+      'max 120',
+      'max chars',
+      'max character',
+      'characters.',
+      'characters)',
+      'warm recap',
+      'warm personal sentence',
+      'warm specific recap',
+      'warm, accurate sentence',
+      'warm, honest recap',
+      'learner shared',
+      'something the learner',
+      'specific recap',
+      'referencing their answer',
+      '<warm',
+      'one warm',
+      'one concise sentence',
+      'one practical sentence',
+    ];
+    return placeholders.any((p) => lower.contains(p));
+  }
+
   // Server-authored recap line ("Last time…"), shown verbatim. Empty until the
   // API provides it, in which case the card shows its first-chat fallback.
   String get _recap {
@@ -254,7 +280,11 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
           kHomeChildName;
       return "Hey $name, I'm having trouble connecting to the internet right now!";
     }
-    return _memory?.lastTimeRecap ?? '';
+    final rawRecap = _memory?.lastTimeRecap?.trim() ?? '';
+    if (rawRecap.isEmpty || _isPlaceholderRecap(rawRecap)) {
+      return '';
+    }
+    return rawRecap;
   }
 
   void _selectTopic(TopicChoice topic) {

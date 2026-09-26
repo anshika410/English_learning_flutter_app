@@ -173,6 +173,7 @@ def _to_memory_response(user: User, last_time_recap: str | None = None) -> UserM
 async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None) -> str | None:
     from ..models.conversation import Conversation
     from ..models.session_analysis import SessionAnalysis
+    from ..services.llm_service import is_placeholder_recap
     from sqlalchemy import select, desc
     try:
         conv_result = await db.execute(
@@ -187,7 +188,7 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None
                 select(SessionAnalysis).where(SessionAnalysis.conversation_id == latest_conv.id)
             )
             sa = sa_result.scalar_one_or_none()
-            if sa:
+            if sa and sa.zoe_recap and not is_placeholder_recap(sa.zoe_recap):
                 return sa.zoe_recap
     except Exception:
         pass
@@ -195,7 +196,7 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None
     # Fallback: if no conversation recap exists but placement was done, use placement recap
     if user and user.placements:
         latest_placement = sorted(user.placements, key=lambda p: p.created_at, reverse=True)[0]
-        if latest_placement.highlight:
+        if latest_placement.highlight and not is_placeholder_recap(latest_placement.highlight):
             return latest_placement.highlight
     
     # Double-check via direct DB query (in case relationship not loaded)
@@ -208,10 +209,23 @@ async def _get_last_time_recap(user_id: str, db: AsyncSession, user: User = None
             .limit(1)
         )
         pl = pl_result.scalar_one_or_none()
-        if pl and pl.highlight:
+        if pl and pl.highlight and not is_placeholder_recap(pl.highlight):
             return pl.highlight
     except Exception:
         pass
+
+    # If user has interests or name, synthesize clean personalized greeting
+    if user:
+        if user.interests:
+            interests_list = [i.strip() for i in user.interests.split(",") if i.strip()]
+            if len(interests_list) == 1:
+                return f"You told me you like {interests_list[0]}!"
+            elif len(interests_list) >= 2:
+                return f"You told me you like {interests_list[0]} and {interests_list[1]}!"
+        if user.name:
+            first = user.name.strip().split()[0]
+            if first:
+                return f"Great meeting you, {first}! Ready for our first chat?"
 
     return None
 

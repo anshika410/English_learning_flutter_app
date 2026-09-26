@@ -73,24 +73,24 @@ def _backfill_owned_skills(user: User, placed_level: str | None):
         flag_modified(user, "skills_progress")
 
 
-def _generate_placement_recap(result: dict) -> str | None:
-    """Generate a friendly recap from placement result data (interests, notes)."""
+def _generate_placement_recap(result: dict, name: str | None = None) -> str:
+    """Generate a friendly recap from placement result data (interests, name)."""
     interests = result.get("interests", [])
-    notes = result.get("notes_for_first_session", "")
-    
-    if interests and len(interests) > 0:
-        if len(interests) == 1:
-            return f"You told me you like {interests[0]}!"
-        elif len(interests) == 2:
-            return f"You told me you like {interests[0]} and {interests[1]}!"
-        else:
-            return f"You told me you like {interests[0]}, {interests[1]}, and more!"
-    
-    if notes:
-        # Try to extract something personal from the notes
-        return "It was great chatting with you! Let's talk more soon."
-    
-    return None
+    if isinstance(interests, list) and interests:
+        clean_interests = [str(i).strip() for i in interests if str(i).strip()]
+        if len(clean_interests) == 1:
+            return f"You told me you like {clean_interests[0]}!"
+        elif len(clean_interests) == 2:
+            return f"You told me you like {clean_interests[0]} and {clean_interests[1]}!"
+        elif len(clean_interests) > 2:
+            return f"You told me you like {clean_interests[0]}, {clean_interests[1]}, and more!"
+
+    display_name = name or result.get("name")
+    if display_name and str(display_name).strip():
+        first = str(display_name).strip().split()[0]
+        return f"Great meeting you, {first}! Ready for our first chat?"
+
+    return "Great to meet you! Ready for our first chat?"
 
 
 async def _fetch_last_conversation_transcript(
@@ -251,12 +251,17 @@ async def placement_turn(
             unit_name = result.get("unit_name")
             interests = result.get("interests", [])
             
+            recap = result.get("zoe_recap")
+            if llm_service.is_placeholder_recap(recap):
+                recap = _generate_placement_recap(result, first_name)
+                result["zoe_recap"] = recap
+
             placement = Placement(
                 user_id=user.id,
                 level=level,
                 unit_label=unit_name,
                 confidence=result.get("confidence"),
-                highlight=result.get("zoe_recap") or _generate_placement_recap(result) or result.get("evidence_summary"),
+                highlight=recap,
                 transcript_json=json.dumps(messages) if messages else None,
             )
             db.add(placement)
@@ -350,12 +355,17 @@ async def placement_v2_turn(
             unit_name = result.get("unit_name")
             interests = result.get("interests", [])
 
+            recap = result.get("zoe_recap")
+            if llm_service.is_placeholder_recap(recap):
+                recap = _generate_placement_recap(result, first_name)
+                result["zoe_recap"] = recap
+
             placement = Placement(
                 user_id=user.id,
                 level=level,
                 unit_label=unit_name,
                 confidence=result.get("confidence"),
-                highlight=result.get("zoe_recap") or _generate_placement_recap(result) or result.get("evidence_summary"),
+                highlight=recap,
                 transcript_json=json.dumps(messages) if messages else None,
             )
             db.add(placement)

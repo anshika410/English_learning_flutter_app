@@ -95,7 +95,7 @@ When finished, output ONLY valid JSON:
 
 # FINAL OUTPUT
 When you finish, output ONLY this JSON (no REPLY prefix, no other text).
-CRITICAL INSTRUCTION: The values in the JSON below are variables showing the expected type or options. You MUST replace them with your actual assessment values. For example, replace `true|false` with the boolean `true` or `false` (without quotes), and replace `<number>` with the actual integer number of turns. Do NOT output the literal string `<number>` or `true|false`.
+CRITICAL INSTRUCTION: The values in the JSON below are variables showing the expected type or options. You MUST replace them with your actual assessment values. For example, replace `true|false` with the boolean `true` or `false` (without quotes), and replace `<number>` with the actual integer number of turns. Do NOT output the literal string `<number>`, `true|false`, or descriptive placeholders. Write a real personalized sentence for `zoe_recap` mentioning what the learner actually shared (e.g. "You told me you like drawing!").
 
 ```json
 {
@@ -108,7 +108,7 @@ CRITICAL INSTRUCTION: The values in the JSON below are variables showing the exp
   "confidence": "low|medium|high",
   "possible_higher": false,
   "evidence_summary": "One concise sentence citing specific learner language and the amount of support used.",
-  "zoe_recap": "A warm recap of something the learner shared. Max 100 characters.",
+  "zoe_recap": "A personalized 1-sentence recap of what the learner shared (e.g. You told me you love cricket!)",
   "probe_targets_covered": ["concrete_self", "description", "past_narrative", "opinion_reason", "future_hypothetical", "extended_reasoning"],
   "turns_taken": 0,
   "code_switch_observed": false,

@@ -66,7 +66,7 @@ Your role is to evaluate a learner's initial English proficiency level based on:
 ---
 
 ### Output Format
-You MUST output ONLY valid JSON matching this exact structure:
+You MUST output ONLY valid JSON matching this exact structure (replace all placeholders with actual values, and write a real personalized sentence for `zoe_recap` mentioning what the learner actually shared):
 
 ```json
 {
@@ -76,7 +76,7 @@ You MUST output ONLY valid JSON matching this exact structure:
   "level_description": "A warm, encouraging sentence explaining what this level means for the learner.",
   "confidence": "high|medium|low",
   "evidence_summary": "One concise sentence summarizing the assessed language skills.",
-  "zoe_recap": "A warm personal sentence referencing their answer (max 100 chars).",
+  "zoe_recap": "A personalized 1-sentence recap of what the learner shared (e.g. You told me you love drawing!)",
   "interests": ["interest1", "interest2"]
 }
 ```
