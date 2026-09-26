@@ -39,6 +39,7 @@ import 'widgets/topic_carousel.dart';
 import 'widgets/zoe_mascot.dart';
 import 'chat_bubble.dart';
 import 'widgets/network_error_view.dart';
+import '../../route_observer.dart';
 
 // The child's display name. No name field exists on MemoryState yet (childId is
 // 'demo'), so this is a swappable placeholder matching the design demo until a
@@ -101,7 +102,7 @@ class _HomeBody extends ConsumerStatefulWidget {
   ConsumerState<_HomeBody> createState() => _HomeBodyState();
 }
 
-class _HomeBodyState extends ConsumerState<_HomeBody> {
+class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
   // The topic the CTA will start. Null means "use the server's recommended".
   // Tapping an alternative chip or picking one in See More sets this; it never
   // starts a session — only the CTA does.
@@ -160,10 +161,44 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPushNext() {
+    // Another screen (e.g. GardenScreen, ProfileScreen, SessionScreen) was pushed on top.
+    _cancelAndStopSpeech();
+  }
+
+  @override
   void didUpdateWidget(_HomeBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.memory != oldWidget.memory) {
       _checkAutoSpeakRecap();
+    }
+  }
+
+  void _cancelAndStopSpeech({bool updateState = true}) {
+    _autoSpeakTimer?.cancel();
+    _autoSpeakTimer = null;
+    try {
+      ref.read(ttsProvider).stop();
+    } catch (_) {}
+    if (updateState && mounted) {
+      setState(() {
+        _speaking = false;
+        _highlightStart = -1;
+        _highlightEnd = -1;
+      });
+    } else {
+      _speaking = false;
+      _highlightStart = -1;
+      _highlightEnd = -1;
     }
   }
 
@@ -180,12 +215,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 
   @override
   void dispose() {
-    _autoSpeakTimer?.cancel();
+    appRouteObserver.unsubscribe(this);
+    _cancelAndStopSpeech(updateState: false);
     _ttsProgressSub?.cancel();
     _ttsDoneSub?.cancel();
-    try {
-      ref.read(ttsProvider).stop();
-    } catch (_) {}
     super.dispose();
   }
 
@@ -243,7 +276,13 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
       );
       return;
     }
+    _cancelAndStopSpeech();
     widget.onOpenGarden?.call();
+  }
+
+  void _handleOpenProfile() {
+    _cancelAndStopSpeech();
+    widget.onOpenProfile?.call();
   }
 
   // Replays the "Last time" recap aloud. Speaks the same fallback line that the
@@ -362,7 +401,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           child: Column(
             children: [
               HomeShortcutHeader(
-                onOpenProfile: widget.onOpenProfile,
+                onOpenProfile: _handleOpenProfile,
                 onOpenGarden: _handleOpenGarden,
               ),
               // Upper group (mascot + recap bubble + topic carousel), centred in

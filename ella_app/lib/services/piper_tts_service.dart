@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'stt_tts_service.dart';
@@ -181,7 +182,9 @@ void _piperWorkerEntryPoint(SendPort mainSendPort) {
 /// On-device TTS using the NavGurukul Indian accent Piper model via sherpa-onnx.
 /// Uses persistent worker isolate, smart chunk streaming (<180ms initial latency),
 /// zero-gap playback, and audio caching for instant replay.
-class PiperTtsService implements TtsInterface {
+class PiperTtsService with WidgetsBindingObserver implements TtsInterface {
+  static PiperTtsService? instance;
+
   Isolate? _workerIsolate;
   SendPort? _workerSendPort;
   ReceivePort? _mainReceivePort;
@@ -206,6 +209,18 @@ class PiperTtsService implements TtsInterface {
   final _doneController = StreamController<void>.broadcast();
   @override
   Stream<void> get doneStream => _doneController.stream;
+
+  PiperTtsService() {
+    instance = this;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      stop();
+    }
+  }
 
   @override
   Future<void> initialize() async {
@@ -563,6 +578,8 @@ class PiperTtsService implements TtsInterface {
   bool get isSpeaking => _speaking;
 
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (instance == this) instance = null;
     stop();
     _workerSendPort?.send('shutdown');
     _workerResponseSub?.cancel();

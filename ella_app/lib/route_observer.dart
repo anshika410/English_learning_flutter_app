@@ -5,10 +5,12 @@
 
 import 'package:flutter/widgets.dart';
 import 'services/native_tts_service.dart';
+import 'services/piper_tts_service.dart';
 
 class TtsRouteObserver extends RouteObserver<PageRoute<dynamic>> {
   void _stopTts() {
     NativeTtsService.instance?.stop();
+    PiperTtsService.instance?.stop();
   }
 
   @override
