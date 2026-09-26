@@ -922,6 +922,7 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                           ? _q2VoiceResponse.isNotEmpty
                           : _q3VoiceResponse.isNotEmpty,
                       onMicTap: _toggleMic,
+                      speechLevel: ref.watch(sttLevelProvider),
                     ),
                     const SizedBox(height: 4),
                   ],

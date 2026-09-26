@@ -10,6 +10,7 @@ class PlacementVoiceDock extends StatelessWidget {
   final bool hasResponse;
   final VoidCallback onMicTap;
   final double? micSize;
+  final ValueNotifier<double>? speechLevel;
 
   const PlacementVoiceDock({
     super.key,
@@ -17,6 +18,7 @@ class PlacementVoiceDock extends StatelessWidget {
     required this.hasResponse,
     required this.onMicTap,
     this.micSize,
+    this.speechLevel,
   });
 
   @override
@@ -31,7 +33,7 @@ class PlacementVoiceDock extends StatelessWidget {
       children: [
         // Waveform indicator when listening
         if (isListening) ...[
-          const _WaveformIndicator(),
+          _WaveformIndicator(speechLevel: speechLevel),
           const SizedBox(height: 12),
         ],
 
@@ -96,7 +98,11 @@ class PlacementVoiceDock extends StatelessWidget {
 }
 
 class _WaveformIndicator extends StatefulWidget {
-  const _WaveformIndicator();
+  final ValueNotifier<double>? speechLevel;
+
+  const _WaveformIndicator({
+    this.speechLevel,
+  });
 
   @override
   State<_WaveformIndicator> createState() => _WaveformIndicatorState();
@@ -105,6 +111,7 @@ class _WaveformIndicator extends StatefulWidget {
 class _WaveformIndicatorState extends State<_WaveformIndicator>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  static final _dummySpeechLevel = ValueNotifier<double>(0.0);
 
   static const _colors = [
     Color(0xffe4457c),
@@ -120,7 +127,7 @@ class _WaveformIndicatorState extends State<_WaveformIndicator>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
   }
 
@@ -132,32 +139,41 @@ class _WaveformIndicatorState extends State<_WaveformIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final notifier = widget.speechLevel ?? _dummySpeechLevel;
+
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([_controller, notifier]),
       builder: (context, _) {
+        final level = notifier.value.clamp(0.0, 1.0);
+
         return Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: const Color(0x66a86fd4), width: 2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xffe4457c).withValues(alpha: 0.12),
-                blurRadius: 10,
-                spreadRadius: 2,
+                color: const Color(0xffe4457c).withValues(alpha: 0.08 + level * 0.20),
+                blurRadius: 8 + level * 12,
+                spreadRadius: 1 + level * 2.5,
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: List.generate(6, (i) {
-              final wave = (math.sin(_controller.value * math.pi * 2 + i * 0.9) + 1) / 2;
-              final height = 10 + wave * 16;
-              return Container(
-                width: 4,
-                height: height,
+              final idleWave = (math.sin(_controller.value * math.pi * 2 + i * 0.9) + 1) / 2;
+              final centerBoost = 1.0 - ((i - 2.5).abs() / 3.0);
+              final dynamicHeight = (8.0 + idleWave * 6.0 + level * (14.0 + centerBoost * 16.0)).clamp(6.0, 32.0);
+
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 90),
+                curve: Curves.easeOutCubic,
+                width: 4.5,
+                height: dynamicHeight,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
                   color: _colors[i % _colors.length],

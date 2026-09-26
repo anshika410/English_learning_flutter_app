@@ -765,7 +765,7 @@
           <div style="display: flex; gap: 6px;">
             ${u.level ? `<button class="transcript-btn" onclick="viewPlacementTranscript('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Placement</button>` : ''}
             ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #10b981; color: #10b981;" onclick="viewStudentGarden('${u.id}')">Garden</button>` : ''}
-            ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions</button>` : ''}
+            ${u.level && isV2 ? `<button class="transcript-btn" style="border-color: #FF9500; color: #FF9500; display: inline-flex; align-items: center; gap: 5px;" onclick="filterConvsByUser('${u.id}', '${(u.name || 'Student').replace(/'/g, "\\'")}')">Sessions <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 4px; font-size: 10px; font-weight: 700; border-radius: 999px; background: #FF9500; color: #ffffff; line-height: 1;">${u.total_sessions || 0}</span></button>` : ''}
             <button class="transcript-btn" style="border-color: #8b5cf6; color: #8b5cf6;" onclick="viewStudentMemory('${u.id}')">Memory</button>
           </div>
         </td>`
