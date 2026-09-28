@@ -13,6 +13,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/app_toast.dart';
 import '../../core/offline_alert_popup.dart';
+import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
@@ -23,6 +24,7 @@ import '../../providers/onboarding_provider.dart';
 import '../../providers/piper_download_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../services/sounds.dart';
+import 'chat_bubble.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
@@ -285,6 +287,13 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
                               context,
                             ).disableAnimations,
                           ),
+                          if (!isOnline) ...[
+                            const SizedBox(height: 12),
+                            _OfflineRecapCard(
+                              text:
+                                  "Hey ${ref.watch(onboardingProvider).valueOrNull?.firstName ?? kHomeChildName}, I'm having trouble connecting to the internet right now!",
+                            ),
+                          ],
                           const SizedBox(height: 24),
                           if (topics.isNotEmpty)
                             TopicCarousel(
@@ -419,4 +428,33 @@ class _TalkAboutCtaLabel extends StatelessWidget {
     );
   }
 }
+
+class _OfflineRecapCard extends StatelessWidget {
+  final String text;
+
+  const _OfflineRecapCard({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('home-last-time-card'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: ellaSmoothDecoration(
+        color: EllaColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: EllaColors.info, width: 2),
+      ),
+      child: Container(
+        key: const ValueKey('home-last-time-bubble'),
+        child: TypewriterText(
+          text: text,
+          style: EllaTextStyles.bodySemibold,
+          animate: false,
+        ),
+      ),
+    );
+  }
+}
+
 

@@ -99,5 +99,42 @@ void main() {
     // Clean up
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('HomeScreen renders offline chat bubble when device is offline',
+      (tester) async {
+    final mockTts = _MockTtsService();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatProvider.overrideWith(() => _FakeChatNotifier(_testMemory('Some recap'))),
+          onboardingProvider.overrideWith(_FakeOnboardingNotifier.new),
+          connectivityProvider.overrideWith((ref) => Stream.value(false)),
+          ttsProvider.overrideWithValue(mockTts),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: Size(390, 844),
+              disableAnimations: true,
+            ),
+            child: HomeScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Offline card and message are displayed
+    expect(find.byKey(const ValueKey('home-last-time-card')), findsOneWidget);
+    expect(
+      find.textContaining("Hey Maya, I'm having trouble connecting to the internet right now!"),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
