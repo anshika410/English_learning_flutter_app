@@ -191,9 +191,13 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
         if (isOnline) {
           final cur = state.valueOrNull;
           if (cur != null && cur.status == ChatStatus.offline) {
-            state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
-            _zoeTurn(cur.convHistory, cur.currentTopic);
-          } else if (cur == null || cur.messages.isEmpty) {
+            if (cur.activeSessionId != null && cur.messages.isNotEmpty) {
+              state = AsyncValue.data(cur.copyWith(status: ChatStatus.zoeThinking));
+              _zoeTurn(cur.convHistory, cur.currentTopic);
+            } else {
+              state = AsyncValue.data(cur.copyWith(status: ChatStatus.idle));
+            }
+          } else if (cur == null) {
             ref.invalidateSelf();
           }
         } else {
@@ -1070,9 +1074,11 @@ class ChatNotifier extends AsyncNotifier<ChatState> with WidgetsBindingObserver 
     }
 
     // No backend reply (offline, no active session, or the turn API failed).
-    if (!_online) {
+    if (!_online || cur.activeSessionId == null) {
       state = AsyncValue.data(
-        state.requireValue.copyWith(status: ChatStatus.offline),
+        state.requireValue.copyWith(
+          status: _online ? ChatStatus.idle : ChatStatus.offline,
+        ),
       );
       return;
     }
