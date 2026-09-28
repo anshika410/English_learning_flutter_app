@@ -29,12 +29,15 @@ class ChatBubble extends ConsumerWidget {
 
     int highlightStart = -1;
     int highlightEnd = -1;
+    bool isCompleted = false;
 
     if (isZoe) {
       final chatState = ref.watch(chatProvider).value;
       if (chatState != null && chatState.currentlySpeakingMessageId == message.id) {
         highlightStart = chatState.highlightStart;
         highlightEnd = chatState.highlightEnd;
+      } else {
+        isCompleted = true;
       }
     }
 
@@ -77,6 +80,7 @@ class ChatBubble extends ConsumerWidget {
                     text: message.text,
                     highlightStart: highlightStart,
                     highlightEnd: highlightEnd,
+                    isCompleted: isCompleted,
                   ),
                 )
               : DottedBorder(
@@ -120,6 +124,7 @@ class TypewriterText extends StatefulWidget {
   final TextStyle? style;
   final TextStyle? highlightStyle;
   final bool animate;
+  final bool isCompleted;
 
   const TypewriterText({
     super.key,
@@ -129,6 +134,7 @@ class TypewriterText extends StatefulWidget {
     this.style,
     this.highlightStyle,
     this.animate = true,
+    this.isCompleted = false,
   });
 
   @override
@@ -138,6 +144,9 @@ class TypewriterText extends StatefulWidget {
 class _TypewriterTextState extends State<TypewriterText> {
   late String _cleanText;
   late List<String> _words;
+  bool _hasStartedSpeaking = false;
+  bool _hasCompletedSpeaking = false;
+  int _maxHighlightEnd = -1;
 
   @override
   void initState() {
@@ -145,6 +154,7 @@ class _TypewriterTextState extends State<TypewriterText> {
     _cleanText = stripMarkdown(widget.text);
     final regex = RegExp(r'\S+|\n');
     _words = regex.allMatches(_cleanText).map((m) => m.group(0)!).toList();
+    _updateHighlightState(widget.highlightStart, widget.highlightEnd);
   }
 
   @override
@@ -154,6 +164,29 @@ class _TypewriterTextState extends State<TypewriterText> {
       _cleanText = stripMarkdown(widget.text);
       final regex = RegExp(r'\S+|\n');
       _words = regex.allMatches(_cleanText).map((m) => m.group(0)!).toList();
+      _hasStartedSpeaking = false;
+      _hasCompletedSpeaking = false;
+      _maxHighlightEnd = -1;
+    }
+    _updateHighlightState(widget.highlightStart, widget.highlightEnd);
+  }
+
+  void _updateHighlightState(int start, int end) {
+    if (start >= 0 && end > start) {
+      // Reset max highlight end and completion flag if speech is restarting (e.g. "Hear Again" replay)
+      if (start == 0 || start < _maxHighlightEnd || _hasCompletedSpeaking || !_hasStartedSpeaking) {
+        _hasStartedSpeaking = true;
+        _hasCompletedSpeaking = false;
+        _maxHighlightEnd = end;
+      } else {
+        _hasStartedSpeaking = true;
+        _hasCompletedSpeaking = false;
+        if (end > _maxHighlightEnd) {
+          _maxHighlightEnd = end;
+        }
+      }
+    } else if (_hasStartedSpeaking && start == -1) {
+      _hasCompletedSpeaking = true;
     }
   }
 
@@ -165,26 +198,23 @@ class _TypewriterTextState extends State<TypewriterText> {
           height: 1.4,
           fontSize: (EllaTextStyles.bodyBase.fontSize ?? 16.0) + 1.0,
         );
-    final highlightStyle = widget.highlightStyle ??
-        baseStyle.copyWith(
-          color: const Color(0xFFE91E63),
-        );
 
-    final hasActiveHighlight =
-        widget.highlightStart >= 0 && widget.highlightEnd > widget.highlightStart;
-
-    if (!hasActiveHighlight) {
-      return Text(
-        _cleanText,
-        style: baseStyle,
-      );
-    }
+    // Visual Color States for TTS synchronized text:
+    // State 1 — Not yet spoken: light warm cream (#EEEAD3)
+    // State 2 — Currently being spoken: bright pink (#F23891)
+    // State 3 — Already spoken: black (#000000)
+    final unspokenStyle = baseStyle.copyWith(color: const Color(0xFFEEEAD3));
+    final speakingStyle = widget.highlightStyle ?? baseStyle.copyWith(color: const Color(0xFFF23891));
+    final spokenStyle = baseStyle.copyWith(color: const Color(0xFF000000));
 
     final showCount = _words.length;
     if (showCount == 0) return const SizedBox.shrink();
 
     final regex = RegExp(r'\S+|\n');
     final tokens = regex.allMatches(_cleanText).toList();
+
+    final hasActiveHighlight = widget.highlightStart >= 0 && widget.highlightEnd > widget.highlightStart;
+    final isFullyCompleted = widget.isCompleted || _hasCompletedSpeaking;
 
     return Wrap(
       spacing: 0,
@@ -203,17 +233,30 @@ class _TypewriterTextState extends State<TypewriterText> {
         final wordStart = match.start;
         final wordEnd = match.end;
 
-        final isHighlighted = widget.highlightStart >= 0 &&
-            widget.highlightEnd > widget.highlightStart &&
+        final bool isCurrentlySpeaking = hasActiveHighlight &&
             ((wordStart >= widget.highlightStart && wordStart < widget.highlightEnd) ||
              (wordEnd > widget.highlightStart && wordEnd <= widget.highlightEnd) ||
              (widget.highlightStart >= wordStart && widget.highlightStart < wordEnd));
 
+        final bool isSpoken = isFullyCompleted ||
+            (!isCurrentlySpeaking &&
+                _hasStartedSpeaking &&
+                (wordEnd <= widget.highlightStart || wordStart < widget.highlightStart || wordEnd <= _maxHighlightEnd));
+
+        TextStyle wordStyle;
+        if (isCurrentlySpeaking) {
+          wordStyle = speakingStyle;
+        } else if (isSpoken) {
+          wordStyle = spokenStyle;
+        } else {
+          wordStyle = unspokenStyle;
+        }
+
         return AnimatedWord(
           key: ValueKey('${index}_$tokenText'),
           word: tokenText,
-          style: isHighlighted ? highlightStyle : baseStyle,
-          isHighlighted: isHighlighted,
+          style: wordStyle,
+          isHighlighted: isCurrentlySpeaking,
         );
       }),
     );
@@ -392,31 +435,13 @@ class _AnimatedWordState extends State<AnimatedWord> with SingleTickerProviderSt
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         try {
-          final renderObject = context.findRenderObject();
-          if (renderObject is RenderBox) {
-            final viewport = RenderAbstractViewport.of(renderObject);
-            if (viewport != null) {
-              final scrollable = Scrollable.maybeOf(context);
-              if (scrollable != null && scrollable.position.maxScrollExtent > 0) {
-                final targetOffset = viewport.getOffsetToReveal(renderObject, 0.85).offset;
-                final maxScroll = scrollable.position.maxScrollExtent;
-                final currentOffset = scrollable.position.pixels;
-                final clampedTarget = targetOffset.clamp(0.0, maxScroll);
-                if (clampedTarget > currentOffset + 12.0) {
-                  final disableAnims = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-                  if (disableAnims) {
-                    scrollable.position.jumpTo(clampedTarget);
-                  } else {
-                    scrollable.position.animateTo(
-                      clampedTarget,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                    );
-                  }
-                }
-              }
-            }
-          }
+          final disableAnims = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+          Scrollable.ensureVisible(
+            context,
+            alignment: 0.5,
+            duration: disableAnims ? Duration.zero : const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+          );
         } catch (_) {}
       });
     }
