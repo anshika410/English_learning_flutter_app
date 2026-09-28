@@ -7,6 +7,7 @@
 // Settling on a topic reports it via [onSelect] (which the Home screen uses to
 // relabel the "Let's Talk About …" CTA).
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -55,7 +56,7 @@ class _TopicCarouselState extends State<TopicCarousel> {
   static const double _labelBox = 44;
   static const double _labelGap = 6;
   static const double _pageExtent = 106;
-  static const double _arcStep = 12;
+  static const double _arcStep = 16;
   static const double _carouselBodyHeight = 146;
   static const double _compactBreakpoint = 360;
   static const String _arcAsset =
@@ -158,12 +159,10 @@ class _TopicCarouselState extends State<TopicCarousel> {
                       top: 0,
                       height: _selectedCircle,
                       child: IgnorePointer(
-                        child: SvgPicture.asset(
-                          _arcAsset,
+                        child: CustomPaint(
                           key: const ValueKey('home-topic-carousel-arc'),
-                          width: screenWidth,
-                          height: _selectedCircle,
-                          fit: BoxFit.fill,
+                          size: Size(screenWidth, _selectedCircle),
+                          painter: const TopicArcPainter(),
                         ),
                       ),
                     ),
@@ -441,3 +440,46 @@ class SnappingScrollPhysics extends ScrollPhysics {
   @override
   bool get allowImplicitScrolling => false;
 }
+
+/// Custom painter that draws a true circular arc (constant radius R ≈ 291px)
+/// connecting the topic circle centres across any screen width.
+class TopicArcPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+
+  const TopicArcPainter({
+    this.color = const Color(0x594E9A45),
+    this.strokeWidth = 3.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = size.width / 2;
+    const topY = 48.0;
+    const dy1 = 16.0;
+    const dx1 = 106.0;
+    final r = (dx1 * dx1 + dy1 * dy1) / (2 * dy1);
+    final centerY = topY + r;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+
+    final maxDx = centerX + 60.0;
+    final sinVal = (maxDx / r).clamp(-1.0, 1.0);
+    final halfAngle = math.asin(sinVal);
+    final startAngle = -math.pi / 2 - halfAngle;
+    final sweepAngle = 2 * halfAngle;
+
+    final rect = Rect.fromCircle(center: Offset(centerX, centerY), radius: r);
+    canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant TopicArcPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
+}
+

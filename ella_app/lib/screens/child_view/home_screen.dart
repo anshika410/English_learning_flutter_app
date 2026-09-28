@@ -1,20 +1,18 @@
 // Home / Talk screen — Figma "Learning Flow — Homescreen".
 // A botanical garden scene (HomeSceneBackground): sky→green gradient with hills,
 // bush, daisies and grass. Garden / Profile shortcuts sit in the top corners,
-// the sprout mascot "Zoe" and her "Last time" recall bubble sit centre, a
-// swipeable topic carousel (TopicCarousel) lets the child pick a topic, and the
-// selected-topic CTA ("Let's Talk About …") anchors the bottom. Recap + topics
-// come live from the memory API's next_topics; the carousel only SELECTS a topic
-// — only the CTA starts a session, sending the topic name to POST /session.
+// the sprout mascot "Zoe" sits centre, a swipeable topic carousel (TopicCarousel)
+// lets the child pick a topic, and the selected-topic CTA ("Let's Talk About …")
+// anchors the bottom. Topics come live from the memory API's next_topics;
+// the carousel SELECTS a topic — only the CTA starts a session, sending the topic
+// name to POST /session.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'dart:async';
 
 import '../../core/app_toast.dart';
 import '../../core/offline_alert_popup.dart';
-import '../../core/ella_smooth_shape.dart';
 import '../../core/text_styles.dart';
 import '../../core/theme_colors.dart';
 import '../../models/child_memory.dart';
@@ -24,20 +22,16 @@ import '../../providers/connectivity_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/piper_download_provider.dart';
 import '../../providers/service_providers.dart';
-import '../../services/analytics_service.dart';
 import '../../services/sounds.dart';
-import '../../services/stt_tts_service.dart';
 import 'session_screen.dart';
 import 'topic_launcher.dart';
 import 'widgets/ella_primary_button.dart';
-import 'widgets/hear_again_button.dart';
 import 'widgets/home_scene_background.dart';
 import 'widgets/home_shortcut_header.dart';
 import 'widgets/piper_download_banner.dart';
 import 'widgets/shake.dart';
 import 'widgets/topic_carousel.dart';
 import 'widgets/zoe_mascot.dart';
-import 'chat_bubble.dart';
 import 'widgets/network_error_view.dart';
 import '../../route_observer.dart';
 
@@ -110,37 +104,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
   bool _isStarting =
       false; // guard against double-tap creating duplicate sessions
 
-  int _highlightStart = -1;
-  int _highlightEnd = -1;
-  bool _speaking = false;
-  StreamSubscription? _ttsProgressSub;
-  StreamSubscription? _ttsDoneSub;
-  Timer? _autoSpeakTimer;
-  bool _hasAutoSpokenRecap = false;
-
-  void _subscribeToTts(TtsInterface tts) {
-    _ttsProgressSub?.cancel();
-    _ttsDoneSub?.cancel();
-    _ttsProgressSub = tts.progressStream.listen((event) {
-      if (mounted) {
-        setState(() {
-          _speaking = true;
-          _highlightStart = event.start;
-          _highlightEnd = event.end;
-        });
-      }
-    });
-    _ttsDoneSub = tts.doneStream.listen((_) {
-      if (mounted) {
-        setState(() {
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -148,14 +111,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(piperDownloadProvider.notifier).startIfNeeded();
-      }
-    });
-    _subscribeToTts(ref.read(ttsProvider));
-
-    // Auto-speak the recap text shortly after the screen appears (matching PlacementIntroScreen)
-    _autoSpeakTimer = Timer(const Duration(milliseconds: 400), () {
-      if (mounted) {
-        _checkAutoSpeakRecap();
       }
     });
   }
@@ -170,55 +125,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
   }
 
   @override
-  void didPushNext() {
-    // Another screen (e.g. GardenScreen, ProfileScreen, SessionScreen) was pushed on top.
-    _cancelAndStopSpeech();
-  }
-
-  @override
-  void didUpdateWidget(_HomeBody oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.memory != oldWidget.memory) {
-      _checkAutoSpeakRecap();
-    }
-  }
-
-  void _cancelAndStopSpeech({bool updateState = true}) {
-    _autoSpeakTimer?.cancel();
-    _autoSpeakTimer = null;
-    try {
-      ref.read(ttsProvider).stop();
-    } catch (_) {}
-    if (updateState && mounted) {
-      setState(() {
-        _speaking = false;
-        _highlightStart = -1;
-        _highlightEnd = -1;
-      });
-    } else {
-      _speaking = false;
-      _highlightStart = -1;
-      _highlightEnd = -1;
-    }
-  }
-
-  void _checkAutoSpeakRecap() {
-    if (_hasAutoSpokenRecap || !mounted) return;
-    final isOnline = ref.read(connectivityProvider).valueOrNull ?? true;
-    if (widget.memory == null && isOnline) {
-      // Memory is still fetching, wait for didUpdateWidget when memory arrives
-      return;
-    }
-    _hasAutoSpokenRecap = true;
-    _speakRecap();
-  }
-
-  @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
-    _cancelAndStopSpeech(updateState: false);
-    _ttsProgressSub?.cancel();
-    _ttsDoneSub?.cancel();
     super.dispose();
   }
 
@@ -244,49 +152,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
     return recommended;
   }
 
-  bool _isPlaceholderRecap(String text) {
-    final lower = text.toLowerCase();
-    const placeholders = [
-      'max 100',
-      'max 120',
-      'max chars',
-      'max character',
-      'characters.',
-      'characters)',
-      'warm recap',
-      'warm personal sentence',
-      'warm specific recap',
-      'warm, accurate sentence',
-      'warm, honest recap',
-      'learner shared',
-      'something the learner',
-      'specific recap',
-      'referencing their answer',
-      '<warm',
-      'one warm',
-      'one concise sentence',
-      'one practical sentence',
-    ];
-    return placeholders.any((p) => lower.contains(p));
-  }
-
-  // Server-authored recap line ("Last time…"), shown verbatim. Empty until the
-  // API provides it, in which case the card shows its first-chat fallback.
-  String get _recap {
-    final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
-    if (!isOnline) {
-      final name =
-          ref.watch(onboardingProvider).valueOrNull?.firstName ??
-          kHomeChildName;
-      return "Hey $name, I'm having trouble connecting to the internet right now!";
-    }
-    final rawRecap = _memory?.lastTimeRecap?.trim() ?? '';
-    if (rawRecap.isEmpty || _isPlaceholderRecap(rawRecap)) {
-      return '';
-    }
-    return rawRecap;
-  }
-
   void _selectTopic(TopicChoice topic) {
     ref.read(audioProvider).playSfx(Sounds.topic);
     setState(() {
@@ -306,43 +171,11 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
       );
       return;
     }
-    _cancelAndStopSpeech();
     widget.onOpenGarden?.call();
   }
 
   void _handleOpenProfile() {
-    _cancelAndStopSpeech();
     widget.onOpenProfile?.call();
-  }
-
-  // Replays the "Last time" recap aloud. Speaks the same fallback line that the
-  // card shows when the server hasn't sent a recap yet. A no-op while TTS is
-  // already speaking (placement-flow behavior), so taps can't stack utterances.
-  Future<void> _speakRecap() async {
-    if (_speaking) return;
-    final tts = ref.read(ttsProvider);
-    final text = _recap.trim().isNotEmpty
-        ? _recap.trim()
-        : 'Ready for your first chat?';
-    setState(() {
-      _speaking = true;
-      _highlightStart = -1;
-      _highlightEnd = -1;
-    });
-    AnalyticsService.logTodayRecapOpened();
-    AnalyticsService.logDailyRecapOpened();
-    try {
-      await tts.speak(text);
-    } catch (_) {
-    } finally {
-      if (mounted) {
-        setState(() {
-          _speaking = false;
-          _highlightStart = -1;
-          _highlightEnd = -1;
-        });
-      }
-    }
   }
 
   // Topics the carousel cycles through: the server's recommended first, then the
@@ -366,11 +199,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
     if (_isStarting) return;
     setState(() => _isStarting = true);
     try {
-      if (_speaking) {
-        try {
-          await ref.read(ttsProvider).stop();
-        } catch (_) {}
-      }
       final sel = _selected;
       if (sel != null && sel.name.isNotEmpty) {
         if (!mounted) return;
@@ -401,10 +229,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<TtsInterface>(ttsProvider, (previous, next) {
-      _subscribeToTts(next);
-    });
-
     final isOnline = ref.watch(connectivityProvider).valueOrNull ?? true;
 
     // Keep the CTA tappable even while memory is still loading so it doesn't
@@ -421,7 +245,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
     final topics = _carouselTopics;
 
     final mascotW = (MediaQuery.of(context).size.width * _kMascotWidthFactor)
-        .clamp(128.0, 168.0);
+        .clamp(148.0, 178.0);
 
     return HomeSceneBackground(
       child: SafeArea(
@@ -434,7 +258,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
                 onOpenProfile: _handleOpenProfile,
                 onOpenGarden: _handleOpenGarden,
               ),
-              // Upper group (mascot + recap bubble + topic carousel), centred in
+              // Upper group (mascot + topic carousel), centred in
               // the space above the CTA; scrolls on short screens. The
               // ConstrainedBox + centred Column genuinely centres the content
               // (a plain Center around a SingleChildScrollView would top-align it).
@@ -455,27 +279,11 @@ class _HomeBodyState extends ConsumerState<_HomeBody> with RouteAware {
                             key: const ValueKey('home-zoe-mascot'),
                             mode: !isOnline
                                 ? ZoeMascotMode.sleep
-                                : _speaking
-                                ? ZoeMascotMode.speaking
                                 : ZoeMascotMode.listening,
                             size: mascotW,
                             reducedMotion: MediaQuery.of(
                               context,
                             ).disableAnimations,
-                          ),
-                          const SizedBox(height: 8),
-                          HearAgainButton(
-                            key: const ValueKey('home-hear-again-button'),
-                            onTap: _speaking ? null : _speakRecap,
-                            disabled: _speaking,
-                          ),
-                          const SizedBox(height: 8),
-                          _LastTimeCard(
-                            recap: _recap,
-                            onSpeak: _speakRecap,
-                            highlightStart: _highlightStart,
-                            highlightEnd: _highlightEnd,
-                            speaking: _speaking,
                           ),
                           const SizedBox(height: 24),
                           if (topics.isNotEmpty)
@@ -611,56 +419,4 @@ class _TalkAboutCtaLabel extends StatelessWidget {
     );
   }
 }
-
-// ── "Last time" recall card ─────────────────────────────────────────────────
-
-class _LastTimeCard extends StatelessWidget {
-  // Server-authored recap text (memory.last_time_recap). Empty on a first chat
-  // or before the API provides it, when the friendly fallback is shown instead.
-  final String recap;
-
-  /// Replays the recap aloud (TTS). Powers the speaker dot on the card, the
-  /// same control that straddles Zoe's chat bubble.
-  final VoidCallback onSpeak;
-  final int highlightStart;
-  final int highlightEnd;
-  final bool speaking;
-
-  const _LastTimeCard({
-    required this.recap,
-    required this.onSpeak,
-    this.highlightStart = -1,
-    this.highlightEnd = -1,
-    this.speaking = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final body = recap.trim().isNotEmpty
-        ? recap.trim()
-        : 'Ready for your first chat?';
-
-    return Container(
-      key: const ValueKey('home-last-time-card'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: ellaSmoothDecoration(
-        color: EllaColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: EllaColors.info, width: 2),
-      ),
-      child: Container(
-        key: const ValueKey('home-last-time-bubble'),
-        child: TypewriterText(
-          text: body,
-          style: EllaTextStyles.bodySemibold,
-          highlightStart: highlightStart,
-          highlightEnd: highlightEnd,
-          animate: false,
-        ),
-      ),
-    );
-  }
-}
-
 

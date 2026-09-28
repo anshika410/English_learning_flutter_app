@@ -4,6 +4,8 @@ import 'package:ella_app/providers/connectivity_provider.dart';
 import 'package:ella_app/providers/onboarding_provider.dart';
 import 'package:ella_app/providers/service_providers.dart';
 import 'package:ella_app/screens/child_view/home_screen.dart';
+import 'package:ella_app/screens/child_view/widgets/zoe_mascot.dart';
+import 'package:ella_app/screens/child_view/widgets/topic_carousel.dart';
 import 'package:ella_app/services/stt_tts_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,50 +58,14 @@ class _FakeOnboardingNotifier extends OnboardingNotifier {
 }
 
 void main() {
-  testWidgets('HomeScreen automatically speaks recap text when rendered',
+  testWidgets('HomeScreen renders mascot and topic carousel without recap card or auto-speak TTS',
       (tester) async {
     final mockTts = _MockTtsService();
-    const recapText = 'Welcome back Maya! Ready for our chat?';
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          chatProvider.overrideWith(() => _FakeChatNotifier(_testMemory(recapText))),
-          onboardingProvider.overrideWith(_FakeOnboardingNotifier.new),
-          connectivityProvider.overrideWith((ref) => Stream.value(true)),
-          ttsProvider.overrideWithValue(mockTts),
-        ],
-        child: const MaterialApp(
-          home: MediaQuery(
-            data: MediaQueryData(
-              size: Size(390, 844),
-              disableAnimations: true,
-            ),
-            child: HomeScreen(),
-          ),
-        ),
-      ),
-    );
-
-    await tester.pump();
-    // Advance time past the 400ms auto-speak timer
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(mockTts.lastSpokenText, recapText);
-
-    // Clean up timers/widgets
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('Tapping Hear Again on HomeScreen re-triggers speak',
-      (tester) async {
-    final mockTts = _MockTtsService();
-    const recapText = 'Recap line for testing hear again button';
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          chatProvider.overrideWith(() => _FakeChatNotifier(_testMemory(recapText))),
+          chatProvider.overrideWith(() => _FakeChatNotifier(_testMemory('Some recap'))),
           onboardingProvider.overrideWith(_FakeOnboardingNotifier.new),
           connectivityProvider.overrideWith((ref) => Stream.value(true)),
           ttsProvider.overrideWithValue(mockTts),
@@ -119,51 +85,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    mockTts.lastSpokenText = null;
-    mockTts.speakingState = false;
+    // Mascot and topic carousel are rendered
+    expect(find.byType(ZoeMascot), findsOneWidget);
+    expect(find.byType(TopicCarousel), findsOneWidget);
 
-    // Tap Hear Again button
-    await tester.tap(find.byKey(const ValueKey('home-hear-again-button')));
-    await tester.pump();
+    // Recap card and HearAgain button must NOT be present
+    expect(find.byKey(const ValueKey('home-last-time-card')), findsNothing);
+    expect(find.byKey(const ValueKey('home-hear-again-button')), findsNothing);
 
-    expect(mockTts.lastSpokenText, recapText);
+    // TTS speak should not have been triggered
+    expect(mockTts.lastSpokenText, isNull);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('HomeScreen ignores prompt placeholder leakage in last_time_recap',
-      (tester) async {
-    final mockTts = _MockTtsService();
-    const leakedRecapText =
-        'A warm recap of something the learner shared. Max 100 characters.';
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          chatProvider.overrideWith(
-              () => _FakeChatNotifier(_testMemory(leakedRecapText))),
-          onboardingProvider.overrideWith(_FakeOnboardingNotifier.new),
-          connectivityProvider.overrideWith((ref) => Stream.value(true)),
-          ttsProvider.overrideWithValue(mockTts),
-        ],
-        child: const MaterialApp(
-          home: MediaQuery(
-            data: MediaQueryData(
-              size: Size(390, 844),
-              disableAnimations: true,
-            ),
-            child: HomeScreen(),
-          ),
-        ),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    // Must fall back to default friendly prompt instead of speaking the template placeholder
-    expect(mockTts.lastSpokenText, 'Ready for your first chat?');
-
+    // Clean up
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
+

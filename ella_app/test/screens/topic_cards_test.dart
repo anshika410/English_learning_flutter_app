@@ -318,26 +318,14 @@ void main() {
       closeTo(pageViewRect.center.dx, 0.01),
     );
 
-    final recapRect = tester.getRect(
-      find.byKey(const ValueKey('home-last-time-card')),
-    );
-    final bubbleRect = tester.getRect(
-      find.byKey(const ValueKey('home-last-time-bubble')),
-    );
     final carouselRect = tester.getRect(
       find.byKey(const ValueKey('home-topic-carousel')),
     );
-    expect(carouselRect.top - recapRect.bottom, closeTo(24, 0.01));
-
     final zoeRect = tester.getRect(
       find.byKey(const ValueKey('home-zoe-mascot')),
     );
-    expect(zoeRect.top, lessThanOrEqualTo(240));
-    final hearAgainRect = tester.getRect(
-      find.byKey(const ValueKey('home-hear-again-button')),
-    );
-    expect(hearAgainRect.top - zoeRect.bottom, closeTo(8, 0.5));
-    expect(bubbleRect.top - hearAgainRect.bottom, closeTo(24, 0.5));
+    expect(zoeRect.top, lessThanOrEqualTo(280));
+    expect(carouselRect.top - zoeRect.bottom, closeTo(24, 0.5));
 
     final ctaRect = tester.getRect(find.byKey(const ValueKey('home-talk-cta')));
     expect(844 - ctaRect.bottom, closeTo(24, 0.01));
@@ -372,11 +360,11 @@ void main() {
     );
     expect(
       leftNeighbour.rect.center.dy - selectedRect.center.dy,
-      closeTo(12, 0.01),
+      closeTo(16, 0.01),
     );
     expect(
       rightNeighbour.rect.center.dy - selectedRect.center.dy,
-      closeTo(12, 0.01),
+      closeTo(16, 0.01),
     );
 
     final leftOuter = visibleCircles.firstWhere(
@@ -387,11 +375,11 @@ void main() {
     );
     expect(
       leftOuter.rect.center.dy - selectedRect.center.dy,
-      closeTo(24, 0.01),
+      closeTo(32, 0.01),
     );
     expect(
       rightOuter.rect.center.dy - selectedRect.center.dy,
-      closeTo(24, 0.01),
+      closeTo(32, 0.01),
     );
 
     String itemSuffix(Finder circle) {
@@ -584,7 +572,7 @@ void main() {
     ].where((finder) => tester.getSize(finder).width >= 72 && tester.getSize(finder).width <= 90);
     expect(halfwayCircles, hasLength(2));
     for (final circle in halfwayCircles) {
-      expect(tester.getCenter(circle).dy, closeTo(initialCenterY + 6, 4.0));
+      expect(tester.getCenter(circle).dy, closeTo(initialCenterY + 8, 4.0));
     }
 
     await gesture.up();
